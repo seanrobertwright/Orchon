@@ -1,0 +1,25 @@
+{
+  "manifestVersion": 2,
+  "id": "orchon-run-detail-prototype",
+  "name": "Orchon run detail (prototype)",
+  "version": "0.1.0",
+  "description": "Throwaway: three variants of Orchon's run detail and step view, fed by a made-up run.",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "runs",
+        "title": "Orchon run detail (prototype)",
+        "icon": "activity",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ]
+  },
+  "capabilities": []
+}
