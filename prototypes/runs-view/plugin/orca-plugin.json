@@ -1,0 +1,29 @@
+{
+  "manifestVersion": 2,
+  "id": "orchon-runs-view-prototype",
+  "name": "Orchon runs view (prototype)",
+  "version": "0.1.0",
+  "description": "Throwaway: three variants of the Orchon runs view, fed by made-up runs.",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "runs",
+        "title": "Orchon (prototype)",
+        "icon": "activity",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "workspace:read"
+    }
+  ]
+}
