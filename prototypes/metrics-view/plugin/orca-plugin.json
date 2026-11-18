@@ -1,0 +1,29 @@
+{
+  "manifestVersion": 2,
+  "id": "orchon-metrics-view-prototype",
+  "name": "Orchon metrics view (prototype)",
+  "version": "0.1.0",
+  "description": "Throwaway prototype for the Orchon Metrics section (#31).",
+  "engines": {
+    "orca": ">=1.4.246"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "metrics",
+        "title": "Orchon metrics (prototype)",
+        "icon": "bar-chart-3",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "storage:own"
+    }
+  ]
+}
