@@ -1,0 +1,103 @@
+/* PROTOTYPE - throwaway. Variant A: the graph drawn as plain SVG. */
+#canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+#canvas.panning {
+  cursor: grabbing;
+}
+.edge {
+  fill: none;
+  stroke: var(--orca-muted-foreground);
+  stroke-width: 1.4;
+}
+.edge.conditional {
+  stroke-dasharray: 5 4;
+}
+.arrowhead {
+  fill: var(--orca-muted-foreground);
+}
+.group rect {
+  fill: var(--orca-muted);
+  fill-opacity: 0.45;
+  stroke: var(--orca-border);
+  stroke-dasharray: 6 4;
+}
+.group text {
+  fill: var(--orca-muted-foreground);
+  font-size: 11px;
+}
+.node {
+  cursor: pointer;
+  outline: none;
+}
+.node .box {
+  fill: var(--orca-card);
+  stroke: var(--orca-border);
+  stroke-width: 1;
+}
+.node:hover .box {
+  fill: var(--orca-accent);
+}
+.node.selected .box,
+.node:focus-visible .box {
+  stroke: var(--orca-ring);
+  stroke-width: 2.5;
+}
+.node .label {
+  fill: var(--orca-card-foreground);
+  font: 600 12px system-ui, sans-serif;
+}
+.node:hover .label {
+  fill: var(--orca-accent-foreground);
+}
+.node .kind {
+  fill: var(--orca-muted-foreground);
+  font: 10px ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.node .glyph {
+  font: 700 14px system-ui, sans-serif;
+  text-anchor: middle;
+}
+.node.st-completed .bar,
+.node.st-completed .glyph {
+  fill: var(--st-completed);
+}
+.node.st-running .bar,
+.node.st-running .glyph {
+  fill: var(--st-running);
+}
+.node.st-failed .bar,
+.node.st-failed .glyph {
+  fill: var(--st-failed);
+}
+.node.st-paused .bar,
+.node.st-paused .glyph {
+  fill: var(--st-paused);
+}
+.node.st-skipped .bar,
+.node.st-skipped .glyph,
+.node.st-pending .bar,
+.node.st-pending .glyph {
+  fill: var(--st-pending);
+}
+.node.st-skipped,
+.node.st-pending {
+  opacity: 0.75;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .node.st-running .glyph {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}

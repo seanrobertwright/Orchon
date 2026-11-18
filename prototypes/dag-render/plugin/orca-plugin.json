@@ -1,0 +1,44 @@
+{
+  "manifestVersion": 2,
+  "id": "orchon-dag-prototype",
+  "name": "Orchon DAG prototype (throwaway)",
+  "version": "0.1.0",
+  "description": "PROTOTYPE, not for use. Draws an Archon workflow graph in an editor tab two ways (dagre + SVG, React Flow) so the two can be compared.",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "worker.mjs",
+  "capabilities": [{ "kind": "workspace:read" }, { "kind": "workspace:write" }],
+  "contributes": {
+    "commands": [
+      {
+        "id": "orchon-proto.open-svg",
+        "title": "Orchon prototype: open run graph (A, dagre + SVG)",
+        "when": "workspace"
+      },
+      {
+        "id": "orchon-proto.open-flow",
+        "title": "Orchon prototype: open run graph (B, React Flow)",
+        "when": "workspace"
+      }
+    ],
+    "customEditors": [
+      {
+        "id": "graph-svg",
+        "title": "Run graph A (SVG)",
+        "extensions": [".orchonsvg"],
+        "entry": "editor-svg/index.html",
+        "frame": "isolated"
+      },
+      {
+        "id": "graph-flow",
+        "title": "Run graph B (React Flow)",
+        "extensions": [".orchonflow"],
+        "entry": "editor-flow/index.html",
+        "frame": "isolated"
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "orchon-dag-render-prototype",
+  "private": true,
+  "version": "0.0.0",
+  "description": "PROTOTYPE - throwaway. Tooling for the Orchon DAG rendering prototype.",
+  "type": "module",
+  "scripts": {
+    "fixtures": "node scripts/make-fixtures.mjs",
+    "build": "node scripts/build.mjs",
+    "proto": "node scripts/build.mjs && orca plugin dev watch ./plugin --json"
+  },
+  "devDependencies": {
+    "@dagrejs/dagre": "^3.1.3",
+    "@xyflow/react": "^13.0.2",
+    "esbuild": "^0.28.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

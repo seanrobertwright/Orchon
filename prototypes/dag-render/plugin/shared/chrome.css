@@ -1,0 +1,150 @@
+/* PROTOTYPE - throwaway. Page frame shared by both variants: toolbar, canvas, detail pane.
+   Every colour comes from Orca's theme variables, except the run-state colours: Orca has no
+   success or warning token, so those are the plugin's own, one set per colour scheme. */
+:root {
+  --st-completed: #1a7f37;
+  --st-running: #0969da;
+  --st-failed: #cf222e;
+  --st-paused: #9a6700;
+  --st-skipped: var(--orca-muted-foreground);
+  --st-pending: var(--orca-muted-foreground);
+}
+html.dark {
+  --st-completed: #3fb950;
+  --st-running: #58a6ff;
+  --st-failed: #f85149;
+  --st-paused: #d29922;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 1fr 300px;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: var(--orca-foreground);
+  background: var(--orca-background);
+  overflow: hidden;
+}
+header {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--orca-border);
+  background: var(--orca-card);
+  color: var(--orca-card-foreground);
+}
+header strong {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+header label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--orca-muted-foreground);
+}
+select,
+button {
+  font: inherit;
+  color: var(--orca-secondary-foreground);
+  background: var(--orca-secondary);
+  border: 1px solid var(--orca-input);
+  border-radius: var(--orca-radius, 6px);
+  padding: 3px 8px;
+}
+button:hover {
+  background: var(--orca-accent);
+  color: var(--orca-accent-foreground);
+}
+:focus-visible {
+  outline: 2px solid var(--orca-ring);
+  outline-offset: 1px;
+}
+#stats {
+  margin-left: auto;
+  font: 12px ui-monospace, monospace;
+  color: var(--orca-muted-foreground);
+  white-space: pre;
+}
+main {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+aside {
+  border-left: 1px solid var(--orca-border);
+  background: var(--orca-card);
+  color: var(--orca-card-foreground);
+  padding: 12px;
+  overflow: auto;
+}
+aside h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+aside dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+}
+aside dt {
+  color: var(--orca-muted-foreground);
+}
+aside dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+aside code {
+  font: 12px ui-monospace, monospace;
+  background: var(--orca-muted);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+aside p.hint {
+  color: var(--orca-muted-foreground);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--orca-border);
+  font-size: 12px;
+}
+.legend span::before {
+  content: attr(data-glyph) ' ';
+  font-weight: 700;
+}
+.st-completed {
+  color: var(--st-completed);
+}
+.st-running {
+  color: var(--st-running);
+}
+.st-failed {
+  color: var(--st-failed);
+}
+.st-paused {
+  color: var(--st-paused);
+}
+.st-skipped {
+  color: var(--st-skipped);
+}
+.st-pending {
+  color: var(--st-pending);
+}

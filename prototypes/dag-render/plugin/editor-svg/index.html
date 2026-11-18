@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Run graph prototype: dagre + SVG</title>
+    <link rel="stylesheet" href="../shared/chrome.css" />
+    <link rel="stylesheet" href="./svg.css" />
+  </head>
+  <body>
+    <header>
+      <strong>A · dagre + SVG</strong>
+      <label>Workflow <select id="workflow"></select></label>
+      <label
+        >Direction
+        <select id="direction">
+          <option value="TB">Top to bottom</option>
+          <option value="LR">Left to right</option>
+        </select></label
+      >
+      <label><input id="expand" type="checkbox" /> Expand loop groups</label>
+      <button id="fit" type="button">Fit</button>
+      <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+      <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+      <span id="stats" role="status">loading…</span>
+    </header>
+    <main>
+      <svg id="canvas" role="group" aria-label="Workflow graph">
+        <defs>
+          <marker
+            id="arrow"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path class="arrowhead" d="M0,0L10,5L0,10z" />
+          </marker>
+        </defs>
+        <g id="viewport"></g>
+      </svg>
+    </main>
+    <aside id="detail" aria-label="Step detail"></aside>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

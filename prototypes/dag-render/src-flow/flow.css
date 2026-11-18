@@ -1,0 +1,123 @@
+/* PROTOTYPE - throwaway. Variant B: React Flow's own variables pointed at Orca's theme. */
+html.light {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+#root {
+  display: contents;
+}
+.react-flow {
+  --xy-background-color: var(--orca-background);
+  --xy-background-pattern-dots-color: var(--orca-border);
+  --xy-edge-stroke: var(--orca-muted-foreground);
+  --xy-edge-stroke-selected: var(--orca-ring);
+  --xy-edge-stroke-width: 1.4;
+  --xy-handle-background-color: var(--orca-muted-foreground);
+  --xy-handle-border-color: var(--orca-card);
+  --xy-controls-button-background-color: var(--orca-secondary);
+  --xy-controls-button-background-color-hover: var(--orca-accent);
+  --xy-controls-button-color: var(--orca-secondary-foreground);
+  --xy-controls-button-color-hover: var(--orca-accent-foreground);
+  --xy-controls-button-border-color: var(--orca-border);
+  --xy-minimap-background-color: var(--orca-card);
+  --xy-minimap-node-background-color: var(--orca-muted-foreground);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--orca-muted) 70%, transparent);
+  --xy-attribution-background-color: var(--orca-card);
+}
+.react-flow__attribution a {
+  color: var(--orca-muted-foreground);
+}
+.react-flow__edge.conditional .react-flow__edge-path {
+  stroke-dasharray: 5 4;
+}
+.react-flow__node-step,
+.react-flow__node-loopGroup {
+  border-radius: 6px;
+}
+.react-flow__node-step:focus-visible,
+.react-flow__node-step.selected {
+  outline: 2.5px solid var(--orca-ring);
+  outline-offset: 0;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 190px;
+  height: 46px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--orca-border);
+  border-radius: 6px;
+  background: var(--orca-card);
+  color: var(--orca-card-foreground);
+  cursor: pointer;
+}
+.step:hover {
+  background: var(--orca-accent);
+  color: var(--orca-accent-foreground);
+}
+.step .bar {
+  align-self: stretch;
+  width: 4px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.step .text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.step .label {
+  font: 600 12px system-ui, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step .kind {
+  font: 10px ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--orca-muted-foreground);
+}
+.step .glyph {
+  font: 700 14px system-ui, sans-serif;
+}
+.step.st-completed .bar,
+.step.st-completed .glyph {
+  color: var(--st-completed);
+}
+.step.st-running .bar,
+.step.st-running .glyph {
+  color: var(--st-running);
+}
+.step.st-failed .bar,
+.step.st-failed .glyph {
+  color: var(--st-failed);
+}
+.step.st-paused .bar,
+.step.st-paused .glyph {
+  color: var(--st-paused);
+}
+.step.st-skipped .bar,
+.step.st-skipped .glyph,
+.step.st-pending .bar,
+.step.st-pending .glyph {
+  color: var(--st-pending);
+}
+.step.st-skipped,
+.step.st-pending {
+  opacity: 0.75;
+}
+.loop-group {
+  width: 100%;
+  height: 100%;
+  padding: 3px 8px;
+  border: 1px dashed var(--orca-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--orca-muted) 45%, transparent);
+  color: var(--orca-muted-foreground);
+  font-size: 11px;
+}
