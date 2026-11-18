@@ -1,0 +1,206 @@
+{
+  "scenario": "empty-message",
+  "recordedAt": "2026-11-18T19:25:31.176Z",
+  "codebaseId": "2b90c3d7314351102899bd5180fc028f",
+  "log": [
+    {
+      "atMs": 32,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/health",
+      "requestBody": null,
+      "startedMs": 1,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "status": "ok",
+        "adapter": "web",
+        "concurrency": {
+          "active": 0,
+          "queuedTotal": 0,
+          "maxConcurrent": 10,
+          "oldestActiveAgeMs": null,
+          "oldestQueuedAgeMs": null
+        },
+        "runningWorkflows": 0,
+        "version": "0.12.1",
+        "is_docker": false,
+        "is_wsl": false,
+        "storeId": "<store-id>",
+        "activePlatforms": [
+          "Web",
+          "GitHub",
+          "Telegram"
+        ],
+        "attentionDestinations": [
+          {
+            "id": "web-push",
+            "state": "no_subscribers"
+          }
+        ],
+        "schema": {
+          "createdAppVersion": "0.11.1",
+          "appVersion": "0.12.1",
+          "appliedAt": "2026-11-18 00:51:42"
+        }
+      }
+    },
+    {
+      "atMs": 40,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "2b90c3d7314351102899bd5180fc028f"
+      },
+      "startedMs": 32,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795029931212-q21xgh",
+        "id": "dd07fdccba07ce8617c10bf0088ac51b"
+      }
+    },
+    {
+      "atMs": 42,
+      "kind": "stream-open",
+      "label": "first",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 42,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795029931218}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795029931218
+      }
+    },
+    {
+      "atMs": 555,
+      "kind": "launch-sent"
+    },
+    {
+      "atMs": 558,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/archon-forge-check/run",
+      "requestBody": {
+        "conversationId": "web-1795029931212-q21xgh",
+        "message": ""
+      },
+      "startedMs": 555,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "message must be a non-empty string"
+      }
+    },
+    {
+      "atMs": 558,
+      "kind": "launch-answered",
+      "status": 400
+    },
+    {
+      "atMs": 1574,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?codebaseId=2b90c3d7314351102899bd5180fc028f",
+      "requestBody": null,
+      "startedMs": 1572,
+      "status": 200,
+      "contentType": "application/json",
+      "body": []
+    },
+    {
+      "atMs": 1574,
+      "kind": "listed-before-delete",
+      "listed": false
+    },
+    {
+      "atMs": 1577,
+      "kind": "http",
+      "method": "DELETE",
+      "path": "/api/conversations/web-1795029931212-q21xgh",
+      "requestBody": null,
+      "startedMs": 1574,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true
+      }
+    },
+    {
+      "atMs": 1578,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?codebaseId=2b90c3d7314351102899bd5180fc028f",
+      "requestBody": null,
+      "startedMs": 1577,
+      "status": 200,
+      "contentType": "application/json",
+      "body": []
+    },
+    {
+      "atMs": 1578,
+      "kind": "listed-after-delete",
+      "listed": false
+    },
+    {
+      "atMs": 1580,
+      "kind": "listed-in-all-after-delete",
+      "listed": false
+    },
+    {
+      "atMs": 1581,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795029931212-q21xgh",
+      "requestBody": null,
+      "startedMs": 1580,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "dd07fdccba07ce8617c10bf0088ac51b",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795029931212-q21xgh",
+        "ai_assistant_type": "claude",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": null,
+        "deleted_at": "2026-11-18 19:25:32",
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-18 19:25:31",
+        "updated_at": "2026-11-18 19:25:32",
+        "last_activity_at": "2026-11-18 19:25:31"
+      }
+    },
+    {
+      "atMs": 1582,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795029931212-q21xgh/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 1581,
+      "status": 200,
+      "contentType": "application/json",
+      "body": []
+    },
+    {
+      "atMs": 3609,
+      "kind": "stream-after-delete",
+      "ended": false
+    },
+    {
+      "atMs": 3611,
+      "kind": "stream-end",
+      "label": "first",
+      "by": "recorder",
+      "error": "AbortError: This operation was aborted"
+    }
+  ]
+}

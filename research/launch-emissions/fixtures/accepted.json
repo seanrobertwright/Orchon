@@ -1,0 +1,1131 @@
+{
+  "scenario": "accepted",
+  "recordedAt": "2026-11-18T19:26:00.549Z",
+  "codebaseId": "2b90c3d7314351102899bd5180fc028f",
+  "log": [
+    {
+      "atMs": 27,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/health",
+      "requestBody": null,
+      "startedMs": 1,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "status": "ok",
+        "adapter": "web",
+        "concurrency": {
+          "active": 0,
+          "queuedTotal": 0,
+          "maxConcurrent": 10,
+          "oldestActiveAgeMs": null,
+          "oldestQueuedAgeMs": null
+        },
+        "runningWorkflows": 0,
+        "version": "0.12.1",
+        "is_docker": false,
+        "is_wsl": false,
+        "storeId": "<store-id>",
+        "activePlatforms": [
+          "Web",
+          "GitHub",
+          "Telegram"
+        ],
+        "attentionDestinations": [
+          {
+            "id": "web-push",
+            "state": "no_subscribers"
+          }
+        ],
+        "schema": {
+          "createdAppVersion": "0.11.1",
+          "appVersion": "0.12.1",
+          "appliedAt": "2026-11-18 00:51:42"
+        }
+      }
+    },
+    {
+      "atMs": 35,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "2b90c3d7314351102899bd5180fc028f"
+      },
+      "startedMs": 27,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795029960581-pdavdm",
+        "id": "0cd06aa2e004dcb33d1c154071f6e618"
+      }
+    },
+    {
+      "atMs": 38,
+      "kind": "stream-open",
+      "label": "first",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 38,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795029960587}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795029960587
+      }
+    },
+    {
+      "atMs": 546,
+      "kind": "launch-sent"
+    },
+    {
+      "atMs": 562,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/archon-forge-check/run",
+      "requestBody": {
+        "conversationId": "web-1795029960581-pdavdm",
+        "message": "Recording a launch for the Orchon plan: check forge access."
+      },
+      "startedMs": 546,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 562,
+      "kind": "launch-answered"
+    },
+    {
+      "atMs": 581,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795029960581-pdavdm\",\"locked\":true,\"timestamp\":1795029961106}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795029960581-pdavdm",
+        "locked": true,
+        "timestamp": 1795029961106
+      }
+    },
+    {
+      "atMs": 1614,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Starting workflow: `archon-forge-check`\",\"isComplete\":true,\"timestamp\":1795029962138}",
+      "data": {
+        "type": "text",
+        "content": "Starting workflow: `archon-forge-check`",
+        "isComplete": true,
+        "timestamp": 1795029962138
+      }
+    },
+    {
+      "atMs": 8159,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"🚀 Dispatching workflow: **archon-forge-check** (background)\",\"isComplete\":true,\"timestamp\":1795029968704,\"category\":\"workflow_dispatch_status\"}",
+      "data": {
+        "type": "text",
+        "content": "🚀 Dispatching workflow: **archon-forge-check** (background)",
+        "isComplete": true,
+        "timestamp": 1795029968704,
+        "category": "workflow_dispatch_status"
+      }
+    },
+    {
+      "atMs": 8159,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_dispatch\",\"workerConversationId\":\"web-worker-1795029968678-9iybvo\",\"workflowName\":\"archon-forge-check\",\"timestamp\":1795029968704}",
+      "data": {
+        "type": "workflow_dispatch",
+        "workerConversationId": "web-worker-1795029968678-9iybvo",
+        "workflowName": "archon-forge-check",
+        "timestamp": 1795029968704
+      }
+    },
+    {
+      "atMs": 8239,
+      "kind": "run-found",
+      "pollSentMs": 8236,
+      "polls": 67,
+      "run": {
+        "id": "7149d617-2794-43a0-b83d-bcfaab635582",
+        "conversation_id": "f814c7d3b79bd193faa5bb8cab67b694",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "workflow_name": "archon-forge-check",
+        "user_message": "Recording a launch for the Orchon plan: check forge access.",
+        "status": "pending",
+        "outcome": null,
+        "current_step_index": null,
+        "metadata": {
+          "ai_configuration": {
+            "version": 1,
+            "assistant": "claude",
+            "assistants": {
+              "claude": {
+                "model": "sonnet"
+              },
+              "codex": {},
+              "pi": {},
+              "opencode": {},
+              "copilot": {}
+            },
+            "baseAiProfile": {
+              "defaultProvider": "claude",
+              "aliases": {
+                "small": {
+                  "provider": "claude",
+                  "model": "haiku"
+                },
+                "medium": {
+                  "provider": "claude",
+                  "model": "sonnet"
+                },
+                "large": {
+                  "provider": "claude",
+                  "model": "opus"
+                }
+              }
+            },
+            "modelOverrides": {}
+          },
+          "workflow_source": {
+            "version": 1,
+            "root": "<home>\\.archon\\workspaces\\<owner>\\Orchon\\workflow-source\\runs\\7149d617-2794-43a0-b83d-bcfaab635582",
+            "origin": "<project-path>",
+            "captured_at": "2026-11-18T19:26:08.073Z",
+            "digest": "33d71bdc09a42bf7fe16d72b27121b19826d084581194891a36c8645938afeec",
+            "source_config": {
+              "load_default_workflows": true,
+              "load_default_commands": true
+            },
+            "file_count": 280,
+            "byte_count": 1251865
+          }
+        },
+        "parent_conversation_id": "0cd06aa2e004dcb33d1c154071f6e618",
+        "user_id": null,
+        "parent_run_id": null,
+        "adopted_from_run_id": null,
+        "started_at": "2026-11-18T19:26:08.000Z",
+        "completed_at": null,
+        "last_activity_at": "2026-11-18T19:26:08.000Z",
+        "working_path": null,
+        "output_root": null,
+        "checkout_baseline": null,
+        "origin": {
+          "conversationId": "f814c7d3b79bd193faa5bb8cab67b694",
+          "parentConversationId": "0cd06aa2e004dcb33d1c154071f6e618"
+        },
+        "platform_type": "web",
+        "worker_platform_id": "web-worker-1795029968678-9iybvo",
+        "parent_platform_id": "web-1795029960581-pdavdm",
+        "codebase_name": "<owner>/Orchon",
+        "agents_completed": 0,
+        "agents_failed": 0,
+        "agents_total": null,
+        "active_nodes": [],
+        "current_step_name": null,
+        "current_step_status": null,
+        "total_steps": null,
+        "owner_observation": null,
+        "attention": null
+      }
+    },
+    {
+      "atMs": 8259,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795029960581-pdavdm\",\"locked\":false,\"timestamp\":1795029968808}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795029960581-pdavdm",
+        "locked": false,
+        "timestamp": 1795029968808
+      }
+    },
+    {
+      "atMs": 9774,
+      "kind": "run-status",
+      "status": "running",
+      "was": "pending"
+    },
+    {
+      "atMs": 10208,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\",\"workflowName\":\"archon-forge-check\",\"status\":\"running\",\"timestamp\":1795029970410}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+        "workflowName": "archon-forge-check",
+        "status": "running",
+        "timestamp": 1795029970410
+      }
+    },
+    {
+      "atMs": 10842,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\",\"nodeId\":\"forge\",\"name\":\"forge\",\"status\":\"running\",\"execution\":{\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\",\"path\":\"forge\",\"node\":{\"id\":\"forge\",\"kind\":\"exec\",\"runtime\":\"bun\"},\"invocation\":{\"id\":\"e7a7e80e-22f5-4e1e-85ee-fd908dcd993e\",\"startedAt\":\"2026-11-18T19:26:10.732Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-18T19:26:10.865Z\",\"commit\":\"8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3\",\"tree\":\"45ffbf128902e0ce47799611d688e898e672da6b\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"2bc03c1c-c397-4ef9-a5da-6fac14841c45\",\"startedAt\":\"2026-11-18T19:26:11.364Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-18T19:26:10.865Z\",\"commit\":\"8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3\",\"tree\":\"45ffbf128902e0ce47799611d688e898e672da6b\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-18T19:26:11.364Z\"},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"started\"}},\"timestamp\":1795029971389}",
+      "data": {
+        "type": "dag_node",
+        "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+        "nodeId": "forge",
+        "name": "forge",
+        "status": "running",
+        "execution": {
+          "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+          "path": "forge",
+          "node": {
+            "id": "forge",
+            "kind": "exec",
+            "runtime": "bun"
+          },
+          "invocation": {
+            "id": "e7a7e80e-22f5-4e1e-85ee-fd908dcd993e",
+            "startedAt": "2026-11-18T19:26:10.732Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-18T19:26:10.865Z",
+              "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+              "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "2bc03c1c-c397-4ef9-a5da-6fac14841c45",
+            "startedAt": "2026-11-18T19:26:11.364Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-18T19:26:10.865Z",
+              "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+              "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-18T19:26:11.364Z"
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "started"
+          }
+        },
+        "timestamp": 1795029971389
+      }
+    },
+    {
+      "atMs": 12227,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\",\"nodeId\":\"forge\",\"name\":\"forge\",\"status\":\"completed\",\"duration\":2031,\"execution\":{\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\",\"path\":\"forge\",\"node\":{\"id\":\"forge\",\"kind\":\"exec\",\"runtime\":\"bun\"},\"invocation\":{\"id\":\"e7a7e80e-22f5-4e1e-85ee-fd908dcd993e\",\"startedAt\":\"2026-11-18T19:26:10.732Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-18T19:26:10.865Z\",\"commit\":\"8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3\",\"tree\":\"45ffbf128902e0ce47799611d688e898e672da6b\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"2bc03c1c-c397-4ef9-a5da-6fac14841c45\",\"startedAt\":\"2026-11-18T19:26:11.364Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-18T19:26:10.865Z\",\"commit\":\"8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3\",\"tree\":\"45ffbf128902e0ce47799611d688e898e672da6b\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-18T19:26:11.364Z\",\"durationMs\":2031},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"completed\"}},\"timestamp\":1795029972771}",
+      "data": {
+        "type": "dag_node",
+        "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+        "nodeId": "forge",
+        "name": "forge",
+        "status": "completed",
+        "duration": 2031,
+        "execution": {
+          "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+          "path": "forge",
+          "node": {
+            "id": "forge",
+            "kind": "exec",
+            "runtime": "bun"
+          },
+          "invocation": {
+            "id": "e7a7e80e-22f5-4e1e-85ee-fd908dcd993e",
+            "startedAt": "2026-11-18T19:26:10.732Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-18T19:26:10.865Z",
+              "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+              "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "2bc03c1c-c397-4ef9-a5da-6fac14841c45",
+            "startedAt": "2026-11-18T19:26:11.364Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-18T19:26:10.865Z",
+              "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+              "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-18T19:26:11.364Z",
+            "durationMs": 2031
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "completed"
+          }
+        },
+        "timestamp": 1795029972771
+      }
+    },
+    {
+      "atMs": 12230,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\",\"workflowName\":\"archon-forge-check\",\"status\":\"completed\",\"timestamp\":1795029972777}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+        "workflowName": "archon-forge-check",
+        "status": "completed",
+        "timestamp": 1795029972777
+      }
+    },
+    {
+      "atMs": 12266,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"{\\\"source\\\":\\\"gh\\\"}\",\"isComplete\":true,\"timestamp\":1795029972813,\"category\":\"workflow_result\",\"workflowResult\":{\"workflowName\":\"archon-forge-check\",\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\"}}",
+      "data": {
+        "type": "text",
+        "content": "{\"source\":\"gh\"}",
+        "isComplete": true,
+        "timestamp": 1795029972813,
+        "category": "workflow_result",
+        "workflowResult": {
+          "workflowName": "archon-forge-check",
+          "runId": "7149d617-2794-43a0-b83d-bcfaab635582"
+        }
+      }
+    },
+    {
+      "atMs": 12335,
+      "kind": "run-status",
+      "status": "completed",
+      "was": "running"
+    },
+    {
+      "atMs": 12335,
+      "kind": "lock-released-seen",
+      "seen": true
+    },
+    {
+      "atMs": 15351,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795029960581-pdavdm",
+      "requestBody": null,
+      "startedMs": 15350,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "0cd06aa2e004dcb33d1c154071f6e618",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795029960581-pdavdm",
+        "ai_assistant_type": "claude",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Orchon launch forge access check",
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-18 19:26:00",
+        "updated_at": "2026-11-18 19:26:15",
+        "last_activity_at": "2026-11-18 19:26:00"
+      }
+    },
+    {
+      "atMs": 15353,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795029960581-pdavdm/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 15351,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "ded6350bf0e4abdc8734cc19ce8079d6",
+          "conversation_id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "role": "user",
+          "content": "Recording a launch for the Orchon plan: check forge access.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:01"
+        },
+        {
+          "id": "f2e8d037324b42ce2e8b3df627f22cc8",
+          "conversation_id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "role": "assistant",
+          "content": "🚀 Dispatching workflow: **archon-forge-check** (background)",
+          "metadata": "{\"category\":\"workflow_dispatch_status\",\"workflowDispatch\":{\"workerConversationId\":\"web-worker-1795029968678-9iybvo\",\"workflowName\":\"archon-forge-check\"}}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:08"
+        },
+        {
+          "id": "f78aca86423a03d88d1c810efd142968",
+          "conversation_id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "role": "assistant",
+          "content": "Starting workflow: `archon-forge-check`",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:08"
+        },
+        {
+          "id": "9ba86d2a3e9ed0368150869858a9480d",
+          "conversation_id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "role": "assistant",
+          "content": "{\"source\":\"gh\"}",
+          "metadata": "{\"category\":\"workflow_result\",\"workflowResult\":{\"workflowName\":\"archon-forge-check\",\"runId\":\"7149d617-2794-43a0-b83d-bcfaab635582\"}}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:12"
+        }
+      ]
+    },
+    {
+      "atMs": 15355,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/7149d617-2794-43a0-b83d-bcfaab635582",
+      "requestBody": null,
+      "startedMs": 15353,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "7149d617-2794-43a0-b83d-bcfaab635582",
+          "conversation_id": "f814c7d3b79bd193faa5bb8cab67b694",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "workflow_name": "archon-forge-check",
+          "user_message": "Recording a launch for the Orchon plan: check forge access.",
+          "status": "completed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "claude": {
+                  "model": "sonnet"
+                },
+                "codex": {},
+                "pi": {},
+                "opencode": {},
+                "copilot": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<home>\\.archon\\workspaces\\<owner>\\Orchon\\workflow-source\\runs\\7149d617-2794-43a0-b83d-bcfaab635582",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-18T19:26:08.073Z",
+              "digest": "33d71bdc09a42bf7fe16d72b27121b19826d084581194891a36c8645938afeec",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 280,
+              "byte_count": 1251865
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": "main"
+            },
+            "execution_owner": {
+              "host": "Living-Room",
+              "pid": 14092
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "forge"
+              ]
+            },
+            "node_counts": {
+              "completed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "total": 1
+            }
+          },
+          "parent_conversation_id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-18T19:26:08.000Z",
+          "completed_at": "2026-11-18T19:26:12.000Z",
+          "last_activity_at": "2026-11-18T19:26:10.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<home>\\.archon\\workspaces\\<owner>\\Orchon",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-18T19:26:10.145Z",
+            "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+            "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "f814c7d3b79bd193faa5bb8cab67b694",
+            "parentConversationId": "0cd06aa2e004dcb33d1c154071f6e618"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+            "status": "completed",
+            "at": "2026-11-18T19:26:12.000Z"
+          },
+          "worker_platform_id": "web-worker-1795029968678-9iybvo",
+          "parent_platform_id": "web-1795029960581-pdavdm",
+          "conversation_platform_id": null,
+          "owner_observation": null,
+          "terminal_record": {
+            "run_id": "7149d617-2794-43a0-b83d-bcfaab635582",
+            "status": "completed",
+            "outcome": null,
+            "error": null,
+            "first_failed_node": null,
+            "nodes": [
+              {
+                "node_id": "forge",
+                "state": "completed"
+              }
+            ],
+            "returns": {
+              "availability": "unavailable",
+              "node_id": null,
+              "reason": "not_declared"
+            },
+            "artifacts": {
+              "root": "<home>\\.archon\\workspaces\\<owner>\\Orchon\\artifacts\\runs\\7149d617-2794-43a0-b83d-bcfaab635582",
+              "files": [
+                {
+                  "path": ".archon/typed-artifacts/6bff4110-5afc-4de0-af66-4562d5b51a62.json",
+                  "size": 94
+                }
+              ],
+              "limitations": []
+            }
+          },
+          "nodes": [
+            {
+              "node_id": "forge",
+              "state": "completed"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "cfd51bab-1f6c-4483-ac99-329bcc34962b",
+            "workflow_run_id": "7149d617-2794-43a0-b83d-bcfaab635582",
+            "event_order": 1131803,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "archon-forge-check",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": "sonnet",
+              "isolationMode": "in-place",
+              "baseBranch": "main",
+              "userId": null,
+              "userMessage": "Recording a launch for the Orchon plan: check forge access.",
+              "origin": "web",
+              "transcriptPath": "<home>\\.archon\\workspaces\\<owner>\\Orchon\\logs\\7149d617-2794-43a0-b83d-bcfaab635582.jsonl"
+            },
+            "created_at": "2026-11-18 19:26:10"
+          },
+          {
+            "id": "3649b390-a881-425e-a81f-dd28581f9e59",
+            "workflow_run_id": "7149d617-2794-43a0-b83d-bcfaab635582",
+            "event_order": 1131804,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "forge",
+            "data": {
+              "node": {
+                "id": "forge",
+                "kind": "exec",
+                "runtime": "bun"
+              },
+              "invocation": {
+                "id": "e7a7e80e-22f5-4e1e-85ee-fd908dcd993e",
+                "startedAt": "2026-11-18T19:26:10.732Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-18T19:26:10.865Z",
+                  "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+                  "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "2bc03c1c-c397-4ef9-a5da-6fac14841c45",
+                "startedAt": "2026-11-18T19:26:11.364Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-18T19:26:10.865Z",
+                  "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+                  "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-18T19:26:11.364Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "script",
+              "runtime": "bun"
+            },
+            "created_at": "2026-11-18 19:26:11"
+          },
+          {
+            "id": "f68e3c9b-ee4c-4475-940b-249e0db0bf2f",
+            "workflow_run_id": "7149d617-2794-43a0-b83d-bcfaab635582",
+            "event_order": 1131805,
+            "event_type": "node_completed",
+            "step_index": null,
+            "step_name": "forge",
+            "data": {
+              "node": {
+                "id": "forge",
+                "kind": "exec",
+                "runtime": "bun"
+              },
+              "invocation": {
+                "id": "e7a7e80e-22f5-4e1e-85ee-fd908dcd993e",
+                "startedAt": "2026-11-18T19:26:10.732Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-18T19:26:10.865Z",
+                  "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+                  "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "2bc03c1c-c397-4ef9-a5da-6fac14841c45",
+                "startedAt": "2026-11-18T19:26:11.364Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-18T19:26:10.865Z",
+                  "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+                  "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-18T19:26:11.364Z",
+                "durationMs": 2031
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "script",
+              "runtime": "bun",
+              "duration_ms": 2031,
+              "node_output": "{\"source\":\"gh\"}",
+              "structured_output": {
+                "source": "gh"
+              },
+              "declared_fields": [
+                "source"
+              ],
+              "declared_output_paths": [
+                [
+                  "source"
+                ]
+              ]
+            },
+            "created_at": "2026-11-18 19:26:12"
+          },
+          {
+            "id": "3a597942-e891-411d-8444-038b07706053",
+            "workflow_run_id": "7149d617-2794-43a0-b83d-bcfaab635582",
+            "event_order": 1131806,
+            "event_type": "workflow_completed",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "duration_ms": 2048,
+              "terminal_record": {
+                "run_id": "7149d617-2794-43a0-b83d-bcfaab635582",
+                "status": "completed",
+                "outcome": null,
+                "error": null,
+                "first_failed_node": null,
+                "nodes": [
+                  {
+                    "node_id": "forge",
+                    "state": "completed"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<home>\\.archon\\workspaces\\<owner>\\Orchon\\artifacts\\runs\\7149d617-2794-43a0-b83d-bcfaab635582",
+                  "files": [
+                    {
+                      "path": ".archon/typed-artifacts/6bff4110-5afc-4de0-af66-4562d5b51a62.json",
+                      "size": 94
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-18 19:26:12"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 15356,
+      "kind": "runs-of-project",
+      "runs": [
+        {
+          "id": "7149d617-2794-43a0-b83d-bcfaab635582",
+          "conversation_id": "f814c7d3b79bd193faa5bb8cab67b694",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "workflow_name": "archon-forge-check",
+          "user_message": "Recording a launch for the Orchon plan: check forge access.",
+          "status": "completed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "claude": {
+                  "model": "sonnet"
+                },
+                "codex": {},
+                "pi": {},
+                "opencode": {},
+                "copilot": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<home>\\.archon\\workspaces\\<owner>\\Orchon\\workflow-source\\runs\\7149d617-2794-43a0-b83d-bcfaab635582",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-18T19:26:08.073Z",
+              "digest": "33d71bdc09a42bf7fe16d72b27121b19826d084581194891a36c8645938afeec",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 280,
+              "byte_count": 1251865
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": "main"
+            },
+            "execution_owner": {
+              "host": "Living-Room",
+              "pid": 14092
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "forge"
+              ]
+            },
+            "node_counts": {
+              "completed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "total": 1
+            }
+          },
+          "parent_conversation_id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-18T19:26:08.000Z",
+          "completed_at": "2026-11-18T19:26:12.000Z",
+          "last_activity_at": "2026-11-18T19:26:10.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<home>\\.archon\\workspaces\\<owner>\\Orchon",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-18T19:26:10.145Z",
+            "commit": "8d79bc0bf1f99492eb56bc2ac8dd0970066d71d3",
+            "tree": "45ffbf128902e0ce47799611d688e898e672da6b",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "f814c7d3b79bd193faa5bb8cab67b694",
+            "parentConversationId": "0cd06aa2e004dcb33d1c154071f6e618"
+          },
+          "platform_type": "web",
+          "worker_platform_id": "web-worker-1795029968678-9iybvo",
+          "parent_platform_id": "web-1795029960581-pdavdm",
+          "codebase_name": "<owner>/Orchon",
+          "agents_completed": 0,
+          "agents_failed": 0,
+          "agents_total": null,
+          "active_nodes": [],
+          "current_step_name": null,
+          "current_step_status": null,
+          "total_steps": null,
+          "owner_observation": null,
+          "attention": {
+            "kind": "terminal",
+            "runId": "7149d617-2794-43a0-b83d-bcfaab635582",
+            "status": "completed",
+            "at": "2026-11-18T19:26:12.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "atMs": 15356,
+      "kind": "stream-end",
+      "label": "first",
+      "by": "server"
+    },
+    {
+      "atMs": 15357,
+      "kind": "stream-open",
+      "label": "second",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 15357,
+      "kind": "frame",
+      "label": "second",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795029975906}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795029975906
+      }
+    },
+    {
+      "atMs": 15357,
+      "kind": "first-reader-ended-after-second-opened",
+      "ended": true
+    },
+    {
+      "atMs": 16358,
+      "kind": "stream-end",
+      "label": "second",
+      "by": "recorder",
+      "error": "AbortError: This operation was aborted"
+    },
+    {
+      "atMs": 31375,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795029960581-pdavdm",
+      "requestBody": null,
+      "startedMs": 31373,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "0cd06aa2e004dcb33d1c154071f6e618",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795029960581-pdavdm",
+        "ai_assistant_type": "claude",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Orchon launch forge access check",
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-18 19:26:00",
+        "updated_at": "2026-11-18 19:26:15",
+        "last_activity_at": "2026-11-18 19:26:00"
+      }
+    }
+  ]
+}

@@ -1,0 +1,381 @@
+{
+  "scenario": "missing-required",
+  "recordedAt": "2026-11-18T19:27:57.709Z",
+  "codebaseId": "2b90c3d7314351102899bd5180fc028f",
+  "log": [
+    {
+      "atMs": 28,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/health",
+      "requestBody": null,
+      "startedMs": 1,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "status": "ok",
+        "adapter": "web",
+        "concurrency": {
+          "active": 0,
+          "queuedTotal": 0,
+          "maxConcurrent": 10,
+          "oldestActiveAgeMs": null,
+          "oldestQueuedAgeMs": null
+        },
+        "runningWorkflows": 0,
+        "version": "0.12.1",
+        "is_docker": false,
+        "is_wsl": false,
+        "storeId": "<store-id>",
+        "activePlatforms": [
+          "Web",
+          "GitHub",
+          "Telegram"
+        ],
+        "attentionDestinations": [
+          {
+            "id": "web-push",
+            "state": "no_subscribers"
+          }
+        ],
+        "schema": {
+          "createdAppVersion": "0.11.1",
+          "appVersion": "0.12.1",
+          "appliedAt": "2026-11-18 00:51:42"
+        }
+      }
+    },
+    {
+      "atMs": 35,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "2b90c3d7314351102899bd5180fc028f"
+      },
+      "startedMs": 28,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795030077740-k72jww",
+        "id": "488f18aa4a4da826ff39aeba772d602b"
+      }
+    },
+    {
+      "atMs": 35,
+      "kind": "launch-sent"
+    },
+    {
+      "atMs": 38,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/archon-review-eval-judge/run",
+      "requestBody": {
+        "conversationId": "web-1795030077740-k72jww",
+        "message": "Recording a refused launch for the Orchon plan: a required input left out."
+      },
+      "startedMs": 35,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 38,
+      "kind": "launch-answered",
+      "status": 200
+    },
+    {
+      "atMs": 3057,
+      "kind": "stream-open",
+      "label": "late",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 3057,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795030080765}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795030080765
+      }
+    },
+    {
+      "atMs": 3057,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795030077740-k72jww\",\"locked\":true,\"timestamp\":1795030077746}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795030077740-k72jww",
+        "locked": true,
+        "timestamp": 1795030077746
+      }
+    },
+    {
+      "atMs": 3057,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Starting workflow: `archon-review-eval-judge`\",\"isComplete\":true,\"timestamp\":1795030078755}",
+      "data": {
+        "type": "text",
+        "content": "Starting workflow: `archon-review-eval-judge`",
+        "isComplete": true,
+        "timestamp": 1795030078755
+      }
+    },
+    {
+      "atMs": 3057,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"text\",\"content\":\"This workflow requires input 'item', and none was supplied. Supply it with `--input item=<value>` on the CLI (repeat the flag per input), or fill the run form in the web console. When composing this workflow from another, pass the same values via `with:` on the `include:`/`workflow:` node. In chat, an assistant with the `invoke_workflow` tool supplies them when it starts the workflow. No worktree was created and no AI cost was incurred.\",\"isComplete\":true,\"timestamp\":1795030080134}",
+      "data": {
+        "type": "text",
+        "content": "This workflow requires input 'item', and none was supplied. Supply it with `--input item=<value>` on the CLI (repeat the flag per input), or fill the run form in the web console. When composing this workflow from another, pass the same values via `with:` on the `include:`/`workflow:` node. In chat, an assistant with the `invoke_workflow` tool supplies them when it starts the workflow. No worktree was created and no AI cost was incurred.",
+        "isComplete": true,
+        "timestamp": 1795030080134
+      }
+    },
+    {
+      "atMs": 3057,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795030077740-k72jww\",\"locked\":false,\"timestamp\":1795030080211}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795030077740-k72jww",
+        "locked": false,
+        "timestamp": 1795030080211
+      }
+    },
+    {
+      "atMs": 10063,
+      "kind": "run-not-found",
+      "polls": 46,
+      "waitedMs": 10000
+    },
+    {
+      "atMs": 12076,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030077740-k72jww",
+      "requestBody": null,
+      "startedMs": 12075,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "488f18aa4a4da826ff39aeba772d602b",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795030077740-k72jww",
+        "ai_assistant_type": "claude",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Recording Orchon refused launch",
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-18 19:27:57",
+        "updated_at": "2026-11-18 19:28:07",
+        "last_activity_at": "2026-11-18 19:27:57"
+      }
+    },
+    {
+      "atMs": 12078,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030077740-k72jww/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 12076,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "3363c6528b8a77097dea48ac96aa7707",
+          "conversation_id": "488f18aa4a4da826ff39aeba772d602b",
+          "role": "user",
+          "content": "Recording a refused launch for the Orchon plan: a required input left out.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:27:57"
+        },
+        {
+          "id": "463fd154c6d41b989b41e2a0977d1d1c",
+          "conversation_id": "488f18aa4a4da826ff39aeba772d602b",
+          "role": "assistant",
+          "content": "Starting workflow: `archon-review-eval-judge`This workflow requires input 'item', and none was supplied. Supply it with `--input item=<value>` on the CLI (repeat the flag per input), or fill the run form in the web console. When composing this workflow from another, pass the same values via `with:` on the `include:`/`workflow:` node. In chat, an assistant with the `invoke_workflow` tool supplies them when it starts the workflow. No worktree was created and no AI cost was incurred.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:28:00"
+        }
+      ]
+    },
+    {
+      "atMs": 12079,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?codebaseId=2b90c3d7314351102899bd5180fc028f",
+      "requestBody": null,
+      "startedMs": 12078,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "488f18aa4a4da826ff39aeba772d602b",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795030077740-k72jww",
+          "ai_assistant_type": "claude",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Recording Orchon refused launch",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-18 19:27:57",
+          "updated_at": "2026-11-18 19:28:07",
+          "last_activity_at": "2026-11-18 19:27:57"
+        },
+        {
+          "id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795029960581-pdavdm",
+          "ai_assistant_type": "claude",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch forge access check",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:00",
+          "updated_at": "2026-11-18 19:26:15",
+          "last_activity_at": "2026-11-18 19:26:00"
+        }
+      ]
+    },
+    {
+      "atMs": 12079,
+      "kind": "listed-before-delete",
+      "listed": true
+    },
+    {
+      "atMs": 12081,
+      "kind": "http",
+      "method": "DELETE",
+      "path": "/api/conversations/web-1795030077740-k72jww",
+      "requestBody": null,
+      "startedMs": 12079,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true
+      }
+    },
+    {
+      "atMs": 12081,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?codebaseId=2b90c3d7314351102899bd5180fc028f",
+      "requestBody": null,
+      "startedMs": 12081,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795029960581-pdavdm",
+          "ai_assistant_type": "claude",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch forge access check",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:00",
+          "updated_at": "2026-11-18 19:26:15",
+          "last_activity_at": "2026-11-18 19:26:00"
+        }
+      ]
+    },
+    {
+      "atMs": 12081,
+      "kind": "listed-after-delete",
+      "listed": false
+    },
+    {
+      "atMs": 12083,
+      "kind": "listed-in-all-after-delete",
+      "listed": false
+    },
+    {
+      "atMs": 12083,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030077740-k72jww",
+      "requestBody": null,
+      "startedMs": 12083,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "488f18aa4a4da826ff39aeba772d602b",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795030077740-k72jww",
+        "ai_assistant_type": "claude",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Recording Orchon refused launch",
+        "deleted_at": "2026-11-18 19:28:09",
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-18 19:27:57",
+        "updated_at": "2026-11-18 19:28:09",
+        "last_activity_at": "2026-11-18 19:27:57"
+      }
+    },
+    {
+      "atMs": 12084,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030077740-k72jww/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 12083,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "3363c6528b8a77097dea48ac96aa7707",
+          "conversation_id": "488f18aa4a4da826ff39aeba772d602b",
+          "role": "user",
+          "content": "Recording a refused launch for the Orchon plan: a required input left out.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:27:57"
+        },
+        {
+          "id": "463fd154c6d41b989b41e2a0977d1d1c",
+          "conversation_id": "488f18aa4a4da826ff39aeba772d602b",
+          "role": "assistant",
+          "content": "Starting workflow: `archon-review-eval-judge`This workflow requires input 'item', and none was supplied. Supply it with `--input item=<value>` on the CLI (repeat the flag per input), or fill the run form in the web console. When composing this workflow from another, pass the same values via `with:` on the `include:`/`workflow:` node. In chat, an assistant with the `invoke_workflow` tool supplies them when it starts the workflow. No worktree was created and no AI cost was incurred.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:28:00"
+        }
+      ]
+    },
+    {
+      "atMs": 12085,
+      "kind": "stream-end",
+      "label": "late",
+      "by": "recorder",
+      "error": "AbortError: This operation was aborted"
+    }
+  ]
+}

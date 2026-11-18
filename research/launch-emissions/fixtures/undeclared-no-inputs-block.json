@@ -1,0 +1,537 @@
+{
+  "scenario": "undeclared-no-inputs-block",
+  "recordedAt": "2026-11-18T19:26:40.152Z",
+  "codebaseId": "2b90c3d7314351102899bd5180fc028f",
+  "log": [
+    {
+      "atMs": 26,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/health",
+      "requestBody": null,
+      "startedMs": 1,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "status": "ok",
+        "adapter": "web",
+        "concurrency": {
+          "active": 0,
+          "queuedTotal": 0,
+          "maxConcurrent": 10,
+          "oldestActiveAgeMs": null,
+          "oldestQueuedAgeMs": null
+        },
+        "runningWorkflows": 0,
+        "version": "0.12.1",
+        "is_docker": false,
+        "is_wsl": false,
+        "storeId": "<store-id>",
+        "activePlatforms": [
+          "Web",
+          "GitHub",
+          "Telegram"
+        ],
+        "attentionDestinations": [
+          {
+            "id": "web-push",
+            "state": "no_subscribers"
+          }
+        ],
+        "schema": {
+          "createdAppVersion": "0.11.1",
+          "appVersion": "0.12.1",
+          "appliedAt": "2026-11-18 00:51:42"
+        }
+      }
+    },
+    {
+      "atMs": 32,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "2b90c3d7314351102899bd5180fc028f"
+      },
+      "startedMs": 26,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795030000182-vn78on",
+        "id": "98275f7b87fb80f629538c5889d5b924"
+      }
+    },
+    {
+      "atMs": 33,
+      "kind": "stream-open",
+      "label": "first",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 33,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795030000186}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795030000186
+      }
+    },
+    {
+      "atMs": 548,
+      "kind": "launch-sent"
+    },
+    {
+      "atMs": 552,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/archon-forge-check/run",
+      "requestBody": {
+        "conversationId": "web-1795030000182-vn78on",
+        "message": "Recording a refused launch for the Orchon plan: an undeclared input.",
+        "inputs": {
+          "not_declared": "x"
+        }
+      },
+      "startedMs": 548,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 552,
+      "kind": "launch-answered",
+      "status": 200
+    },
+    {
+      "atMs": 561,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795030000182-vn78on\",\"locked\":true,\"timestamp\":1795030000704}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795030000182-vn78on",
+        "locked": true,
+        "timestamp": 1795030000704
+      }
+    },
+    {
+      "atMs": 1420,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Starting workflow: `archon-forge-check`\",\"isComplete\":true,\"timestamp\":1795030001559}",
+      "data": {
+        "type": "text",
+        "content": "Starting workflow: `archon-forge-check`",
+        "isComplete": true,
+        "timestamp": 1795030001559
+      }
+    },
+    {
+      "atMs": 4003,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"🚀 Dispatching workflow: **archon-forge-check** (background)\",\"isComplete\":true,\"timestamp\":1795030004154,\"category\":\"workflow_dispatch_status\"}",
+      "data": {
+        "type": "text",
+        "content": "🚀 Dispatching workflow: **archon-forge-check** (background)",
+        "isComplete": true,
+        "timestamp": 1795030004154,
+        "category": "workflow_dispatch_status"
+      }
+    },
+    {
+      "atMs": 4003,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_dispatch\",\"workerConversationId\":\"web-worker-1795030004139-i7ampl\",\"workflowName\":\"archon-forge-check\",\"timestamp\":1795030004155}",
+      "data": {
+        "type": "workflow_dispatch",
+        "workerConversationId": "web-worker-1795030004139-i7ampl",
+        "workflowName": "archon-forge-check",
+        "timestamp": 1795030004155
+      }
+    },
+    {
+      "atMs": 4161,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795030000182-vn78on\",\"locked\":false,\"timestamp\":1795030004312}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795030000182-vn78on",
+        "locked": false,
+        "timestamp": 1795030004312
+      }
+    },
+    {
+      "atMs": 4164,
+      "kind": "run-found",
+      "pollSentMs": 4029,
+      "polls": 17,
+      "run": {
+        "id": "9e90be9a-4e40-4c44-8329-8a5b1ba80e68",
+        "conversation_id": "3220eb8b614e31b9a7c9181336dd88a5",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "workflow_name": "archon-forge-check",
+        "user_message": "Recording a refused launch for the Orchon plan: an undeclared input.",
+        "status": "pending",
+        "outcome": null,
+        "current_step_index": null,
+        "metadata": {
+          "ai_configuration": {
+            "version": 1,
+            "assistant": "claude",
+            "assistants": {
+              "claude": {
+                "model": "sonnet"
+              },
+              "codex": {},
+              "pi": {},
+              "opencode": {},
+              "copilot": {}
+            },
+            "baseAiProfile": {
+              "defaultProvider": "claude",
+              "aliases": {
+                "small": {
+                  "provider": "claude",
+                  "model": "haiku"
+                },
+                "medium": {
+                  "provider": "claude",
+                  "model": "sonnet"
+                },
+                "large": {
+                  "provider": "claude",
+                  "model": "opus"
+                }
+              }
+            },
+            "modelOverrides": {}
+          },
+          "inputs": {
+            "not_declared": "x"
+          },
+          "workflow_source": {
+            "version": 1,
+            "root": "<home>\\.archon\\workspaces\\<owner>\\Orchon\\workflow-source\\runs\\9e90be9a-4e40-4c44-8329-8a5b1ba80e68",
+            "origin": "<project-path>",
+            "captured_at": "2026-11-18T19:26:43.711Z",
+            "digest": "33d71bdc09a42bf7fe16d72b27121b19826d084581194891a36c8645938afeec",
+            "source_config": {
+              "load_default_workflows": true,
+              "load_default_commands": true
+            },
+            "file_count": 280,
+            "byte_count": 1251865
+          }
+        },
+        "parent_conversation_id": "98275f7b87fb80f629538c5889d5b924",
+        "user_id": null,
+        "parent_run_id": null,
+        "adopted_from_run_id": null,
+        "started_at": "2026-11-18T19:26:44.000Z",
+        "completed_at": null,
+        "last_activity_at": "2026-11-18T19:26:44.000Z",
+        "working_path": null,
+        "output_root": null,
+        "checkout_baseline": null,
+        "origin": {
+          "conversationId": "3220eb8b614e31b9a7c9181336dd88a5",
+          "parentConversationId": "98275f7b87fb80f629538c5889d5b924"
+        },
+        "platform_type": "web",
+        "worker_platform_id": "web-worker-1795030004139-i7ampl",
+        "parent_platform_id": "web-1795030000182-vn78on",
+        "codebase_name": "<owner>/Orchon",
+        "agents_completed": 0,
+        "agents_failed": 0,
+        "agents_total": null,
+        "active_nodes": [],
+        "current_step_name": null,
+        "current_step_status": null,
+        "total_steps": null,
+        "owner_observation": null,
+        "attention": null
+      }
+    },
+    {
+      "atMs": 4164,
+      "kind": "unexpected-run",
+      "runId": "9e90be9a-4e40-4c44-8329-8a5b1ba80e68"
+    },
+    {
+      "atMs": 4168,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/9e90be9a-4e40-4c44-8329-8a5b1ba80e68/cancel",
+      "requestBody": null,
+      "startedMs": 4164,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "Cannot cancel run with status 'pending'. Only a running run has live work to stop; abandon a paused or failed run instead."
+      }
+    },
+    {
+      "atMs": 4168,
+      "kind": "lock-released-seen",
+      "seen": true
+    },
+    {
+      "atMs": 5136,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"9e90be9a-4e40-4c44-8329-8a5b1ba80e68\",\"workflowName\":\"archon-forge-check\",\"status\":\"running\",\"timestamp\":1795030005283}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "9e90be9a-4e40-4c44-8329-8a5b1ba80e68",
+        "workflowName": "archon-forge-check",
+        "status": "running",
+        "timestamp": 1795030005283
+      }
+    },
+    {
+      "atMs": 5172,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030000182-vn78on",
+      "requestBody": null,
+      "startedMs": 5171,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "98275f7b87fb80f629538c5889d5b924",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795030000182-vn78on",
+        "ai_assistant_type": "claude",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": null,
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-18 19:26:40",
+        "updated_at": "2026-11-18 19:26:42",
+        "last_activity_at": "2026-11-18 19:26:40"
+      }
+    },
+    {
+      "atMs": 5173,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030000182-vn78on/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 5172,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "502d5b4308175c0db0d0a78a425a11bb",
+          "conversation_id": "98275f7b87fb80f629538c5889d5b924",
+          "role": "user",
+          "content": "Recording a refused launch for the Orchon plan: an undeclared input.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:40"
+        },
+        {
+          "id": "dedd4549a1487fc415361b17c66607a6",
+          "conversation_id": "98275f7b87fb80f629538c5889d5b924",
+          "role": "assistant",
+          "content": "Starting workflow: `archon-forge-check`",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:42"
+        },
+        {
+          "id": "295375d21fd8704eefdc0f45d10d8e6a",
+          "conversation_id": "98275f7b87fb80f629538c5889d5b924",
+          "role": "assistant",
+          "content": "🚀 Dispatching workflow: **archon-forge-check** (background)",
+          "metadata": "{\"category\":\"workflow_dispatch_status\",\"workflowDispatch\":{\"workerConversationId\":\"web-worker-1795030004139-i7ampl\",\"workflowName\":\"archon-forge-check\"}}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:44"
+        }
+      ]
+    },
+    {
+      "atMs": 5174,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?codebaseId=2b90c3d7314351102899bd5180fc028f",
+      "requestBody": null,
+      "startedMs": 5173,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "98275f7b87fb80f629538c5889d5b924",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795030000182-vn78on",
+          "ai_assistant_type": "claude",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": null,
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:40",
+          "updated_at": "2026-11-18 19:26:42",
+          "last_activity_at": "2026-11-18 19:26:40"
+        },
+        {
+          "id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795029960581-pdavdm",
+          "ai_assistant_type": "claude",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch forge access check",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:00",
+          "updated_at": "2026-11-18 19:26:15",
+          "last_activity_at": "2026-11-18 19:26:00"
+        }
+      ]
+    },
+    {
+      "atMs": 5174,
+      "kind": "listed-before-delete",
+      "listed": true
+    },
+    {
+      "atMs": 5176,
+      "kind": "http",
+      "method": "DELETE",
+      "path": "/api/conversations/web-1795030000182-vn78on",
+      "requestBody": null,
+      "startedMs": 5174,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true
+      }
+    },
+    {
+      "atMs": 5177,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?codebaseId=2b90c3d7314351102899bd5180fc028f",
+      "requestBody": null,
+      "startedMs": 5176,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "0cd06aa2e004dcb33d1c154071f6e618",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795029960581-pdavdm",
+          "ai_assistant_type": "claude",
+          "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch forge access check",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:00",
+          "updated_at": "2026-11-18 19:26:15",
+          "last_activity_at": "2026-11-18 19:26:00"
+        }
+      ]
+    },
+    {
+      "atMs": 5177,
+      "kind": "listed-after-delete",
+      "listed": false
+    },
+    {
+      "atMs": 5179,
+      "kind": "listed-in-all-after-delete",
+      "listed": false
+    },
+    {
+      "atMs": 5180,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030000182-vn78on",
+      "requestBody": null,
+      "startedMs": 5179,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "98275f7b87fb80f629538c5889d5b924",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795030000182-vn78on",
+        "ai_assistant_type": "claude",
+        "codebase_id": "2b90c3d7314351102899bd5180fc028f",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": null,
+        "deleted_at": "2026-11-18 19:26:45",
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-18 19:26:40",
+        "updated_at": "2026-11-18 19:26:45",
+        "last_activity_at": "2026-11-18 19:26:40"
+      }
+    },
+    {
+      "atMs": 5181,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795030000182-vn78on/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 5180,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "502d5b4308175c0db0d0a78a425a11bb",
+          "conversation_id": "98275f7b87fb80f629538c5889d5b924",
+          "role": "user",
+          "content": "Recording a refused launch for the Orchon plan: an undeclared input.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:40"
+        },
+        {
+          "id": "dedd4549a1487fc415361b17c66607a6",
+          "conversation_id": "98275f7b87fb80f629538c5889d5b924",
+          "role": "assistant",
+          "content": "Starting workflow: `archon-forge-check`",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:42"
+        },
+        {
+          "id": "295375d21fd8704eefdc0f45d10d8e6a",
+          "conversation_id": "98275f7b87fb80f629538c5889d5b924",
+          "role": "assistant",
+          "content": "🚀 Dispatching workflow: **archon-forge-check** (background)",
+          "metadata": "{\"category\":\"workflow_dispatch_status\",\"workflowDispatch\":{\"workerConversationId\":\"web-worker-1795030004139-i7ampl\",\"workflowName\":\"archon-forge-check\"}}",
+          "user_id": null,
+          "created_at": "2026-11-18 19:26:44"
+        }
+      ]
+    },
+    {
+      "atMs": 5183,
+      "kind": "stream-end",
+      "label": "first",
+      "by": "recorder",
+      "error": "AbortError: This operation was aborted"
+    }
+  ]
+}
