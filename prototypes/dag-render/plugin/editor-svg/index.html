@@ -18,13 +18,15 @@
         </select></label
       >
       <label><input id="expand" type="checkbox" /> Expand loop groups</label>
-      <button id="fit" type="button">Fit</button>
-      <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
-      <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
       <span id="stats" role="status">loading…</span>
     </header>
     <main>
-      <svg id="canvas" role="group" aria-label="Workflow graph">
+      <svg
+        id="canvas"
+        role="group"
+        tabindex="0"
+        aria-label="Workflow graph. Arrow keys move the view, plus and minus zoom, zero fits."
+      >
         <defs>
           <marker
             id="arrow"
@@ -39,6 +41,15 @@
           </marker>
         </defs>
         <g id="viewport"></g>
+      </svg>
+      <div class="controls" role="group" aria-label="Graph view">
+        <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+        <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+        <button id="fit" type="button" aria-label="Fit the graph to the view" title="Fit">⤢</button>
+      </div>
+      <svg id="minimap" role="img" aria-label="Overview of the whole graph">
+        <g id="mm-nodes"></g>
+        <rect id="mm-view" />
       </svg>
     </main>
     <aside id="detail" aria-label="Step detail"></aside>

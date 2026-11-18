@@ -8,6 +8,9 @@
   --st-paused: #9a6700;
   --st-skipped: var(--orca-muted-foreground);
   --st-pending: var(--orca-muted-foreground);
+  /* Stronger than Orca's border token, which is too faint for lines that carry meaning. */
+  --edge: color-mix(in srgb, var(--orca-foreground) 62%, var(--orca-background));
+  --node-border: color-mix(in srgb, var(--orca-foreground) 38%, var(--orca-background));
 }
 html.dark {
   --st-completed: #3fb950;

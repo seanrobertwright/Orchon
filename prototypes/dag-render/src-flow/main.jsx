@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   Background,
+  BaseEdge,
   Controls,
   Handle,
   MarkerType,
@@ -20,6 +21,7 @@ import './flow.css'
 import {
   STATUS_GLYPH,
   clipLabel,
+  edgePath,
   kindLine,
   layoutGraph,
   visibleGraph
@@ -52,7 +54,14 @@ function GroupNode({ data }) {
   )
 }
 
+// Draws the edge along dagre's routed points, as variant A does, in place of React Flow's own
+// curve between handles. The points are fixed, so nodes cannot be dragged while this is on.
+function RoutedEdge({ data, markerEnd, style }) {
+  return <BaseEdge path={edgePath(data.points)} markerEnd={markerEnd} style={style} />
+}
+
 const nodeTypes = { step: StepNode, loopGroup: GroupNode }
+const edgeTypes = { routed: RoutedEdge }
 
 function toNodes(layout, direction) {
   const box = new Map(layout.nodes.map((n) => [n.id, n]))
@@ -73,9 +82,11 @@ function toNodes(layout, direction) {
   })
 }
 
-function toEdges(layout) {
+function toEdges(layout, routed) {
   return layout.edges.map((e) => ({
     id: e.id,
+    type: routed ? 'routed' : undefined,
+    data: { points: e.points },
     source: e.from,
     target: e.to,
     className: e.conditional ? 'conditional' : undefined,
@@ -89,6 +100,7 @@ function App({ list, initial, pointer }) {
   const [direction, setDirection] = useState(pointer.direction === 'LR' ? 'LR' : 'TB')
   const [expand, setExpand] = useState(pointer.expand === true)
   const [cull, setCull] = useState(false)
+  const [routed, setRouted] = useState(true)
   const [graph, setGraph] = useState(null)
   const [selected, setSelected] = useState(null)
   const [stats, setStats] = useState('loading…')
@@ -107,7 +119,7 @@ function App({ list, initial, pointer }) {
       const t0 = performance.now()
       const layout = layoutGraph(next, direction)
       const t1 = performance.now()
-      const nextEdges = toEdges(layout)
+      const nextEdges = toEdges(layout, routed)
       setGraph(next)
       setSelected(null)
       setNodes(toNodes(layout, direction))
@@ -133,13 +145,13 @@ function App({ list, initial, pointer }) {
         `draw+measure ${(t2 - t1).toFixed(0)} ms · fit+paint ${(t3 - t2).toFixed(0)} ms`
       setStats(text)
       void orca.plugin.request('stats.report', {
-        line: `flow ${name}${expand ? ' expanded' : ''}: ${text.replace('\n', ' | ')}`
+        line: `flow ${name}${expand ? ' expanded' : ''}${routed ? ' routed' : ''}: ${text.replace('\n', ' | ')}`
       })
     })()
     return () => {
       stale = true
     }
-  }, [name, direction, expand, flow, setNodes, setEdges])
+  }, [name, direction, expand, routed, flow, setNodes, setEdges])
 
   useEffect(() => {
     if (graph && aside.current) {
@@ -177,6 +189,10 @@ function App({ list, initial, pointer }) {
           Expand loop groups
         </label>
         <label>
+          <input type="checkbox" checked={routed} onChange={(e) => setRouted(e.target.checked)} />
+          Route edges around steps
+        </label>
+        <label>
           <input type="checkbox" checked={cull} onChange={(e) => setCull(e.target.checked)} />
           Draw only what is in view
         </label>
@@ -189,6 +205,8 @@ function App({ list, initial, pointer }) {
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          nodesDraggable={!routed}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onSelectionChange={onSelectionChange}

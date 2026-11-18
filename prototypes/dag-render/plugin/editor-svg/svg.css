@@ -7,24 +7,78 @@
   touch-action: none;
   user-select: none;
 }
+.controls {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.controls button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+#minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 200px;
+  height: 140px;
+  background: var(--orca-card);
+  border: 1px solid var(--node-border);
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: none;
+}
+#minimap .mm-node {
+  fill: var(--orca-muted-foreground);
+}
+#minimap .mm-node.st-completed {
+  fill: var(--st-completed);
+}
+#minimap .mm-node.st-running {
+  fill: var(--st-running);
+}
+#minimap .mm-node.st-failed {
+  fill: var(--st-failed);
+}
+#minimap .mm-node.st-paused {
+  fill: var(--st-paused);
+}
+#minimap .mm-group {
+  fill: var(--orca-muted);
+  stroke: var(--node-border);
+  vector-effect: non-scaling-stroke;
+}
+#mm-view {
+  fill: var(--orca-ring);
+  fill-opacity: 0.15;
+  stroke: var(--orca-ring);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
 #canvas.panning {
   cursor: grabbing;
 }
 .edge {
   fill: none;
-  stroke: var(--orca-muted-foreground);
+  stroke: var(--edge);
   stroke-width: 1.4;
 }
 .edge.conditional {
   stroke-dasharray: 5 4;
 }
 .arrowhead {
-  fill: var(--orca-muted-foreground);
+  fill: var(--edge);
 }
 .group rect {
   fill: var(--orca-muted);
   fill-opacity: 0.45;
-  stroke: var(--orca-border);
+  stroke: var(--node-border);
   stroke-dasharray: 6 4;
 }
 .group text {
@@ -37,7 +91,7 @@
 }
 .node .box {
   fill: var(--orca-card);
-  stroke: var(--orca-border);
+  stroke: var(--node-border);
   stroke-width: 1;
 }
 .node:hover .box {

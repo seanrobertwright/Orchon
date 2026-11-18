@@ -18,6 +18,7 @@ const svg = $('canvas')
 const viewport = $('viewport')
 const aside = $('detail')
 const stats = $('stats')
+const minimap = $('minimap')
 
 function el(name, attrs = {}, text) {
   const e = document.createElementNS(SVG, name)
@@ -33,6 +34,38 @@ let autoFit = true // refit when the tab is resized, until the user pans or zoom
 
 function applyView() {
   viewport.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`)
+  // The minimap's frame is the part of the graph the canvas is showing.
+  const box = svg.getBoundingClientRect()
+  const frame = $('mm-view')
+  frame.setAttribute('x', -view.x / view.k)
+  frame.setAttribute('y', -view.y / view.k)
+  frame.setAttribute('width', box.width / view.k)
+  frame.setAttribute('height', box.height / view.k)
+}
+
+function drawMinimap(layout) {
+  minimap.setAttribute('viewBox', `0 0 ${layout.width} ${layout.height}`)
+  $('mm-nodes').replaceChildren(
+    ...layout.nodes.map((n) =>
+      el('rect', {
+        class: n.group ? 'mm-group' : `mm-node st-${n.data.status}`,
+        x: n.x,
+        y: n.y,
+        width: n.w,
+        height: n.h
+      })
+    )
+  )
+}
+
+/** Centres the canvas on the graph point under a minimap pointer event. */
+function panFromMinimap(e) {
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(minimap.getScreenCTM().inverse())
+  const box = svg.getBoundingClientRect()
+  autoFit = false
+  view.x = box.width / 2 - p.x * view.k
+  view.y = box.height / 2 - p.y * view.k
+  applyView()
 }
 
 function fit() {
@@ -103,6 +136,7 @@ function draw(layout) {
     frag.append(g)
   }
   viewport.replaceChildren(frag)
+  drawMinimap(layout)
 }
 
 async function show(name) {
@@ -163,14 +197,38 @@ svg.addEventListener('click', (e) => {
   const node = e.target.closest('.node')
   select(node ? node.dataset.id : null)
 })
+const PAN = { ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60] }
 svg.addEventListener('keydown', (e) => {
   const node = e.target.closest('.node')
   if (node && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault()
     select(node.dataset.id)
+  } else if (PAN[e.key]) {
+    e.preventDefault()
+    autoFit = false
+    view.x += PAN[e.key][0]
+    view.y += PAN[e.key][1]
+    applyView()
+  } else if (e.key === '+' || e.key === '=') {
+    zoomAt(1.25, ...centre())
+  } else if (e.key === '-') {
+    zoomAt(0.8, ...centre())
+  } else if (e.key === '0') {
+    autoFit = true
+    fit()
   }
 })
-const centre = () => {
+let mapDrag = false
+minimap.addEventListener('pointerdown', (e) => {
+  mapDrag = true
+  minimap.setPointerCapture(e.pointerId)
+  panFromMinimap(e)
+})
+minimap.addEventListener('pointermove', (e) => mapDrag && panFromMinimap(e))
+minimap.addEventListener('pointerup', () => {
+  mapDrag = false
+})
+function centre() {
   const box = svg.getBoundingClientRect()
   return [box.width / 2, box.height / 2]
 }
