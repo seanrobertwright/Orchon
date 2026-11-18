@@ -1,0 +1,3 @@
+# Files are stored and checked out byte for byte, so the committed editor JavaScript equals the
+# compiler output on every platform.
+* -text

@@ -1,0 +1,39 @@
+/* Shared by both editor tabs. Colours come from Orca's theme variables, never fixed values. */
+html {
+  color-scheme: light dark;
+}
+
+html.light {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--orca-background);
+  color: var(--orca-foreground);
+  font: 13px/1.5 system-ui, sans-serif;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 0.5rem;
+}
+
+.status {
+  color: var(--orca-muted-foreground);
+}
