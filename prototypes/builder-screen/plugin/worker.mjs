@@ -7,16 +7,20 @@ const FOLDER = '.orchon-proto'
 function makeOversizedWorkflow() {
   const nodes = []
   for (let i = 1; i <= 320; i++) {
-    nodes.push({
+    const kind = i % 5 === 0 ? 'bash' : i % 11 === 0 ? 'approval' : 'prompt'
+    const node = {
       id: `step-${String(i).padStart(3, '0')}`,
       label: `Step ${i}`,
-      kind: i % 5 === 0 ? 'bash' : i % 11 === 0 ? 'approval' : 'prompt',
-      dependsOn: i === 1 ? [] : [`step-${String(i - 1).padStart(3, '0')}`],
-      prompt: i % 5 === 0 || i % 11 === 0 ? undefined : `Run automated check #${i}`,
-      command: i % 5 === 0 ? `echo "check ${i}"` : undefined,
-      message: i % 11 === 0 ? `Gate #${i}` : undefined,
-      options: i % 11 === 0 ? ['Continue'] : undefined
-    })
+      kind,
+      dependsOn: i === 1 ? [] : [`step-${String(i - 1).padStart(3, '0')}`]
+    }
+    if (kind === 'prompt') node.prompt = `Run automated check #${i}`
+    if (kind === 'bash') node.command = `echo "check ${i}"`
+    if (kind === 'approval') {
+      node.message = `Gate #${i}`
+      node.options = ['Continue']
+    }
+    nodes.push(node)
   }
   return {
     key: 'project:oversized-pipeline',

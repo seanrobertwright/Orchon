@@ -526,6 +526,7 @@ function fieldSelect(label, value, options, onChange) {
 }
 
 function renderIssues() {
+  if (!state.workflow) return
   const { errors } = validateLocal(state.workflow)
   const total = state.serverErrors.length + errors.length
   $('issues-count').textContent = String(total)
@@ -679,6 +680,7 @@ function renderCanvas(skipLayout) {
 }
 
 function renderInspectorOrSidecar() {
+  if (!state.workflow) return
   if (state.variant === 'B') {
     $('sc-inspector').setAttribute('aria-selected', String(state.sidecarTab === 'inspector'))
     $('sc-outline').setAttribute('aria-selected', String(state.sidecarTab === 'outline'))
