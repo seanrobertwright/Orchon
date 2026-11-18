@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Orchon Builder Prototype</title>
+    <link rel="stylesheet" href="./chrome.css" />
+    <link rel="stylesheet" href="./builder.css" />
+  </head>
+  <body data-variant="A">
+    <header id="topbar">
+      <div class="wf-identity">
+        <select id="wf-select" aria-label="Workflow"></select>
+        <span id="wf-scope" class="badge">project</span>
+        <span id="wf-file" class="file-path"></span>
+      </div>
+      <div class="header-actions">
+        <span id="dirty-badge" class="badge dirty" hidden>Unsaved changes</span>
+        <button id="discard-btn" type="button" hidden title="Discard unsaved draft">Discard</button>
+        <button id="width-toggle" type="button" title="Toggle 780px narrow viewport simulation">780px</button>
+        <button id="validate-btn" type="button">Validate</button>
+        <button id="save-btn" type="button" class="primary">Save</button>
+      </div>
+      <div id="status-line" role="status" aria-live="polite">Loading…</div>
+    </header>
+
+    <div id="connect-banner" class="connect-banner" hidden role="status">
+      <span id="connect-text"></span>
+      <button id="connect-cancel" type="button">Cancel (Esc)</button>
+    </div>
+
+    <div id="workspace">
+      <aside id="outline-pane" aria-label="Node outline">
+        <div class="pane-head">
+          <h2>Outline <span id="outline-count" class="muted"></span></h2>
+          <div class="add-row">
+            <select id="add-kind" aria-label="New node kind">
+              <option value="prompt">+ Prompt</option>
+              <option value="bash">+ Bash</option>
+              <option value="loop">+ Loop</option>
+              <option value="approval">+ Gate</option>
+            </select>
+            <button id="add-node-btn" type="button">Add</button>
+          </div>
+        </div>
+        <ul id="outline-list" role="listbox" aria-label="Workflow steps"></ul>
+      </aside>
+
+      <section id="canvas-pane" aria-label="Workflow canvas">
+        <div class="canvas-toolbar">
+          <div class="view-tabs" role="tablist" aria-label="Center view">
+            <button id="tab-canvas" type="button" role="tab" aria-selected="true">Canvas</button>
+            <button id="tab-yaml" type="button" role="tab" aria-selected="false">YAML</button>
+            <button id="tab-issues" type="button" role="tab" aria-selected="false" class="tab-issues-btn">
+              Issues <span id="issues-count-tab" class="badge">0</span>
+            </button>
+          </div>
+          <div class="canvas-tools">
+            <label>
+              Dir
+              <select id="direction" aria-label="Graph direction">
+                <option value="TB">TB</option>
+                <option value="LR">LR</option>
+              </select>
+            </label>
+            <button id="connect-btn" type="button" title="Connect selected node to another (C)">Connect</button>
+          </div>
+        </div>
+
+        <div id="canvas-stage">
+          <svg
+            id="canvas"
+            role="group"
+            tabindex="0"
+            aria-label="Workflow graph. Arrow keys pan, plus and minus zoom, zero fits, C connects selected node."
+          >
+            <defs>
+              <marker
+                id="arrow"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path class="arrowhead" d="M0,0L10,5L0,10z" />
+              </marker>
+              <marker
+                id="arrow-selected"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path class="arrowhead-selected" d="M0,0L10,5L0,10z" />
+              </marker>
+            </defs>
+            <g id="viewport"></g>
+          </svg>
+          <div class="controls" role="group" aria-label="Graph view">
+            <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+            <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+            <button id="fit" type="button" aria-label="Fit graph" title="Fit">⤢</button>
+          </div>
+          <svg id="minimap" role="img" aria-label="Graph overview">
+            <g id="mm-nodes"></g>
+            <rect id="mm-view" />
+          </svg>
+          <div id="cap-notice" class="cap-notice" hidden>
+            <h3>Canvas disabled past 300 nodes</h3>
+            <p id="cap-notice-text"></p>
+            <p class="muted">Select, add, remove, and edit nodes using the outline and inspector.</p>
+          </div>
+        </div>
+
+        <pre id="yaml-view" hidden aria-label="Read-only YAML preview"></pre>
+      </section>
+
+      <aside id="inspector-pane" aria-label="Inspector">
+        <div id="sidecar-tabs" class="view-tabs sidecar-only" role="tablist" aria-label="Sidecar">
+          <button id="sc-inspector" type="button" role="tab" aria-selected="true">Inspector</button>
+          <button id="sc-outline" type="button" role="tab" aria-selected="false">Outline</button>
+          <button id="sc-yaml" type="button" role="tab" aria-selected="false">YAML</button>
+        </div>
+        <div id="inspector-body"></div>
+      </aside>
+
+      <section id="issues-pane" aria-label="Validation issues">
+        <div class="pane-head">
+          <h2>Issues <span id="issues-count" class="badge">0</span></h2>
+          <span id="issues-hint" class="muted">Local + server checks</span>
+        </div>
+        <div id="issues-list"></div>
+      </section>
+    </div>
+
+    <nav id="proto-switcher" aria-label="Prototype layout variants">
+      <button id="var-prev" type="button" aria-label="Previous layout variant">←</button>
+      <span id="var-label">A — Split-rail IDE</span>
+      <button id="var-next" type="button" aria-label="Next layout variant">→</button>
+    </nav>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

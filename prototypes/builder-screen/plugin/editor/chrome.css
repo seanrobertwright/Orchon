@@ -1,0 +1,94 @@
+/* PROTOTYPE - throwaway. Orca theme tokens + semantic tokens for light and dark themes. */
+:root {
+  --st-ok: #1a7f37;
+  --st-warn: #9a6700;
+  --st-err: #cf222e;
+  --st-ro: #6e7781;
+  --edge: color-mix(in srgb, var(--orca-foreground, #1f2328) 58%, var(--orca-background, #ffffff));
+  --node-border: color-mix(in srgb, var(--orca-foreground, #1f2328) 36%, var(--orca-background, #ffffff));
+}
+html.dark {
+  --st-ok: #3fb950;
+  --st-warn: #d29922;
+  --st-err: #f85149;
+  --st-ro: #8b949e;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  font: 13px/1.4 system-ui, -apple-system, sans-serif;
+  color: var(--orca-foreground, #1f2328);
+  background: var(--orca-background, #ffffff);
+  overflow: hidden;
+}
+select,
+button,
+input,
+textarea {
+  font: inherit;
+  color: var(--orca-foreground, #1f2328);
+  background: var(--orca-background, #ffffff);
+  border: 1px solid var(--orca-input, #d0d7de);
+  border-radius: var(--orca-radius, 6px);
+  padding: 4px 8px;
+}
+button {
+  color: var(--orca-secondary-foreground, #1f2328);
+  background: var(--orca-secondary, #f6f8fa);
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--orca-accent, #eaeef2);
+  color: var(--orca-accent-foreground, #1f2328);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.primary {
+  background: var(--orca-primary, #0969da);
+  color: var(--orca-primary-foreground, #ffffff);
+  border-color: transparent;
+}
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+button.danger {
+  color: var(--st-err);
+  border-color: color-mix(in srgb, var(--st-err) 45%, transparent);
+}
+:focus-visible {
+  outline: 2px solid var(--orca-ring, #0969da);
+  outline-offset: 1px;
+}
+.muted {
+  color: var(--orca-muted-foreground, #656d76);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--orca-muted, #eff1f3);
+  color: var(--orca-muted-foreground, #656d76);
+}
+.badge.dirty {
+  background: color-mix(in srgb, var(--st-warn) 18%, transparent);
+  color: var(--st-warn);
+}
+.badge.ro {
+  background: color-mix(in srgb, var(--st-ro) 16%, transparent);
+  color: var(--st-ro);
+}
+.badge.err {
+  background: color-mix(in srgb, var(--st-err) 16%, transparent);
+  color: var(--st-err);
+}

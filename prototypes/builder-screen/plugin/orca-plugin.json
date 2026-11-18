@@ -1,0 +1,36 @@
+{
+  "manifestVersion": 2,
+  "id": "orchon-builder-prototype",
+  "name": "Orchon Builder prototype (throwaway)",
+  "version": "0.1.0",
+  "description": "PROTOTYPE, not for use. Explores the workflow builder editing screen layout, connect mode, inspector forms, read-only nodes, >300 node cap, Ctrl/Cmd+S, and draft restore.",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "worker.mjs",
+  "capabilities": [
+    { "kind": "workspace:read" },
+    { "kind": "workspace:write" },
+    { "kind": "storage:own" }
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "orchon-builder-proto.open",
+        "title": "Orchon prototype: open workflow builder",
+        "when": "workspace"
+      }
+    ],
+    "customEditors": [
+      {
+        "id": "workflow-builder",
+        "title": "Orchon Builder (prototype)",
+        "extensions": [".orchonbuilder"],
+        "entry": "editor/index.html",
+        "frame": "isolated"
+      }
+    ]
+  }
+}

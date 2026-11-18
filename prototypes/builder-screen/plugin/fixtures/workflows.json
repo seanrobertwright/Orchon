@@ -1,0 +1,135 @@
+{
+  "workflows": [
+    {
+      "key": "project:archon-assist",
+      "name": "archon-assist",
+      "scope": "project",
+      "file": ".archon/workflows/archon-assist.yaml",
+      "description": "Default coding workflow with plan, implement loop, gate, and review.",
+      "nodes": [
+        {
+          "id": "triage",
+          "label": "Triage request",
+          "kind": "prompt",
+          "dependsOn": [],
+          "prompt": "Read the user request and classify whether it needs a code change, research, or a question.",
+          "model": "claude-sonnet-4-5",
+          "triggerRule": "all_success",
+          "when": ""
+        },
+        {
+          "id": "setup-env",
+          "label": "Setup workspace",
+          "kind": "bash",
+          "dependsOn": ["triage"],
+          "command": "npm ci --prefer-offline",
+          "runtime": "bun",
+          "when": "triage.output.needsCode == true"
+        },
+        {
+          "id": "implement-loop",
+          "label": "Implement & test loop",
+          "kind": "loop",
+          "dependsOn": ["setup-env"],
+          "prompt": "Implement the requested change and run tests until green.",
+          "maxIterations": 5,
+          "until": "ALL_TESTS_PASS",
+          "interactive": false,
+          "freshContext": true,
+          "model": "claude-opus-4-5",
+          "triggerRule": "all_success",
+          "when": "",
+          "extra": {
+            "hooks": { "after_iteration": "git status --short" },
+            "output_schema": { "type": "object", "required": ["summary"] },
+            "env": { "CI": "true" }
+          }
+        },
+        {
+          "id": "human-gate",
+          "label": "Approve PR",
+          "kind": "approval",
+          "dependsOn": ["implement-loop"],
+          "message": "Review the diff and test results before pushing.",
+          "options": ["Approve & push", "Request changes"],
+          "extra": {
+            "capture_response": true
+          }
+        },
+        {
+          "id": "sub-flow",
+          "label": "Release checks (include)",
+          "kind": "include",
+          "dependsOn": ["human-gate"],
+          "readOnlyReason": "include nodes are read-only in the builder and preserved unchanged.",
+          "extra": {
+            "include": "shared/release-checks.yaml",
+            "with": { "strict": true }
+          }
+        },
+        {
+          "id": "nested-group",
+          "label": "Cleanup group",
+          "kind": "loop_group",
+          "dependsOn": ["human-gate"],
+          "readOnlyReason": "loop_group nodes are read-only in the builder and preserved unchanged.",
+          "extra": {
+            "max_iterations": 2,
+            "steps": ["lint-fix", "format-check"]
+          }
+        },
+        {
+          "id": "bad-script",
+          "label": "Legacy script (no runtime)",
+          "kind": "script",
+          "dependsOn": ["triage"],
+          "readOnlyReason": "script node has no runtime field; opened read-only so nothing is dropped.",
+          "extra": {
+            "script": "echo 'legacy check'"
+          }
+        },
+        {
+          "id": "dual-loop",
+          "label": "Malformed loop (prompt+command)",
+          "kind": "loop",
+          "dependsOn": [],
+          "readOnlyReason": "loop node has both prompt and command; opened read-only so command is not dropped.",
+          "extra": {
+            "prompt": "Check status",
+            "command": "npm test",
+            "max_iterations": 3
+          }
+        }
+      ]
+    },
+    {
+      "key": "global:archon-assist",
+      "name": "archon-assist",
+      "scope": "global",
+      "file": "~/.archon/workflows/archon-assist.yaml",
+      "description": "Global fallback archon-assist workflow (same name as project workflow!).",
+      "nodes": [
+        {
+          "id": "plan",
+          "label": "Draft plan",
+          "kind": "prompt",
+          "dependsOn": [],
+          "prompt": "Summarize the goal and list the files likely affected.",
+          "model": "claude-sonnet-4-5",
+          "triggerRule": "all_success",
+          "when": ""
+        },
+        {
+          "id": "execute",
+          "label": "Execute plan",
+          "kind": "prompt",
+          "dependsOn": ["plan"],
+          "prompt": "Carry out the plan step by step.",
+          "model": "claude-sonnet-4-5",
+          "triggerRule": "all_success",
+          "when": ""
+        }
+      ]
+    }
+  ]
+}
