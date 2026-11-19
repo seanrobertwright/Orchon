@@ -4,8 +4,10 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { isSameOrInside } from './home.ts'
 import type { Answer } from './http.ts'
+import { field, text } from '../shape.ts'
 import type { StreamReader, Tape } from './recording.ts'
 import type { Session } from './session.ts'
+import { sleep } from './wait.ts'
 import { assertLaunchable, assertReadWithoutAgent, RECORDER_WORKFLOWS, type WorkflowDefinition } from './workflows.ts'
 
 export interface RecordingContext {
@@ -15,19 +17,6 @@ export interface RecordingContext {
   archonHome: string
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms))
-
-/** A field of an answer, or undefined when the answer has another shape. Nothing here trusts a shape. */
-function field(value: unknown, ...keys: string[]): unknown {
-  let current = value
-  for (const key of keys) {
-    if (typeof current !== 'object' || current === null || !Object.hasOwn(current, key)) return undefined
-    current = (current as Record<string, unknown>)[key]
-  }
-  return current
-}
-
-const text = (value: unknown): string | undefined => (typeof value === 'string' && value !== '' ? value : undefined)
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
 
 /** An id as one path segment. */
@@ -35,13 +24,22 @@ const segment = (id: string): string => encodeURIComponent(id)
 
 const TERMINAL: readonly string[] = ['completed', 'failed', 'cancelled']
 
-/** Runs one scenario. A scenario that fails is noted as a gap and the next one still runs. */
-async function attempt(session: Session, what: string, scenario: () => Promise<void>): Promise<void> {
+/** Runs one scenario and answers what it answers. A scenario that fails is noted as a gap and answers null. */
+async function recordOrNull<T>(session: Session, what: string, scenario: () => Promise<T | null>): Promise<T | null> {
   try {
-    await scenario()
+    return await scenario()
   } catch (error) {
     session.missing(what, error instanceof Error ? error.message : String(error))
+    return null
   }
+}
+
+/** Runs one scenario. A scenario that fails is noted as a gap and the next one still runs. */
+async function attempt(session: Session, what: string, scenario: () => Promise<void>): Promise<void> {
+  await recordOrNull(session, what, async () => {
+    await scenario()
+    return null
+  })
 }
 
 /** One request, kept as its own fixture. */
@@ -97,23 +95,33 @@ async function runsOf(tape: Tape, project: Project): Promise<unknown[]> {
 const belongsTo = (run: unknown, conversation: Conversation): boolean =>
   field(run, 'parent_conversation_id') === conversation.id || field(run, 'parent_platform_id') === conversation.conversationId
 
+/**
+ * Calls `probe` every `everyMs` until it answers something other than undefined, and answers
+ * that. Answers undefined when `forMs` has passed on `now` first.
+ */
+async function pollUntil<T>(now: () => number, forMs: number, everyMs: number, probe: () => Promise<T | undefined>): Promise<T | undefined> {
+  const until = now() + forMs
+  while (now() < until) {
+    const found = await probe()
+    if (found !== undefined) return found
+    await sleep(everyMs)
+  }
+  return undefined
+}
+
 /** Polls the project's runs until one belongs to the conversation, or the time is up. */
 async function waitForRun(tape: Tape, project: Project, conversation: Conversation, forMs: number): Promise<string | null> {
-  const until = tape.at() + forMs
   let polls = 0
-  while (tape.at() < until) {
+  const id = await pollUntil(tape.at, forMs, 200, async () => {
     const pollSentMs = tape.at()
     const run = (await runsOf(tape, project)).find((row) => belongsTo(row, conversation))
     polls += 1
-    const id = text(field(run, 'id'))
-    if (id !== undefined) {
-      tape.note('run-found', { pollSentMs, polls, run })
-      return id
-    }
-    await sleep(200)
-  }
-  tape.note('run-not-found', { polls, waitedMs: forMs })
-  return null
+    const found = text(field(run, 'id'))
+    if (found !== undefined) tape.note('run-found', { pollSentMs, polls, run })
+    return found
+  })
+  if (id === undefined) tape.note('run-not-found', { polls, waitedMs: forMs })
+  return id ?? null
 }
 
 async function statusOf(tape: Tape, runId: string): Promise<string | undefined> {
@@ -123,40 +131,38 @@ async function statusOf(tape: Tape, runId: string): Promise<string | undefined> 
 
 /** Polls a run until its status is one of `statuses`, noting each change. Answers the last status seen. */
 async function waitForStatus(tape: Tape, runId: string, statuses: readonly string[], forMs: number): Promise<string | undefined> {
-  const until = tape.at() + forMs
   let last: string | undefined
-  while (tape.at() < until) {
+  const reached = await pollUntil(tape.at, forMs, 250, async () => {
     const status = await statusOf(tape, runId)
     if (status !== last) {
       tape.note('run-status', { status: status ?? null, was: last ?? null })
       last = status
     }
-    if (status !== undefined && statuses.includes(status)) return status
-    await sleep(250)
-  }
+    return status !== undefined && statuses.includes(status) ? status : undefined
+  })
+  if (reached !== undefined) return reached
   tape.note('run-status-timeout', { waitedFor: statuses, waitedMs: forMs })
   return last
 }
 
 /** The run's row in the attention queue, once it is there. */
 async function waitForAttention(tape: Tape, runId: string, forMs: number): Promise<unknown> {
-  const until = tape.at() + forMs
-  while (tape.at() < until) {
-    const answer = await tape.peek('GET', '/api/runs/attention?all=true')
-    const row = list(field(answer.body, 'runs')).find((run) => field(run, 'id') === runId && field(run, 'attention') != null)
-    if (row !== undefined) return row
-    await sleep(250)
-  }
-  throw new Error('The run never reached the attention queue.')
+  const row = await pollUntil(tape.at, forMs, 250, async () =>
+    (await attentionRows(tape)).find((run) => field(run, 'id') === runId && field(run, 'attention') != null)
+  )
+  if (row === undefined) throw new Error('The run never reached the attention queue.')
+  return row
+}
+
+/** Every row of the attention queue, including the ones it would not show. */
+async function attentionRows(tape: Tape): Promise<unknown[]> {
+  const answer = await tape.peek('GET', '/api/runs/attention?all=true')
+  return list(field(answer.body, 'runs'))
 }
 
 async function waitFor(test: () => boolean, forMs: number): Promise<boolean> {
-  const until = performance.now() + forMs
-  while (performance.now() < until) {
-    if (test()) return true
-    await sleep(50)
-  }
-  return test()
+  const passed = await pollUntil(() => performance.now(), forMs, 50, async () => (test() ? true : undefined))
+  return passed ?? test()
 }
 
 const sawUnlock = (reader: StreamReader): boolean =>
@@ -314,8 +320,14 @@ async function recordConfigWrites(session: Session): Promise<void> {
 // Launches of the recorder's own workflows, which have no agent.
 // ---------------------------------------------------------------------------------------------
 
+/** The run an accepted launch started, and the conversation it was launched from. */
+interface AcceptedRun {
+  runId: string
+  conversation: Conversation
+}
+
 /** A launch that starts a run, with the dashboard stream and the conversation's stream open from before it. */
-async function recordAcceptedLaunch(session: Session, project: Project): Promise<{ runId: string; conversation: Conversation } | null> {
+async function recordAcceptedLaunch(session: Session, project: Project): Promise<AcceptedRun | null> {
   const tape = session.tape()
   const conversation = await createConversation(tape, project)
   const dashboard = await tape.stream('dashboard', '/api/stream/__dashboard__')
@@ -454,14 +466,12 @@ async function recordWaiting(session: Session, name: string, holds: string, runI
 
 /** Waits until the run's attention row is of `kind`. */
 async function waitForAttentionKind(tape: Tape, runId: string, kind: string): Promise<unknown> {
-  const until = tape.at() + 60_000
-  while (tape.at() < until) {
-    const answer = await tape.peek('GET', '/api/runs/attention?all=true')
-    const row = list(field(answer.body, 'runs')).find((run) => field(run, 'id') === runId)
-    if (field(row, 'attention', 'kind') === kind) return row
-    await sleep(250)
-  }
-  throw new Error(`The run never waited with attention kind ${kind}.`)
+  const row = await pollUntil(tape.at, 60_000, 250, async () => {
+    const found = (await attentionRows(tape)).find((run) => field(run, 'id') === runId)
+    return field(found, 'attention', 'kind') === kind ? found : undefined
+  })
+  if (row === undefined) throw new Error(`The run never waited with attention kind ${kind}.`)
+  return row
 }
 
 /** The two ids that name an open gate: the step, and the pause Archon gave it. */
@@ -624,16 +634,9 @@ export async function recordRelease(session: Session, context: RecordingContext)
   await attempt(session, 'validate', () => recordValidate(session))
 
   const project = await registerProject(session, context)
-  let bundled: BundledWorkflow[] = []
-  await attempt(session, 'the workflow list and the bundled workflows', async () => {
-    bundled = await recordWorkflows(session, project)
-  })
+  const bundled = (await recordOrNull(session, 'the workflow list and the bundled workflows', () => recordWorkflows(session, project))) ?? []
 
-  let accepted: { runId: string; conversation: Conversation } | null = null
-  await attempt(session, 'launch-accepted', async () => {
-    accepted = await recordAcceptedLaunch(session, project)
-  })
-  const started = accepted as { runId: string; conversation: Conversation } | null
+  const started = await recordOrNull(session, 'launch-accepted', () => recordAcceptedLaunch(session, project))
   if (started === null) {
     session.missing('the reads of a finished run', 'no accepted launch produced a run')
     session.missing('the YAML of the bundled workflows', 'no accepted launch produced a run to read them from')

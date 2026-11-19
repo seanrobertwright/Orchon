@@ -7,6 +7,7 @@ import { closeSync, openSync } from 'node:fs'
 import { join } from 'node:path'
 import { releaseEnvironment } from './environment.ts'
 import { assertOwnHome, type ThrowawayHome } from './home.ts'
+import { sleep } from './wait.ts'
 
 export interface Finished {
   /** The exit code, or null when the program did not start, was stopped or ran out of time. */
@@ -17,8 +18,6 @@ export interface Finished {
 
 /** How long a program is given to end after it is asked to, before it is killed. */
 export const STOP_GRACE_MS = 5000
-
-const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms))
 
 /** Whether `ended` settles within `ms`. */
 const endsWithin = (ended: Promise<void>, ms: number): Promise<boolean> =>

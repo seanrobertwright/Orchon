@@ -9,6 +9,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { isSkippedPath, repoRoot } from './repo-files.ts'
+import { isRefusal, type Refusal } from './shape.ts'
 
 export interface Finding {
   path: string
@@ -114,7 +115,7 @@ export function checkFiles(paths: readonly string[], root: string): Finding[] {
 }
 
 /** The folder to read from: null for the working tree. An argument it does not know is an error. */
-export function parseArguments(args: readonly string[]): { root: string | null } | { error: string } {
+export function parseArguments(args: readonly string[]): { root: string | null } | Refusal {
   if (args.length === 0) return { root: null }
   const [flag, folder] = args
   if (args.length === 2 && flag === '--root' && folder !== undefined && folder !== '') {
@@ -133,7 +134,7 @@ function isFolder(path: string): boolean {
 
 async function main(): Promise<number> {
   const parsed = parseArguments(process.argv.slice(2))
-  if ('error' in parsed) {
+  if (isRefusal(parsed)) {
     console.error(parsed.error)
     return 2
   }

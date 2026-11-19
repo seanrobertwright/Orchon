@@ -1,4 +1,5 @@
 // The recorder's command line, parsed before anything is started.
+import type { Refusal } from '../shape.ts'
 
 /** The port a developer's own Archon listens on by default. The recorder never binds or calls it. */
 export const DEVELOPER_PORT = 3090
@@ -36,7 +37,7 @@ function parsePort(text: string): number | null {
 }
 
 /** The arguments, or one sentence saying what is wrong with them. */
-export function parseArguments(args: readonly string[]): RecorderArguments | { error: string } {
+export function parseArguments(args: readonly string[]): RecorderArguments | Refusal {
   const values = new Map<Flag, string>()
   const positional: string[] = []
   for (let index = 0; index < args.length; index += 1) {

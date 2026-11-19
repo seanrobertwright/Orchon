@@ -23,9 +23,9 @@ import { createThrowawayProject } from './recorder/project.ts'
 import { recordRelease } from './recorder/scenarios.ts'
 import { createScrubber, machineRules } from './recorder/scrub.ts'
 import { createSession, scrubFiles } from './recorder/session.ts'
+import { sleep } from './recorder/wait.ts'
 import { repoRoot } from './repo-files.ts'
-
-const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms))
+import { field, isRefusal, text } from './shape.ts'
 
 /**
  * The provider installed into the throwaway home with the release's own `provider add`. No
@@ -44,16 +44,11 @@ async function answersAtAll(client: LoopbackClient): Promise<boolean> {
 }
 
 /** The store id a health answer reports, when the release reports one. */
-function storeIdOf(health: unknown): string | null {
-  if (typeof health !== 'object' || health === null || !Object.hasOwn(health, 'storeId')) return null
-  const storeId: unknown = (health as Record<string, unknown>).storeId
-  return typeof storeId === 'string' && storeId !== '' ? storeId : null
-}
+const storeIdOf = (health: unknown): string | null => text(field(health, 'storeId')) ?? null
 
 /** The version a health answer reports. */
 function versionOf(health: unknown): string | null {
-  if (typeof health !== 'object' || health === null || !Object.hasOwn(health, 'version')) return null
-  const version: unknown = (health as Record<string, unknown>).version
+  const version = field(health, 'version')
   return typeof version === 'string' ? version : null
 }
 
@@ -63,7 +58,7 @@ function versionOf(health: unknown): string | null {
  */
 async function record(signal: AbortSignal): Promise<number> {
   const args = parseArguments(process.argv.slice(2))
-  if ('error' in args) {
+  if (isRefusal(args)) {
     console.error(`${args.error}\n\n${USAGE}`)
     return 2
   }

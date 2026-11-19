@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
+import { field } from '../shape.ts'
 
 /** The marker's file name, at the root of a throwaway home. */
 export const HOME_MARKER = 'orchon-recorder.json'
@@ -93,8 +94,7 @@ function markerToken(root: string): string | null {
   } catch {
     return null
   }
-  if (typeof parsed !== 'object' || parsed === null || !Object.hasOwn(parsed, 'token')) return null
-  const token: unknown = (parsed as Record<string, unknown>).token
+  const token = field(parsed, 'token')
   return typeof token === 'string' ? token : null
 }
 

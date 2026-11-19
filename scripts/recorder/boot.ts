@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs'
 import type { Answer, LoopbackClient } from './http.ts'
 import { untilInterrupted } from './interrupt.ts'
+import { pause } from './wait.ts'
 
 /** How long a release may take to answer its first health check: it downloads its server first. */
 export const BOOT_TIMEOUT_MS = 300_000
@@ -23,21 +24,6 @@ function lastLines(file: string, count: number): string {
   } catch {
     return ''
   }
-}
-
-/** Resolves after `ms`, or rejects with the signal's reason as soon as it aborts. */
-function pause(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const onAbort = (): void => {
-      clearTimeout(timer)
-      reject(signal.reason)
-    }
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
 }
 
 /** The body of the first `GET /api/health` that answers 200. */
