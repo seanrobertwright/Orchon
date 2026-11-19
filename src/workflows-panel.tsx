@@ -339,7 +339,8 @@ export function workflowsSection(state: Connected, writable: boolean): OrcaNode 
   else if (view.kind === 'not-connected') body = null
   else if (view.kind === 'failed') body = <Text>{`Orchon could not read Archon's projects. ${view.message}`}</Text>
   else body = ready(view, writable)
-  // Archon's console has no page of its own for workflows: its workflow builder lists them.
+  // Archon's console has no workflows page at the releases tested; its workflow builder is the
+  // nearest page.
   const openConsole = (): void => {
     shell.openExternal(`${state.baseUrl}/console/builder`).catch(() => {})
   }
