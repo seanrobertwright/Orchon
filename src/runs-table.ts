@@ -6,29 +6,25 @@ import type { Client } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage } from './dashboard-runs'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { isRecord } from './records'
+import { isRecord, refuseRequest } from './records'
 import { ROWS_CAP, STATUS_FILTERS, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
 
 /** How many runs the worker asks Archon for at a time. */
 export const PAGE_SIZE = 50
 
-function refuse(message: string): never {
-  throw Object.assign(new Error(message), { code: 'invalid_params' })
-}
-
 const isFilter = (value: unknown): value is StatusFilter => STATUS_FILTERS.some((filter) => filter === value)
 
 /** A frame's request, or a refusal: a known filter, and a whole number of rows from 1 to the cap. */
 export function parseRunsRequest(input: unknown): RunsRequest {
-  if (!isRecord(input)) refuse('The runs request takes a status and a number of rows.')
+  if (!isRecord(input)) refuseRequest('The runs request takes a status and a number of rows.')
   const status = Object.hasOwn(input, 'status') ? input['status'] : undefined
   const rows = Object.hasOwn(input, 'rows') ? input['rows'] : undefined
-  if (!isFilter(status)) refuse(`The status must be one of ${STATUS_FILTERS.join(', ')}.`)
+  if (!isFilter(status)) refuseRequest(`The status must be one of ${STATUS_FILTERS.join(', ')}.`)
   if (typeof rows !== 'number' || !Number.isSafeInteger(rows) || rows < 1 || rows > ROWS_CAP) {
-    refuse(`The number of rows must be a whole number from 1 to ${String(ROWS_CAP)}.`)
+    refuseRequest(`The number of rows must be a whole number from 1 to ${String(ROWS_CAP)}.`)
   }
   for (const key of Object.keys(input)) {
-    if (key !== 'status' && key !== 'rows') refuse(`The runs request does not take ${key}.`)
+    if (key !== 'status' && key !== 'rows') refuseRequest(`The runs request does not take ${key}.`)
   }
   return { status, rows }
 }

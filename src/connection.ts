@@ -8,6 +8,7 @@ import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
 import { checkPaths } from './path-check'
+import { refuseRequest } from './records'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
@@ -259,7 +260,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
 /** A frame sends these requests with no input. Anything else is refused. */
 function refuseInput(input: unknown): void {
   if (input === undefined || input === null) return
-  throw Object.assign(new Error('This request takes no input.'), { code: 'invalid_params' })
+  refuseRequest('This request takes no input.')
 }
 
 /** A started connection: what the data requests read through, and what stops it. */
