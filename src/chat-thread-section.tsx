@@ -1,7 +1,8 @@
 // A chat thread, the second level of the Chat section: one conversation's saved messages, newest
 // first, in the panel's own scroll. It draws only the worker's view model and fetches it under
-// the shared per-view fetch rules, every 30 seconds while it shows. It reads saved messages only:
-// sending a message and following a reply as it streams belong to later tickets.
+// the shared per-view fetch rules, every 30 seconds while it shows and every 3 seconds while a
+// turn is in flight. The composer of `chat-composer.tsx` sits at its top. It reads saved messages
+// only, with no stream: a turn is inferred from them.
 import {
   atom,
   Button,
