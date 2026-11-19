@@ -9,7 +9,7 @@ import { cutAt, oneLine } from './cutter'
 import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage, parseRun } from './dashboard-runs'
 import type { RunsHint, ShowRuns } from './hint-view'
 import { identities, type Notice } from './notifications'
-import { isRecord, own, ownRecord } from './records'
+import { errorText, isRecord, own, ownRecord } from './records'
 import { CALLOUT_CAP, ROWS_CAP, type NeedsYouView, type RunRow, type Waiting } from './runs-view'
 import type { SnapshotCounts } from './status-bar'
 
@@ -225,7 +225,7 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
         if (next.kind === 'counted') ports.counted?.(target.storeId, noticesOf(next.entries))
       })
       .catch((error: unknown) => {
-        ports.log(`Orchon could not read the runs that need you: ${error instanceof Error ? error.message : String(error)}`)
+        ports.log(`Orchon could not read the runs that need you: ${errorText(error)}`)
       })
       .finally(() => {
         if (mine !== generation) return

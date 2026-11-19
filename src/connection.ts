@@ -17,11 +17,10 @@ import {
   parseNotificationSetting,
   TEST_NOTIFICATION
 } from './notifications'
-import type { NotificationsView } from './notifications-view'
-import type { NotificationsTestAnswer } from './notifications-view'
+import type { NotificationsTestAnswer, NotificationsView } from './notifications-view'
 import { checkPaths } from './path-check'
 import { createRunEndings } from './run-endings'
-import { isRecord, own, refuseRequest } from './records'
+import { errorText, isRecord, own, refuseRequest } from './records'
 import { createStatusBar, showRunsSentence, STATUS_ITEM_ID, statusItem, type SnapshotCounts } from './status-bar'
 import { createSystem } from './system'
 
@@ -242,7 +241,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
       }
     } catch (error) {
       if (mine !== generation) return
-      ports.log(`Orchon could not look for Archon: ${error instanceof Error ? error.message : String(error)}`)
+      ports.log(`Orchon could not look for Archon: ${errorText(error)}`)
       foundNothing(retryLater)
     } finally {
       settingsRead()
@@ -261,7 +260,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
       if (mine === generation && (health === null || health.storeId !== storeId)) lose()
     } catch (error) {
       // Nothing waits for a check, so a failure here must not go unhandled.
-      ports.log(`Orchon could not check on Archon: ${error instanceof Error ? error.message : String(error)}`)
+      ports.log(`Orchon could not check on Archon: ${errorText(error)}`)
     } finally {
       checking = false
     }
@@ -304,7 +303,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
       try {
         parsed = parseConnectionSettings(await ports.readSettings(), { homeDir: ports.homeDir })
       } catch (error) {
-        ports.log(`Orchon could not read its settings: ${error instanceof Error ? error.message : String(error)}`)
+        ports.log(`Orchon could not read its settings: ${errorText(error)}`)
         return
       }
       // A pass that began meanwhile has read the settings itself.
@@ -368,7 +367,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     timers: ports.timers,
     update(item) {
       orca.host.call('statusBar.update', { id: STATUS_ITEM_ID, ...item }).catch((error: unknown) => {
-        orca.log(`Orchon could not update its status bar item: ${error instanceof Error ? error.message : String(error)}`)
+        orca.log(`Orchon could not update its status bar item: ${errorText(error)}`)
       })
     }
   })
@@ -423,7 +422,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     level: () => setting.level,
     show(notification) {
       orca.host.call('notifications.show', notification).catch((error: unknown) => {
-        orca.log(`Orchon could not show a notification: ${error instanceof Error ? error.message : String(error)}`)
+        orca.log(`Orchon could not show a notification: ${errorText(error)}`)
       })
     }
   })
@@ -452,7 +451,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       const { delivered } = await orca.host.call('notifications.show', { ...TEST_NOTIFICATION })
       return delivered ? { kind: 'delivered' } : { kind: 'blocked' }
     } catch (error) {
-      orca.log(`Orchon could not send the test notification: ${error instanceof Error ? error.message : String(error)}`)
+      orca.log(`Orchon could not send the test notification: ${errorText(error)}`)
       return { kind: 'failed' }
     }
   }

@@ -1,8 +1,8 @@
 // Run detail, the second level of the Runs section: what one run is and how far it got. It draws
 // only the worker's view model and fetches it under the shared per-view fetch rules, refetching
-// on a hint that names the run, at most once a second, and on the safety refetch. The action row
-// is drawn by `run-actions.tsx`; the answer block and the row of small buttons come with their
-// own tickets.
+// on a hint that names the run, at most once a second, and on the safety refetch. The answer
+// block is drawn by `answer-block.tsx` and the action row by `run-actions.tsx`; the rest of the
+// row of small buttons comes with its own tickets.
 import {
   atom,
   Badge,
@@ -27,6 +27,7 @@ import {
   type OrcaNode,
   type PanelContext
 } from 'orca'
+import { answerBlock, answerBlockRead, clearAnswerBlock, resetAnswerBlock, resumeAfterAnswer } from './answer-block'
 import { artifactsBody, openArtifacts, resetArtifacts, startArtifactsView } from './artifacts-section'
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
@@ -96,6 +97,7 @@ function apply(answer: RunDetailAnswer | null): void {
     set(loaded, run.detail)
     set(graphOff, answer.graphOff ?? null)
     runActionsRead(run.detail)
+    answerBlockRead(run.detail)
     set(gone, false)
     set(problem, null)
     set(lastGood, now())
@@ -152,6 +154,7 @@ export function clearRunDetail(): void {
   set(openRun, null)
   set(loaded, null)
   resetView()
+  clearAnswerBlock()
 }
 
 /** Opens a run in place of the runs table. */
@@ -297,6 +300,7 @@ function resetView(): void {
   set(shown, 'steps')
   resetArtifacts()
   resetRunActions()
+  resetAnswerBlock()
 }
 
 function toggle(tree: StepTree, key: string, expanded: boolean): void {
@@ -536,13 +540,14 @@ function graphRow(detail: RunDetail): OrcaNode {
 
 function body(detail: RunDetail, writable: boolean): OrcaNode {
   const showing = read(shown)
-  // The answer block, which takes the waiting callout's place for a question, goes above the
-  // action row; the row of small buttons goes under the folds: Open graph, and with their own
+  // The answer block, which takes the waiting callout's place for a question (a run waiting on a
+  // question has no waiting state), goes above the action row; the row of small buttons goes under the folds: Open graph, and with their own
   // tickets Open workflow in builder and Open conversation.
   return (
     <>
+      {answerBlock(detail, writable, actionHooks)}
       {waitingCallout(detail.waiting)}
-      {actionRow(detail, writable, actionHooks)}
+      {actionRow(detail, writable, actionHooks, resumeAfterAnswer(detail))}
       {outcomeCallout(detail, actionHooks)}
       {factsFold(detail)}
       {messageFold(detail)}

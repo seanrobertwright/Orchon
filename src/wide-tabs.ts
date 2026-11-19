@@ -11,7 +11,7 @@ import type { ConnectionView } from './connection-view'
 import type { Disk } from './disk'
 import { GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan } from './pointer-files'
 import type { FocusedWorkspace } from './project-scope'
-import { parseOneText } from './records'
+import { errorText, parseOneText } from './records'
 import { readRun } from './run-detail'
 import { RUN_ID_CAP } from './run-detail-view'
 import { REMOTE_WORKSPACE } from './scope-view'
@@ -82,7 +82,7 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
 
   const sweepLogged = (): Promise<void> =>
     sweepFocused().catch((error: unknown) => {
-      orca.log(`Orchon could not sweep its tab files: ${error instanceof Error ? error.message : String(error)}`)
+      orca.log(`Orchon could not sweep its tab files: ${errorText(error)}`)
     })
 
   async function offReason(): Promise<string | null> {
@@ -125,7 +125,7 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     try {
       await orca.host.call('editor.open', { workspaceId: focused.workspaceId, path: `${POINTER_FOLDER}/${name}` })
     } catch (error) {
-      return refused(`Orca could not open the tab: ${error instanceof Error ? error.message : String(error)}`)
+      return refused(`Orca could not open the tab: ${errorText(error)}`)
     }
     return { opened: true }
   }

@@ -6,6 +6,7 @@ import { createCanvas } from "../shared/canvas.js";
 import { elementMaker } from "../shared/dom.js";
 import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph, layoutInOrder } from "../shared/graph-layout.js";
+import { isRecord } from "../shared/records.js";
 import { createRefetch } from "./refetch.js";
 import { createSummaryCard, parseSummary } from "./summary-card.js";
 /** The least time between two reads nobody asked for, as run detail's. */
@@ -36,7 +37,6 @@ export async function readPointer() {
         return null;
     }
 }
-const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 /** The run id a pointer file names, or null: `{ "orchon": "run-graph", "runId": ... }` and nothing else. */
 export function parsePointer(text) {
     if (text === null)

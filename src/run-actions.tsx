@@ -1,11 +1,13 @@
 // Run detail's action row: Cancel, Abandon, Resume and Try now, as the run control decision sets
 // them for each state (#14, parts 1, 3 and 8). Cancel and Abandon confirm inline, with the safe
 // button first; Resume and Try now send at once. One write per run is in flight at a time, and
-// while it is every write control on that run is off. The worker checks each request again and
+// while it is every write control on that run is off, an answer from the answer block included,
+// which shares this rule and the outcome shown under the row. The worker checks each request again and
 // sends it once; the panel shows Archon's answer as plain text and reads the run again at once.
 import { atom, Button, Callout, plugin, read, Row, set, Stack, Text, update, type OrcaNode } from 'orca'
 import type { ConnectionView } from './connection-view'
-import type { RunAction, RunControlOutcome } from './run-control-view'
+import type { RunAnswerRequest } from './run-answer-view'
+import type { RunAction, RunControlAnswer, RunControlOutcome } from './run-control-view'
 import type { RunDetail } from './run-detail-view'
 import { UNREACHABLE_TEXT } from './worker-words'
 
@@ -33,12 +35,15 @@ function confirms(control: Control): control is Confirmed {
 type Confirming = { runId: string; control: Confirmed; status: RunDetail['status'] }
 
 /** What the panel shows once a write returned: Archon's outcome, or the worker's own trouble. */
-type Shown = RunControlOutcome | { kind: 'worker'; message: string }
+export type Shown = RunControlOutcome | { kind: 'worker'; message: string }
+
+/** What is in flight on a run: a control of the row, or an answer from the answer block. */
+type Held = Control | 'answer'
 
 /** The confirmation that replaces the action row, if one is open. */
 const confirming = atom<Confirming | null>(null)
 /** The writes in flight, one per run at most, with the control that was pressed. */
-const writing = atom<readonly { runId: string; control: Control }[]>([])
+const writing = atom<readonly { runId: string; control: Held }[]>([])
 /** The outcome of the open run's last write, until the person leaves the run or writes again. */
 const shown = atom<{ runId: string; outcome: Shown } | null>(null)
 /** The runs whose Cancel Archon refused with a 409, which then offer Abandon. */
@@ -60,8 +65,16 @@ export type RunActionHooks = {
   keep(view: ConnectionView): void
 }
 
-/** The controls a run offers, in the order drawn (#14, part 1). */
-function offered(detail: RunDetail): Control[] {
+/**
+ * The controls a run offers, in the order drawn (#14, parts 1, 5 and 8). An attention wait
+ * offers Abandon beside its form, and Resume too when it is a legacy wait; a gate offers only its
+ * decisions. `resumeAfterAnswer` is set once a gate with no pause id was answered and the run is
+ * still paused, the one case Archon does not continue by itself.
+ */
+function offered(detail: RunDetail, resumeAfterAnswer: boolean): Control[] {
+  const question = detail.question
+  if (detail.status === 'paused' && question?.kind === 'wait') return question.form === 'legacy' ? ['resume', 'abandon'] : ['abandon']
+  if (detail.status === 'paused' && resumeAfterAnswer) return ['resume']
   if (detail.status === 'running') {
     return detail.ownerUnreachable === true || read(cancelRefused).includes(detail.id) ? ['cancel', 'abandon'] : ['cancel']
   }
@@ -88,11 +101,36 @@ function rejectionText(error: unknown): string {
   return UNREACHABLE_TEXT
 }
 
+/** Whether a write to the run is in flight, from the action row or the answer block. */
+export function writeInFlight(runId: string): boolean {
+  return read(writing).some((held) => held.runId === runId)
+}
+
+/**
+ * Sends an answer from the answer block under the same rule as the row: one write per run, the
+ * outcome shown under the row, and the run read again at once. `settle` sees the outcome first
+ * and may change what is shown.
+ */
+export function sendAnswer(input: RunAnswerRequest, hooks: RunActionHooks, settle: (outcome: Shown) => Shown): void {
+  write(input.runId, 'answer', () => plugin.request('run.answer', input), hooks, settle)
+}
+
 function send(runId: string, control: Control, hooks: RunActionHooks): void {
-  if (read(writing).some((held) => held.runId === runId)) return
+  write(runId, control, () => plugin.request('run.control', { runId, action: ACTION_OF[control] }), hooks)
+}
+
+function write(
+  runId: string,
+  control: Held,
+  request: () => Promise<RunControlAnswer>,
+  hooks: RunActionHooks,
+  settle: (outcome: Shown) => Shown = (outcome) => outcome
+): void {
+  if (writeInFlight(runId)) return
   update(writing, (held) => [...held, { runId, control }])
   if (read(shown)?.runId === runId) set(shown, null)
-  const done = (outcome: Shown): void => {
+  const done = (given: Shown): void => {
+    const outcome = settle(given)
     update(writing, (held) => held.filter((entry) => entry.runId !== runId))
     if (read(confirming)?.runId === runId) set(confirming, null)
     if (control === 'cancel' && outcome.kind === 'refused' && outcome.status === 409) {
@@ -103,7 +141,7 @@ function send(runId: string, control: Control, hooks: RunActionHooks): void {
     else set(shown, { runId, outcome })
     hooks.restart()
   }
-  plugin.request('run.control', { runId, action: ACTION_OF[control] }).then(
+  request().then(
     (answer) => {
       hooks.keep(answer.connection)
       done(answer.outcome)
@@ -113,8 +151,8 @@ function send(runId: string, control: Control, hooks: RunActionHooks): void {
 }
 
 /** The action row, or the confirmation in its place. `writable` is false while Searching. */
-export function actionRow(detail: RunDetail, writable: boolean, hooks: RunActionHooks): OrcaNode {
-  const controls = offered(detail)
+export function actionRow(detail: RunDetail, writable: boolean, hooks: RunActionHooks, resumeAfterAnswer = false): OrcaNode {
+  const controls = offered(detail, resumeAfterAnswer)
   if (controls.length === 0) return null
   const pressed = read(writing).find((held) => held.runId === detail.id)?.control
   const off = !writable || pressed !== undefined

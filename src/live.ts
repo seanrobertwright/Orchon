@@ -4,6 +4,7 @@
 // waits on a frame: every promise is caught, since an unhandled rejection would stop the worker.
 import type { Client, Timers } from './client'
 import { HINT_TYPES, type HintType, type RunsHint } from './hint-view'
+import { errorText } from './records'
 import { createFrameParser, readDashboardFrame } from './stream-frames'
 
 /** Archon's dashboard stream. It is not in the path list, so the path check does not cover it. */
@@ -146,7 +147,7 @@ export function createLive(ports: LivePorts): Live {
 
   function attemptNow(): void {
     attempt().catch((error: unknown) => {
-      ports.log(`Orchon could not read Archon's stream: ${error instanceof Error ? error.message : String(error)}`)
+      ports.log(`Orchon could not read Archon's stream: ${errorText(error)}`)
     })
   }
 
