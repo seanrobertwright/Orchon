@@ -7,7 +7,7 @@ import type { OrcaWorkerApi } from 'orca/worker'
 import type { FetchAnswer, FetchInit, FetchLike, Timers } from '../src/client.ts'
 import type { ConnectionView } from '../src/connection-view.ts'
 import { DEFAULT_BASE_URL } from '../src/discovery.ts'
-import type { Disk, FolderState, TextFile } from '../src/disk.ts'
+import type { Disk, DiskEntry, FolderState, TextFile, WriteOutcome } from '../src/disk.ts'
 import { ATTENTION_PATH, RUNNING_PATH } from '../src/needs-you.ts'
 import { OPENAPI_PATH } from '../src/path-check.ts'
 import { start } from '../src/worker.ts'
@@ -336,6 +336,26 @@ export type ScriptedDisk = {
   asked: string[]
   folders: Set<string>
   files: Map<string, string>
+  /** When each file was last written, by path. A file with none is as old as the clock's start. */
+  modified: Map<string, number>
+  /** Every write the worker made (`make`, `write` or `remove` and the path), in order, refused ones included. */
+  writes: string[]
+  /** Set to make every write fail, as a full or read-only disk would. */
+  failWrites: boolean
+  /** The time a write stamps; the scene sets it to its clock. */
+  now(): number
+}
+
+/** The name of `path` when it sits directly in `folder`, with either slash, or null. */
+function childName(folder: string, path: string): string | null {
+  for (const slash of ['/', '\\']) {
+    const prefix = folder.endsWith(slash) ? folder : `${folder}${slash}`
+    if (path.startsWith(prefix)) {
+      const rest = path.slice(prefix.length)
+      return rest === '' || rest.includes('/') || rest.includes('\\') ? null : rest
+    }
+  }
+  return null
 }
 
 /** An in-memory disk. A path outside the roots it was opened with is refused, as the real one does. */
@@ -345,6 +365,10 @@ export function scriptDisk(): ScriptedDisk {
     asked: [],
     folders: new Set(),
     files: new Map(),
+    modified: new Map(),
+    writes: [],
+    failWrites: false,
+    now: () => CLOCK_START,
     open(roots) {
       disk.opened.push([...roots])
       const inside = (path: string): boolean =>
@@ -359,6 +383,44 @@ export function scriptDisk(): ScriptedDisk {
           if (!inside(path)) return Promise.resolve({ kind: 'refused' })
           const text = disk.files.get(path)
           return Promise.resolve(text === undefined ? { kind: 'missing' } : { kind: 'text', text })
+        },
+        makeFolder(path): Promise<WriteOutcome> {
+          disk.writes.push(`make ${path}`)
+          if (!inside(path)) return Promise.resolve('refused')
+          if (disk.failWrites || disk.files.has(path)) return Promise.resolve('failed')
+          disk.folders.add(path)
+          return Promise.resolve('ok')
+        },
+        writeText(path, text): Promise<WriteOutcome> {
+          disk.writes.push(`write ${path}`)
+          if (!inside(path)) return Promise.resolve('refused')
+          const parent = [...disk.folders].some((folder) => childName(folder, path) !== null)
+          if (disk.failWrites || !parent) return Promise.resolve('failed')
+          disk.files.set(path, text)
+          disk.modified.set(path, disk.now())
+          return Promise.resolve('ok')
+        },
+        listFolder(path): Promise<DiskEntry[] | null> {
+          disk.asked.push(path)
+          if (!inside(path) || !disk.folders.has(path)) return Promise.resolve(null)
+          const entries: DiskEntry[] = []
+          for (const file of disk.files.keys()) {
+            const name = childName(path, file)
+            if (name !== null) entries.push({ name, modifiedMs: disk.modified.get(file) ?? CLOCK_START, file: true })
+          }
+          for (const folder of disk.folders) {
+            const name = childName(path, folder)
+            if (name !== null) entries.push({ name, modifiedMs: CLOCK_START, file: false })
+          }
+          return Promise.resolve(entries)
+        },
+        remove(path): Promise<WriteOutcome> {
+          disk.writes.push(`remove ${path}`)
+          if (!inside(path)) return Promise.resolve('refused')
+          if (disk.failWrites || !disk.files.has(path)) return Promise.resolve('failed')
+          disk.files.delete(path)
+          disk.modified.delete(path)
+          return Promise.resolve('ok')
         }
       }
     }
@@ -414,6 +476,7 @@ export function scene(): Scene {
   const archon = scriptArchon()
   const clock = createClock()
   const disk = scriptDisk()
+  disk.now = clock.now
   const stage: Scene = {
     archon,
     clock,

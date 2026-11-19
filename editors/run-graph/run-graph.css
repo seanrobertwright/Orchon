@@ -1,0 +1,190 @@
+/* The run graph tab. Colours come from Orca's theme variables, with two exceptions Orca has no
+   token for: the run-state colours are the plugin's own, one set per colour scheme, and edges and
+   step borders are mixed from the foreground and background, as Orca's border token is too faint
+   for lines that carry meaning. A state is never shown by colour alone: each box also says it. */
+:root {
+  --run-completed: #1a7f37;
+  --run-running: #0969da;
+  --run-failed: #cf222e;
+  --run-waiting: #9a6700;
+  --run-idle: var(--orca-muted-foreground);
+  --edge: color-mix(in srgb, var(--orca-foreground) 62%, var(--orca-background));
+  --step-border: color-mix(in srgb, var(--orca-foreground) 38%, var(--orca-background));
+}
+
+html.dark {
+  --run-completed: #3fb950;
+  --run-running: #58a6ff;
+  --run-failed: #f85149;
+  --run-waiting: #d29922;
+}
+
+.run-graph {
+  padding: 1rem 1.25rem;
+}
+
+.run-graph main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tab-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.tab-header h1 {
+  margin: 0;
+}
+
+.tab-header p {
+  margin: 0;
+}
+
+.tab-header button,
+.screen button {
+  font: inherit;
+  color: var(--orca-secondary-foreground);
+  background: var(--orca-secondary);
+  border: 1px solid var(--orca-border);
+  border-radius: var(--orca-radius);
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+}
+
+.tab-header button:focus-visible,
+.screen button:focus-visible,
+.screen a:focus-visible {
+  outline: 2px solid var(--orca-ring);
+  outline-offset: 2px;
+}
+
+.meta,
+.muted {
+  color: var(--orca-muted-foreground);
+}
+
+.banners .banner,
+.banners p {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--step-border);
+  border-left: 4px solid var(--run-waiting);
+  border-radius: var(--orca-radius);
+  background: var(--orca-muted);
+  color: var(--orca-foreground);
+}
+
+.screen {
+  max-width: 40rem;
+}
+
+.screen h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.screen .actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.screen a {
+  color: var(--orca-primary, var(--orca-foreground));
+}
+
+code,
+pre {
+  font-family: ui-monospace, monospace;
+  background: var(--orca-muted);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+}
+
+pre {
+  padding: 0.4rem 0.6rem;
+}
+
+.canvas {
+  overflow: auto;
+}
+
+.graph {
+  display: block;
+  max-width: none;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.4;
+}
+
+.edge.dashed {
+  stroke-dasharray: 5 4;
+}
+
+.arrowhead {
+  fill: var(--edge);
+}
+
+.group rect {
+  fill: var(--orca-muted);
+  fill-opacity: 0.45;
+  stroke: var(--step-border);
+  stroke-dasharray: 6 4;
+}
+
+.group-name {
+  fill: var(--orca-muted-foreground);
+  font: 11px system-ui, sans-serif;
+}
+
+.step .box {
+  fill: var(--orca-card);
+  stroke: var(--step-border);
+}
+
+.step .bar {
+  fill: var(--run-idle);
+}
+
+.step .name {
+  fill: var(--orca-card-foreground);
+  font: 600 12px system-ui, sans-serif;
+}
+
+.step .state {
+  font: 11px system-ui, sans-serif;
+  fill: var(--run-idle);
+}
+
+.step .note {
+  font: 10px system-ui, sans-serif;
+  fill: var(--orca-muted-foreground);
+}
+
+.state-completed .bar,
+.state-completed .state {
+  fill: var(--run-completed);
+}
+
+.state-running .bar,
+.state-running .state {
+  fill: var(--run-running);
+}
+
+.state-failed .bar,
+.state-failed .state {
+  fill: var(--run-failed);
+}
+
+.state-waiting .bar,
+.state-waiting .state {
+  fill: var(--run-waiting);
+}

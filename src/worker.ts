@@ -7,8 +7,10 @@ import { realPorts } from './ports'
 import { startProjectScope } from './project-scope'
 import { startRunControl } from './run-control'
 import { startRunDetail } from './run-detail'
+import { startRunGraph } from './run-graph'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
+import { startWideTabs } from './wide-tabs'
 
 /**
  * Everything the worker does, on the ports it is given: the real ones in Orca, scripted ones in
@@ -29,12 +31,22 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     openDisk: ports.openDisk
   })
   const runsTable = startRunsTable(orca, { ...connection, workspaces: projectScope.workspaces })
-  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, now: ports.now })
+  const wideTabs = startWideTabs(orca, {
+    client: connection.client,
+    current: connection.current,
+    focused: projectScope.focused,
+    openDisk: ports.openDisk,
+    now: ports.now
+  })
+  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, graphOff: wideTabs.graphOff, now: ports.now })
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, connection)
+  const runGraph = startRunGraph(orca, connection)
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     forms.dispose()
+    wideTabs.dispose()
+    runGraph.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()

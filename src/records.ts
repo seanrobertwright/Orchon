@@ -55,6 +55,11 @@ export function parseOneText(input: unknown, request: OneTextRequest): string {
   if (!isRecord(input)) refuseRequest(request.shape)
   const value = own(input, request.key)
   if (!isCappedText(value, request.cap)) refuseRequest(cappedTextRefusal(request.field, request.cap))
-  for (const key of Object.keys(input)) if (key !== request.key) refuseRequest(`${request.name} does not take ${key}.`)
+  refuseOtherKeys(input, [request.key], request.name)
   return value
+}
+
+/** Refuses a request with a key not in `keys`, as in "Link does not take path." */
+export function refuseOtherKeys(input: Record<string, unknown>, keys: readonly string[], name: string): void {
+  for (const key of Object.keys(input)) if (!keys.includes(key)) refuseRequest(`${name} does not take ${key}.`)
 }

@@ -28,6 +28,9 @@ type Focus =
   | { kind: 'remote' }
   | {
       kind: 'local'
+      /** The focused workspace's id and its folder, where a wide tab's pointer file goes. */
+      workspaceId: string
+      root: string
       /** What a link is saved under: the Orca project, or the folder when it belongs to none. */
       key: string
       /** The Orca project's folder and the workspace's own. */
@@ -142,9 +145,14 @@ export type ProjectScopePorts = {
   openDisk(roots: readonly string[]): Disk
 }
 
+/** The focused workspace as the wide tabs need it: none, remote, or local with its id and folder. */
+export type FocusedWorkspace = { kind: 'none' } | { kind: 'remote' } | { kind: 'local'; workspaceId: string; root: string }
+
 export type ProjectScope = Disposable & {
   /** Every `workspace.list` row, or none when Orca does not answer. */
   workspaces(): Promise<WorkspaceRow[]>
+  /** The focused workspace, joined to Orca's lists and given the local-and-writable test of #25. */
+  focused(): Promise<FocusedWorkspace>
 }
 
 export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts): ProjectScope {
@@ -185,6 +193,8 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
     if (project !== undefined && !localAndWritable(project, ports.platform)) return { kind: 'remote' }
     return {
       kind: 'local',
+      workspaceId: row.id,
+      root: row.path,
       key: project === undefined ? `folder:${normalisePath(row.path) ?? row.path}` : `project:${project.id}`,
       folders: project === undefined ? [row.path] : [project.path, row.path],
       repository: project?.kind === 'git' ? project.path : null
@@ -344,6 +354,10 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
 
   return {
     workspaces,
+    async focused() {
+      const found = await focus()
+      return found.kind === 'local' ? { kind: 'local', workspaceId: found.workspaceId, root: found.root } : found
+    },
     dispose() {
       for (const subscription of subscriptions) subscription.dispose()
     }
