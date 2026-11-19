@@ -1,8 +1,10 @@
 // The copy of a workflow the builder tab edits (#16, #28). Each edit goes through the copied
 // Archon editor state (`archon/editor/state.ts`) and its undo history, so the builder holds one
 // model of a workflow, Archon's. The session also knows whether the copy differs from the one
-// opened, which is what "Unsaved changes" says. Positions are never used: the tab lays the graph
-// out again after every change, and nothing is dragged or saved. It is pure.
+// opened, which is what "Unsaved changes" says. Node positions carry no meaning: the tab lays the
+// graph out again after every change, and nothing is dragged or saved; the state's positions are
+// only kept in each undo step as the copied history expects. The session holds its own state and
+// touches nothing outside it: no page, no file, no clock.
 //
 // The copied reducer finds a node by its id. A workflow may hold two nodes with one id, or a node
 // with none, until the person fixes it; an edit to such a node is applied by its position here,
@@ -49,6 +51,11 @@ export function openSession(definition) {
         state = { ...state, history: pushSnapshot(state.history, kind, { workflow: state.workflow, positions: state.positions }, time), workflow };
         return true;
     };
+    /**
+     * Makes one edit, with one undo step. While `byId` holds, the copied reducer can find the nodes by
+     * their ids and makes it with `action`; otherwise `byPosition` makes it, with an undo step of `kind`.
+     */
+    const viaReducer = (byId, action, byPosition, kind, time) => byId ? run(action(time)) : commit(byPosition(), kind, time);
     const withNodeAt = (index, node) => nodes().map((held, position) => (position === index ? node : held));
     const dependsOn = (node) => (Array.isArray(node.base.depends_on) ? node.base.depends_on : []);
     const withDepends = (node, ids) => ({ ...node, base: { ...node.base, depends_on: ids.length > 0 ? ids : undefined } });
@@ -69,10 +76,7 @@ export function openSession(definition) {
             const held = nodes()[index];
             if (held === undefined || held === node)
                 return false;
-            const time = stamp(continues);
-            if (held.id === node.id && unique(node.id))
-                return run({ type: 'patch-node', node, at: time });
-            return commit({ ...state.workflow, nodes: withNodeAt(index, node) }, `patch@${String(index)}`, time);
+            return viaReducer(held.id === node.id && unique(node.id), (at) => ({ type: 'patch-node', node, at }), () => ({ ...state.workflow, nodes: withNodeAt(index, node) }), `patch@${String(index)}`, stamp(continues));
         },
         setDescription(text, continues = false) {
             if (state.workflow.description === text)
@@ -87,10 +91,7 @@ export function openSession(definition) {
             const held = nodes()[index];
             if (held === undefined)
                 return false;
-            const time = stamp(false);
-            if (unique(held.id))
-                return run({ type: 'remove-nodes', ids: [held.id], at: time });
-            return commit({ ...state.workflow, nodes: nodes().filter((_, position) => position !== index) }, 'remove-nodes', time);
+            return viaReducer(unique(held.id), (at) => ({ type: 'remove-nodes', ids: [held.id], at }), () => ({ ...state.workflow, nodes: nodes().filter((_, position) => position !== index) }), 'remove-nodes', stamp(false));
         },
         duplicateNode(index) {
             const held = nodes()[index];
@@ -108,21 +109,17 @@ export function openSession(definition) {
             const held = nodes()[index];
             if (held === undefined || id === '' || id === held.id || dependsOn(held).includes(id))
                 return false;
-            const time = stamp(false);
-            if (unique(held.id) && unique(id))
-                return run({ type: 'add-edge', source: id, target: held.id, at: time });
-            return commit({ ...state.workflow, nodes: withNodeAt(index, withDepends(held, [...dependsOn(held), id])) }, 'add-edge', time);
+            return viaReducer(unique(held.id) && unique(id), (at) => ({ type: 'add-edge', source: id, target: held.id, at }), () => ({ ...state.workflow, nodes: withNodeAt(index, withDepends(held, [...dependsOn(held), id])) }), 'add-edge', stamp(false));
         },
         removeDependency(index, id) {
             const held = nodes()[index];
             if (held === undefined || !dependsOn(held).includes(id))
                 return false;
-            const time = stamp(false);
-            if (unique(held.id)) {
+            const byId = unique(held.id);
+            // The copied reducer removes an edge by selecting it first.
+            if (byId)
                 state = editorReducer(state, { type: 'set-selection', nodeIds: new Set(), edgeIds: new Set([edgeId(id, held.id)]) });
-                return run({ type: 'remove-selection', at: time });
-            }
-            return commit({ ...state.workflow, nodes: withNodeAt(index, withDepends(held, dependsOn(held).filter((dep) => dep !== id))) }, 'remove-selection', time);
+            return viaReducer(byId, (at) => ({ type: 'remove-selection', at }), () => ({ ...state.workflow, nodes: withNodeAt(index, withDepends(held, dependsOn(held).filter((dep) => dep !== id))) }), 'remove-selection', stamp(false));
         },
         undo: () => run({ type: 'undo' }),
         redo: () => run({ type: 'redo' })
