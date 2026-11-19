@@ -9,7 +9,7 @@ export type { Point } from './dagre.esm.js'
 
 /** Every step is drawn the same size: a line for its name and a line for its state. */
 export const STEP_WIDTH = 184
-export const STEP_HEIGHT = 52
+export const STEP_HEIGHT = 60
 /** Room above a group's steps for the group's name. */
 const GROUP_LABEL = 22
 /** The gap between two steps one under another, in run order. */
