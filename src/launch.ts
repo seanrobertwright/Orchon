@@ -25,9 +25,11 @@ import {
   type LaunchNotice,
   type LaunchRequest,
   type LaunchStart,
+  type DraftInput,
   type LaunchView,
   type LaunchWorkflow,
   type NoticesAnswer,
+  type RerunRequest,
   type StartingState,
   type StartingView,
   type WorkflowsView
@@ -38,7 +40,10 @@ import { NOT_LISTED } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { SERVER_TEXT_CAP } from './run-control-view'
+import { RUN_ID_CAP } from './run-detail-view'
 import { PROJECT_ID_CAP, REMOTE_WORKSPACE } from './scope-view'
+import { readRun } from './run-detail'
+import { rerunDraft, rerunRefusal, rerunSourceOf } from './rerun'
 import { NOT_CONNECTED_TEXT } from './worker-words'
 import { parseWorkflowList, WORKFLOWS_CAP_BYTES, WORKFLOWS_PATH, type WorkflowList } from './workflows-list'
 
@@ -63,6 +68,11 @@ const LAST_WORKFLOWS_KEPT = 500
 export const NO_LOCAL_WORKSPACE = 'Focus a local workspace in Orca to launch a run.'
 export const WORKFLOW_NOT_LISTED = 'Archon does not list that workflow for this project. Refresh and choose another.'
 export const NOT_ACCEPTED = 'Archon did not accept the launch.'
+/** Re-run's refusal for a run Archon no longer has; the others are `rerunRefusal`'s. */
+export const RERUN_GONE = 'This run no longer exists.'
+/** The notice when the run's workflow is gone from the project's list. */
+export const workflowGoneNote = (workflow: string): string =>
+  `The workflow ${workflow} is no longer listed for this project, so no workflow is chosen. Choose one.`
 
 /** What saved data is stored under: the server's store id, or its base URL when it reports none. */
 const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
@@ -76,6 +86,10 @@ type Draft = {
   posting: boolean
   /** The launch the Starting view shows. */
   starting?: string
+  /** The inputs Re-run filled, for the chosen workflow. */
+  inputs?: DraftInput[]
+  /** Re-run's notices, until the draft's project changes or a launch starts. */
+  notes?: string[]
 }
 
 type LaunchRecord = {
@@ -174,6 +188,15 @@ export function parseLaunchStart(input: unknown): LaunchStart {
   if (!isCappedText(workflow, WORKFLOW_NAME_CAP)) refuseRequest(cappedTextRefusal('The workflow', WORKFLOW_NAME_CAP))
   if (!isCappedText(message, MESSAGE_CAP)) refuseRequest(cappedTextRefusal('The message', MESSAGE_CAP))
   return { codebaseId, workflow, message }
+}
+
+/** Re-run's input, or a refusal: a run id of 1 to `RUN_ID_CAP` characters. */
+export function parseRerunRequest(input: unknown): RerunRequest {
+  if (!isRecord(input)) refuseRequest('Re-run takes a run id.')
+  refuseOtherKeys(input, ['runId'], 'Re-run')
+  const runId = input['runId']
+  if (!isCappedText(runId, RUN_ID_CAP)) refuseRequest(cappedTextRefusal('The run id', RUN_ID_CAP))
+  return { runId }
 }
 
 /** The launch id `launch.dismiss` and `launch.wait` take, or a refusal. */
@@ -392,6 +415,8 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       posting: draft.posting
     }
     if (draft.error !== undefined) view.error = draft.error
+    if (draft.inputs !== undefined && draft.inputs.length > 0 && workflow !== null && workflow === draft.workflow) view.inputs = draft.inputs
+    if (draft.notes !== undefined && draft.notes.length > 0) view.notes = draft.notes
     const starting = draft.starting === undefined ? undefined : records.find((record) => record.launchId === draft.starting)
     if (starting !== undefined) view.starting = startingOf(starting)
     return view
@@ -578,6 +603,8 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       track(record)
       draft.starting = record.launchId
       draft.message = ''
+      delete draft.inputs
+      delete draft.notes
       await rememberWorkflow(store, project.id, input.workflow)
       return await answer(request)
     } finally {
@@ -591,9 +618,59 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       draft.codebaseId = input.codebaseId
       // Another project lists other workflows: its own default applies.
       delete draft.workflow
+      delete draft.inputs
+      delete draft.notes
     }
-    if (input.workflow !== undefined) draft.workflow = input.workflow
+    if (input.workflow !== undefined) {
+      // Inputs belong to the workflow they were filled for.
+      if (input.workflow !== draft.workflow) delete draft.inputs
+      draft.workflow = input.workflow
+    }
     if (input.message !== undefined) draft.message = input.message
+    return answer({})
+  }
+
+  /**
+   * Re-run: the draft of the focused workspace filled from the run as Archon records it, never
+   * from what a frame sends. It launches nothing.
+   */
+  async function rerun(input: RerunRequest, signal: AbortSignal): Promise<LaunchAnswer> {
+    const connection = await ports.current()
+    if (connection.kind !== 'connected') return answer({})
+    const focused = await ports.focused()
+    const fetched = await readRun(ports.client, connection, input.runId, signal)
+    if (fetched.kind === 'gone') refuseRequest(RERUN_GONE)
+    if (fetched.kind === 'failed') refuseRequest(fetched.message)
+    const { run } = fetched
+    let project: ArchonProject | undefined
+    if (run.codebaseId !== null) {
+      const read = await readProjects(connection, true)
+      if (read.kind === 'failed') refuseRequest(read.message)
+      project = read.listed.projects.find((entry) => entry.id === run.codebaseId)
+    }
+    const refusal = rerunRefusal({
+      status: run.status,
+      project: run.codebaseId === null ? 'none' : project === undefined ? 'unlisted' : 'listed',
+      remote: focused.kind === 'remote'
+    })
+    // `rerunRefusal` refuses a project that is not listed; the second test only narrows the type.
+    if (refusal !== null || project === undefined) refuseRequest(refusal ?? NOT_LISTED)
+    const list = await readList(connection, project, true)
+    const listed = list.kind === 'ready' ? list.list.workflows.find((entry) => entry.name === run.workflow) : undefined
+    const draft = draftOf(workspaceKey(focused))
+    // A launch being posted keeps its draft: Re-run fills nothing until it is answered.
+    if (draft.posting) return answer({})
+    const workflowGone = list.kind === 'ready' && listed === undefined
+    const built = rerunDraft(rerunSourceOf(fetched.value), list.kind === 'ready' ? (listed?.inputs ?? null) : 'unread')
+    const notes = workflowGone ? [workflowGoneNote(run.workflow), ...built.notes] : built.notes
+    draft.codebaseId = project.id
+    // A list that could not be read keeps the name, so the workflow is chosen once it is read.
+    draft.workflow = workflowGone ? null : run.workflow
+    draft.message = built.message
+    draft.inputs = built.inputs
+    draft.notes = notes
+    delete draft.error
+    delete draft.starting
     return answer({})
   }
 
@@ -608,6 +685,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     }),
     orca.panels.handle('launch.edit', (input) => edit(parseLaunchEdit(input))),
     orca.panels.handle('launch.start', (input) => start(parseLaunchStart(input))),
+    orca.panels.handle('launch.rerun', (input, context) => rerun(parseRerunRequest(input), context.signal)),
     orca.panels.handle('launch.notices', (input) => {
       refuseInput(input)
       return notices()

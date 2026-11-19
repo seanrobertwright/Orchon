@@ -12,7 +12,7 @@ import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
 import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
-import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer } from './launch-view'
+import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer, RerunRequest } from './launch-view'
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 
 declare module 'orca' {
@@ -86,6 +86,11 @@ declare module 'orca' {
     'launch.edit': { input: LaunchEdit; output: LaunchAnswer }
     /** Start: creates a conversation and posts the run once, never again. A press while one posts is ignored. */
     'launch.start': { input: LaunchStart; output: LaunchAnswer }
+    /**
+     * Re-run: fills the focused workspace's draft from a completed or cancelled run, read from
+     * Archon by the worker, and launches nothing.
+     */
+    'launch.rerun': { input: RerunRequest; output: LaunchAnswer }
     /** "Launch another": the form again in place of the Starting view. It takes no input. */
     'launch.another': { output: LaunchAnswer }
     /** "Keep waiting": the launch looks for its run for another 60 seconds. */
