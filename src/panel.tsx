@@ -1,12 +1,15 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
-import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
-import type { ConnectionView } from './connection-view'
+import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
+import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
+import { now } from './dates'
 import { restartRuns, runsSection, startRunsSection } from './runs-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
 import type { SystemView } from './system-view'
+import { createViewFetch, nextTrouble, SAFETY_REFETCH_MS, type ViewFetch, type WorkerTrouble } from './view-fetch'
+import { frameTimers, troubleLine } from './view-notices'
 
 /**
  * The section showing, kept per workspace because Orca unmounts a hidden panel. It is stored as
@@ -29,11 +32,25 @@ function keepNewest(next: ConnectionView): void {
   if (next.kind === 'connected' && held?.kind !== 'connected') restartRuns()
 }
 
-/** Sends a connection request and keeps the state its answer carries. A failed request changes nothing. */
-function ask(name: 'connection.read' | 'connection.retry'): void {
-  plugin.request(name).then(
-    (answer) => keepNewest(answer.connection),
-    () => {}
+/** Worker unreachable for the connection reads: null while the worker answers them. */
+const connectionTrouble = atom<WorkerTrouble | null>(null)
+
+/** The connection read's fetch rules for this panel run: it is a view like any other. */
+let connectionFetch: ViewFetch | undefined
+
+/** Reads the connection state again at once: the "Try again" of Worker unreachable. */
+function readConnection(): void {
+  connectionFetch?.restart()
+}
+
+/** "Try again" on a state screen. Its failure is Worker unreachable, like a failed read. */
+function retryConnection(): void {
+  plugin.request('connection.retry').then(
+    (answer) => {
+      set(connectionTrouble, null)
+      keepNewest(answer.connection)
+    },
+    (error: unknown) => update(connectionTrouble, (held) => nextTrouble(held, error))
   )
 }
 
@@ -77,8 +94,11 @@ function show(next: SectionId): void {
   if (before === 'settings') closeSystem()
 }
 
+/** The least time between two connection reads that no person asked for. */
+const CONNECTION_GAP_MS = 1_000
+
 const actions: StateScreenActions = {
-  tryAgain: () => ask('connection.retry'),
+  tryAgain: retryConnection,
   openSettings: () => show('settings')
 }
 
@@ -92,7 +112,29 @@ export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
-  ask('connection.read')
+  // The first read, then one on the safety refetch: a worker that did not answer is tried again.
+  const fetch = createViewFetch<ConnectionAnswer>({
+    load: (signal) => plugin.request('connection.read', undefined, { signal }),
+    apply(answer) {
+      set(connectionTrouble, null)
+      keepNewest(answer.connection)
+    },
+    fail(_error, trouble) {
+      if (trouble !== null) set(connectionTrouble, trouble)
+    },
+    minGapMs: CONNECTION_GAP_MS,
+    safetyMs: SAFETY_REFETCH_MS,
+    now,
+    timers: frameTimers
+  })
+  connectionFetch = fetch
+  ctx.subscriptions.push({
+    dispose() {
+      fetch.stop()
+      if (connectionFetch === fetch) connectionFetch = undefined
+    }
+  })
+  fetch.restart()
   // Orca unmounts a hidden panel, so the Settings section shows from setup until it is left or
   // the panel closes.
   if (parseSection(read(section)) === 'settings') askSystem('system.open')
@@ -116,6 +158,25 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
   return id === 'runs' ? runsSection(state) : placeholder
 }
 
+/**
+ * A section's body under the Worker unreachable line of the connection reads, when it has one.
+ * With no state known a data section has nothing else to show, and Settings keeps its Connection
+ * group. Once a state is known the Runs section says it in its own view, so it is said once.
+ */
+function withTrouble(id: SectionId, body: OrcaNode, state: ConnectionView | null): OrcaNode {
+  const trouble = read(connectionTrouble)
+  if (trouble === null) return body
+  const line = troubleLine(trouble, readConnection)
+  if (state === null && id !== 'settings') return line
+  if (state !== null && id === 'runs') return body
+  return (
+    <Stack gap="sm">
+      {line}
+      {body}
+    </Stack>
+  )
+}
+
 export default function Panel() {
   const state = read(connection)
   return (
@@ -126,7 +187,7 @@ export default function Panel() {
     >
       {SECTIONS.map(({ id, label }) => (
         <Tab key={id} value={id} label={label}>
-          {sectionBody(id, label, state)}
+          {withTrouble(id, sectionBody(id, label, state), state)}
         </Tab>
       ))}
     </Tabs>
