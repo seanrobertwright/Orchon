@@ -4,8 +4,8 @@ import type { Connected, ConnectionAnswer, ConnectionView } from './connection-v
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
-import { clearRuns, rescopeRuns, restartRuns, runsHaveData, runsSection, startRunsSection } from './runs-section'
-import { restartScope, startScope } from './scope-section'
+import { clearRuns, rescopeRuns, restartRunsView, runsHaveData, runsSection, startRunsSection } from './runs-section'
+import { startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
@@ -44,8 +44,7 @@ function keepNewest(next: ConnectionView): void {
   set(connection, next)
   // On return to Connected every view that is showing fetches again.
   if (next.kind === 'connected' && held?.kind !== 'connected') {
-    restartScope()
-    restartRuns()
+    restartRunsView()
     // The section's own first read is sent when it shows, so only a return to Connected reads again.
     if (held !== null && parseSection(read(section)) === 'settings') readForms()
   }
@@ -114,10 +113,7 @@ function closeSystem(): void {
 function show(next: SectionId): void {
   const before = parseSection(read(section))
   set(section, next)
-  if (next === 'runs') {
-    restartScope()
-    restartRuns()
-  }
+  if (next === 'runs') restartRunsView()
   if (before === next) return
   if (next === 'settings') {
     readForms()

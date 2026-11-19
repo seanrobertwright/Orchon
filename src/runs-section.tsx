@@ -35,7 +35,7 @@ import { formatClock, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
-import { scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
+import { restartScope, scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { warningLine } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
@@ -132,6 +132,12 @@ export function clearRuns(): void {
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
 export function restartRuns(): void {
   fetcher?.restart()
+}
+
+/** Reads the whole Runs view again: the project scope, then the table under it. */
+export function restartRunsView(): void {
+  restartScope()
+  restartRuns()
 }
 
 /** The project the table is filtered by changed: it reads from the newest run again. */
