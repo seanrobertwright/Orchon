@@ -2,6 +2,7 @@
 // status bar item beside `main`, and loads this file as written: there is no build step.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
+import { startChatList } from './chat-list'
 import { startConnection, type WorkerPorts } from './connection'
 import { createConversationStreams } from './conversation-streams'
 import { startLaunch } from './launch'
@@ -14,6 +15,7 @@ import { startRunGraph } from './run-graph'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
 import { startWideTabs } from './wide-tabs'
+import { startWorkflowsSection } from './workflows-section'
 
 /**
  * Everything the worker does, on the ports it is given: the real ones in Orca, scripted ones in
@@ -43,7 +45,14 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   // The question run detail last read for each run, which an answer is checked against.
   const questions = createQuestionMemory()
-  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, graphOff: wideTabs.graphOff, questionRead: questions.read, now: ports.now })
+  const runDetail = startRunDetail(orca, {
+    ...connection,
+    workspaces: projectScope.workspaces,
+    graphOff: wideTabs.graphOff,
+    remote: async () => (await projectScope.focused()).kind === 'remote',
+    questionRead: questions.read,
+    now: ports.now
+  })
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
@@ -59,10 +68,19 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     now: ports.now,
     timers: ports.timers
   })
+  const workflows = startWorkflowsSection(orca, {
+    client: connection.client,
+    current: connection.current,
+    focused: projectScope.focused,
+    lists: launch.lists
+  })
+  const chatList = startChatList(orca, { client: connection.client, current: connection.current })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
     streams.stop()
+    workflows.dispose()
+    chatList.dispose()
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()

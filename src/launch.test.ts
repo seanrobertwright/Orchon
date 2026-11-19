@@ -482,8 +482,8 @@ describe('declared inputs', () => {
   test('the chosen workflow brings its declared inputs in declared order, with the default as placeholder', async () => {
     const stage = launchScene(release)
     const mounted = await stage.mount(orcaWith('ws-local'))
-    assert.deepEqual((await choose(mounted, INPUTS)).inputs, { kind: 'ready', rows: [{ name: 'item', required: true, description: 'Any text.', placeholder: '' }] })
-    const queue = (await choose(mounted, 'archon-build-queue')).inputs
+    assert.deepEqual((await choose(mounted, INPUTS)).fields, { kind: 'ready', rows: [{ name: 'item', required: true, description: 'Any text.', placeholder: '' }] })
+    const queue = (await choose(mounted, 'archon-build-queue')).fields
     if (queue.kind !== 'ready') throw new Error(queue.kind)
     // Declared order, read off the recorded workflow by hand.
     assert.deepEqual(queue.rows.map((row) => row.name), ['repo_host', 'repo_path', 'order', 'round_limit', 'mode', 'number', 'replay', 'as_of'])
@@ -493,7 +493,7 @@ describe('declared inputs', () => {
       description: 'Pickup order, intake\'s format: a JSON array of "<key> <asc|desc>" with keys urgency, importance, size, complexity and created.',
       placeholder: '["urgency desc","importance desc","size asc","created asc"]'
     })
-    assert.equal(ready((await read(mounted)).launch).inputs.kind, 'ready')
+    assert.equal(ready((await read(mounted)).launch).fields.kind, 'ready')
     await mounted.worker.deactivate()
   })
 
@@ -508,8 +508,8 @@ describe('declared inputs', () => {
     })
     stage.archon.answer(workflowsUrl(RECORDED_CWD), json({ ...(page.value as Record<string, unknown>), workflows: rows }))
     const mounted = await stage.mount(orcaWith('ws-local'))
-    assert.deepEqual((await choose(mounted, INPUTS)).inputs, { kind: 'ready', rows: [{ name: 'item', required: false, description: '', placeholder: '{"a":[1]}' }] })
-    assert.deepEqual((await choose(mounted, ECHO)).inputs, { kind: 'too-many', declared: 51 })
+    assert.deepEqual((await choose(mounted, INPUTS)).fields, { kind: 'ready', rows: [{ name: 'item', required: false, description: '', placeholder: '{"a":[1]}' }] })
+    assert.deepEqual((await choose(mounted, ECHO)).fields, { kind: 'too-many', declared: 51 })
     const refused = ready(((await mounted.worker.request('launch.start', { codebaseId: id, workflow: ECHO, message: 'Go.' })) as LaunchAnswer).launch)
     assert.equal(refused.error, 'This workflow declares 51 inputs, more than the 50 Orchon can fill in. Launch it from Archon.')
     assert.deepEqual(writes(stage), [])

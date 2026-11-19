@@ -254,6 +254,19 @@ export function launchHasData(): boolean {
   return read(loaded) !== null
 }
 
+/**
+ * Re-run: asks the worker to fill the draft from the run, which it reads itself, and keeps the
+ * answer, so the section shows the filled form. It rejects with the worker's refusal. A message
+ * being typed is dropped: the run's message replaces it.
+ */
+export async function rerunLaunch(runId: string): Promise<void> {
+  const answer = await plugin.request('launch.rerun', { runId })
+  if (draftTimer !== undefined) frameTimers.clear(draftTimer)
+  draftTimer = undefined
+  set(typed, null)
+  apply(answer)
+}
+
 /** A different Archon store: what the section held belongs to the old one. */
 export function clearLaunch(): void {
   set(loaded, null)
@@ -371,8 +384,8 @@ function startReason(view: Ready, message: string, writable: boolean): string | 
   if (view.workflow === null) return 'Choose a workflow.'
   if (message.trim() === '') return NO_MESSAGE
   if (message.length > MESSAGE_CAP) return MESSAGE_TOO_LONG
-  if (view.inputs.kind === 'too-many') return tooManyInputsText(view.inputs.declared)
-  const missing = missingRequired(view.inputs.rows, valuesOf(view))
+  if (view.fields.kind === 'too-many') return tooManyInputsText(view.fields.declared)
+  const missing = missingRequired(view.fields.rows, valuesOf(view))
   if (missing.length > 0) return missingRequiredText(missing)
   const bindings = bindingsProblem(read(bindingRows))
   if (bindings !== null) return bindings
@@ -399,15 +412,15 @@ function inputField(view: Ready, input: LaunchInput): OrcaNode {
 
 /** The chosen workflow's inputs: the required ones, then the optional ones in a collapsed group. */
 function inputsPart(view: Ready): OrcaNode {
-  if (view.inputs.kind === 'too-many') {
+  if (view.fields.kind === 'too-many') {
     return (
       <Text muted size="sm">
-        {tooManyInputsText(view.inputs.declared)}
+        {tooManyInputsText(view.fields.declared)}
       </Text>
     )
   }
-  const required = view.inputs.rows.filter((input) => input.required)
-  const optional = view.inputs.rows.filter((input) => !input.required)
+  const required = view.fields.rows.filter((input) => input.required)
+  const optional = view.fields.rows.filter((input) => !input.required)
   return (
     <Stack gap="xs">
       {required.map((input) => inputField(view, input))}
@@ -516,8 +529,18 @@ function form(view: Ready, writable: boolean): OrcaNode {
   const message = messageOf(view)
   const reason = startReason(view, message, writable)
   const { projects } = view
+  const notes = view.notes ?? []
   return (
     <Stack gap="sm">
+      {notes.length === 0 ? null : (
+        <Callout tone="accent" icon="info" title="Filled from the run">
+          <Stack gap="xs">
+            {notes.map((note) => (
+              <Text key={note}>{note}</Text>
+            ))}
+          </Stack>
+        </Callout>
+      )}
       <Input
         label="Search projects"
         type="search"

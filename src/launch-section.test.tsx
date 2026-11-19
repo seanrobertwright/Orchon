@@ -302,7 +302,7 @@ describe('the workflow select', () => {
 describe('declared inputs on the form', () => {
   const withInputs: LaunchView = {
     ...webForm,
-    inputs: {
+    fields: {
       kind: 'ready',
       rows: [
         { name: 'target', required: true, description: 'What to deliver.', placeholder: '' },
@@ -359,7 +359,7 @@ describe('declared inputs on the form', () => {
     await view.settled()
     assert.deepEqual(sent(view, 'launch.edit'), [{ inputs: { target: 'x' } }])
     await view.unmount()
-    const many = await mountLaunch({ launch: () => ({ ...webForm, message: 'Go.', inputs: { kind: 'too-many', declared: 51 } }) })
+    const many = await mountLaunch({ launch: () => ({ ...webForm, message: 'Go.', fields: { kind: 'too-many', declared: 51 } }) })
     assert.ok(many.find({ type: 'Text', text: 'This workflow declares 51 inputs, more than the 50 Orchon can fill in. Launch it from Archon.' }))
     assert.equal(many.find(START)?.disabled, true)
     clean(many)

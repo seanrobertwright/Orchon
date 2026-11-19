@@ -34,7 +34,7 @@ import { cutAt } from './cutter'
 import { formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
-import { actionRow, outcomeCallout, resetRunActions, runActionsRead, type RunActionHooks } from './run-actions'
+import { actionRow, outcomeCallout, rerunLine, resetRunActions, runActionsRead, type RunActionHooks } from './run-actions'
 import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type StalledCall, type Step, type ChildRow, type Waiting } from './run-detail-view'
 import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
@@ -57,6 +57,8 @@ const gone = atom(false)
 
 /** Why Open graph is off, as the worker last said, or null when it is on. */
 const graphOff = atom<string | null>(null)
+/** Whether the worker offers Re-run for the open run. */
+const rerunOffered = atom(false)
 /** Why the last press of Open graph opened nothing, or null. */
 const graphRefused = atom<string | null>(null)
 
@@ -82,6 +84,8 @@ export type RunDetailHooks = {
   keep(view: ConnectionView): void
   /** The way back: the runs table shows again and is read again. */
   back(): void
+  /** Re-run: fills the launcher from the run and shows it. Rejects with the worker's refusal. */
+  rerun(runId: string): Promise<void>
 }
 
 let fetcher: ViewFetch | undefined
@@ -96,6 +100,7 @@ function apply(answer: RunDetailAnswer | null): void {
   if (run.kind === 'ready' && run.detail.id === openRunId()) {
     set(loaded, run.detail)
     set(graphOff, answer.graphOff ?? null)
+    set(rerunOffered, answer.rerun === true)
     runActionsRead(run.detail)
     answerBlockRead(run.detail)
     set(gone, false)
@@ -290,6 +295,7 @@ const shown = atom<'steps' | 'artifacts'>('steps')
 function resetView(): void {
   set(gone, false)
   set(graphOff, null)
+  set(rerunOffered, false)
   set(graphRefused, null)
   set(problem, null)
   set(lastGood, null)
@@ -496,7 +502,8 @@ const actionHooks: RunActionHooks = {
     set(gone, true)
     set(problem, null)
   },
-  keep: (view) => hooks?.keep(view)
+  keep: (view) => hooks?.keep(view),
+  rerun: (runId) => hooks?.rerun(runId) ?? Promise.resolve()
 }
 
 /** What a press of Open graph says when the worker itself does not answer. */
@@ -547,7 +554,8 @@ function body(detail: RunDetail, writable: boolean): OrcaNode {
     <>
       {answerBlock(detail, writable, actionHooks)}
       {waitingCallout(detail.waiting)}
-      {actionRow(detail, writable, actionHooks, resumeAfterAnswer(detail))}
+      {actionRow(detail, writable, actionHooks, { resumeAfterAnswer: resumeAfterAnswer(detail), rerun: read(rerunOffered) })}
+      {rerunLine(detail)}
       {outcomeCallout(detail, actionHooks)}
       {factsFold(detail)}
       {messageFold(detail)}
