@@ -4,6 +4,7 @@ import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest
 import type { ChatRunAnswer, ChatRunRequest } from './chat-run-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
 import type { ThreadAnswer, ThreadRequest } from './chat-thread-view'
+import type { ChatProjectsAnswer, ChatProjectsRequest, ChatSendAnswer, ChatSendRequest } from './chat-send-view'
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
 import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
@@ -122,6 +123,13 @@ declare module 'orca' {
     'chats.read': { input: ChatsRequest; output: ChatsAnswer }
     /** A chat thread: the conversation, its project and its newest saved messages, newest first. */
     'chat.read': { input: ThreadRequest; output: ThreadAnswer }
+    /**
+     * Send: posts one message to a conversation, or creates a new chat in a project Archon lists
+     * with its first message. Sent once, never tried again; one send at a time.
+     */
+    'chat.send': { input: ChatSendRequest; output: ChatSendAnswer }
+    /** A new chat's projects: Archon's list read afresh, and the scope's project when it names one. */
+    'chat.projects': { input: ChatProjectsRequest; output: ChatProjectsAnswer }
     /** Open run on a dispatch row: the run that works in the worker conversation the dispatch named, once. */
     'chat.findRun': { input: ChatRunRequest; output: ChatRunAnswer }
   }

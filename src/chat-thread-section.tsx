@@ -1,8 +1,9 @@
 // A chat thread, the second level of the Chat section: one conversation's saved messages, newest
 // first, in the panel's own scroll. It draws only the worker's view model and fetches it under
-// the shared per-view fetch rules, every 30 seconds while it shows. A workflow's dispatch is a row
-// and its result a card, each with Open run, which hands the run to the Runs section. It reads saved messages only:
-// sending a message and following a reply as it streams belong to later tickets.
+// the shared per-view fetch rules, every 30 seconds while it shows and every 3 seconds while a
+// turn is in flight. The composer of `chat-composer.tsx` sits at its top. A workflow's dispatch is a
+// row and its result a card, each with Open run, which hands the run to the Runs section. It reads
+// saved messages only, with no stream: a turn is inferred from them.
 import {
   atom,
   Badge,
@@ -35,6 +36,7 @@ import {
   type ThreadRequest,
   type ThreadToolCall
 } from './chat-thread-view'
+import { BUSY_REFETCH_MS, chatBusy, composer, observeThread, type ComposerHooks } from './chat-composer'
 import type { ChatRunAnswer } from './chat-run-view'
 import type { ConnectionView } from './connection-view'
 import { CONVERSATION_ID_CAP } from './conversations'
@@ -97,6 +99,7 @@ function apply(answer: ThreadAnswer | null): void {
   hooks?.keep(answer.connection)
   const { thread } = answer
   if (thread.kind === 'ready' && thread.thread.id === openChatId()) {
+    observeThread(thread.thread)
     set(loaded, thread.thread)
     set(gone, false)
     set(problem, null)
@@ -127,7 +130,11 @@ export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks
       if (trouble !== null) report(troubleText(trouble), offersTryAgain(trouble))
     },
     minGapMs: THREAD_GAP_MS,
-    safetyMs: () => SAFETY_REFETCH_MS,
+    // While a turn is in flight the thread is read every 3 seconds (#18, part 2).
+    safetyMs: () => {
+      const id = openChatId()
+      return id !== null && chatBusy(id) ? BUSY_REFETCH_MS : SAFETY_REFETCH_MS
+    },
     now,
     timers: frameTimers
   })
@@ -379,7 +386,14 @@ function header(): OrcaNode {
   )
 }
 
-function threadBody(thread: Thread): OrcaNode {
+/** What the composer of the open thread tells the thread. */
+const threadComposerHooks: ComposerHooks = {
+  keep: (view) => hooks?.keep(view),
+  sent: () => fetcher?.restart(),
+  refetch: () => fetcher?.restart()
+}
+
+function threadBody(thread: Thread, writable: boolean): OrcaNode {
   const withToolCalls = showingToolCalls()
   const messages = thread.messages.map((message) => messageNode(message, withToolCalls)).filter((node) => node !== null)
   return (
@@ -399,6 +413,7 @@ function threadBody(thread: Thread): OrcaNode {
           </Text>
         </Stack>
       )}
+      {composer({ kind: 'thread', conversationId: thread.id, newest: thread.messages[0] }, { writable, hooks: threadComposerHooks })}
       {messages.length === 0 ? <Text muted>No messages yet.</Text> : <Stack gap="md">{messages}</Stack>}
       {thread.unreadable === 0 ? null : (
         <Text muted size="sm">
@@ -426,8 +441,8 @@ function threadBody(thread: Thread): OrcaNode {
   )
 }
 
-/** The thread in place of the list, while connected or under the Searching banner. */
-export function chatThreadSection(): OrcaNode {
+/** The thread in place of the list, while connected or under the Searching banner. `writable` is false when its controls that write are off. */
+export function chatThreadSection(writable: boolean): OrcaNode {
   const thread = read(loaded)
   const held = read(problem)
   let body: OrcaNode
@@ -443,7 +458,7 @@ export function chatThreadSection(): OrcaNode {
       </Stack>
     )
   } else if (thread === null) body = held === null ? <Spinner label="Loading the conversation…" /> : null
-  else body = threadBody(thread)
+  else body = threadBody(thread, writable)
   return (
     <Stack gap="sm">
       {header()}

@@ -82,12 +82,12 @@ describe('the chat list', () => {
     clean(view)
   })
 
-  test('a header row has the heading "Conversations" and New chat, disabled with its reason in words', async () => {
+  test('a header row has the heading "Conversations" and New chat, which is on', async () => {
     const view = await mountChat((request) => sampleChats(2, request))
     assert.ok(view.find({ type: 'Heading', text: 'Conversations' }))
     const newChat = view.find({ type: 'Button', text: 'New chat' })
-    assert.equal(newChat?.disabled, true)
-    assert.ok(view.find({ type: 'Text', text: 'Starting a chat from Orchon is not available yet.' }))
+    assert.equal(newChat?.disabled, false)
+    assert.equal(view.find({ type: 'Text', text: 'Starting a chat from Orchon is not available yet.' }), null)
     // There is no search.
     assert.equal(view.find({ type: 'Input' }), null)
     clean(view)
