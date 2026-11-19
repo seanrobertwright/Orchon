@@ -2,6 +2,7 @@
 // the run's id from the file, asks the worker for the run on its workflow as it is now, and draws
 // a header, the banners and the graph in its own HTML. It is read-only: it never edits its file
 // and holds no control that writes. Every piece of outside text is set through `textContent`.
+import { createCanvas } from "../shared/canvas.js";
 import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph, layoutInOrder } from "../shared/graph-layout.js";
 import { createRefetch } from "./refetch.js";
@@ -90,6 +91,8 @@ export function startTab(ports) {
     /** The layout of the graph last drawn, kept while the graph's shape does not change. */
     let laidOut;
     const prefix = `run-graph-${String((drawings += 1))}`;
+    /** The canvas, made with the first graph and kept while the tab is open, with what it shows. */
+    let area;
     const subscriptions = [];
     function drawHeader(header) {
         if (header === null) {
@@ -153,6 +156,22 @@ export function startTab(ports) {
         }
         return laidOut.layout;
     }
+    /** Draws a ready graph on the canvas. Nothing is laid out or drawn again while what it shows is unchanged. */
+    function drawReady(view) {
+        const label = `Steps of ${view.header.workflow}`;
+        area ??= { canvas: createCanvas({ doc, label, idPrefix: prefix, ...(ports.observeSize === undefined ? {} : { observeSize: ports.observeSize }) }), drawn: '' };
+        area.canvas.viewport.setAttribute('aria-label', label);
+        if (content.children[0] !== area.canvas.root)
+            content.replaceChildren(area.canvas.root);
+        const steps = new Map(view.steps.map((step) => [step.id, { name: step.name, kind: step.kind, state: step.state, stateText: `${step.glyph} ${step.word}`, note: step.note }]));
+        const laid = layoutOf(view);
+        const drawn = JSON.stringify([laidOut?.key, label, [...steps]]);
+        if (drawn === area.drawn)
+            return;
+        area.drawn = drawn;
+        const svg = drawGraph(doc, laid, steps, { label, idPrefix: prefix });
+        area.canvas.show(svg, laid, new Map(view.steps.map((step) => [step.id, step.state])), { fit: false });
+    }
     /** Draws what the tab shows, with banners first: the Searching banner, a mismatch, a failed read. */
     function drawShown(view, lines) {
         const banner = [...lines];
@@ -173,11 +192,7 @@ export function startTab(ports) {
             content.replaceChildren(el('p', `This run has ${String(view.count)} steps. One graph lays out at most ${String(view.cap)}, so this one is not drawn. Its steps are listed in run detail in the Orchon panel.`));
         }
         else {
-            const steps = new Map(view.steps.map((step) => [step.id, { name: step.name, kind: step.kind, state: step.state, stateText: `${step.glyph} ${step.word}`, note: step.note }]));
-            const svg = drawGraph(doc, layoutOf(view), steps, { label: `Steps of ${view.header.workflow}`, idPrefix: prefix });
-            const canvas = el('div', undefined, 'canvas');
-            canvas.appendChild(svg);
-            content.replaceChildren(canvas);
+            drawReady(view);
         }
     }
     function apply(answer) {
@@ -260,6 +275,7 @@ export function startTab(ports) {
         stop() {
             stopped = true;
             fetcher.stop();
+            area?.canvas.stop();
             for (const subscription of subscriptions)
                 subscription.dispose();
         }

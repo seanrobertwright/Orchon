@@ -54,6 +54,8 @@ type Stage = {
   /** What the scripted worker answers next. */
   answer: { value: GraphAnswer | ((sent: Sent) => GraphAnswer | Promise<GraphAnswer>) }
   external: string[]
+  /** Tells the tab its graph area has this size, as Orca's frame would on a resize. */
+  resize(width: number, height: number): void
 }
 
 async function open(first: GraphAnswer, text = POINTER): Promise<Stage> {
@@ -64,7 +66,11 @@ async function open(first: GraphAnswer, text = POINTER): Promise<Stage> {
   const clock = createClock()
   const sent: Sent[] = []
   const handlers = new Map<string, ((payload: unknown) => void)[]>()
+  const sizes: ((width: number, height: number) => void)[] = []
   const stage: Stage = {
+    resize(width, height) {
+      for (const told of sizes) told(width, height)
+    },
     doc,
     app,
     clock,
@@ -96,6 +102,11 @@ async function open(first: GraphAnswer, text = POINTER): Promise<Stage> {
     openExternal(url) {
       stage.external.push(url)
       return Promise.resolve()
+    },
+    observeSize(_element, told) {
+      sizes.push(told)
+      told(800, 500)
+      return { dispose: () => sizes.splice(sizes.indexOf(told), 1) }
     }
   })
   await settle()
@@ -303,5 +314,132 @@ describe('refetching as run detail does', () => {
     await stage.post('runs.changed', { types: ['run'], runs: [RUN_ID] })
     await stage.clock.advance(60_000)
     assert.equal(reads(stage).length, 1)
+  })
+})
+
+/** The graph's visible region as numbers: its viewBox. */
+function viewBox(stage: Stage): number[] {
+  const svg = find(stage.app, (element) => (element.getAttribute('class') ?? '').split(' ').includes('graph'))
+  return (svg?.getAttribute('viewBox') ?? '').split(' ').map(Number)
+}
+const near = (actual: number[], expected: number[]): void => {
+  assert.equal(actual.length, expected.length, `${actual.join(' ')} is not ${expected.join(' ')}`)
+  actual.forEach((value, index) => assert.ok(Math.abs(value - (expected[index] ?? NaN)) < 0.01, `${actual.join(' ')} is not ${expected.join(' ')}`))
+}
+const one = (root: FakeElement, name: string): FakeElement => {
+  const [element] = withClass(root, name)
+  if (element === undefined) throw new Error(`Nothing has the class ${name}.`)
+  return element
+}
+const named = (root: FakeElement, name: string): FakeElement => {
+  const element = find(root, (candidate) => candidate.tagName === 'button' && (candidate.getAttribute('aria-label') ?? candidate.textContent) === name)
+  if (element === null) throw new Error(`No button is named ${name}.`)
+  return element
+}
+
+// Two steps one under the other lay out 216 wide and 196 high: a step is 184 by 60, with 44
+// between ranks and a margin of 16 all round.
+describe('the canvas tools', () => {
+  test('fits the graph to the tab, and fits again on resize until the user moves the view', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    near(viewBox(stage), [-292, -152, 800, 500])
+    stage.resize(108, 98)
+    near(viewBox(stage), [0, 0, 216, 196])
+    one(stage.app, 'viewport').dispatch('keydown', { key: 'ArrowRight' })
+    near(viewBox(stage), [96, 0, 216, 196])
+    stage.resize(216, 196)
+    near(viewBox(stage), [96, 0, 432, 392])
+    one(stage.app, 'viewport').dispatch('keydown', { key: '0' })
+    near(viewBox(stage), [0, 0, 216, 196])
+    stage.resize(108, 98)
+    near(viewBox(stage), [0, 0, 216, 196])
+    stage.resize(216, 196)
+    named(stage.app, 'Zoom in').click()
+    named(stage.app, 'Fit').click()
+    stage.resize(432, 392)
+    near(viewBox(stage), [-108, -98, 432, 392])
+  })
+
+  test('arrow keys pan the view, on the canvas and on a step', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const viewport = one(stage.app, 'viewport')
+    assert.equal(viewport.getAttribute('tabindex'), '0')
+    const keys = ['ArrowLeft', 'ArrowUp', 'ArrowDown', 'ArrowRight'].map((key) => viewport.dispatch('keydown', { key }))
+    assert.ok(keys.every((event) => event.defaultPrevented))
+    near(viewBox(stage), [0, 0, 216, 196])
+    withClass(stage.app, 'step')[0]?.dispatch('keydown', { key: 'ArrowDown' })
+    near(viewBox(stage), [0, 48, 216, 196])
+  })
+
+  test('the plus and minus keys, the on-canvas buttons and the wheel zoom', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const viewport = one(stage.app, 'viewport')
+    viewport.dispatch('keydown', { key: '+' })
+    near(viewBox(stage), [21.6, 19.6, 172.8, 156.8])
+    viewport.dispatch('keydown', { key: '-' })
+    near(viewBox(stage), [0, 0, 216, 196])
+    named(stage.app, 'Zoom in').click()
+    near(viewBox(stage), [21.6, 19.6, 172.8, 156.8])
+    named(stage.app, 'Zoom out').click()
+    near(viewBox(stage), [0, 0, 216, 196])
+    const wheel = viewport.dispatch('wheel', { deltaY: -100, clientX: 0, clientY: 0 })
+    assert.ok(wheel.defaultPrevented)
+    near(viewBox(stage), [0, 0, 172.8, 156.8])
+  })
+
+  test('dragging the canvas pans the view', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const viewport = one(stage.app, 'viewport')
+    viewport.dispatch('pointerdown', { button: 0, clientX: 100, clientY: 100, pointerId: 1 })
+    viewport.dispatch('pointermove', { clientX: 60, clientY: 80, pointerId: 1 })
+    viewport.dispatch('pointerup', { clientX: 60, clientY: 80, pointerId: 1 })
+    near(viewBox(stage), [40, 20, 216, 196])
+    viewport.dispatch('pointermove', { clientX: 0, clientY: 0, pointerId: 1 })
+    near(viewBox(stage), [40, 20, 216, 196])
+  })
+
+  test('panning and zooming move the drawing; they do not lay the graph out or draw it again', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    const svg = one(stage.app, 'graph')
+    const steps = withClass(svg, 'step')
+    const viewport = one(stage.app, 'viewport')
+    viewport.dispatch('keydown', { key: 'ArrowRight' })
+    viewport.dispatch('keydown', { key: '+' })
+    viewport.dispatch('wheel', { deltaY: 100, clientX: 10, clientY: 10 })
+    assert.equal(one(stage.app, 'graph'), svg)
+    assert.deepEqual(withClass(stage.app, 'step'), steps)
+  })
+
+  test('a minimap shows each step coloured by state and a frame around the view, which a drag moves', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const minimap = one(stage.app, 'minimap')
+    assert.deepEqual(
+      withClass(minimap, 'mini-step').map((box) => box.getAttribute('class')),
+      ['mini-step state-completed', 'mini-step state-waiting']
+    )
+    const frame = one(minimap, 'minimap-frame')
+    near(['x', 'y', 'width', 'height'].map((name) => Number(frame.getAttribute(name))), [0, 0, 216, 196])
+    const scale = Number(minimap.getAttribute('width')) / 216
+    minimap.dispatch('pointerdown', { button: 0, clientX: 150 * scale, clientY: 100 * scale, pointerId: 2 })
+    near(viewBox(stage), [42, 2, 216, 196])
+    minimap.dispatch('pointermove', { clientX: 108 * scale, clientY: 98 * scale, pointerId: 2 })
+    minimap.dispatch('pointerup', { pointerId: 2 })
+    near(viewBox(stage), [0, 0, 216, 196])
+    near(['x', 'y', 'width', 'height'].map((name) => Number(frame.getAttribute(name))), [0, 0, 216, 196])
+    stage.resize(432, 392)
+    near(viewBox(stage), [0, 0, 432, 392])
+  })
+
+  test('the zoom buttons, whose text is a sign, are named; the canvas says how to use the keys', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    for (const name of ['Zoom in', 'Zoom out']) assert.equal(named(stage.app, name).getAttribute('type'), 'button')
+    const viewport = one(stage.app, 'viewport')
+    assert.equal(viewport.getAttribute('aria-label'), 'Steps of archon-deliver-block')
+    const help = stage.doc.getElementById(viewport.getAttribute('aria-describedby') ?? '')
+    assert.equal(help?.textContent, 'Arrow keys pan, plus and minus zoom, and zero fits the graph.')
   })
 })

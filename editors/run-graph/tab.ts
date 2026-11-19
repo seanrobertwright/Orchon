@@ -2,6 +2,7 @@
 // the run's id from the file, asks the worker for the run on its workflow as it is now, and draws
 // a header, the banners and the graph in its own HTML. It is read-only: it never edits its file
 // and holds no control that writes. Every piece of outside text is set through `textContent`.
+import { createCanvas, type Canvas, type ObserveSize } from '../shared/canvas.ts'
 import { drawGraph, type DrawStep } from '../shared/graph-draw.ts'
 import { layoutGraph, layoutInOrder, type Layout } from '../shared/graph-layout.ts'
 import type { GraphAnswer, GraphHeader, GraphView, TabConnection, TabScreen } from './graph-view.ts'
@@ -39,6 +40,8 @@ export type TabPorts = {
   timers: TabTimers
   /** Opens a link in the system browser, when the frame can. */
   openExternal?(url: string): Promise<unknown>
+  /** Reports the graph area's size and its changes, so the graph is fitted to it. */
+  observeSize?: ObserveSize
 }
 
 export type Tab = { stop(): void }
@@ -115,6 +118,8 @@ export function startTab(ports: TabPorts): Tab {
   /** The layout of the graph last drawn, kept while the graph's shape does not change. */
   let laidOut: { key: string; layout: Layout } | undefined
   const prefix = `run-graph-${String((drawings += 1))}`
+  /** The canvas, made with the first graph and kept while the tab is open, with what it shows. */
+  let area: { canvas: Canvas; drawn: string } | undefined
   const subscriptions: { dispose(): void }[] = []
 
   function drawHeader(header: GraphHeader | null): void {
@@ -184,6 +189,23 @@ export function startTab(ports: TabPorts): Tab {
     return laidOut.layout
   }
 
+  /** Draws a ready graph on the canvas. Nothing is laid out or drawn again while what it shows is unchanged. */
+  function drawReady(view: Extract<GraphView, { kind: 'ready' }>): void {
+    const label = `Steps of ${view.header.workflow}`
+    area ??= { canvas: createCanvas({ doc, label, idPrefix: prefix, ...(ports.observeSize === undefined ? {} : { observeSize: ports.observeSize }) }), drawn: '' }
+    area.canvas.viewport.setAttribute('aria-label', label)
+    if (content.children[0] !== area.canvas.root) content.replaceChildren(area.canvas.root)
+    const steps = new Map<string, DrawStep>(
+      view.steps.map((step) => [step.id, { name: step.name, kind: step.kind, state: step.state, stateText: `${step.glyph} ${step.word}`, note: step.note }])
+    )
+    const laid = layoutOf(view)
+    const drawn = JSON.stringify([laidOut?.key, label, [...steps]])
+    if (drawn === area.drawn) return
+    area.drawn = drawn
+    const svg = drawGraph(doc, laid, steps, { label, idPrefix: prefix })
+    area.canvas.show(svg, laid, new Map(view.steps.map((step) => [step.id, step.state])), { fit: false })
+  }
+
   /** Draws what the tab shows, with banners first: the Searching banner, a mismatch, a failed read. */
   function drawShown(view: Shown, lines: string[]): void {
     const banner = [...lines]
@@ -206,13 +228,7 @@ export function startTab(ports: TabPorts): Tab {
         )
       )
     } else {
-      const steps = new Map<string, DrawStep>(
-        view.steps.map((step) => [step.id, { name: step.name, kind: step.kind, state: step.state, stateText: `${step.glyph} ${step.word}`, note: step.note }])
-      )
-      const svg = drawGraph(doc, layoutOf(view), steps, { label: `Steps of ${view.header.workflow}`, idPrefix: prefix })
-      const canvas = el('div', undefined, 'canvas')
-      canvas.appendChild(svg)
-      content.replaceChildren(canvas)
+      drawReady(view)
     }
   }
 
@@ -291,6 +307,7 @@ export function startTab(ports: TabPorts): Tab {
     stop() {
       stopped = true
       fetcher.stop()
+      area?.canvas.stop()
       for (const subscription of subscriptions) subscription.dispose()
     }
   }
