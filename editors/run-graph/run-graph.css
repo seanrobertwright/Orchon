@@ -210,7 +210,7 @@ pre {
   stroke-width: 2;
 }
 
-.step.selected .box {
+.step[aria-expanded='true'] .box {
   stroke: var(--orca-foreground);
   stroke-width: 2.5;
 }

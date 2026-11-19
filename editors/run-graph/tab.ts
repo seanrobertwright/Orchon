@@ -3,6 +3,7 @@
 // a header, the banners and the graph in its own HTML. It is read-only: it never edits its file
 // and holds no control that writes. Every piece of outside text is set through `textContent`.
 import { createCanvas, type Canvas, type ObserveSize } from '../shared/canvas.ts'
+import { elementMaker } from '../shared/dom.ts'
 import { drawGraph, type DrawStep } from '../shared/graph-draw.ts'
 import { layoutGraph, layoutInOrder, type Direction, type Layout } from '../shared/graph-layout.ts'
 import type { GraphAnswer, GraphEdge, GraphHeader, GraphStep, GraphView, TabConnection, TabScreen } from './graph-view.ts'
@@ -81,6 +82,8 @@ function isAnswer(value: unknown): value is GraphAnswer {
 }
 
 type Ready = Extract<GraphView, { kind: 'ready' }>
+/** The steps and edges drawn, and how many steps each collapsed loop group holds. */
+type DrawnPart = { steps: GraphStep[]; edges: GraphEdge[]; holds: Map<string, number> }
 type Area = { canvas: Canvas; loops: HTMLButtonElement; drawn: string; boxes: Map<string, Element> }
 
 /** A graph view that carries something to show, which Searching and a failed read keep. */
@@ -101,12 +104,7 @@ function stepBoxes(root: Element): Element[] {
 
 export function startTab(ports: TabPorts): Tab {
   const { doc } = ports
-  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, className?: string): HTMLElementTagNameMap[K] => {
-    const element = doc.createElement(tag)
-    if (text !== undefined) element.textContent = text
-    if (className !== undefined) element.setAttribute('class', className)
-    return element
-  }
+  const el = elementMaker(doc)
   /** A sentence in which each word between backticks is code. */
   const withCode = (sentence: string): HTMLParagraphElement => {
     const line = el('p')
@@ -195,7 +193,7 @@ export function startTab(ports: TabPorts): Tab {
   }
 
   /** The steps and edges drawn: with loop groups collapsed, only the steps at the top, each group saying how many it holds. */
-  function drawnPart(view: Ready): { steps: GraphStep[]; edges: GraphEdge[]; holds: Map<string, number> } {
+  function drawnPart(view: Ready): DrawnPart {
     const holds = new Map<string, number>()
     if (expanded) return { steps: view.steps, edges: view.edges, holds }
     const parent = new Map(view.steps.map((step) => [step.id, step.group]))
@@ -212,7 +210,7 @@ export function startTab(ports: TabPorts): Tab {
   }
 
   /** The layout for a ready graph, made again only when its shape, the direction or the loop switch changed. */
-  function layoutOf(view: Ready, part: { steps: GraphStep[]; edges: GraphEdge[] }): Layout {
+  function layoutOf(view: Ready, part: DrawnPart): Layout {
     const key = JSON.stringify([view.mismatch, direction, part.steps.map((step) => [step.id, step.group, step.isGroup, step.conditional]), part.edges])
     if (laidOut?.key !== key) {
       const layout =
@@ -276,7 +274,6 @@ export function startTab(ports: TabPorts): Tab {
     for (const [id, box] of area?.boxes ?? []) {
       box.setAttribute('aria-expanded', String(id === selected))
       box.setAttribute('aria-controls', card.root.id)
-      box.setAttribute('class', `${(box.getAttribute('class') ?? '').replace(/ selected$/, '')}${id === selected ? ' selected' : ''}`)
     }
   }
 
@@ -320,20 +317,14 @@ export function startTab(ports: TabPorts): Tab {
     area.loops.hidden = !view.steps.some((step) => step.isGroup && view.steps.some((inner) => inner.group === step.id))
     if (content.children[0] !== area.canvas.root) content.replaceChildren(area.canvas.root)
     const part = drawnPart(view)
-    const steps = new Map<string, DrawStep>(
-      part.steps.map((step) => {
-        const holds = part.holds.get(step.id)
-        const facts: DrawStep = { name: step.name, kind: step.kind, state: step.state, stateText: `${step.glyph} ${step.word}`, note: step.note }
-        return [step.id, holds === undefined ? facts : { ...facts, holds }]
-      })
-    )
-    cardSteps = new Map(
-      part.steps.map((step) => {
-        const facts = steps.get(step.id)
-        const shownStep: CardStep = { name: step.name, kind: step.kind, stateText: `${step.glyph} ${step.word}`, note: step.note, summary: parseSummary(step.summary) }
-        return [step.id, facts?.holds === undefined ? shownStep : { ...shownStep, holds: facts.holds }]
-      })
-    )
+    const steps = new Map<string, DrawStep>()
+    cardSteps = new Map()
+    for (const step of part.steps) {
+      const holds = part.holds.get(step.id)
+      const shared = { name: step.name, kind: step.kind, stateText: `${step.glyph} ${step.word}`, note: step.note, ...(holds === undefined ? {} : { holds }) }
+      steps.set(step.id, { ...shared, state: step.state })
+      cardSteps.set(step.id, { ...shared, summary: parseSummary(step.summary) })
+    }
     const laid = layoutOf(view, part)
     const drawn = JSON.stringify([laidOut?.key, label, [...steps]])
     if (drawn !== area.drawn) {

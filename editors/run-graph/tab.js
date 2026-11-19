@@ -3,6 +3,7 @@
 // a header, the banners and the graph in its own HTML. It is read-only: it never edits its file
 // and holds no control that writes. Every piece of outside text is set through `textContent`.
 import { createCanvas } from "../shared/canvas.js";
+import { elementMaker } from "../shared/dom.js";
 import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph, layoutInOrder } from "../shared/graph-layout.js";
 import { createRefetch } from "./refetch.js";
@@ -71,14 +72,7 @@ function stepBoxes(root) {
 }
 export function startTab(ports) {
     const { doc } = ports;
-    const el = (tag, text, className) => {
-        const element = doc.createElement(tag);
-        if (text !== undefined)
-            element.textContent = text;
-        if (className !== undefined)
-            element.setAttribute('class', className);
-        return element;
-    };
+    const el = elementMaker(doc);
     /** A sentence in which each word between backticks is code. */
     const withCode = (sentence) => {
         const line = el('p');
@@ -240,7 +234,6 @@ export function startTab(ports) {
         for (const [id, box] of area?.boxes ?? []) {
             box.setAttribute('aria-expanded', String(id === selected));
             box.setAttribute('aria-controls', card.root.id);
-            box.setAttribute('class', `${(box.getAttribute('class') ?? '').replace(/ selected$/, '')}${id === selected ? ' selected' : ''}`);
         }
     }
     /** Opens a step's card over the canvas, or shows another step on the open card. The focus stays where it is. */
@@ -286,16 +279,14 @@ export function startTab(ports) {
         if (content.children[0] !== area.canvas.root)
             content.replaceChildren(area.canvas.root);
         const part = drawnPart(view);
-        const steps = new Map(part.steps.map((step) => {
+        const steps = new Map();
+        cardSteps = new Map();
+        for (const step of part.steps) {
             const holds = part.holds.get(step.id);
-            const facts = { name: step.name, kind: step.kind, state: step.state, stateText: `${step.glyph} ${step.word}`, note: step.note };
-            return [step.id, holds === undefined ? facts : { ...facts, holds }];
-        }));
-        cardSteps = new Map(part.steps.map((step) => {
-            const facts = steps.get(step.id);
-            const shownStep = { name: step.name, kind: step.kind, stateText: `${step.glyph} ${step.word}`, note: step.note, summary: parseSummary(step.summary) };
-            return [step.id, facts?.holds === undefined ? shownStep : { ...shownStep, holds: facts.holds }];
-        }));
+            const shared = { name: step.name, kind: step.kind, stateText: `${step.glyph} ${step.word}`, note: step.note, ...(holds === undefined ? {} : { holds }) };
+            steps.set(step.id, { ...shared, state: step.state });
+            cardSteps.set(step.id, { ...shared, summary: parseSummary(step.summary) });
+        }
         const laid = layoutOf(view, part);
         const drawn = JSON.stringify([laidOut?.key, label, [...steps]]);
         if (drawn !== area.drawn) {
