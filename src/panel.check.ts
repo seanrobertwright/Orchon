@@ -7,14 +7,17 @@ import { defineCheck } from 'orca/testing'
 import {
   answering,
   connected,
+  connectedWithMetrics,
   noHome,
   notRunning,
   oneBadSetting,
   searching,
-  twoBadSettings
+  twoBadSettings,
+  unsupported
 } from '../scripts/connection-samples.ts'
 
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
+const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
 
 export default defineCheck({
   connected: answering(connected),
@@ -24,6 +27,10 @@ export default defineCheck({
   'not found, no Archon home folder': answering(noHome),
   'bad setting, one refused': answering(oneBadSetting),
   'bad setting, two refused': answering(twoBadSettings),
+  unsupported: answering(unsupported),
+  'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
+  'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
   'settings while not found': { ...answering(notRunning), ...onSettings },
+  'settings while unsupported': { ...answering(unsupported), ...onSettings },
   'settings with two refused settings': { ...answering(twoBadSettings), ...onSettings }
 })

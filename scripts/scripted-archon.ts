@@ -6,8 +6,12 @@ import { mockHost, mountWorker, type MockHost, type MockHostOptions, type TestWo
 import type { OrcaWorkerApi } from 'orca/worker'
 import type { FetchAnswer, FetchInit, FetchLike, Timers } from '../src/client.ts'
 import type { ConnectionView } from '../src/connection-view.ts'
+import { DEFAULT_BASE_URL } from '../src/discovery.ts'
 import type { Disk, FolderState, TextFile } from '../src/disk.ts'
+import { OPENAPI_PATH } from '../src/path-check.ts'
 import { start } from '../src/worker.ts'
+import { readRepoText } from './repo-files.ts'
+import { field } from './shape.ts'
 
 /** Lets every promise chain that is ready run to its next real wait. */
 export async function settle(rounds = 5): Promise<void> {
@@ -82,7 +86,11 @@ export type ScriptedArchon = {
   fetch: FetchLike
   /** Every request that reached the transport, in order. */
   calls: ScriptedCall[]
-  /** Sets what one URL answers from now on. A URL never set refuses the connection. */
+  /**
+   * Sets what one URL answers from now on. A URL never set refuses the connection, except a path
+   * list: an Archon is the floor release unless told otherwise, so `/api/openapi.json` answers
+   * the recorded document of 0.12.1.
+   */
   answer(url: string, scripted: Scripted | ((call: ScriptedCall) => Scripted)): void
   /** How many body chunks the caller took from the last answer, and whether it closed the body. */
   lastBody: { taken: number; closed: boolean }
@@ -104,6 +112,44 @@ export const HANG: Scripted = { kind: 'hang' }
 export const health = (fields: Record<string, unknown> = {}): Scripted =>
   json({ status: 'ok', adapter: 'web', runningWorkflows: 0, version: '0.12.1', ...fields })
 
+/** The releases with recorded fixtures, oldest first. */
+export const RELEASES = ['0.12.1', '0.13.2', '0.14.0'] as const
+export type Release = (typeof RELEASES)[number]
+
+/**
+ * The first answer a recorded fixture holds, as the scripted Archon gives it: the recorded
+ * status, content type and body. Fixtures are recorded from real releases, never typed.
+ */
+export function recorded(release: Release, scenario: string): Scripted {
+  const log = field(JSON.parse(readRepoText(`fixtures/${release}/${scenario}.json`)), 'log')
+  const first: unknown = Array.isArray(log) ? log[0] : undefined
+  const status = field(first, 'status')
+  const contentType = field(first, 'contentType')
+  const body = field(first, 'body')
+  if (typeof status !== 'number' || typeof contentType !== 'string') {
+    throw new Error(`fixtures/${release}/${scenario}.json holds no recorded answer.`)
+  }
+  return typeof body === 'string'
+    ? { kind: 'text', text: body, contentType, status }
+    : { kind: 'json', value: body, status, contentType }
+}
+
+/** A recorded path list with some paths taken out, as an Archon that lacks them would answer. */
+export function pathListWithout(release: Release, ...paths: string[]): Scripted {
+  const document = recorded(release, 'openapi')
+  if (document.kind !== 'json') throw new Error(`The recorded path list of ${release} is not JSON.`)
+  const all = field(document.value, 'paths')
+  const kept = Object.fromEntries(Object.entries(all as Record<string, unknown>).filter(([path]) => !paths.includes(path)))
+  return { ...document, value: { ...(document.value as Record<string, unknown>), paths: kept } }
+}
+
+let floorPathList: Scripted | undefined
+
+function floorPathListAnswer(): Scripted {
+  floorPathList ??= recorded('0.12.1', 'openapi')
+  return floorPathList
+}
+
 export function scriptArchon(): ScriptedArchon {
   const answers = new Map<string, Scripted | ((call: ScriptedCall) => Scripted)>()
   const archon: ScriptedArchon = {
@@ -116,7 +162,7 @@ export function scriptArchon(): ScriptedArchon {
       const call: ScriptedCall = { url, method: init.method, redirect: init.redirect, headers: init.headers }
       if (init.body !== undefined) call.body = init.body
       archon.calls.push(call)
-      const found = answers.get(url) ?? REFUSE
+      const found = answers.get(url) ?? (new URL(url).pathname === OPENAPI_PATH ? floorPathListAnswer() : REFUSE)
       const scripted = typeof found === 'function' ? found(call) : found
       if (scripted.kind === 'refuse') {
         return Promise.reject(new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }))
@@ -196,7 +242,10 @@ export function scriptDisk(): ScriptedDisk {
 export const HOME_DIR = join(parse(process.cwd()).root, 'home', 'someone')
 export const ARCHON_HOME = join(HOME_DIR, '.archon')
 export const SERVER_RECORD = join(ARCHON_HOME, 'server.json')
-export const DEFAULT_HEALTH = 'http://127.0.0.1:3090/api/health'
+/** The default address, and the two calls a pass makes there. */
+export const DEFAULT = DEFAULT_BASE_URL
+export const DEFAULT_HEALTH = `${DEFAULT}/api/health`
+export const DEFAULT_OPENAPI = `${DEFAULT}${OPENAPI_PATH}`
 
 export type Scene = {
   archon: ScriptedArchon
@@ -220,6 +269,12 @@ export type MountedScene = {
   /** Every `statusBar.update` the worker sent, in order. */
   statusBar(): unknown[]
 }
+
+/** The kind of every connection state the worker posted, in order. */
+export const kinds = (mounted: MountedScene): string[] => mounted.posted().map((state) => state.kind)
+
+/** The address of every call made to the scripted Archon, in order. */
+export const urls = (stage: Scene): string[] => stage.archon.calls.map((call) => call.url)
 
 /**
  * A scripted Archon, clock and disk, and the worker mounted on them. Script what Archon answers

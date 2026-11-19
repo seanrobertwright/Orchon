@@ -7,6 +7,7 @@ import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings
 import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
+import { checkPaths } from './path-check'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
@@ -23,9 +24,19 @@ export type WorkerPorts = {
 /** In Not found, discovery runs again after this long, then twice as long each time, up to the last. */
 export const FIRST_RETRY_MS = 2_000
 export const LAST_RETRY_MS = 30_000
+/** In Unsupported, discovery runs again this often, with no doubling. */
+export const UNSUPPORTED_RETRY_MS = 30_000
 
 /** A state before it is stamped with the time it was entered. */
 type Entering = ConnectionView extends infer View ? (View extends ConnectionView ? Omit<View, 'since'> : never) : never
+
+/**
+ * Not found and Unsupported wait on a timer for discovery to run again. They keep their screen
+ * while it runs, and "Try again" runs it at once.
+ */
+function waitsToLookAgain(view: ConnectionView): boolean {
+  return view.kind === 'not-found' || view.kind === 'unsupported'
+}
 
 const NO_SETTINGS: SettingsView = { baseUrl: '', archonHome: '', homeFolder: null }
 
@@ -49,7 +60,10 @@ export type Connection = {
    * check, at most one in flight: a server that no longer answers moves the state to Searching.
    */
   read(): Promise<ConnectionView>
-  /** "Try again": in Not found, runs discovery at once. In any other state it changes nothing. */
+  /**
+   * "Try again": in Not found and Unsupported, runs discovery at once. In any other state it
+   * changes nothing.
+   */
   retry(): Promise<ConnectionView>
   /** A setting changed: parses both again, and runs discovery at once when either one differs. */
   settingsChanged(): Promise<void>
@@ -96,19 +110,25 @@ export function createConnection(ports: ConnectionPorts): Connection {
     retryTimer = undefined
   }
 
-  function retryLater(): void {
-    const wait = retryDelay
-    retryDelay = Math.min(retryDelay * 2, LAST_RETRY_MS)
+  function lookAfter(wait: number): void {
     retryTimer = ports.timers.set(() => {
       retryTimer = undefined
       void look()
     }, wait)
   }
 
+  /** The next wait of the Not found backoff. */
+  function retryLater(): void {
+    const wait = retryDelay
+    retryDelay = Math.min(retryDelay * 2, LAST_RETRY_MS)
+    lookAfter(wait)
+  }
+
   /**
    * One pass: parse the settings (read now unless given), then discover. It supersedes any pass
-   * in flight. Refused settings end it in Bad setting. Otherwise Not found stays on screen while
-   * its own timer looks again, and any other pass shows Searching until it has an answer.
+   * in flight. Refused settings end it in Bad setting. Otherwise Not found and Unsupported stay
+   * on screen while their own timer looks again, and any other pass shows Searching until it has
+   * an answer. A confirmed server's path list is read before it counts as Connected.
    */
   async function look(known?: ParsedSettings): Promise<void> {
     generation += 1
@@ -127,15 +147,34 @@ export function createConnection(ports: ConnectionPorts): Connection {
         enter({ kind: 'bad-setting', settings, refused: parsed.refused })
         return
       }
-      if (view.kind !== 'not-found' || canonical(view.settings) !== canonical(settings)) {
+      if (!waitsToLookAgain(view) || canonical(view.settings) !== canonical(settings)) {
         enter({ kind: 'searching', settings })
       }
       settingsRead()
       const found = await discover(parsed, { client: ports.client, disk: ports.openDisk([parsed.home]), signal })
       if (mine !== generation) return
-      enter({ ...found, settings })
-      if (found.kind === 'connected') retryDelay = FIRST_RETRY_MS
-      else retryLater()
+      if (found.kind === 'not-found') {
+        enter({ ...found, settings })
+        retryLater()
+        return
+      }
+      const paths = await checkPaths(ports.client, found.baseUrl, signal)
+      if (mine !== generation) return
+      if (paths.kind === 'supported') {
+        enter({ ...found, settings, features: paths.features })
+        retryDelay = FIRST_RETRY_MS
+      } else if (paths.kind === 'unsupported') {
+        const { baseUrl, source, version } = found
+        enter({ kind: 'unsupported', settings, baseUrl, source, version })
+        // A server lost from here goes to Not found, whose backoff starts over.
+        retryDelay = FIRST_RETRY_MS
+        lookAfter(UNSUPPORTED_RETRY_MS)
+      } else {
+        // The server answered health, then the document did not arrive: that says nothing about
+        // its paths, so the state is Searching and discovery runs again on the backoff.
+        enter({ kind: 'searching', settings })
+        retryLater()
+      }
     } catch (error) {
       if (mine !== generation) return
       ports.log(`Orchon could not look for Archon: ${error instanceof Error ? error.message : String(error)}`)
@@ -179,7 +218,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
 
     async retry() {
       await ready
-      if (view.kind === 'not-found') {
+      if (waitsToLookAgain(view)) {
         retryDelay = FIRST_RETRY_MS
         enter({ kind: 'searching', settings: view.settings })
         void look()

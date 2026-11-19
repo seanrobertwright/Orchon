@@ -5,19 +5,18 @@ import { assert, describe, hostError, test } from 'orca/testing'
 import {
   ARCHON_HOME,
   CLOCK_START as START,
+  DEFAULT,
   DEFAULT_HEALTH,
+  DEFAULT_OPENAPI,
   HANG,
   health,
+  json,
+  kinds,
   REFUSE,
   scene,
-  type MountedScene,
   type Scene
 } from '../scripts/scripted-archon.ts'
 import { REASONS } from './connection-settings'
-
-const DEFAULT = 'http://127.0.0.1:3090'
-
-const kinds = (mounted: MountedScene): string[] => mounted.posted().map((state) => state.kind)
 
 /** Records the clock time of every health call to the default address, which is refused. */
 function timedRefusals(stage: Scene): number[] {
@@ -30,7 +29,7 @@ function timedRefusals(stage: Scene): number[] {
 }
 
 describe('the connection state', () => {
-  test('starts as Searching and is Connected once health answers', async () => {
+  test('starts as Searching and is Connected once health answers and the path list is full', async () => {
     const stage = scene()
     stage.archon.answer(DEFAULT_HEALTH, health({ storeId: 'store-a' }))
     const mounted = await stage.mount()
@@ -42,7 +41,8 @@ describe('the connection state', () => {
       baseUrl: DEFAULT,
       source: 'default',
       version: '0.12.1',
-      storeId: 'store-a'
+      storeId: 'store-a',
+      features: { metrics: false }
     })
     // Connected waits for nothing: once the status bar item is told, no timer is left running.
     await stage.clock.advance(1_000)
@@ -312,7 +312,8 @@ describe('the connection state', () => {
     const stage = scene()
     stage.archon.answer(DEFAULT_HEALTH, health())
     const mounted = await stage.mount()
-    assert.equal(stage.archon.calls.length, 1)
+    // Health, then the path list.
+    assert.equal(stage.archon.calls.length, 2)
 
     stage.archon.answer(DEFAULT_HEALTH, HANG)
     const answers = await Promise.all([
@@ -325,7 +326,7 @@ describe('the connection state', () => {
       answers.map((answer) => answer.connection.kind),
       ['connected', 'connected', 'connected']
     )
-    assert.equal(stage.archon.calls.length, 2)
+    assert.equal(stage.archon.calls.length, 3)
 
     stage.archon.answer(DEFAULT_HEALTH, REFUSE)
     await stage.clock.advance(3_000)
@@ -339,7 +340,9 @@ describe('the connection state', () => {
     await mounted.read()
     await mounted.read()
     assert.deepEqual(kinds(mounted), ['searching', 'connected'])
-    assert.equal(stage.archon.calls.length, 3)
+    // Health and the path list on connecting, then one health check per read: the path list
+    // is read when discovery confirms a server, not on every check.
+    assert.equal(stage.archon.calls.length, 4)
   })
 
   test('a check that finds another store or version there connects afresh', async () => {
@@ -447,6 +450,18 @@ describe('the status bar item', () => {
       await stage.clock.advance(1_000)
       assert.deepEqual(mounted.statusBar().at(-1), item('Archon setup', sentence, true))
     }
+  })
+
+  test('reads "Archon setup", as a warning, for Unsupported', async () => {
+    const stage = scene()
+    stage.archon.answer(DEFAULT_HEALTH, health({ version: '0.11.1' }))
+    stage.archon.answer(DEFAULT_OPENAPI, json({ openapi: '3.0.0', paths: { '/api/health': {} } }))
+    const mounted = await stage.mount()
+    await stage.clock.advance(1_000)
+    assert.deepEqual(
+      mounted.statusBar().at(-1),
+      item('Archon setup', `The Archon at ${DEFAULT} is not supported. Orchon needs 0.12.1 or newer.`, true)
+    )
   })
 
   test('says "Connected to Archon" with no version when health reports none', async () => {
