@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
+import type { RunsHint } from './hint-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { SystemAnswer, SystemView } from './system-view'
 
@@ -27,6 +28,8 @@ declare module 'orca' {
     'show-runs': null
     /** The connection state, posted each time it changes. */
     'connection.changed': ConnectionView
+    /** A hint that runs changed in Archon, at most one a second. It carries no run data. */
+    'runs.changed': RunsHint
     /** The System group, posted when a read that no request waits for has ended. */
     'system.changed': SystemView
   }

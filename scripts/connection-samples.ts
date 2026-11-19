@@ -26,7 +26,8 @@ export const connected: Connected = {
   source: 'default',
   version: '0.12.1',
   storeId: '00000000-0000-4000-8000-000000000000',
-  features: { metrics: false }
+  features: { metrics: false },
+  live: true
 }
 
 /** Connected to a server whose path list has the metrics paths. */

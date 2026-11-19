@@ -19,6 +19,7 @@ import {
   type Scene
 } from '../scripts/scripted-archon.ts'
 import { REASONS } from './connection-settings'
+import { SILENCE_MS } from './live'
 
 /** Records the clock time of every health call to the default address, which is refused. */
 function timedRefusals(stage: Scene): number[] {
@@ -44,11 +45,13 @@ describe('the connection state', () => {
       source: 'default',
       version: '0.12.1',
       storeId: 'store-a',
-      features: { metrics: false }
+      features: { metrics: false },
+      live: false
     })
-    // Connected waits for nothing: once the status bar item is told, no timer is left running.
+    // Connected waits only on the dashboard stream: once the status bar item is told, the one
+    // timer left is the stream's watchdog. The scripted stream sends nothing, so it stays not live.
     await stage.clock.advance(1_000)
-    assert.deepEqual(stage.clock.waiting(), [])
+    assert.deepEqual(stage.clock.waiting(), [SILENCE_MS - 1_000])
   })
 
   test('on a cold start the first failed pass goes straight to Not found', async () => {
@@ -124,7 +127,8 @@ describe('the connection state', () => {
     const calls = stage.archon.calls.length
     await stage.clock.advance(120_000)
     assert.equal(stage.archon.calls.length, calls)
-    assert.deepEqual(stage.clock.waiting(), [])
+    // Only the watchdog of the silent stream waits; it reopened the stream at 75 seconds.
+    assert.deepEqual(stage.clock.waiting(), [2 * SILENCE_MS - 120_000])
   })
 
   test('posts Not found again when what it would say has changed', async () => {
@@ -263,10 +267,10 @@ describe('the connection state', () => {
     await mounted.orca.settings.set('baseUrl', 'http://127.0.0.1:4000')
     await stage.clock.advance(0)
     assert.deepEqual(kinds(mounted), ['searching', 'not-found', 'searching', 'connected'])
-    // Only the status bar item's timer is left: nothing looks again.
-    assert.deepEqual(stage.clock.waiting(), [1_000])
+    // Only the status bar item's timer and the stream's watchdog are left: nothing looks again.
+    assert.deepEqual(stage.clock.waiting(), [1_000, SILENCE_MS])
     await stage.clock.advance(1_000)
-    assert.deepEqual(stage.clock.waiting(), [])
+    assert.deepEqual(stage.clock.waiting(), [SILENCE_MS - 1_000])
   })
 
   test('a settings change while Connected looks again, and a refused value disconnects', async () => {
@@ -321,7 +325,8 @@ describe('the connection state', () => {
     const posted = mounted.posted().length
     await stage.clock.advance(60_000)
     assert.equal(mounted.posted().length, posted)
-    assert.deepEqual(stage.clock.waiting(), [])
+    // Only the watchdog of the silent stream waits.
+    assert.deepEqual(stage.clock.waiting(), [SILENCE_MS - 60_000])
   })
 
   test('a frame that asks while Connected has the server checked, at most one check in flight', async () => {

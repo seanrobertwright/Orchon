@@ -7,6 +7,7 @@ import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings
 import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
+import { createLive } from './live'
 import { checkPaths } from './path-check'
 import { refuseRequest } from './records'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
@@ -72,6 +73,10 @@ export type Connection = {
   retry(): Promise<ConnectionView>
   /** A setting changed: parses both again, and runs discovery at once when either one differs. */
   settingsChanged(): Promise<void>
+  /** While Connected, records whether the dashboard stream is open. */
+  setLive(live: boolean): void
+  /** While Connected, a call found nothing taking its connection: Searching, and discovery runs again. */
+  refused(): void
   stop(): void
 }
 
@@ -166,7 +171,8 @@ export function createConnection(ports: ConnectionPorts): Connection {
       const paths = await checkPaths(ports.client, found.baseUrl, signal)
       if (mine !== generation) return
       if (paths.kind === 'supported') {
-        enter({ ...found, settings, features: paths.features })
+        // The stream opens once Connected is entered, so a new connection is not live yet.
+        enter({ ...found, settings, features: paths.features, live: false })
         retryDelay = FIRST_RETRY_MS
       } else if (paths.kind === 'unsupported') {
         const { baseUrl, source, version } = found
@@ -251,6 +257,16 @@ export function createConnection(ports: ConnectionPorts): Connection {
       await look(parsed)
     },
 
+    setLive(live) {
+      if (view.kind === 'connected') enter({ ...view, live })
+    },
+
+    refused() {
+      if (view.kind !== 'connected') return
+      enter({ kind: 'searching', settings: view.settings })
+      void look()
+    },
+
     stop() {
       generation += 1
       inFlight.abort()
@@ -297,10 +313,25 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     timers: ports.timers,
     log: (message) => orca.log(message),
     changed(view) {
+      const before = held
+      held = view
       orca.panels.post('connection.changed', view)
       statusBar.show(statusItem(view))
       system.connectionChanged()
+      // The stream is held while Connected, and opened at once whenever discovery connects.
+      if (view.kind !== 'connected') live.close()
+      else if (before?.kind !== 'connected') live.open(view.baseUrl)
     }
+  })
+  let held: ConnectionView | undefined
+  const live = createLive({
+    client,
+    now: ports.now,
+    timers: ports.timers,
+    hint: (hint) => orca.panels.post('runs.changed', hint),
+    live: (open) => connection.setLive(open),
+    refused: () => connection.refused(),
+    log: (message) => orca.log(message)
   })
 
   const system = createSystem({
@@ -346,6 +377,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     stop() {
       for (const subscription of subscriptions) subscription.dispose()
       connection.stop()
+      live.close()
       system.close()
       statusBar.stop()
     }

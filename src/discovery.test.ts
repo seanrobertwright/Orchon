@@ -40,7 +40,8 @@ describe('discovery', () => {
         source: 'default',
         version: '0.12.1',
         storeId: 'store-a',
-        features: { metrics: false }
+        features: { metrics: false },
+        live: false
       }
     )
     assert.equal(stage.archon.calls[0]?.url, DEFAULT_HEALTH)
