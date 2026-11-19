@@ -78,10 +78,13 @@ describe('the state screens', () => {
     clean(view)
   })
 
-  test('shows the spinner, and nothing else, while it has no state from the worker', async () => {
+  test('with no state because its worker did not answer, says so in place of the spinner (#44)', async () => {
     panel = await mount(panelModule, { host: mockHost(noAnswer) })
-    assert.deepEqual(panel.summary(), ['Tabs "Orchon sections": "Runs" selected', 'Spinner "Looking for Archon…"'])
-    assert.equal(panel.findAll({ type: 'Button' }).length, 0)
+    assert.deepEqual(panel.summary(), [
+      'Tabs "Orchon sections": "Runs" selected',
+      `Callout warning "Orchon's background process is not answering. Try again"`
+    ])
+    assert.equal(panel.findAll({ type: 'Spinner' }).length, 0)
     assert.deepEqual(panel.errors, [])
   })
 

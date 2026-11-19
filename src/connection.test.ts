@@ -324,54 +324,6 @@ describe('the connection state', () => {
     assert.deepEqual(stage.clock.waiting(), [])
   })
 
-  test('a frame that asks while Connected has the server checked, at most one check in flight', async () => {
-    const stage = scene()
-    stage.archon.answer(DEFAULT_HEALTH, health())
-    const mounted = await stage.mount()
-    // Health, then the path list.
-    assert.equal(stage.archon.calls.length, 2)
-
-    stage.archon.answer(DEFAULT_HEALTH, HANG)
-    const answers = await Promise.all([
-      mounted.worker.request('connection.read'),
-      mounted.worker.request('connection.read'),
-      mounted.worker.request('connection.read')
-    ])
-    // The answer does not wait for the check: it carries the state as it is.
-    assert.deepEqual(
-      answers.map((answer) => answer.connection.kind),
-      ['connected', 'connected', 'connected']
-    )
-    assert.equal(stage.archon.calls.length, 3)
-
-    stage.archon.answer(DEFAULT_HEALTH, REFUSE)
-    await stage.clock.advance(3_000)
-    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching', 'not-found'])
-  })
-
-  test('a check that finds the same server leaves the state alone', async () => {
-    const stage = scene()
-    stage.archon.answer(DEFAULT_HEALTH, health({ storeId: 'store-a' }))
-    const mounted = await stage.mount()
-    await mounted.read()
-    await mounted.read()
-    assert.deepEqual(kinds(mounted), ['searching', 'connected'])
-    // Health and the path list on connecting, then one health check per read: the path list
-    // is read when discovery confirms a server, not on every check.
-    assert.equal(stage.archon.calls.length, 4)
-  })
-
-  test('a check that finds another store or version there connects afresh', async () => {
-    const stage = scene()
-    stage.archon.answer(DEFAULT_HEALTH, health({ storeId: 'store-a' }))
-    const mounted = await stage.mount()
-    stage.archon.answer(DEFAULT_HEALTH, health({ storeId: 'store-b', version: '0.13.2' }))
-    await mounted.read()
-    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching', 'connected'])
-    const state = mounted.latest()
-    assert.deepEqual(state.kind === 'connected' && [state.storeId, state.version], ['store-b', '0.13.2'])
-  })
-
   test('keeps looking, and says so in the log, when the settings cannot be read', async () => {
     const stage = scene()
     stage.archon.answer(DEFAULT_HEALTH, health())

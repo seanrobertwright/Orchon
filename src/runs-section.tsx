@@ -5,8 +5,6 @@
 import {
   atom,
   Badge,
-  Button,
-  Callout,
   Card,
   EmptyState,
   env,
@@ -31,17 +29,22 @@ import {
   type TableColumn,
   type TableRow
 } from 'orca'
-import type { Timers } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { formatClock, formatDuration, now } from './dates'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsView, type StatusFilter } from './runs-view'
+import { frameTimers } from './frame-timers'
 import { createViewFetch, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
+import { warningLine } from './view-notices'
+import { offersTryAgain, troubleText } from './worker-words'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
 
-/** A read that failed: what to say, and when the last good answer came, if one did. */
-type Problem = { message: string; lastGood: number | null }
+/**
+ * A read that failed: what to say, when the last good answer came, if one did, and whether it
+ * offers "Try again".
+ */
+type Problem = { message: string; lastGood: number | null; tryAgain: boolean }
 
 const filter = atom<StatusFilter>('all')
 /** How many rows the table asks for: rows 0 to N. */
@@ -60,23 +63,11 @@ export type RunsSectionHooks = {
   keep(view: ConnectionView): void
 }
 
-const frameTimers: Timers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>)
-}
-
 /** The section's fetch rules for this panel run: the one handle every restart goes through. */
 let fetcher: ViewFetch | undefined
 
-/** What a rejected `plugin.request` means for the person. */
-function requestFailure(error: unknown): string {
-  const code = typeof error === 'object' && error !== null && Object.hasOwn(error, 'code') ? (error as { code: unknown }).code : undefined
-  if (code === 'consent_required') return "Orchon is turned off or needs approval in Orca's Settings."
-  return "Orchon's background process is not answering."
-}
-
-function report(message: string): void {
-  set(problem, { message, lastGood: read(lastGood) })
+function report(message: string, tryAgain = true): void {
+  set(problem, { message, lastGood: read(lastGood), tryAgain })
 }
 
 function apply(answer: RunsAnswer | null, hooks: RunsSectionHooks): void {
@@ -100,7 +91,10 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
       return plugin.request('runs.read', { status: read(filter), rows: read(requested) }, { signal })
     },
     apply: (answer) => apply(answer, given),
-    fail: (error) => report(requestFailure(error)),
+    // Worker unreachable, said by the shared fetch rules; a rate-limited read says nothing.
+    fail(_error, trouble) {
+      if (trouble !== null) report(troubleText(trouble), offersTryAgain(trouble))
+    },
     minGapMs: RUNS_TABLE_GAP_MS,
     safetyMs: SAFETY_REFETCH_MS,
     now,
@@ -113,6 +107,21 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
       if (fetcher === view) fetcher = undefined
     }
   })
+}
+
+/** Whether the table holds an answer to show, as Searching keeps it under its banner. */
+export function runsHaveData(): boolean {
+  return read(loaded) !== null
+}
+
+/** A different Archon store: what the section held, chosen and loaded belongs to the old one. */
+export function clearRuns(): void {
+  set(filter, 'all')
+  set(requested, ROWS_STEP)
+  set(loaded, null)
+  set(problem, null)
+  set(lastGood, null)
+  set(selected, null)
 }
 
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
@@ -195,18 +204,7 @@ function preview(run: RunRow): OrcaNode {
 
 function problemLine(held: Problem, hasData: boolean): OrcaNode {
   const when = hasData && held.lastGood !== null ? ` Last good answer at ${formatClock(held.lastGood, env.locale)}.` : ''
-  return (
-    <Callout tone="warning">
-      <Stack gap="xs">
-        <Text>{`${held.message}${when}`}</Text>
-        <Row>
-          <Button size="sm" variant="outline" onPress={() => restartRuns()}>
-            Try again
-          </Button>
-        </Row>
-      </Stack>
-    </Callout>
-  )
+  return warningLine(`${held.message}${when}`, held.tryAgain ? () => restartRuns() : null)
 }
 
 function table(runs: Ready, status: StatusFilter): OrcaNode {
