@@ -274,7 +274,7 @@ describe('Start', () => {
     const stage = launchScene(release)
     const mounted = await stage.mount(orcaWith('ws-local'))
     await assert.rejects(press(mounted, { message: 'x'.repeat(16_001) }))
-    await assert.rejects(press(mounted, { inputs: { a: 'b' } }))
+    await assert.rejects(press(mounted, { config: { a: 'b' } }))
     assert.deepEqual(writes(stage), [])
     await mounted.worker.deactivate()
   })
@@ -512,6 +512,91 @@ describe('declared inputs', () => {
     assert.deepEqual((await choose(mounted, ECHO)).inputs, { kind: 'too-many', declared: 51 })
     const refused = ready(((await mounted.worker.request('launch.start', { codebaseId: id, workflow: ECHO, message: 'Go.' })) as LaunchAnswer).launch)
     assert.equal(refused.error, 'This workflow declares 51 inputs, more than the 50 Orchon can fill in. Launch it from Archon.')
+    assert.deepEqual(writes(stage), [])
+    await mounted.worker.deactivate()
+  })
+})
+
+describe('input values and model bindings', () => {
+  const release: Release = '0.12.1'
+  const id = RECORDED_ID[release]
+  const PLAN = 'archon-plan'
+  const press = (mounted: MountedScene, fields: Record<string, unknown>): Promise<LaunchAnswer> =>
+    mounted.worker.request('launch.start', { codebaseId: id, workflow: PLAN, message: 'Plan it.', ...fields }) as Promise<LaunchAnswer>
+  const edit = async (mounted: MountedScene, change: Record<string, unknown>): Promise<Extract<LaunchView, { kind: 'ready' }>> =>
+    ready(((await mounted.worker.request('launch.edit', change)) as LaunchAnswer).launch)
+
+  /** A scene whose launch of archon-plan Archon accepts, as it accepted the recorded launch. */
+  function planScene(): Scene {
+    const stage = launchScene(release)
+    replayAccepted(stage, release)
+    stage.archon.answer(`${DEFAULT}/api/workflows/${PLAN}/run`, recorded(release, 'launch-accepted', exchange(release, 'launch-accepted', 'POST', `/api/workflows/${ECHO}/run`)))
+    stage.archon.answer(runsUrl(id), recorded(release, 'dashboard-runs-empty', 0))
+    return stage
+  }
+
+  test('the draft keeps the values and bindings typed, and changing the workflow clears both', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: id, reload: true })
+    await edit(mounted, { workflow: PLAN })
+    const typed = await edit(mounted, { inputs: { work: 'Ship it' }, bindings: [{ name: 'small', model: 'haiku' }] })
+    assert.deepEqual([typed.values, typed.bindings], [{ work: 'Ship it' }, [{ name: 'small', model: 'haiku' }]])
+    const changed = await edit(mounted, { workflow: ECHO })
+    assert.deepEqual([changed.values, changed.bindings], [{}, []])
+    await mounted.worker.deactivate()
+  })
+
+  test('Start sends only the filled inputs, as typed, and the bindings as tiers and aliases', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: id, reload: true })
+    const answer = await press(mounted, {
+      inputs: { work: '  Ship it  ', report: '   ' },
+      bindings: [
+        { name: 'large', model: 'opus' },
+        { name: '@fast', model: 'haiku' }
+      ]
+    })
+    assert.equal(ready(answer.launch).error, undefined)
+    const posted = writes(stage).find((call) => call.path === `/api/workflows/${PLAN}/run`)
+    assert.deepEqual(posted?.body, {
+      conversationId: String(field(recordedRequest(release, 'launch-accepted', exchange(release, 'launch-accepted', 'POST', `/api/workflows/${ECHO}/run`)), 'conversationId')),
+      message: 'Plan it.',
+      inputs: { work: '  Ship it  ' },
+      tiers: { large: 'opus' },
+      aliases: { '@fast': 'haiku' }
+    })
+    await mounted.worker.deactivate()
+  })
+
+  test('Start is refused, with nothing sent, for an empty required input, an undeclared input or a binding Archon would refuse', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: id, reload: true })
+    const refusal = async (fields: Record<string, unknown>): Promise<string | undefined> => ready((await press(mounted, fields)).launch).error
+    assert.equal(
+      await refusal({ workflow: 'orchon-recorder-inputs', inputs: { item: '  ' } }),
+      'Fill in the required input: item.'
+    )
+    assert.equal(await refusal({ inputs: { work: 'x', nope: 'y' } }), 'archon-plan does not declare the input nope. Refresh the launcher and try again.')
+    assert.equal(await refusal({ bindings: [{ name: 'tiny', model: 'haiku' }] }), 'A binding names a tier (small, medium or large) or an alias starting with @: tiny is neither.')
+    assert.equal(await refusal({ bindings: [{ name: 'small', model: '  ' }] }), 'Give the binding small a model.')
+    assert.equal(
+      await refusal({ bindings: [{ name: 'small', model: 'a' }, { name: 'small', model: 'b' }] }),
+      'Each binding names a different tier or alias: small is named twice.'
+    )
+    assert.deepEqual(writes(stage), [])
+    await mounted.worker.deactivate()
+  })
+
+  test('refuses an input value past 16,000 characters or not text, and more than 10 bindings', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await assert.rejects(press(mounted, { inputs: { work: 'x'.repeat(16_001) } }))
+    await assert.rejects(press(mounted, { inputs: { work: 3 } }))
+    await assert.rejects(press(mounted, { bindings: Array.from({ length: 11 }, (_, index) => ({ name: `@a${String(index)}`, model: 'm' })) }))
+    await assert.rejects(mounted.worker.request('launch.edit', { inputs: { work: 'x'.repeat(16_001) } }))
     assert.deepEqual(writes(stage), [])
     await mounted.worker.deactivate()
   })

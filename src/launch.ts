@@ -10,8 +10,21 @@ import { cutAt } from './cutter'
 import { DASHBOARD_RUNS_PATH } from './dashboard-runs'
 import type { HintType } from './hint-view'
 import {
+  BINDING_TEXT_CAP,
+  BINDINGS_CAP,
+  bindingsBody,
+  bindingsProblem,
+  filledInputs,
+  missingRequired,
+  missingRequiredText,
+  undeclaredInputText,
+  type Binding
+} from './launch-form'
+import {
   CONVERSATIONS_KEPT,
   DESCRIPTION_CAP,
+  INPUT_NAME_CAP,
+  INPUT_VALUE_CAP,
   INPUTS_CAP,
   LAUNCH_ID_CAP,
   MESSAGE_CAP,
@@ -75,6 +88,8 @@ type Draft = {
   codebaseId?: string | null
   workflow?: string | null
   message: string
+  values: Record<string, string>
+  bindings: Binding[]
   error?: string
   posting: boolean
   /** The launch the Starting view shows. */
@@ -149,10 +164,44 @@ export function parseLaunchRequest(input: unknown): LaunchRequest {
   return request
 }
 
+/** The input values a frame sends, or a refusal: at most `INPUTS_CAP` names, each value text of at most `INPUT_VALUE_CAP`. */
+function parseInputValues(value: unknown): Record<string, string> {
+  if (!isRecord(value)) refuseRequest('The inputs must be an object of names and values.')
+  const names = Object.keys(value)
+  if (names.length > INPUTS_CAP) refuseRequest(`At most ${String(INPUTS_CAP)} inputs are taken.`)
+  const values: Record<string, string> = {}
+  for (const name of names) {
+    if (!isCappedText(name, INPUT_NAME_CAP)) refuseRequest(cappedTextRefusal('An input name', INPUT_NAME_CAP))
+    const text = own(value, name)
+    if (typeof text !== 'string' || text.length > INPUT_VALUE_CAP) {
+      refuseRequest(`The value of ${name} must be text of at most ${INPUT_VALUE_CAP.toLocaleString('en-US')} characters.`)
+    }
+    values[name] = text
+  }
+  return values
+}
+
+/** The rows of model bindings a frame sends, or a refusal: at most `BINDINGS_CAP` rows of a name and a model. */
+function parseBindings(value: unknown): Binding[] {
+  if (!Array.isArray(value)) refuseRequest('The bindings must be a list of names and models.')
+  const rows = value as unknown[]
+  if (rows.length > BINDINGS_CAP) refuseRequest(`At most ${String(BINDINGS_CAP)} model bindings are taken.`)
+  return rows.map((row) => {
+    if (!isRecord(row)) refuseRequest('A binding is a name and a model.')
+    refuseOtherKeys(row, ['name', 'model'], 'A binding')
+    const name = own(row, 'name')
+    const model = own(row, 'model')
+    if (typeof name !== 'string' || name.length > BINDING_TEXT_CAP || typeof model !== 'string' || model.length > BINDING_TEXT_CAP) {
+      refuseRequest(`A binding's name and model must be text of at most ${String(BINDING_TEXT_CAP)} characters.`)
+    }
+    return { name, model }
+  })
+}
+
 /** A frame's `launch.edit`, or a refusal. */
 export function parseLaunchEdit(input: unknown): LaunchEdit {
   if (!isRecord(input)) refuseRequest('The launch edit takes a project, a workflow and a message.')
-  refuseOtherKeys(input, ['codebaseId', 'workflow', 'message'], 'The launch edit')
+  refuseOtherKeys(input, ['codebaseId', 'workflow', 'message', 'inputs', 'bindings'], 'The launch edit')
   const edit: LaunchEdit = {}
   for (const [key, field, cap] of [
     ['codebaseId', 'The project id', PROJECT_ID_CAP],
@@ -165,20 +214,25 @@ export function parseLaunchEdit(input: unknown): LaunchEdit {
   }
   const message = optionalText(input, 'message', 'The message', MESSAGE_CAP)
   if (message !== undefined) edit.message = message
+  if (Object.hasOwn(input, 'inputs')) edit.inputs = parseInputValues(input['inputs'])
+  if (Object.hasOwn(input, 'bindings')) edit.bindings = parseBindings(input['bindings'])
   return edit
 }
 
 /** Start's input, or a refusal: a project, a workflow and a message of 1 to `MESSAGE_CAP` characters. */
 export function parseLaunchStart(input: unknown): LaunchStart {
   if (!isRecord(input)) refuseRequest('Start takes a project, a workflow and a message.')
-  refuseOtherKeys(input, ['codebaseId', 'workflow', 'message'], 'Start')
+  refuseOtherKeys(input, ['codebaseId', 'workflow', 'message', 'inputs', 'bindings'], 'Start')
   const codebaseId = input['codebaseId']
   const workflow = input['workflow']
   const message = input['message']
   if (!isCappedText(codebaseId, PROJECT_ID_CAP)) refuseRequest(cappedTextRefusal('The project id', PROJECT_ID_CAP))
   if (!isCappedText(workflow, WORKFLOW_NAME_CAP)) refuseRequest(cappedTextRefusal('The workflow', WORKFLOW_NAME_CAP))
   if (!isCappedText(message, MESSAGE_CAP)) refuseRequest(cappedTextRefusal('The message', MESSAGE_CAP))
-  return { codebaseId, workflow, message }
+  const start: LaunchStart = { codebaseId, workflow, message }
+  if (Object.hasOwn(input, 'inputs')) start.inputs = parseInputValues(input['inputs'])
+  if (Object.hasOwn(input, 'bindings')) start.bindings = parseBindings(input['bindings'])
+  return start
 }
 
 /** The launch id `launch.dismiss` and `launch.wait` take, or a refusal. */
@@ -213,6 +267,22 @@ function inputsOf(workflow: ListedWorkflow | undefined): InputsView {
   }
 }
 
+/** Another workflow declares other inputs: the values and the bindings typed go. */
+function clearChoices(draft: Draft): void {
+  draft.values = {}
+  draft.bindings = []
+}
+
+/** The launch body, from a fixed list of keys: `inputs`, `tiers` and `aliases` only when not empty. */
+function runBody(conversationId: string, message: string, inputs: Record<string, string>, bindings: readonly Binding[]): Record<string, unknown> {
+  const body: Record<string, unknown> = { conversationId, message }
+  if (Object.keys(inputs).length > 0) body['inputs'] = inputs
+  const { tiers, aliases } = bindingsBody(bindings)
+  if (tiers !== undefined) body['tiers'] = tiers
+  if (aliases !== undefined) body['aliases'] = aliases
+  return body
+}
+
 const contains = (text: string, needle: string): boolean => text.toLowerCase().includes(needle.toLowerCase())
 
 /** Whether a message holds anything but spaces. It is still sent as typed. */
@@ -245,7 +315,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   function draftOf(workspace: string): Draft {
     let draft = drafts.get(workspace)
     if (draft === undefined) {
-      draft = { message: '', posting: false }
+      draft = { message: '', values: {}, bindings: [], posting: false }
       drafts.set(workspace, draft)
       // One draft per workspace, and at most `DRAFTS_CAP` workspaces: the oldest goes first.
       capOldest(drafts, DRAFTS_CAP)
@@ -415,6 +485,8 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       description: cutAt(listedWorkflow?.description ?? '', DESCRIPTION_CAP),
       inputs: inputsOf(listedWorkflow),
       message: draft.message,
+      values: { ...draft.values },
+      bindings: draft.bindings.map((binding) => ({ ...binding })),
       posting: draft.posting
     }
     if (draft.error !== undefined) view.error = draft.error
@@ -519,6 +591,10 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     draft.codebaseId = input.codebaseId
     draft.workflow = input.workflow
     draft.message = input.message
+    const values = input.inputs ?? {}
+    const bindings = input.bindings ?? []
+    draft.values = { ...values }
+    draft.bindings = bindings.map((binding) => ({ ...binding }))
     const refuse = (text: string): Promise<LaunchAnswer> => {
       draft.error = text
       return answer(request)
@@ -539,6 +615,13 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       const workflow = list.kind === 'ready' ? list.list.workflows.find((entry) => entry.name === input.workflow) : undefined
       if (workflow === undefined) return await refuse(WORKFLOW_NOT_LISTED)
       if (workflow.inputCount > INPUTS_CAP) return await refuse(tooManyInputsText(workflow.inputCount))
+      const declared = new Set(workflow.inputs.map((entry) => entry.name))
+      const undeclared = Object.keys(values).find((name) => !declared.has(name))
+      if (undeclared !== undefined) return await refuse(undeclaredInputText(workflow.name, undeclared))
+      const missing = missingRequired(workflow.inputs, values)
+      if (missing.length > 0) return await refuse(missingRequiredText(missing))
+      const bindingRefusal = bindingsProblem(bindings)
+      if (bindingRefusal !== null) return await refuse(bindingRefusal)
       const store = storeKey(connection)
       const created = await ports.client.request({
         baseUrl: connection.baseUrl,
@@ -560,7 +643,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
         baseUrl: connection.baseUrl,
         path: `${WORKFLOWS_PATH}/${encodeURIComponent(input.workflow)}/run`,
         method: 'POST',
-        body: { conversationId, message: input.message },
+        body: runBody(conversationId, input.message, filledInputs(values), bindings),
         timeout: 'write',
         errorBody: true
       })
@@ -606,6 +689,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       track(record)
       draft.starting = record.launchId
       draft.message = ''
+      clearChoices(draft)
       await rememberWorkflow(store, project.id, input.workflow)
       return await answer(request)
     } finally {
@@ -619,9 +703,15 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       draft.codebaseId = input.codebaseId
       // Another project lists other workflows: its own default applies.
       delete draft.workflow
+      clearChoices(draft)
     }
-    if (input.workflow !== undefined) draft.workflow = input.workflow
+    if (input.workflow !== undefined && input.workflow !== draft.workflow) {
+      draft.workflow = input.workflow
+      clearChoices(draft)
+    }
     if (input.message !== undefined) draft.message = input.message
+    if (input.inputs !== undefined) draft.values = { ...input.inputs }
+    if (input.bindings !== undefined) draft.bindings = input.bindings.map((binding) => ({ ...binding }))
     return answer({})
   }
 

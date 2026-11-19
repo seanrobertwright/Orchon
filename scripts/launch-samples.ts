@@ -22,6 +22,8 @@ export const webForm: Extract<LaunchView, { kind: 'ready' }> = {
   description: deliver.description,
   inputs: { kind: 'ready', rows: [] },
   message: '',
+  values: {},
+  bindings: [],
   posting: false
 }
 

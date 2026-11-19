@@ -172,6 +172,8 @@ export const noProjectsLaunch: LaunchView = {
   description: '',
   inputs: { kind: 'ready', rows: [] },
   message: '',
+  values: {},
+  bindings: [],
   posting: false
 }
 

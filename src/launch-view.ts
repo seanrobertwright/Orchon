@@ -4,6 +4,7 @@
 // definitions stay in Archon's answer: a workflow reaches the panel as its name, description and
 // source.
 import type { ConnectionAnswer } from './connection-view'
+import type { Binding } from './launch-form'
 import type { ProjectRef } from './scope-view'
 
 /** The most characters a launch message may have. It is sent as typed. */
@@ -132,6 +133,10 @@ export type LaunchView =
       inputs: InputsView
       /** The draft's message. */
       message: string
+      /** The draft's input values by name, as typed, filled or not. */
+      values: Record<string, string>
+      /** The draft's rows of model bindings, as typed. */
+      bindings: Binding[]
       /** Why the last Start did not launch: Archon's words, or the worker's. */
       error?: string
       /** A launch from this workspace is being posted. */
@@ -167,10 +172,20 @@ export type LaunchEdit = {
   codebaseId?: string | null
   workflow?: string | null
   message?: string
+  /** Every input value as typed, in place of the draft's. */
+  inputs?: Record<string, string>
+  /** Every row of model bindings, in place of the draft's. */
+  bindings?: Binding[]
 }
 
-/** What Start sends. */
-export type LaunchStart = { codebaseId: string; workflow: string; message: string }
+/** What Start sends. Inputs and bindings are left out when there are none. */
+export type LaunchStart = { codebaseId: string; workflow: string; message: string; inputs?: Record<string, string>; bindings?: Binding[] }
+
+/** The most characters of an input value, the same as a message. */
+export const INPUT_VALUE_CAP = MESSAGE_CAP
+
+/** The most characters of an input name in a frame's request. */
+export const INPUT_NAME_CAP = 200
 
 /** Why Start does not launch a message, said by the panel and the worker alike. */
 export const NO_MESSAGE = 'Type a message.'
