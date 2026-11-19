@@ -107,6 +107,39 @@ export default defineCheck({
     }),
     ...onLaunch
   },
+  'launcher, declared inputs': {
+    ...answeringLaunch({
+      launch: () => ({
+        ...webForm,
+        inputs: {
+          kind: 'ready',
+          rows: [
+            { name: 'target', required: true, description: 'What to deliver.', placeholder: '' },
+            { name: 'branch', required: false, description: 'The branch to open from.', placeholder: 'main' }
+          ]
+        },
+        values: { target: 'the fix' },
+        bindings: [{ name: 'small', model: 'haiku' }]
+      })
+    }),
+    ...onLaunch
+  },
+  'launcher, refused after a 200': {
+    ...answeringLaunch({
+      launch: () => ({
+        ...webForm,
+        starting: {
+          launchId: 'launch-1',
+          workflow: 'deliver',
+          project: 'acme/web',
+          state: 'refused',
+          late: false,
+          reason: "This workflow requires input 'target', and none was supplied."
+        }
+      })
+    }),
+    ...onLaunch
+  },
   'launcher, unmatched project': { ...answeringLaunch({ launch: () => ({ ...webForm, codebaseId: null, workflows: { kind: 'none' }, workflow: null, description: '' }), scope: () => unmatchedGit }), ...onLaunch },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },

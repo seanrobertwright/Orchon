@@ -298,3 +298,127 @@ describe('the workflow select', () => {
     clean(view)
   })
 })
+
+describe('declared inputs on the form', () => {
+  const withInputs: LaunchView = {
+    ...webForm,
+    inputs: {
+      kind: 'ready',
+      rows: [
+        { name: 'target', required: true, description: 'What to deliver.', placeholder: '' },
+        { name: 'branch', required: false, description: 'The branch to open from.', placeholder: 'main' },
+        { name: 'errors', required: false, description: '', placeholder: 'auto' },
+        { name: 'ticket', required: true, description: '', placeholder: '' }
+      ]
+    }
+  }
+  const field = (name: string): { type: string; label: string } => ({ type: 'Input', label: name })
+  /** Opens the group of optional inputs, as a person would. */
+  const openOptional = async (view: TestPanel): Promise<void> => {
+    const group = view.findAll({ type: 'Collapsible' }).find((element) => element.props.title === 'Optional inputs (2)')
+    if (group === undefined) throw new Error('No group of optional inputs.')
+    await view.toggle(group)
+  }
+
+  test('draws one field per input in declared order, required ones visible and optional ones in a collapsed group that says how many it holds', async () => {
+    const view = await mountLaunch({ launch: () => withInputs })
+    const required = view.findAll({ type: 'Field' }).map((element) => [element.props.label, element.props.required, element.props.description])
+    assert.deepEqual(required.slice(0, 2), [
+      ['target', true, 'What to deliver.'],
+      ['ticket', true, undefined]
+    ])
+    const optional = view.find({ type: 'Collapsible' })
+    assert.equal(optional?.props.title, 'Optional inputs (2)')
+    assert.equal(view.find(field('branch')), null)
+    await openOptional(view)
+    assert.equal(view.find(field('branch'))?.props.placeholder, 'main')
+    clean(view)
+  })
+
+  test('Start names the empty required inputs, and sends the filled values once they are typed', async () => {
+    const view = await mountLaunch({ launch: () => ({ ...withInputs, message: 'Go.' }) })
+    assert.equal(view.find(START)?.disabled, true)
+    assert.ok(view.find({ type: 'Text', text: 'Fill in the required inputs: target, ticket.' }))
+    await view.type(field('target'), 'the fix')
+    assert.ok(view.find({ type: 'Text', text: 'Fill in the required input: ticket.' }))
+    await view.type(field('ticket'), '  #12 ')
+    await openOptional(view)
+    await view.type(field('branch'), '   ')
+    assert.equal(view.find(START)?.disabled, false)
+    await view.press(START)
+    assert.deepEqual(sent(view, 'launch.start'), [
+      { codebaseId: 'cb-web', workflow: 'deliver', message: 'Go.', inputs: { target: 'the fix', ticket: '  #12 ', branch: '   ' } }
+    ])
+    clean(view)
+  })
+
+  test('typed values go to the draft after a pause, and a workflow that declares more than 50 inputs gets a notice and no Start', async () => {
+    const view = await mountLaunch({ launch: () => withInputs })
+    await view.type(field('target'), 'x')
+    await new Promise((resolve) => setTimeout(resolve, DRAFT_PAUSE_MS + 100))
+    await view.settled()
+    assert.deepEqual(sent(view, 'launch.edit'), [{ inputs: { target: 'x' } }])
+    await view.unmount()
+    const many = await mountLaunch({ launch: () => ({ ...webForm, message: 'Go.', inputs: { kind: 'too-many', declared: 51 } }) })
+    assert.ok(many.find({ type: 'Text', text: 'This workflow declares 51 inputs, more than the 50 Orchon can fill in. Launch it from Archon.' }))
+    assert.equal(many.find(START)?.disabled, true)
+    clean(many)
+  })
+})
+
+describe('model bindings on the form', () => {
+  const NAME = (row: number): { type: string; label: string } => ({ type: 'Input', label: `Binding ${String(row)} name` })
+  const MODEL = (row: number): { type: string; label: string } => ({ type: 'Input', label: `Binding ${String(row)} model` })
+
+  test('a collapsed group reads "As authored" with no rows, takes up to 10 rows, and sends them with Start', async () => {
+    const view = await mountLaunch({ launch: () => ({ ...webForm, message: 'Go.' }) })
+    const group = view.find({ type: 'Collapsible' })
+    assert.equal(group?.props.title, 'Model bindings')
+    assert.equal(group?.props.description, 'As authored')
+    if (group === null) throw new Error('No group of model bindings.')
+    await view.toggle(group)
+    await view.press(button('Add binding'))
+    await view.type(NAME(1), 'tiny')
+    await view.type(MODEL(1), 'haiku')
+    assert.equal(view.find(START)?.disabled, true)
+    assert.ok(view.find({ type: 'Text', text: 'A binding names a tier (small, medium or large) or an alias starting with @: tiny is neither.' }))
+    await view.type(NAME(1), 'small', { replace: true })
+    assert.equal(view.find({ type: 'Collapsible' })?.props.description, '1 binding')
+    for (let row = 2; row <= 10; row += 1) await view.press(button('Add binding'))
+    assert.equal(view.find(button('Add binding'))?.disabled, true)
+    for (let row = 10; row >= 2; row -= 1) await view.press({ type: 'IconButton', label: `Remove binding ${String(row)}` })
+    await view.press(START)
+    assert.deepEqual(sent(view, 'launch.start'), [{ codebaseId: 'cb-web', workflow: 'deliver', message: 'Go.', bindings: [{ name: 'small', model: 'haiku' }] }])
+    clean(view)
+  })
+})
+
+describe('a launch Archon did not start', () => {
+  test("shows Archon's reason as text, and Edit and try again asks for the form back", async () => {
+    let launch: LaunchView = starting(webForm, { state: 'refused', reason: "Cannot run workflow 'deliver': <b>no</b>." })
+    const view = await mountLaunch({ launch: () => launch })
+    assert.ok(view.find({ type: 'Callout', text: /The run did not start/ }))
+    assert.ok(view.find({ type: 'Text', text: "Cannot run workflow 'deliver': <b>no</b>." }))
+    launch = { ...webForm, message: 'Again.' }
+    await view.press(button('Edit and try again'))
+    assert.deepEqual(sent(view, 'launch.retry'), [{ launchId: 'launch-1' }])
+    assert.equal(view.valueOf(MESSAGE), 'Again.')
+    clean(view)
+  })
+
+  test('an error frame reads "Archon could not start this run" with its text', async () => {
+    const view = await mountLaunch({ launch: () => starting(webForm, { state: 'failed', reason: 'Failed to process message: boom.' }) })
+    assert.ok(view.find({ type: 'Callout', text: /Archon could not start this run/ }))
+    assert.ok(view.find({ type: 'Text', text: 'Failed to process message: boom.' }))
+    assert.ok(view.find(button('Edit and try again')))
+    clean(view)
+  })
+
+  test('leaving the Launch section tells the worker it no longer shows', async () => {
+    const view = await mountLaunch({ launch: () => webForm })
+    assert.deepEqual(sent(view, 'launch.hide'), [])
+    await view.select(SECTION_BAR, 'runs')
+    assert.deepEqual(sent(view, 'launch.hide'), [null])
+    clean(view)
+  })
+})
