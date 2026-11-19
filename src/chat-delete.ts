@@ -6,10 +6,10 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { ChatDeleteAnswer, ChatDeleteOutcome, ChatDeleteRequest } from './chat-delete-view'
 import type { Client } from './client'
 import type { Connected, ConnectionView } from './connection-view'
-import { CONVERSATION_ID_CAP, CONVERSATIONS_PATH, isConversationId } from './conversations'
+import { CONVERSATIONS_PATH, parseConversationId } from './conversations'
 import { cutAt } from './cutter'
 import { readFailureText } from './read-failure'
-import { cappedTextRefusal, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
+import { isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { SERVER_TEXT_CAP } from './run-control-view'
 
 /** Said when Archon answered a delete without saying it deleted the conversation. */
@@ -19,10 +19,7 @@ export const NOT_DELETED = 'Archon did not say it deleted the conversation.'
 export function parseChatDeleteRequest(input: unknown): ChatDeleteRequest {
   if (!isRecord(input)) refuseRequest('Delete takes a conversation id.')
   refuseOtherKeys(input, ['conversationId'], 'Delete')
-  const conversationId = own(input, 'conversationId')
-  if (!isConversationId(conversationId) || conversationId === '') {
-    refuseRequest(`${cappedTextRefusal('The conversation id', CONVERSATION_ID_CAP)} It may hold only letters, digits, _ and -.`)
-  }
+  const conversationId = parseConversationId(own(input, 'conversationId'))
   return { conversationId }
 }
 

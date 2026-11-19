@@ -1,21 +1,18 @@
 // The last answer for each thread on screen, kept by the worker in memory only, so a panel that
-// mounts again draws the thread at once while it reads it afresh. A thread's reads hold a 60
-// second lease on it; when the lease ends, or the conversation is gone or deleted, its answer is
+// mounts again draws the thread at once while it reads it afresh. A thread's reads hold a lease of
+// `THREAD_LEASE_MS` on it; when the lease ends, or the conversation is gone or deleted, its answer is
 // dropped. Nothing of it is written anywhere, and nothing is counted as unread.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import { LAST_ANSWERS_CAP, THREAD_LEASE_MS, type ChatLastAnswer, type ChatLastRequest } from './chat-last-view'
 import type { Thread, ThreadView } from './chat-thread-view'
-import { CONVERSATION_ID_CAP, isConversationId } from './conversations'
-import { cappedTextRefusal, isRecord, own, refuseOtherKeys, refuseRequest } from './records'
+import { parseConversationId } from './conversations'
+import { isRecord, own, refuseOtherKeys, refuseRequest } from './records'
 
 /** A frame's request, or a refusal. */
 export function parseChatLastRequest(input: unknown): ChatLastRequest {
   if (!isRecord(input)) refuseRequest("A thread's last answer takes a conversation id.")
   refuseOtherKeys(input, ['conversationId'], "A thread's last answer")
-  const conversationId = own(input, 'conversationId')
-  if (!isConversationId(conversationId) || conversationId === '') {
-    refuseRequest(`${cappedTextRefusal('The conversation id', CONVERSATION_ID_CAP)} It may hold only letters, digits, _ and -.`)
-  }
+  const conversationId = parseConversationId(own(input, 'conversationId'))
   return { conversationId }
 }
 
