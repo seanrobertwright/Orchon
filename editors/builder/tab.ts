@@ -10,7 +10,7 @@ import { layoutGraph, type Layout } from '../shared/graph-layout.ts'
 import { isRecord } from '../shared/records.ts'
 import type { TabConnection, TabScreen } from '../run-graph/graph-view.ts'
 import type { TabTimers } from '../run-graph/refetch.ts'
-import type { BuilderAnswer, BuilderHeader, BuilderIdentity, BuilderView } from './builder-view.ts'
+import { mib, SCOPE_CAP, WORKFLOW_NAME_CAP, type BuilderAnswer, type BuilderHeader, type BuilderIdentity, type BuilderView } from './builder-view.ts'
 import { workflowFacts, type NodeFacts, type WorkflowFacts } from './workflow-facts.ts'
 
 /** The most nodes the canvas lays out, as the run graph (#17). Past it the outline carries on. */
@@ -22,10 +22,8 @@ export const ISSUES_CAP = 200
 /** The most dependencies the inspector lists for one node; past it a line says how many are not shown. */
 export const DEPENDS_CAP = 200
 
-/** The caps a pointer file's identity is read under, as the worker allows. */
-const NAME_CAP = 200
+/** The cap a pointer file's project id is read under, as the worker allows; its name and scope use the contract's caps. */
 const PROJECT_CAP = 200
-const SCOPE_CAP = 40
 
 export const UNREADABLE_FILE = 'Orchon could not read this file: it does not name a workflow.'
 export const VIEW_ONLY_LINE = 'This workflow is installed, so it can only be viewed here.'
@@ -70,7 +68,7 @@ export function parseBuilderPointer(text: string | null): BuilderIdentity | null
   if (!isRecord(value) || value.orchon !== 'builder') return null
   if (!Object.hasOwn(value, 'name') || !Object.hasOwn(value, 'codebaseId') || !Object.hasOwn(value, 'scope')) return null
   const { name, codebaseId, scope } = value
-  if (!capped(name, NAME_CAP) || !capped(scope, SCOPE_CAP)) return null
+  if (!capped(name, WORKFLOW_NAME_CAP) || !capped(scope, SCOPE_CAP)) return null
   if (codebaseId !== null && !capped(codebaseId, PROJECT_CAP)) return null
   return { name, codebaseId, scope }
 }
@@ -92,7 +90,8 @@ const SIDECAR_TABS: readonly { id: SidecarTab; name: string }[] = [
 let tabs = 0
 
 /** A size in MiB with one decimal, as a person reads it. */
-const mib = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+/** A node's name as the tab shows it: its id, or `(no id)`. */
+const nodeLabel = (node: NodeFacts): string => (node.id === '' ? '(no id)' : node.id)
 
 export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   const { doc } = ports
@@ -195,6 +194,17 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   let stopped = false
   const subscriptions: { dispose(): void }[] = []
 
+  /** Replaces the banners with these lines, or clears them. */
+  function setBanners(lines: readonly string[]): void {
+    banners.replaceChildren(...lines.map((line) => el('p', line, 'banner')))
+  }
+
+  /** Stops the canvas and lets it go, so the next draw makes a new one. */
+  function dropCanvas(): void {
+    canvas?.stop()
+    canvas = undefined
+  }
+
   function drawHeader(view: BuilderHeader | null): void {
     if (view === null) {
       top.replaceChildren()
@@ -214,14 +224,14 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     void ports
       .request('builder.openYaml', identity)
       .then((answer) => {
-        if (isRecord(answer) && answer.opened === false && typeof answer.reason === 'string') banners.replaceChildren(el('p', answer.reason, 'banner'))
+        if (isRecord(answer) && answer.opened === false && typeof answer.reason === 'string') setBanners([answer.reason])
       })
-      .catch(() => banners.replaceChildren(el('p', WORKER_UNANSWERED, 'banner')))
+      .catch(() => setBanners([WORKER_UNANSWERED]))
   }
 
   function drawScreen(screen: TabScreen): void {
     drawHeader(null)
-    banners.replaceChildren()
+    setBanners([])
     const parts: HTMLElement[] = [el('h2', screen.title), ...screen.lines.map(withCode)]
     if (screen.command !== null) {
       const command = el('pre', undefined, 'command')
@@ -259,7 +269,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   /** A message in place of the content, with Try again when the read may work a second time. */
   function drawMessage(message: string, tryAgain: boolean): void {
     drawHeader(null)
-    banners.replaceChildren()
+    setBanners([])
     content.replaceChildren(el('p', message), ...(tryAgain ? [button('Try again', () => load())] : []))
   }
 
@@ -278,8 +288,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   /** The canvas, or the notice past the cap. Laid out once per definition. */
   function drawCanvas(facts: WorkflowFacts): void {
     if (facts.nodes.length > CANVAS_CAP) {
-      canvas?.stop()
-      canvas = undefined
+      dropCanvas()
       boxes = new Map()
       const notice = el('section', undefined, 'cap-notice')
       notice.append(
@@ -311,7 +320,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     )
     const steps = new Map<string, DrawStep>()
     facts.nodes.forEach((node, index) => {
-      steps.set(keys[index] ?? '', { name: node.id === '' ? '(no id)' : node.id, kind: node.kind, state: 'draft', stateText: node.kind, note: null, readOnly: node.readOnly })
+      steps.set(keys[index] ?? '', { name: nodeLabel(node), kind: node.kind, state: 'draft', stateText: node.kind, note: null, readOnly: node.readOnly })
     })
     const svg = drawGraph(doc, laid, steps, { label, idPrefix: prefix })
     boxes = new Map()
@@ -333,8 +342,8 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     list.setAttribute('aria-label', 'Nodes')
     outlineButtons = facts.nodes.slice(0, OUTLINE_CAP).map((node, index) => {
       const item = button('', () => select(index), 'outline-node')
-      item.setAttribute('aria-label', `${node.id === '' ? '(no id)' : node.id}, ${node.kind}${node.readOnly ? ', read-only' : ''}`)
-      item.append(el('span', node.id === '' ? '(no id)' : node.id, 'outline-id'), el('span', node.kind, 'outline-kind'))
+      item.setAttribute('aria-label', `${nodeLabel(node)}, ${node.kind}${node.readOnly ? ', read-only' : ''}`)
+      item.append(el('span', nodeLabel(node), 'outline-id'), el('span', node.kind, 'outline-kind'))
       if (node.readOnly) item.appendChild(el('span', 'ro', 'badge ro'))
       const row = el('li')
       row.appendChild(item)
@@ -365,7 +374,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
       panel.replaceChildren(...parts)
       return
     }
-    const name = node.id === '' ? '(no id)' : node.id
+    const name = nodeLabel(node)
     const parts: HTMLElement[] = [el('h2', name), el('p', `Kind: ${node.kind}`)]
     if (node.readOnly) parts.push(el('p', `🔒 Read-only. ${node.reason ?? ''} It is saved unchanged.`, 'banner read-only-banner'))
     parts.push(el('h3', 'Depends on'))
@@ -410,15 +419,14 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   /** Draws a read workflow. Nothing is read or laid out again while the definition is unchanged. */
   function drawReady(view: Ready, lines: string[]): void {
     drawHeader(view.header)
-    banners.replaceChildren(...lines.map((line) => el('p', line, 'banner')))
+    setBanners(lines)
     const text = JSON.stringify(view.definition)
     if (text !== drawnDefinition || shown?.view.kind !== 'ready') {
       drawnDefinition = text
       const facts = workflowFacts(view.definition)
       shown = { view, facts }
       if (facts === null) {
-        canvas?.stop()
-        canvas = undefined
+        dropCanvas()
         content.replaceChildren(el('p', UNREADABLE_DEFINITION))
         return
       }
@@ -437,8 +445,8 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     shown = { view, facts: null }
     drawnDefinition = ''
     drawHeader(view.header)
-    banners.replaceChildren(...lines.map((line) => el('p', line, 'banner')))
-    const size = view.bytes === null ? 'over 1 MiB' : mib(view.bytes)
+    setBanners(lines)
+    const size = view.bytes === null ? `over ${mib(view.cap)}` : mib(view.bytes)
     content.replaceChildren(el('p', `This workflow's definition is ${size}. The builder opens definitions of at most ${mib(view.cap)}, so it does not open this one.`))
   }
 
@@ -463,7 +471,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
       if (shown !== null) drawShown([tabConnection.banner])
       else {
         drawHeader(null)
-        banners.replaceChildren()
+        setBanners([])
         content.replaceChildren(el('p', tabConnection.label, 'muted'))
       }
       return
@@ -479,8 +487,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
       case 'gone':
         shown = null
         drawnDefinition = ''
-        canvas?.stop()
-        canvas = undefined
+        dropCanvas()
         drawMessage(builder.message, true)
         return
       case 'too-large':

@@ -2,6 +2,7 @@
 // of the focused local workspace so Orca opens a wide tab on them. This module is pure logic:
 // their names, their content and which of the folder's files a sweep deletes. The writes go
 // through the disk module, in `wide-tabs.ts`; only its entry type is imported here.
+import { SCOPE_CAP } from '../editors/builder/builder-view'
 import type { DiskEntry } from './disk'
 
 /** The folder at the workspace root that holds the pointer files and nothing else of the plugin's. */
@@ -42,9 +43,6 @@ export function runPointerText(runId: string): string {
   return `${JSON.stringify({ orchon: 'run-graph', runId })}\n`
 }
 
-/** The most characters of the scope a builder file name keeps. */
-const SCOPE_PART_CAP = 40
-
 /**
  * `<scope>-<workflow>.orchonflow`, each part cleaned first, so a project and a global workflow
  * that share a name have a file each. Two projects' workflows of one name and scope share a file:
@@ -52,7 +50,7 @@ const SCOPE_PART_CAP = 40
  * read it once, when it opened, and keeps showing the workflow it read.
  */
 export function builderPointerName(scope: string, workflow: string): string {
-  const part = clean(scope, 'scope').slice(0, SCOPE_PART_CAP).replace(/-+$/, '')
+  const part = clean(scope, 'scope').slice(0, SCOPE_CAP).replace(/-+$/, '')
   const name = clean(workflow, 'workflow').slice(0, NAME_PART_CAP).replace(/-+$/, '')
   return `${part}-${name}${FLOW_SUFFIX}`
 }
