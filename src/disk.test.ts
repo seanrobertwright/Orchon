@@ -1,6 +1,6 @@
 // The disk module's own seam, on real folders made for each test: what it reads, and the paths
 // it refuses because they resolve outside its allowed roots.
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, assert, beforeEach, describe, test } from 'orca/testing'
@@ -126,5 +126,86 @@ describe('the disk module', () => {
     assert.deepEqual(await disk.readText(join(home, 'big.json'), 64), { kind: 'too-large' })
     writeFileSync(join(home, 'fits.json'), 'x'.repeat(64))
     assert.deepEqual(await disk.readText(join(home, 'fits.json'), 64), { kind: 'text', text: 'x'.repeat(64) })
+  })
+})
+
+describe('the disk module, writing', () => {
+  let workspace = ''
+  let folder = ''
+  beforeEach(() => {
+    workspace = join(sandbox, 'workspace')
+    folder = join(workspace, '.orchon')
+    mkdirSync(workspace)
+    writeFileSync(join(workspace, 'keep.txt'), 'mine')
+  })
+
+  test('makes the root folder, once, and writes a text file inside it', async () => {
+    const disk = openDisk([folder])
+    assert.equal(await disk.makeFolder(folder), 'ok')
+    assert.equal(await disk.makeFolder(folder), 'ok')
+    assert.equal(await disk.writeText(join(folder, 'a.orchonrun'), '{"x":1}\n'), 'ok')
+    assert.equal(readFileSync(join(folder, 'a.orchonrun'), 'utf8'), '{"x":1}\n')
+    assert.equal(await disk.writeText(join(folder, 'a.orchonrun'), 'again'), 'ok')
+    assert.equal(readFileSync(join(folder, 'a.orchonrun'), 'utf8'), 'again')
+  })
+
+  test('refuses to make, write or delete outside its roots, and writes nothing there', async () => {
+    const disk = openDisk([folder])
+    assert.equal(await disk.makeFolder(join(workspace, 'other')), 'refused')
+    assert.equal(await disk.writeText(join(workspace, 'keep.txt'), 'changed'), 'refused')
+    assert.equal(await disk.writeText([folder, '..', 'new.txt'].join('/'), 'x'), 'refused')
+    assert.equal(await disk.remove(join(workspace, 'keep.txt')), 'refused')
+    assert.equal(readFileSync(join(workspace, 'keep.txt'), 'utf8'), 'mine')
+    assert.equal(existsSync(join(workspace, 'other')), false)
+    assert.equal(existsSync(join(workspace, 'new.txt')), false)
+  })
+
+  test('will not use a root folder that is a link, or a file in its place', async () => {
+    linkFolder(outside, folder)
+    const disk = openDisk([folder])
+    assert.equal(await disk.makeFolder(folder), 'failed')
+    rmSync(folder, { recursive: true, force: true })
+    writeFileSync(folder, 'not a folder')
+    assert.equal(await disk.makeFolder(folder), 'failed')
+  })
+
+  test('says a write failed when the folder is not there', async () => {
+    const disk = openDisk([folder])
+    assert.equal(await disk.writeText(join(folder, 'a.orchonrun'), 'x'), 'failed')
+  })
+
+  test('lists a folder with each entry, its time and whether it is a file', async () => {
+    const disk = openDisk([folder])
+    assert.equal(await disk.listFolder(folder), null)
+    mkdirSync(join(folder, 'inner'), { recursive: true })
+    writeFileSync(join(folder, 'a.orchonrun'), 'x')
+    const when = new Date(Date.UTC(2026, 0, 2, 3, 4, 5))
+    utimesSync(join(folder, 'a.orchonrun'), when, when)
+    const listed = await disk.listFolder(folder)
+    assert.deepEqual(
+      listed?.sort((a, b) => a.name.localeCompare(b.name)),
+      [
+        { name: 'a.orchonrun', modifiedMs: when.getTime(), file: true },
+        { name: 'inner', modifiedMs: listed?.find((entry) => entry.name === 'inner')?.modifiedMs ?? 0, file: false }
+      ]
+    )
+    assert.equal(await disk.listFolder(workspace), null)
+  })
+
+  test('a link inside the folder is listed as not a file', async () => {
+    mkdirSync(folder)
+    linkFolder(outside, join(folder, 'linked.orchonrun'))
+    const listed = await openDisk([folder]).listFolder(folder)
+    assert.equal(listed?.find((entry) => entry.name === 'linked.orchonrun')?.file, false)
+  })
+
+  test('deletes a file inside the folder, and never a folder', async () => {
+    mkdirSync(join(folder, 'inner'), { recursive: true })
+    writeFileSync(join(folder, 'a.orchonrun'), 'x')
+    const disk = openDisk([folder])
+    assert.equal(await disk.remove(join(folder, 'a.orchonrun')), 'ok')
+    assert.equal(await disk.remove(join(folder, 'inner')), 'failed')
+    assert.equal(await disk.remove(join(folder, 'gone.orchonrun')), 'failed')
+    assert.deepEqual(readdirSync(folder), ['inner'])
   })
 })
