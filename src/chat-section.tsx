@@ -54,6 +54,8 @@ export type ChatSectionHooks = {
   showing(): boolean
   /** Keeps the connection state a data answer carries. */
   keep(view: ConnectionView): void
+  /** Open run on a thread's dispatch row or result card: shows the Runs section on the run's detail. */
+  openRun(runId: string): void
 }
 
 /** The section's fetch rules for this panel run: the one handle every restart goes through. */

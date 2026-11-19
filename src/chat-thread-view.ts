@@ -136,7 +136,7 @@ export function messageDrawCost(view: ThreadMessage): number {
   if (view.files !== undefined) cost += 2
   if (view.error !== undefined) cost += 3
   if (view.toolCalls !== undefined) cost += 2 + 8 * view.toolCalls.calls.length
-  if (view.dispatch !== undefined) cost += 6
+  if (view.dispatch !== undefined) cost += 8
   if (view.result !== undefined) cost += 6
   return cost
 }
