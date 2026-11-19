@@ -7,6 +7,7 @@ import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
+import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
 
 declare module 'orca' {
   interface PluginRequests {
@@ -54,6 +55,8 @@ declare module 'orca' {
     'forms.save': { input: { group: FormGroupId }; output: FormsAnswer }
     /** Settles a save stopped by an outside change: load, overwrite or keep editing. */
     'forms.resolve': { input: { group: FormGroupId; choice: ConflictChoice }; output: FormsAnswer }
+    /** Open graph: writes the run's pointer file into `.orchon/` and opens it in a wide tab. */
+    'graph.open': { input: GraphOpenRequest; output: GraphOpenAnswer }
   }
   interface PluginPanelEvents {
     /** A hint that the person asked to see runs. It carries no data. */

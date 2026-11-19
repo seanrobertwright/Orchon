@@ -7,6 +7,7 @@ import { startProjectScope } from './project-scope'
 import { startRunDetail } from './run-detail'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
+import { startWideTabs } from './wide-tabs'
 
 /** The manifest text of the status bar item, and what its press answers until runs are counted. */
 const STATUS_TEXT = 'Orchon'
@@ -31,9 +32,17 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const runsTable = startRunsTable(orca, { ...connection, workspaces: projectScope.workspaces })
   const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, now: ports.now })
+  const wideTabs = startWideTabs(orca, {
+    client: connection.client,
+    current: connection.current,
+    focused: projectScope.focused,
+    openDisk: ports.openDisk,
+    now: ports.now
+  })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     forms.dispose()
+    wideTabs.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()
