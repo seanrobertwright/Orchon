@@ -10,7 +10,7 @@ import type { Disk } from './disk'
 import { matchProject, type ArchonProject } from './project-match'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { isRecord, own, refuseRequest } from './records'
-import { CHOICES_CAP, type LinkChoices, type ScopeAnswer, type ScopeView } from './scope-view'
+import { CHOICES_CAP, type LinkChoices, type LinkRequest, type ScopeAnswer, type ScopeView } from './scope-view'
 import { localAndWritable, normalisePath, originUrl } from './workspaces'
 
 /** The longest Git config file the worker reads. */
@@ -94,6 +94,39 @@ function choicesOf(projects: readonly ArchonProject[], unreadable: number): Link
   }
 }
 
+/** What a refused press says. The remote line is the notice of #33, word for word. */
+export const REMOTE_WORKSPACE = 'This workspace is on another host. Orchon works with the Archon on this computer.'
+export const NOT_LISTED = 'Archon no longer lists that project. Choose another.'
+const NOT_CONNECTED = 'Orchon is not connected to Archon.'
+const NO_WORKSPACE = 'No workspace is focused in Orca.'
+
+type LocalFocus = Extract<Focus, { kind: 'local' }>
+
+type Listed = { projects: ArchonProject[]; unreadable: number }
+
+/**
+ * A Link or Register press, run on the focused local workspace once Archon's projects are read.
+ * It answers why it changed nothing, or nothing when it did; `reread` reads the projects again.
+ */
+type Press = (on: { server: Connected; focused: LocalFocus; projects: readonly ArchonProject[]; signal: AbortSignal }) => Promise<{
+  refused?: string
+  reread?: boolean
+}>
+
+/** A frame sends these requests with no input. Anything else is refused. */
+function refuseInput(input: unknown): void {
+  if (input !== undefined && input !== null) refuseRequest('This request takes no input.')
+}
+
+/** Link's input, or a refusal: the id of an Archon project and nothing else. */
+export function parseLinkRequest(input: unknown): LinkRequest {
+  if (!isRecord(input)) refuseRequest('Link takes the id of an Archon project.')
+  const projectId = own(input, 'projectId')
+  if (!isText(projectId) || projectId.length > 200) refuseRequest('The project id must be text of 1 to 200 characters.')
+  for (const key of Object.keys(input)) if (key !== 'projectId') refuseRequest(`Link does not take ${key}.`)
+  return { projectId }
+}
+
 export type ProjectScopePorts = {
   client: Client
   current(): Promise<ConnectionView>
@@ -156,28 +189,48 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
     return file.kind === 'text' ? originUrl(file.text) : null
   }
 
-  async function savedLink(server: Connected, key: string): Promise<string | null> {
-    let stored: unknown
+  async function storedLinks(): Promise<Record<string, Record<string, string>>> {
     try {
-      stored = await orca.storage.get(LINKS_KEY)
+      return parseLinks(await orca.storage.get(LINKS_KEY))
     } catch {
-      return null
+      return {}
     }
-    const links = parseLinks(stored)
+  }
+
+  async function savedLink(server: Connected, key: string): Promise<string | null> {
+    const links = await storedLinks()
     const store = storeKey(server)
     const inner = Object.hasOwn(links, store) ? links[store] : undefined
     return inner !== undefined && Object.hasOwn(inner, key) ? (inner[key] ?? null) : null
   }
 
-  async function scope(server: Connected, signal: AbortSignal): Promise<ScopeView> {
-    const focused = await focus()
-    if (focused.kind === 'none') return { kind: 'no-workspace' }
-    // In a remote workspace no matching is done at all, the Git remote included (#9).
-    if (focused.kind === 'remote') return { kind: 'remote' }
+  /** Links are written one at a time, each after the one before, so no press loses another's write. */
+  let linkWrites: Promise<void> = Promise.resolve()
+
+  /** Sets or, with null, clears the link of one Orca project in one store. Every other link is kept. */
+  function writeLink(server: Connected, key: string, projectId: string | null): Promise<void> {
+    const write = linkWrites.then(async () => {
+      const links = await storedLinks()
+      const store = storeKey(server)
+      const inner: Record<string, string> = { ...(Object.hasOwn(links, store) ? links[store] : {}) }
+      if (projectId === null) delete inner[key]
+      else inner[key] = projectId
+      if (Object.keys(inner).length === 0) delete links[store]
+      else links[store] = inner
+      await orca.storage.set(LINKS_KEY, links)
+    })
+    linkWrites = write.catch(() => {})
+    return write
+  }
+
+  /** Archon's projects, or the sentence that says why they could not be read. */
+  async function readProjects(server: Connected, signal: AbortSignal): Promise<Listed | string> {
     const answer = await ports.client.request({ baseUrl: server.baseUrl, path: CODEBASES_PATH, timeout: 'read', signal })
-    if (!answer.ok) return { kind: 'failed', message: readFailureText(answer.failure) }
-    const listed = parseCodebases(answer.value)
-    if (listed === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
+    if (!answer.ok) return readFailureText(answer.failure)
+    return parseCodebases(answer.value) ?? unreadableAnswerText(server.version)
+  }
+
+  async function viewOf(server: Connected, focused: LocalFocus, listed: Listed): Promise<ScopeView> {
     const choices = choicesOf(listed.projects, listed.unreadable)
     const match = matchProject({
       projects: listed.projects,
@@ -191,17 +244,51 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
     return focused.repository === null ? { kind: 'unmatched', choices } : { kind: 'unmatched', registerFolder: focused.repository, choices }
   }
 
-  async function answer(signal: AbortSignal): Promise<ScopeAnswer> {
+  /**
+   * The scope of the focused workspace, after `press` ran when one is given. A press runs only
+   * in a local workspace once Archon's projects were read; otherwise it is refused with the
+   * reason, and the answer says the scope as it stands.
+   */
+  async function answer(signal: AbortSignal, press?: Press): Promise<ScopeAnswer> {
     const connection = await ports.current()
-    if (connection.kind !== 'connected') return { connection, scope: { kind: 'not-connected' } }
-    const view = await scope(connection, signal)
-    return { connection: await ports.current(), scope: view }
+    const refusing = (text: string): { refused?: string } => (press === undefined ? {} : { refused: text })
+    if (connection.kind !== 'connected') return { connection, scope: { kind: 'not-connected' }, ...refusing(NOT_CONNECTED) }
+    const focused = await focus()
+    if (focused.kind === 'none') return { connection, scope: { kind: 'no-workspace' }, ...refusing(NO_WORKSPACE) }
+    // In a remote workspace no matching is done at all, the Git remote included, and Link and
+    // Register are off (#9).
+    if (focused.kind === 'remote') return { connection, scope: { kind: 'remote' }, ...refusing(REMOTE_WORKSPACE) }
+    let listed = await readProjects(connection, signal)
+    let refused: string | undefined
+    if (typeof listed === 'string') {
+      if (press !== undefined) refused = listed
+    } else if (press !== undefined) {
+      const outcome = await press({ server: connection, focused, projects: listed.projects, signal })
+      refused = outcome.refused
+      if (outcome.reread === true) listed = await readProjects(connection, signal)
+    }
+    const scope: ScopeView = typeof listed === 'string' ? { kind: 'failed', message: listed } : await viewOf(connection, focused, listed)
+    return { connection: await ports.current(), scope, ...(refused === undefined ? {} : { refused }) }
   }
+
+  /** Link with an id, or clear the link with null. An id Archon does not list is refused. */
+  const link =
+    (projectId: string | null): Press =>
+    async ({ server, focused, projects }) => {
+      if (projectId !== null && !projects.some((project) => project.id === projectId)) return { refused: NOT_LISTED }
+      await writeLink(server, focused.key, projectId)
+      return {}
+    }
 
   const subscriptions: Disposable[] = [
     orca.panels.handle('scope.read', (input, context) => {
-      if (input !== undefined && input !== null) refuseRequest('This request takes no input.')
+      refuseInput(input)
       return answer(context.signal)
+    }),
+    orca.panels.handle('scope.link', (input, context) => answer(context.signal, link(parseLinkRequest(input).projectId))),
+    orca.panels.handle('scope.unlink', (input, context) => {
+      refuseInput(input)
+      return answer(context.signal, link(null))
     })
   ]
 

@@ -2,7 +2,7 @@
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
-import type { ScopeAnswer } from './scope-view'
+import type { LinkRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
 
 declare module 'orca' {
@@ -15,6 +15,10 @@ declare module 'orca' {
     'runs.read': { input: RunsRequest; output: RunsAnswer }
     /** The project scope of the focused workspace. It takes no input. */
     'scope.read': { output: ScopeAnswer }
+    /** Links the focused Orca project to an Archon project Archon lists, or changes its link. */
+    'scope.link': { input: LinkRequest; output: ScopeAnswer }
+    /** Clears the focused Orca project's link. It takes no input. */
+    'scope.unlink': { output: ScopeAnswer }
     /**
      * The Settings section began to show: reads health and the update check at once, then health
      * every 30 seconds until `system.close`. The System requests take no input.

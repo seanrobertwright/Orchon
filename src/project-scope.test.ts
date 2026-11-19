@@ -192,3 +192,97 @@ describe('matching by Git remote, and the unmatched answer', () => {
     assert.deepEqual(answer.scope, { kind: 'failed', message: 'Archon answered with an error (500).' })
   })
 })
+
+const STORE = 'store-5f1c'
+
+/** A scene whose Archon reports a store id, and lists the recorded project away from the workspace. */
+function storeScene(storeId: string | null = STORE): Scene {
+  const stage = scene()
+  stage.archon.answer(DEFAULT_HEALTH, health(storeId === null ? {} : { storeId }))
+  stage.archon.answer(CODEBASES, codebasesAt('0.12.1', 'E:/archon/clones/throwaway'))
+  return stage
+}
+
+describe('Link to an existing Archon project', () => {
+  test('saves the link under the store id and the Orca project, and the project is then matched by link', async () => {
+    const stage = storeScene()
+    const { worker, host } = await stage.mount(orcaWith('ws-feature'))
+    const answer = (await worker.request('scope.link', { projectId: RECORDED_ID['0.12.1'] })) as ScopeAnswer
+    assert.equal(answer.scope.kind === 'matched' ? answer.scope.by : answer.scope.kind, 'link')
+    assert.deepEqual(host.data().storage['project-links'], { [STORE]: { 'project:p-web': RECORDED_ID['0.12.1'] } })
+    // Every worktree of the project shares the link.
+    host.respond('workspace.readContext', { workspaceId: 'ws-main', branch: 'main', displayName: 'web', terminals: [] })
+    const again = (await worker.request('scope.read')) as ScopeAnswer
+    assert.equal(again.scope.kind === 'matched' ? again.scope.by : again.scope.kind, 'link')
+    await worker.deactivate()
+  })
+
+  test('saves under the base URL when the server reports no store id', async () => {
+    const stage = storeScene(null)
+    const { worker, host } = await stage.mount(orcaWith('ws-feature'))
+    await worker.request('scope.link', { projectId: RECORDED_ID['0.12.1'] })
+    assert.deepEqual(host.data().storage['project-links'], { [DEFAULT]: { 'project:p-web': RECORDED_ID['0.12.1'] } })
+    await worker.deactivate()
+  })
+
+  test('a saved link whose project Archon no longer lists is skipped and kept', async () => {
+    const stage = storeScene()
+    const saved = { [STORE]: { 'project:p-web': 'cb-gone' }, 'other-store': { 'project:p-web': 'cb-x' } }
+    const { worker, host } = await stage.mount({ ...orcaWith('ws-feature'), storage: { 'project-links': saved } })
+    const answer = (await worker.request('scope.read')) as ScopeAnswer
+    assert.equal(answer.scope.kind, 'unmatched')
+    assert.deepEqual(host.data().storage['project-links'], saved)
+    await worker.deactivate()
+  })
+
+  test('a link saved under another store does not count', async () => {
+    const stage = storeScene()
+    const saved = { 'other-store': { 'project:p-web': RECORDED_ID['0.12.1'] } }
+    const answer = await scopeOf(stage, { ...orcaWith('ws-feature'), storage: { 'project-links': saved } })
+    assert.equal(answer.scope.kind, 'unmatched')
+  })
+
+  test("change replaces the link and clear removes only this project's link", async () => {
+    const stage = storeScene()
+    stage.archon.answer(CODEBASES, codebasesAt('0.12.1', 'E:/archon/clones/throwaway', [{ id: 'cb-2', name: 'acme/two', default_cwd: 'E:/two' }]))
+    const saved = { [STORE]: { 'project:p-web': RECORDED_ID['0.12.1'], 'project:p-other': 'cb-2' } }
+    const { worker, host } = await stage.mount({ ...orcaWith('ws-feature'), storage: { 'project-links': saved } })
+    const changed = (await worker.request('scope.link', { projectId: 'cb-2' })) as ScopeAnswer
+    assert.deepEqual(changed.scope.kind === 'matched' ? changed.scope.project : null, { id: 'cb-2', name: 'acme/two' })
+    const cleared = (await worker.request('scope.unlink')) as ScopeAnswer
+    assert.equal(cleared.scope.kind, 'unmatched')
+    assert.deepEqual(host.data().storage['project-links'], { [STORE]: { 'project:p-other': 'cb-2' } })
+    await worker.deactivate()
+  })
+
+  test('a project Archon does not list is refused and nothing is saved', async () => {
+    const stage = storeScene()
+    const { worker, host } = await stage.mount(orcaWith('ws-feature'))
+    const answer = (await worker.request('scope.link', { projectId: 'cb-unknown' })) as ScopeAnswer
+    assert.equal(answer.scope.kind, 'unmatched')
+    assert.equal(answer.refused, 'Archon no longer lists that project. Choose another.')
+    assert.equal(host.data().storage['project-links'], undefined)
+    await worker.deactivate()
+  })
+
+  test('in a remote workspace Link is off: refused, nothing saved and Archon not asked', async () => {
+    const stage = storeScene()
+    const ssh: Row = { ...mainCheckout, id: 'ws-ssh', hostId: 'ssh:box', path: '/srv/web' }
+    const { worker, host } = await stage.mount(orcaWith('ws-ssh', [ssh], []))
+    const answer = (await worker.request('scope.link', { projectId: RECORDED_ID['0.12.1'] })) as ScopeAnswer
+    assert.deepEqual(answer.scope, { kind: 'remote' })
+    assert.equal(answer.refused, 'This workspace is on another host. Orchon works with the Archon on this computer.')
+    assert.equal(host.data().storage['project-links'], undefined)
+    assert.deepEqual(codebaseCalls(stage), [])
+    await worker.deactivate()
+  })
+
+  test('a malformed link request is refused before anything is read', async () => {
+    const { worker } = await storeScene().mount(orcaWith('ws-feature'))
+    for (const input of [null, {}, { projectId: '' }, { projectId: 7 }, { projectId: 'cb', extra: 1 }]) {
+      await assert.rejects(worker.request('scope.link', input as never), (error: unknown) => (error as { code?: string }).code === 'invalid_params')
+    }
+    await assert.rejects(worker.request('scope.unlink', { projectId: 'x' } as never), (error: unknown) => (error as { code?: string }).code === 'invalid_params')
+    await worker.deactivate()
+  })
+})
