@@ -10,6 +10,7 @@ import {
   FILE_NAMES_CAP,
   MESSAGE_CAP,
   messageDrawCost,
+  RESULT_SUMMARY_CAP,
   THREAD_PAGE,
   TOOL_CALLS_CAP,
   TOOL_NAME_CAP,
@@ -19,7 +20,8 @@ import {
   type ThreadMessage,
   type ThreadRequest,
   type ThreadToolCall,
-  type ThreadView
+  type ThreadView,
+  WORKFLOW_NAME_CAP
 } from './chat-thread-view'
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
@@ -28,7 +30,8 @@ import { CONVERSATION_ID, CONVERSATION_ID_CAP, CONVERSATIONS_PATH, parseConversa
 import { cutAt, cutMarkdown, cutText, oneLine } from './cutter'
 import { parseInstant } from './dates'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { cappedTextRefusal, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
+import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
+import { RUN_ID_CAP } from './run-detail-view'
 
 /** A frame's request, or a refusal. */
 export function parseThreadRequest(input: unknown): ThreadRequest {
@@ -63,6 +66,10 @@ type SavedMessage = {
   /** The names of the files it was sent with, in Archon's order. */
   files: string[]
   toolCalls: SavedToolCall[]
+  /** `metadata.workflowDispatch` when it names a workflow, else null. */
+  dispatch: NonNullable<ThreadMessage['dispatch']> | null
+  /** `metadata.workflowResult` when it names a workflow and a run, else null. */
+  result: NonNullable<ThreadMessage['result']> | null
 }
 
 /** One tool call Archon saved with a message: its input is any JSON value, or undefined when none was saved. */
@@ -112,8 +119,35 @@ function parseMessage(value: unknown): SavedMessage | null {
     category: typeof category === 'string' ? category : null,
     error,
     files,
-    toolCalls
+    toolCalls,
+    dispatch: parseDispatch(own(metadata, 'workflowDispatch')),
+    result: parseResult(own(metadata, 'workflowResult'))
   }
+}
+
+/** A workflow's name as a row shows it: one line, cut at `WORKFLOW_NAME_CAP`. */
+const workflowName = (name: string): string => cutAt(oneLine(name), WORKFLOW_NAME_CAP)
+
+/**
+ * `metadata.workflowDispatch`, or null when it names no workflow. Its worker conversation id is
+ * kept only when the conversation id rule accepts it, since it is all the run lookup sends.
+ */
+function parseDispatch(value: unknown): SavedMessage['dispatch'] {
+  if (!isRecord(value)) return null
+  const name = own(value, 'workflowName')
+  if (!isText(name)) return null
+  const worker = own(value, 'workerConversationId')
+  const valid = typeof worker === 'string' && worker.length <= CONVERSATION_ID_CAP && CONVERSATION_ID.test(worker)
+  return { workflow: workflowName(name), workerId: valid ? worker : null }
+}
+
+/** `metadata.workflowResult`, or null unless it names a workflow and a run id run detail accepts. */
+function parseResult(value: unknown): SavedMessage['result'] {
+  if (!isRecord(value)) return null
+  const name = own(value, 'workflowName')
+  const runId = own(value, 'runId')
+  if (!isText(name) || !isCappedText(runId, RUN_ID_CAP)) return null
+  return { workflow: workflowName(name), runId }
 }
 
 /** `metadata.toolCalls`, or null when it is not a list of named calls with text output. */
@@ -198,11 +232,22 @@ function parseMessages(value: unknown): { rows: SavedMessage[]; sent: number; un
 /** Framework messages: the orchestrator narrating, not the agent. The thread hides them. */
 const isFramework = (category: string | null): boolean => category !== null && (category.startsWith('workflow_') || category.startsWith('system_'))
 
+/** A workflow's result card: a `workflow_result` message that names its run. */
+const isResult = (message: SavedMessage): boolean => message.category === 'workflow_result' && message.result !== null
+
+/** Whether the thread shows a message: every one but framework messages, of which only a dispatch and a result show. */
+const isShown = (message: SavedMessage): boolean => !isFramework(message.category) || message.dispatch !== null || isResult(message)
+
 /** A saved message trimmed for the frame. */
 function messageView(message: SavedMessage, withToolCalls: boolean): ThreadMessage {
   const format = message.role === 'system' ? 'text' : 'markdown'
-  const cut = format === 'markdown' ? cutMarkdown(message.content, MESSAGE_CAP) : cutText(message.content, MESSAGE_CAP)
+  // A dispatch row draws no content: it is the orchestrator's narration of what the row says.
+  const content = message.dispatch === null ? message.content : ''
+  const cap = isResult(message) ? RESULT_SUMMARY_CAP : MESSAGE_CAP
+  const cut = format === 'markdown' ? cutMarkdown(content, cap) : cutText(content, cap)
   const view: ThreadMessage = { id: message.id, role: message.role, at: message.at, format, blocks: cut.blocks.map((block) => block.text), notShown: cut.notShown }
+  if (message.dispatch !== null) view.dispatch = message.dispatch
+  else if (message.result !== null && isResult(message)) view.result = message.result
   if (message.error !== null) view.error = cutAt(message.error, ERROR_TEXT_CAP)
   if (message.files.length > 0) {
     const names = message.files.slice(0, FILE_NAMES_CAP).map((name) => cutAt(oneLine(name), FILE_NAME_CAP))
@@ -267,7 +312,7 @@ export async function readThread(client: Client, server: Connected, request: Thr
   let cut = 0
   for (let index = list.value.rows.length - 1; index >= 0; index -= 1) {
     const message = list.value.rows[index] as SavedMessage
-    if (isFramework(message.category)) continue
+    if (!isShown(message)) continue
     if (cut > 0) {
       cut += 1
       continue
