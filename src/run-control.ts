@@ -75,56 +75,53 @@ export type RunControlPorts = {
   questions?: QuestionMemory
 }
 
+/** What a write sends to a run: the route after the run's path and the body, when it has one. */
+type RunWrite = { route: string; body?: Record<string, unknown> }
+
 /** Answers the frames' `run.control` and `run.answer`, one write per run at a time across both. */
 export function startRunControl(orca: OrcaWorkerApi, ports: RunControlPorts): Disposable {
   /** The runs with a write in flight. A run is in it from the check to the answer. */
   const writing = new Set<string>()
-  const answers = orca.panels.handle('run.answer', async (input): Promise<RunControlAnswer> => {
-    const request = parseRunAnswerRequest(input)
-    if (writing.has(request.runId)) {
+  /**
+   * Sends one write to a run, under the one-write-per-run rule, once connected. `build` gives the
+   * write, or the text of the worker's own refusal, which is answered without calling Archon.
+   */
+  async function guardedWrite(runId: string, build: () => RunWrite | string): Promise<RunControlAnswer> {
+    if (writing.has(runId)) {
       return { connection: await ports.current(), outcome: { kind: 'refused', status: null, message: WRITE_IN_FLIGHT_TEXT } }
     }
-    writing.add(request.runId)
+    writing.add(runId)
     try {
       const connection = await ports.current()
       if (connection.kind !== 'connected') return { connection, outcome: { kind: 'not-connected' } }
-      const write = answerWrite(request, ports.questions?.lastRead(request.runId))
-      if (write === null) return { connection, outcome: { kind: 'refused', status: null, message: STALE_ANSWER_TEXT } }
+      const write = build()
+      if (typeof write === 'string') return { connection, outcome: { kind: 'refused', status: null, message: write } }
+      const { route, body } = write
       const result = await ports.client.request({
         baseUrl: connection.baseUrl,
-        path: `${RUN_PATH}${encodeURIComponent(request.runId)}/${write.route}`,
+        path: `${RUN_PATH}${encodeURIComponent(runId)}/${route}`,
         method: 'POST',
-        body: write.body,
+        ...(body === undefined ? {} : { body }),
         timeout: 'write',
         errorBody: true
       })
       return { connection: await ports.current(), outcome: controlOutcome(result) }
     } finally {
-      writing.delete(request.runId)
+      writing.delete(runId)
     }
+  }
+  const answers = orca.panels.handle('run.answer', async (input): Promise<RunControlAnswer> => {
+    const request = parseRunAnswerRequest(input)
+    return guardedWrite(
+      request.runId,
+      () => answerWrite(request, ports.questions?.lastRead(request.runId)) ?? STALE_ANSWER_TEXT
+    )
   })
   const controls = orca.panels.handle('run.control', async (input): Promise<RunControlAnswer> => {
     const request = parseRunControlRequest(input)
-    if (writing.has(request.runId)) {
-      return { connection: await ports.current(), outcome: { kind: 'refused', status: null, message: WRITE_IN_FLIGHT_TEXT } }
-    }
-    writing.add(request.runId)
-    try {
-      const connection = await ports.current()
-      if (connection.kind !== 'connected') return { connection, outcome: { kind: 'not-connected' } }
-      // Cancel, abandon and resume take no body at the floor, so none is sent: nothing the
-      // frame sent is passed through.
-      const result = await ports.client.request({
-        baseUrl: connection.baseUrl,
-        path: `${RUN_PATH}${encodeURIComponent(request.runId)}/${request.action}`,
-        method: 'POST',
-        timeout: 'write',
-        errorBody: true
-      })
-      return { connection: await ports.current(), outcome: controlOutcome(result) }
-    } finally {
-      writing.delete(request.runId)
-    }
+    // Cancel, abandon and resume take no body at the floor, so none is sent: nothing the frame
+    // sent is passed through.
+    return guardedWrite(request.runId, () => ({ route: request.action }))
   })
   return {
     dispose() {
