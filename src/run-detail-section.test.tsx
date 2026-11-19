@@ -153,10 +153,11 @@ describe('the step tree', () => {
   test('a row is the glyph, the name, the shortest duration and "ran N times"; a loop is an open branch holding its inner steps', async () => {
     const view = await openOn()
     assert.deepEqual(view.find(STEPS)?.props.items, [
-      { key: 'step:plan', label: '✓ plan', description: '1m 35s' },
+      { key: 'step:plan', label: '✓ plan', description: '1m 35s · ran 1 time' },
       {
         key: 'step:implement',
         label: '‖ implement',
+        description: 'ran 1 time',
         children: [
           { key: 'step:implement.build', label: '✓ build', description: '12s · ran 3 times' },
           { key: 'step:implement.test', label: '‖ test', description: 'ran 2 times' }
@@ -209,7 +210,7 @@ describe('the step tree', () => {
     assert.ok(line)
     assert.equal(view.find({ type: 'Badge', text: 'Completed' })?.text, 'Completed')
     await view.selectItem(STEPS, 'step:plan')
-    assert.ok(view.find({ type: 'Text', text: 'plan · prompt' }))
+    assert.ok(view.find({ type: 'Text', text: 'plan · prompt · ran 1 time' }))
     assert.equal(view.find({ type: 'Text', text: /inner step of/ }), null)
   })
 

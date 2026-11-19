@@ -3,7 +3,7 @@
 // sit in one branch at the end. It is pure logic on the worker's step list, which arrives in
 // the tree's order, and is built once per answer, not per render. The panel loads this file, so
 // it imports nothing but types and the date helper.
-import type { TreeItem } from 'orca'
+import type { Tone, TreeItem } from 'orca'
 import { formatDuration } from './dates'
 import type { Step } from './run-detail-view'
 import type { RunStatus } from './runs-view'
@@ -14,24 +14,27 @@ export const NOT_REACHED_KEY = 'not-reached'
 /** A step's row key. Keys are unique across the tree's levels, and no step's key is the branch's. */
 export const stepKey = (id: string): string => `step:${id}`
 
-/** A step's state as a glyph and a word. A running step of a paused run is waiting. */
-export function stepWords(step: Step, run: RunStatus): { glyph: string; word: string } {
+/** A step's state as a glyph, a word and the word's badge tone. A running step of a paused run is waiting. */
+export function stepWords(step: Step, run: RunStatus): { glyph: string; word: string; tone: Tone } {
   switch (step.state) {
     case 'running':
-      return run === 'paused' ? { glyph: '‖', word: 'Waiting' } : { glyph: '●', word: 'Running' }
+      return run === 'paused' ? { glyph: '‖', word: 'Waiting', tone: 'warning' } : { glyph: '●', word: 'Running', tone: 'accent' }
     case 'completed':
-      return { glyph: '✓', word: 'Completed' }
+      return { glyph: '✓', word: 'Completed', tone: 'success' }
     case 'failed':
-      return { glyph: '✕', word: 'Failed' }
+      return { glyph: '✕', word: 'Failed', tone: 'danger' }
     case 'skipped':
-      return { glyph: '−', word: 'Skipped' }
+      return { glyph: '−', word: 'Skipped', tone: 'neutral' }
     case 'pending':
-      return { glyph: '○', word: step.reached ? 'Queued' : 'Not reached' }
+      return { glyph: '○', word: step.reached ? 'Queued' : 'Not reached', tone: 'neutral' }
   }
 }
 
-/** "ran N times" for a step that started more than once, or null. */
-export const ranTimes = (step: Step): string | null => (step.starts > 1 ? `ran ${String(step.starts)} times` : null)
+/** "ran N times", the count of the step's starts, for a step that has started, or null. */
+export function ranTimes(step: Step): string | null {
+  if (step.starts === 0) return null
+  return step.starts === 1 ? 'ran 1 time' : `ran ${String(step.starts)} times`
+}
 
 export type StepTree = {
   items: TreeItem[]
