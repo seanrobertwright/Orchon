@@ -97,6 +97,10 @@ export type StartingState =
   | 'looking'
   /** The run was found. */
   | 'found'
+  /** Archon took the launch, then let the conversation go with no run: `reason` is its text. */
+  | 'refused'
+  /** Archon sent an `error` frame: `reason` is its text. */
+  | 'failed'
 
 export type StartingView = {
   launchId: string
@@ -108,7 +112,18 @@ export type StartingView = {
   late: boolean
   /** The run, once found. */
   runId?: string
+  /** Archon's words when the state is `refused` or `failed`, cut to `REASON_CAP`. Text, never markup. */
+  reason?: string
 }
+
+/** How much of Archon's reason for a launch that did not start is shown. */
+export const REASON_CAP = 2_000
+
+/** The Starting view's title for an `error` frame. */
+export const COULD_NOT_START_TEXT = 'Archon could not start this run'
+
+/** The reason shown when Archon refused a launch and sent no text with it. */
+export const NO_REASON_TEXT = 'Archon did not start the run and gave no reason.'
 
 /** A run a launch started, found after its Starting view stopped showing. */
 export type LaunchNotice = { launchId: string; workflow: string; runId: string }

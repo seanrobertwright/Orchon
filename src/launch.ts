@@ -6,6 +6,7 @@ import type { Disposable, JsonValue, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
+import type { ConversationStreams, StreamHold, StreamListener } from './conversation-streams'
 import { cutAt } from './cutter'
 import { DASHBOARD_RUNS_PATH } from './dashboard-runs'
 import type { HintType } from './hint-view'
@@ -29,6 +30,8 @@ import {
   LAUNCH_ID_CAP,
   MESSAGE_CAP,
   NO_MESSAGE,
+  NO_REASON_TEXT,
+  REASON_CAP,
   PROJECTS_CAP,
   RECORDS_CAP,
   SEARCH_CAP,
@@ -109,6 +112,20 @@ type LaunchRecord = {
   conversationDbId: string
   state: StartingState
   runId?: string
+  /** Archon's words for a refused or failed launch. */
+  reason?: string
+  /** The form as it was sent, for "Edit and try again". */
+  form: { message: string; values: Record<string, string>; bindings: Binding[] }
+  /** The conversation's stream while it is held; null once lost, given up, or never opened. */
+  hold: StreamHold | null
+  /** A `workflow_dispatch` frame or a saved dispatch message was seen: Archon started a run. */
+  dispatched: boolean
+  /** The last `text` frame's content, the reason when an unlock follows with no dispatch. */
+  lastText: string | null
+  /** The newest saved assistant message the last read of the messages saw, by id. */
+  candidate?: string
+  /** Whether the record is in the tracker's list yet: the stream opens before the launch is posted. */
+  tracked: boolean
   /** When the wait the 60 seconds count from began: the answer, or "Keep waiting". */
   waitFrom: number
   sentAt: number
@@ -294,8 +311,54 @@ function archonWords(body: unknown): string | null {
   return isText(error) ? cutAt(error, SERVER_TEXT_CAP) : null
 }
 
+/** How many of a launch conversation's saved messages are read when its stream was lost. */
+export const SAVED_MESSAGES_READ = 10
+
+/** One saved message, trimmed to what the lost-stream rules read. */
+type SavedMessage = { id: string; role: string; content: string; category: string | null }
+
+/** The category of a saved message, from its `metadata`: an object, or JSON text of one. */
+function categoryOf(metadata: unknown): string | null {
+  let value: unknown = metadata
+  if (typeof metadata === 'string') {
+    try {
+      value = JSON.parse(metadata)
+    } catch {
+      return null
+    }
+  }
+  const category = isRecord(value) ? own(value, 'category') : undefined
+  return typeof category === 'string' ? category : null
+}
+
+/** A conversation's saved messages, oldest first, or null when Archon's answer is not a list. A row that fails is dropped. */
+function parseSavedMessages(value: unknown): SavedMessage[] | null {
+  if (!Array.isArray(value)) return null
+  const rows: SavedMessage[] = []
+  for (const row of value as unknown[]) {
+    if (!isRecord(row)) continue
+    const id = own(row, 'id')
+    const role = own(row, 'role')
+    const content = own(row, 'content')
+    if (!isText(id) || typeof role !== 'string' || typeof content !== 'string') continue
+    rows.push({ id, role, content, category: categoryOf(own(row, 'metadata')) })
+  }
+  return rows
+}
+
+/**
+ * A saved refusal as shown: Archon saves it joined to its "Starting workflow" line with nothing
+ * between, so that line is dropped when the message starts with exactly it for this workflow.
+ */
+export function withoutStartingLine(content: string, workflow: string): string {
+  const line = `Starting workflow: \`${workflow}\``
+  return content.startsWith(line) ? content.slice(line.length) : content
+}
+
 export type LaunchPorts = {
   client: Client
+  /** The stream reader, shared with chat. */
+  streams: ConversationStreams
   current(): Promise<ConnectionView>
   focused(): Promise<FocusedWorkspace>
   /** Subscribes to every dashboard hint the worker posts. */
@@ -429,6 +492,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   function startingOf(record: LaunchRecord): StartingView {
     const view: StartingView = { launchId: record.launchId, workflow: record.workflow, project: record.project, state: record.state, late: record.late }
     if (record.runId !== undefined) view.runId = record.runId
+    if (record.reason !== undefined) view.reason = record.reason
     return view
   }
 
@@ -506,7 +570,66 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
 
   // ---- The tracker: finding the run a launch started. ----
 
-  const tracking = (record: LaunchRecord): boolean => record.runId === undefined && !record.late
+  /** Whether a launch has ended with no run: Archon refused it or failed it. */
+  const givenUp = (record: LaunchRecord): boolean => record.state === 'refused' || record.state === 'failed'
+
+  const tracking = (record: LaunchRecord): boolean => record.tracked && record.runId === undefined && !record.late && !givenUp(record)
+
+  function letGo(record: LaunchRecord): void {
+    record.hold?.close()
+    record.hold = null
+  }
+
+  /** Archon did not start the launch: it looks no more and lets go of the stream. */
+  function giveUp(record: LaunchRecord, state: 'refused' | 'failed', reason: string): void {
+    if (record.runId !== undefined || givenUp(record)) return
+    record.state = state
+    record.reason = cutAt(reason, REASON_CAP)
+    letGo(record)
+    if (record.timer !== undefined) ports.timers.clear(record.timer)
+    record.timer = undefined
+    if (record.tracked) changed()
+  }
+
+  /** What the launch conversation's stream tells the tracker. */
+  function listenerFor(record: LaunchRecord): StreamListener {
+    return (event) => {
+      if (event.kind === 'ended') {
+        // Another reader took the stream. It is never opened again: the saved messages stand in.
+        record.hold = null
+        return
+      }
+      const frame = event.frame
+      if (frame.type === 'text') record.lastText = frame.content
+      else if (frame.type === 'workflow_dispatch') {
+        record.dispatched = true
+        if (record.tracked) void look([record])
+      } else if (frame.type === 'error') giveUp(record, 'failed', frame.message)
+      else if (!frame.locked && !record.dispatched) giveUp(record, 'refused', record.lastText ?? NO_REASON_TEXT)
+    }
+  }
+
+  /** On a miss with the stream lost: the conversation's last saved messages, read by the rules of #15's last amendment. */
+  async function readSaved(server: Connected, record: LaunchRecord): Promise<void> {
+    const path = `${CONVERSATIONS_PATH}/${encodeURIComponent(record.conversationId)}/messages?limit=${String(SAVED_MESSAGES_READ)}`
+    const read = await ports.client.request({ baseUrl: server.baseUrl, path, timeout: 'read' })
+    const messages = read.ok ? parseSavedMessages(read.value) : null
+    if (messages === null || !tracking(record)) return
+    if (messages.some((message) => message.category === 'workflow_dispatch_status')) {
+      record.dispatched = true
+      delete record.candidate
+      return
+    }
+    const newest = messages.filter((message) => message.role === 'assistant').at(-1)
+    const text = newest === undefined ? '' : withoutStartingLine(newest.content, record.workflow)
+    // A "Starting workflow" line alone says nothing yet.
+    if (newest === undefined || text.trim() === '') {
+      delete record.candidate
+      return
+    }
+    if (record.candidate === newest.id) giveUp(record, 'refused', text)
+    else record.candidate = newest.id
+  }
 
   function schedule(record: LaunchRecord): void {
     if (record.timer !== undefined) ports.timers.clear(record.timer)
@@ -547,9 +670,14 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
           if (!Array.isArray(runs)) continue
           for (const record of ofStore.filter((entry) => entry.codebaseId === codebaseId)) {
             const runId = runFor(runs as unknown[], record)
-            if (runId === undefined) continue
+            if (runId === undefined) {
+              if (record.hold === null) await readSaved(connection, record)
+              if (givenUp(record)) any = true
+              continue
+            }
             record.runId = runId
             record.state = 'found'
+            letGo(record)
             any = true
           }
         }
@@ -570,11 +698,14 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   }
 
   function track(record: LaunchRecord): void {
+    record.tracked = true
     records.push(record)
-    // At most `RECORDS_CAP` launch records: the oldest goes, and stops looking.
+    // At most `RECORDS_CAP` launch records: the oldest goes, stops looking and lets go of its stream.
     while (records.length > RECORDS_CAP) {
       const oldest = records.shift()
-      if (oldest?.timer !== undefined) ports.timers.clear(oldest.timer)
+      if (oldest === undefined) break
+      if (oldest.timer !== undefined) ports.timers.clear(oldest.timer)
+      letGo(oldest)
     }
     schedule(record)
   }
@@ -639,6 +770,32 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       const conversationDbId = isRecord(created.value) ? own(created.value, 'id') : undefined
       if (!isText(conversationId) || !isText(conversationDbId)) return await refuse(unreadableAnswerText(connection.version))
       await rememberConversation(store, conversationId)
+      const at = ports.now()
+      const record: LaunchRecord = {
+        launchId: `launch-${String(nextLaunch)}`,
+        store,
+        codebaseId: project.id,
+        project: project.name,
+        workflow: input.workflow,
+        conversationId,
+        conversationDbId,
+        state: 'started',
+        form: { message: input.message, values: { ...values }, bindings: bindings.map((binding) => ({ ...binding })) },
+        hold: null,
+        dispatched: false,
+        lastText: null,
+        tracked: false,
+        waitFrom: at,
+        sentAt: at,
+        late: false,
+        dismissed: false,
+        looking: false
+      }
+      nextLaunch += 1
+      // The oldest record goes once this one is tracked: its stream goes now, so this one has room.
+      if (records.length >= RECORDS_CAP) letGo(records[0] ?? record)
+      // The stream is read from before the post, so no frame of the launch is missed.
+      record.hold = ports.streams.listen({ baseUrl: connection.baseUrl, conversationId, purpose: 'launch', listener: listenerFor(record) })
       const sent = await ports.client.request({
         baseUrl: connection.baseUrl,
         path: `${WORKFLOWS_PATH}/${encodeURIComponent(input.workflow)}/run`,
@@ -651,12 +808,16 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       if (sent.ok) {
         const accepted = isRecord(sent.value) ? own(sent.value, 'accepted') : undefined
         const status = isRecord(sent.value) ? own(sent.value, 'status') : undefined
-        if (accepted !== true) return await refuse(NOT_ACCEPTED)
+        if (accepted !== true) {
+          letGo(record)
+          return await refuse(NOT_ACCEPTED)
+        }
         state = status === 'queued-capacity' ? 'queued' : 'started'
       } else if (sent.failure.kind === 'timeout') {
         // Never sent again: the run may have started, so the worker looks for it.
         state = 'looking'
       } else {
+        letGo(record)
         const words = sent.failure.kind === 'status' ? archonWords(sent.failure.body) : null
         if (sent.failure.kind === 'status' && sent.failure.status === 400) {
           // Archon refused the launch: the conversation it made for it goes.
@@ -669,23 +830,8 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
         }
         return await refuse(words ?? readFailureText(sent.failure))
       }
-      const at = ports.now()
-      const record: LaunchRecord = {
-        launchId: `launch-${String(nextLaunch)}`,
-        store,
-        codebaseId: project.id,
-        project: project.name,
-        workflow: input.workflow,
-        conversationId,
-        conversationDbId,
-        state,
-        waitFrom: at,
-        sentAt: at,
-        late: false,
-        dismissed: false,
-        looking: false
-      }
-      nextLaunch += 1
+      // A frame that came while the post was answered may already have refused it.
+      if (!givenUp(record)) record.state = state
       track(record)
       draft.starting = record.launchId
       draft.message = ''
@@ -762,7 +908,10 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   return {
     dispose() {
       stopped = true
-      for (const record of records) if (record.timer !== undefined) ports.timers.clear(record.timer)
+      for (const record of records) {
+        if (record.timer !== undefined) ports.timers.clear(record.timer)
+        letGo(record)
+      }
       for (const subscription of subscriptions) subscription.dispose()
     }
   }

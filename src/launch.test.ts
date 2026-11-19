@@ -601,3 +601,222 @@ describe('input values and model bindings', () => {
     await mounted.worker.deactivate()
   })
 })
+
+/** The raw frames a recorded launch's conversation stream carried under one reader's label, in order. */
+function framesOf(release: Release, scenario: string, label: string): string[] {
+  return logOf(release, scenario)
+    .filter((entry) => entry['kind'] === 'frame' && entry['label'] === label)
+    .map((entry) => `${String(entry['raw'])}\n\n`)
+}
+
+/** The recorded run row a launch's search found, as a page of the project's runs. */
+function foundPage(release: Release, scenario: string): ReturnType<typeof json> {
+  const row = logOf(release, scenario).find((entry) => entry['kind'] === 'run-found')?.['run']
+  const page = recorded(release, 'dashboard-runs', 2)
+  if (row === undefined || page.kind !== 'json') throw new Error(`fixtures/${release}/${scenario}.json found no run.`)
+  return json({ ...(page.value as Record<string, unknown>), runs: [row] })
+}
+
+/** The recorded workflow list with some declared inputs changed, as a list read before the workflow changed. */
+function staleList(release: Release, inputs: Record<string, Record<string, unknown>>): ReturnType<typeof json> {
+  const page = recorded(release, 'workflows')
+  if (page.kind !== 'json') throw new Error('The recorded workflows are not JSON.')
+  const rows = (field(page.value, 'workflows') as Record<string, unknown>[]).map((row) => {
+    const workflow = field(row, 'workflow') as Record<string, unknown>
+    const name = String(workflow['name'])
+    return Object.hasOwn(inputs, name) ? { ...row, workflow: { ...workflow, inputs: inputs[name] } } : row
+  })
+  return json({ ...(page.value as Record<string, unknown>), workflows: rows })
+}
+
+/** Scripts one recorded launch: its conversation, its run post, a held-open conversation stream and an empty runs list. */
+function replayLaunch(stage: Scene, release: Release, scenario: string, workflow: string) {
+  const created = exchange(release, scenario, 'POST', '/api/conversations')
+  const run = exchange(release, scenario, 'POST', `/api/workflows/${workflow}/run`)
+  const body = recordedRequest(release, scenario, run) as Record<string, unknown>
+  const conversationId = String(body['conversationId'])
+  const stream = openStream()
+  let streamBeforePost: boolean | undefined
+  stage.archon.answer(CONVERSATIONS, recorded(release, scenario, created))
+  stage.archon.answer(`${DEFAULT}/api/stream/${conversationId}`, stream)
+  stage.archon.answer(`${DEFAULT}/api/workflows/${workflow}/run`, () => {
+    streamBeforePost = stage.archon.streams.some((call) => call.url === `${DEFAULT}/api/stream/${conversationId}`)
+    return recorded(release, scenario, run)
+  })
+  stage.archon.answer(runsUrl(RECORDED_ID[release]), recorded(release, 'dashboard-runs-empty', 0))
+  return {
+    body,
+    conversationId,
+    stream,
+    streamBeforePost: () => streamBeforePost,
+    messagesUrl: `${CONVERSATIONS}/${conversationId}/messages?limit=10`,
+    /** The recorded saved messages of the conversation. */
+    messages: () => recorded(release, scenario, exchange(release, scenario, 'GET', new RegExp(`^/api/conversations/${conversationId}/messages`)))
+  }
+}
+
+const pressWith = (mounted: MountedScene, release: Release, body: Record<string, unknown>, workflow: string): Promise<LaunchAnswer> =>
+  mounted.worker.request('launch.start', {
+    codebaseId: RECORDED_ID[release],
+    workflow,
+    message: String(body['message']),
+    ...(body['inputs'] === undefined ? {} : { inputs: body['inputs'] as Record<string, string> })
+  }) as Promise<LaunchAnswer>
+
+describe("the launch conversation's stream, replayed from the recordings", () => {
+  const INPUTS = 'orchon-recorder-inputs'
+  const lookCount = (stage: Scene, release: Release): number => stage.archon.calls.filter((call) => call.url === runsUrl(RECORDED_ID[release])).length
+
+  for (const release of RELEASES) {
+    test(`${release}: refused after a 200, the reason is the last text frame before the unlock`, async () => {
+      const stage = launchScene(release)
+      // The list was read while the workflow still declared the input Archon now refuses.
+      stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+      const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      const answer = await pressWith(mounted, release, launch.body, INPUTS)
+      assert.equal(launch.streamBeforePost(), true)
+      assert.deepEqual(writes(stage)[1]?.body, launch.body)
+      assert.equal(ready(answer.launch).starting?.state, 'started')
+      for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+      await stage.clock.advance(100)
+      const starting = ready((await read(mounted)).launch).starting
+      assert.equal(starting?.state, 'refused')
+      assert.equal(starting?.reason, "Cannot run workflow 'orchon-recorder-inputs': it does not declare input 'not_declared'. Declared inputs: item.")
+      // Given up: it looks no more and lets go of the stream.
+      const looks = lookCount(stage, release)
+      await stage.clock.advance(60_000)
+      assert.equal(lookCount(stage, release), looks)
+      assert.equal(launch.stream.closed, true)
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: accepted, a workflow_dispatch frame starts the search at once, and the stream is let go once the run is found`, async () => {
+      const stage = launchScene(release)
+      const launch = replayLaunch(stage, release, 'launch-accepted', ECHO)
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, ECHO)
+      assert.equal(launch.streamBeforePost(), true)
+      const frames = framesOf(release, 'launch-accepted', 'first')
+      const dispatch = frames.findIndex((frame) => frame.includes('"type":"workflow_dispatch"'))
+      for (const frame of frames.slice(0, dispatch)) launch.stream.send(frame)
+      await stage.clock.advance(100)
+      assert.equal(lookCount(stage, release), 0)
+      stage.archon.answer(runsUrl(RECORDED_ID[release]), foundPage(release, 'launch-accepted'))
+      launch.stream.send(frames[dispatch] ?? '')
+      await stage.clock.advance(100)
+      assert.equal(lookCount(stage, release), 1)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'found')
+      assert.equal(launch.stream.closed, true)
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: accepted with an input name the workflow does not declare, an unlock after the dispatch is a start`, async () => {
+      const stage = launchScene(release)
+      stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [ECHO]: { not_declared: {} } }))
+      const launch = replayLaunch(stage, release, 'launch-undeclared-no-inputs-block', ECHO)
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, ECHO)
+      assert.deepEqual(writes(stage)[1]?.body, launch.body)
+      const frames = framesOf(release, 'launch-undeclared-no-inputs-block', 'first')
+      const unlock = frames.findIndex((frame) => frame.includes('"locked":false'))
+      for (const frame of frames.slice(0, unlock + 1)) launch.stream.send(frame)
+      await stage.clock.advance(100)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'started')
+      stage.archon.answer(runsUrl(RECORDED_ID[release]), foundPage(release, 'launch-undeclared-no-inputs-block'))
+      await stage.clock.advance(2_000)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'found')
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: the lost stream is never opened again, and the saved messages tell a start on each miss`, async () => {
+      const stage = launchScene(release)
+      const launch = replayLaunch(stage, release, 'launch-accepted', ECHO)
+      stage.archon.answer(launch.messagesUrl, launch.messages())
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, ECHO)
+      // Archon's console took the stream: the worker's ends with no frame, as recorded.
+      launch.stream.send(framesOf(release, 'launch-accepted', 'first')[0] ?? '')
+      launch.stream.end()
+      await stage.clock.advance(6_000)
+      const reads = stage.archon.calls.filter((call) => call.url === launch.messagesUrl).length
+      assert.equal(reads, lookCount(stage, release))
+      assert.ok(reads >= 3)
+      assert.equal(stage.archon.streams.filter((call) => call.url.endsWith(launch.conversationId)).length, 1)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'started')
+      stage.archon.answer(runsUrl(RECORDED_ID[release]), foundPage(release, 'launch-accepted'))
+      await stage.clock.advance(2_000)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'found')
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: with the stream lost, an assistant message seen on two reads in a row is the refusal, its "Starting workflow" line dropped`, async () => {
+      const stage = launchScene(release)
+      stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: {} } }))
+      const launch = replayLaunch(stage, release, 'launch-missing-required', INPUTS)
+      stage.archon.answer(launch.messagesUrl, launch.messages())
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, INPUTS)
+      launch.stream.end()
+      await stage.clock.advance(2_000)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'started')
+      await stage.clock.advance(2_000)
+      const starting = ready((await read(mounted)).launch).starting
+      assert.equal(starting?.state, 'refused')
+      assert.ok(starting?.reason?.startsWith("This workflow requires input 'item', and none was supplied."), starting?.reason)
+      await mounted.worker.deactivate()
+    })
+  }
+
+  test('an error frame fails the launch with its text, cut at 2,000 characters', async () => {
+    const release: Release = '0.14.0'
+    const stage = launchScene(release)
+    const launch = replayLaunch(stage, release, 'launch-accepted', ECHO)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    await pressWith(mounted, release, launch.body, ECHO)
+    const text = `Failed to process message: ${'x'.repeat(2_500)}`
+    launch.stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: true })}\n\n`)
+    launch.stream.send(`data: ${JSON.stringify({ type: 'error', message: text, classification: 'transient' })}\n\n`)
+    launch.stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: false })}\n\n`)
+    await stage.clock.advance(100)
+    const starting = ready((await read(mounted)).launch).starting
+    assert.equal(starting?.state, 'failed')
+    assert.equal(starting?.reason, text.slice(0, 2_000))
+    await mounted.worker.deactivate()
+  })
+
+  test('holds at most 20 launch streams open, and none once the worker stops', async () => {
+    const release: Release = '0.12.1'
+    const stage = launchScene(release)
+    replayAccepted(stage, release)
+    let made = 0
+    stage.archon.answer(CONVERSATIONS, () => {
+      made += 1
+      return json({ conversationId: `web-launch-${String(made)}`, id: `db-${String(made)}` })
+    })
+    const streams: ReturnType<typeof openStream>[] = []
+    for (let index = 1; index <= 22; index += 1) {
+      const stream = openStream()
+      streams.push(stream)
+      stage.archon.answer(`${DEFAULT}/api/stream/web-launch-${String(index)}`, stream)
+    }
+    stage.archon.answer(runsUrl(RECORDED_ID[release]), recorded(release, 'dashboard-runs-empty', 0))
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    for (let count = 0; count < 22; count += 1) {
+      await mounted.worker.request('launch.another')
+      await mounted.worker.request('launch.start', { codebaseId: RECORDED_ID[release], workflow: ECHO, message: `Run ${String(count)}.` })
+      await stage.clock.advance(10)
+    }
+    assert.equal(streams.filter((stream) => stream.opened && !stream.closed).length, 20)
+    await mounted.worker.deactivate()
+    await stage.clock.advance(10)
+    assert.equal(streams.filter((stream) => stream.opened && !stream.closed).length, 0)
+  })
+})
