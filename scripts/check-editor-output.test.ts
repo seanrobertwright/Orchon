@@ -88,4 +88,19 @@ describe('the editor output check', () => {
 
     assert.deepEqual(compareEditorOutput(compiled.outputs, readCommittedEditorJavaScript()), [])
   })
+
+  test('every compiled editor file is unminified ES module JavaScript under 1 MiB', async (t) => {
+    const compiled = await withTooling(compileEditors)
+    if (compiled === null) return t.skip(INSTALL_HINT)
+    assert.ok(compiled.outputs.size > 0)
+    for (const [path, text] of compiled.outputs) {
+      assert.ok(new TextEncoder().encode(text).length < 1024 * 1024, `${path} is 1 MiB or more`)
+      assert.ok(!/\brequire\(|\bmodule\.exports\b/.test(text), `${path} is not an ES module`)
+      assert.match(text, /^(?:import|export) /m, `${path} has no ES module import or export`)
+      const longest = Math.max(...text.split('\n').map((line) => line.length))
+      assert.ok(longest <= 400, `${path} has a line of ${longest} characters, as minified code would`)
+    }
+    // Comments survive, so the copied builder logic reads as upstream wrote it.
+    assert.match(compiled.outputs.get('editors/builder/archon/model/from-workflow.js') ?? '', /\/\*\* Convert a single wire node/)
+  })
 })
