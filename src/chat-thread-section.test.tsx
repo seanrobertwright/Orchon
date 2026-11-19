@@ -6,7 +6,7 @@ import { afterEach, assert, beforeEach, describe, mockHost, mount, test, type Te
 import { sampleChats } from '../scripts/chat-samples.ts'
 import { searching } from '../scripts/connection-samples.ts'
 import { answeringThread, sampleMessage, sampleThread } from '../scripts/chat-thread-samples.ts'
-import type { ThreadMessage, ThreadRequest, ThreadView } from './chat-thread-view'
+import { messageDrawCost, type ThreadMessage, type ThreadRequest, type ThreadView } from './chat-thread-view'
 import * as panelModule from './panel'
 
 let panel: TestPanel | undefined
@@ -202,6 +202,49 @@ describe('tool calls', () => {
     await view.toggle({ type: 'Switch', label: 'Show tool calls' })
     assert.deepEqual(sent(view).at(-1), { conversationId: 'web-chat-0', limit: 50 })
     assert.equal(view.find({ type: 'Collapsible' }), null)
+    clean(view)
+  })
+})
+
+/** Every node of a tree, text included. */
+function nodeCount(node: TreeSnapshot | string | null): number {
+  if (node === null) return 0
+  if (typeof node === 'string') return 1
+  return 1 + (node.children ?? []).reduce((sum, child) => sum + nodeCount(child), 0)
+}
+
+describe('the draw cost the worker bounds its answer by', () => {
+  test('one message draws no more nodes than messageDrawCost counts, with everything it can show drawn and open', async () => {
+    const special: ThreadMessage = {
+      ...sampleMessage(0),
+      id: 'msg-special',
+      blocks: ['Part one\n\n', 'Part two\n\n', 'Part three'],
+      notShown: 1_234,
+      error: 'Something failed.',
+      files: { names: ['a.png', 'b.txt'], notShown: 3 },
+      toolCalls: {
+        calls: [
+          { id: 'msg-special-0', name: 'Read', input: '{}', inputNotShown: 5, output: 'ok', outputNotShown: 7 },
+          { id: 'msg-special-1', name: 'Bash', input: null, inputNotShown: 0, output: null, outputNotShown: 0 }
+        ],
+        notShown: 2
+      }
+    }
+    let showing = true
+    const view = await openFirst((request) => {
+      const thread = sampleThread(2, request)
+      if (thread.kind !== 'ready' || !showing) return thread
+      return { ...thread, thread: { ...thread.thread, messages: [special, ...thread.thread.messages] } }
+    })
+    await view.toggle({ type: 'Switch', label: 'Show tool calls' })
+    for (const row of view.findAll({ type: 'Collapsible' })) await view.toggle(row)
+    assert.equal(view.findAll({ type: 'CodeView' }).length, 2)
+    const drawn = nodeCount(view.tree())
+    showing = false
+    await advance(view, 30_000)
+    assert.equal(view.find({ type: 'Callout' }), null)
+    const cost = drawn - nodeCount(view.tree())
+    assert.ok(cost > 0 && cost <= messageDrawCost(special), `${String(cost)} nodes drawn, ${String(messageDrawCost(special))} counted`)
     clean(view)
   })
 })

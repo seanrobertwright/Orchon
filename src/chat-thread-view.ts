@@ -1,6 +1,6 @@
 // A chat thread as a frame gets it: the request a panel sends and the trimmed view model the
-// worker answers. It is types and constants only, so the panel and the worker read one contract
-// and none of Archon's JSON crosses to the panel.
+// worker answers. It is types, constants and the draw cost both sides count by, so the panel and
+// the worker read one contract and none of Archon's JSON crosses to the panel.
 import type { ConnectionAnswer } from './connection-view'
 
 /** How many messages the thread asks for first, and how many more each **Show earlier** adds. */
@@ -103,3 +103,19 @@ export type ThreadView =
   | { kind: 'failed'; message: string }
 
 export type ThreadAnswer = ConnectionAnswer & { thread: ThreadView }
+
+/**
+ * The nodes the thread draws for one message, text included, counted as if every part it can
+ * show were drawn and every tool call row open. It is never less than the objects the message's
+ * view model holds, so it bounds those too. The worker bounds its answer with it, and the frame
+ * test "one message draws no more nodes than messageDrawCost counts" holds the panel to it, so a
+ * change to how a message is drawn that outgrows it fails there.
+ */
+export function messageDrawCost(view: ThreadMessage): number {
+  let cost = 6 + view.blocks.length + (view.notShown > 0 ? 1 : 0)
+  if (view.files !== undefined) cost += 2
+  if (view.error !== undefined) cost += 3
+  if (view.toolCalls !== undefined) cost += 2 + 8 * view.toolCalls.calls.length
+  return cost
+}
+

@@ -9,6 +9,7 @@ import {
   FILE_NAME_CAP,
   FILE_NAMES_CAP,
   MESSAGE_CAP,
+  messageDrawCost,
   THREAD_PAGE,
   TOOL_CALLS_CAP,
   TOOL_NAME_CAP,
@@ -88,7 +89,7 @@ function parseMetadata(value: unknown): Record<string, unknown> | null {
 }
 
 /** One saved message, or null when it cannot be read. */
-export function parseMessage(value: unknown): SavedMessage | null {
+function parseMessage(value: unknown): SavedMessage | null {
   if (!isRecord(value)) return null
   const id = own(value, 'id')
   const role = own(value, 'role')
@@ -184,7 +185,7 @@ function parseFiles(value: unknown): string[] | null {
 }
 
 /** Archon's list, or null when its answer as a whole is not one. */
-export function parseMessages(value: unknown): { rows: SavedMessage[]; sent: number; unreadable: number } | null {
+function parseMessages(value: unknown): { rows: SavedMessage[]; sent: number; unreadable: number } | null {
   if (!Array.isArray(value)) return null
   const rows: SavedMessage[] = []
   for (const row of value as unknown[]) {
@@ -220,18 +221,6 @@ const ANSWER_BYTES = 384 * 1024
 const ANSWER_NODES = 3_500
 
 const encoder = new TextEncoder()
-
-/**
- * The nodes the panel draws for one message, as `chat-thread-section.tsx` draws it, counted
- * high. It is never less than the objects the message's view model holds, so it bounds those too.
- */
-function drawCost(view: ThreadMessage): number {
-  let cost = 6 + view.blocks.length + (view.notShown > 0 ? 1 : 0)
-  if (view.files !== undefined) cost += 2
-  if (view.error !== undefined) cost += 3
-  if (view.toolCalls !== undefined) cost += 2 + 8 * view.toolCalls.calls.length
-  return cost
-}
 
 /** One read of Archon, parsed: the value, or the view the thread shows in its place. */
 type Parsed<T> = { ok: true; value: T } | { ok: false; view: ThreadView }
@@ -285,7 +274,7 @@ export async function readThread(client: Client, server: Connected, request: Thr
     }
     const view = messageView(message, request.toolCalls === true)
     const size = encoder.encode(JSON.stringify(view)).length
-    const cost = drawCost(view)
+    const cost = messageDrawCost(view)
     if (bytes + size > ANSWER_BYTES || nodes + cost > ANSWER_NODES) {
       cut = 1
       continue
