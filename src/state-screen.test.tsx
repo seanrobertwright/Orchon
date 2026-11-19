@@ -72,9 +72,9 @@ const requests = (view: TestPanel): unknown[] =>
   view.host.callsOf('plugin.request').map((params) => (params as { name: string }).name)
 
 describe('the state screens', () => {
-  test('asks the worker for the connection state when it opens', async () => {
+  test('asks the worker for the connection state when it opens, then for the runs once connected', async () => {
     const view = await mountIn(connected)
-    assert.deepEqual(requests(view), ['connection.read'])
+    assert.deepEqual(requests(view), ['connection.read', 'runs.read'])
     clean(view)
   })
 
@@ -316,7 +316,7 @@ describe('the state screens', () => {
     await view.post('connection.changed', { ...notRunning, since: 100 })
     assert.match(words(view, 'EmptyState'), /^Archon is not running\./)
     await view.post('connection.changed', { ...connected, since: 200 })
-    assert.deepEqual(view.summary(), ['Tabs "Orchon sections": "Runs" selected', 'EmptyState "Runs"'])
+    assert.deepEqual(view.summary(), ['Tabs "Orchon sections": "Runs" selected', 'EmptyState "No runs yet"'])
     assert.equal(view.findAll({ type: 'Spinner' }).length, 0)
     clean(view)
   })
@@ -328,7 +328,7 @@ describe('the state screens', () => {
     await view.post('connection.changed', { ...connected, since: 500 })
     assert.match(words(view, 'EmptyState'), /^Orchon could not find Archon\./)
     await view.post('connection.changed', { ...connected, since: 501 })
-    assert.equal(words(view, 'EmptyState'), 'Runs This section is not built yet.')
+    assert.equal(words(view, 'EmptyState'), 'No runs yet Runs started in Archon appear here.')
     clean(view)
   })
 

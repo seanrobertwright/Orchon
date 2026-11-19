@@ -15,12 +15,15 @@ import {
   twoBadSettings,
   unsupported
 } from '../scripts/connection-samples.ts'
+import { answeringRuns, busyRuns } from '../scripts/runs-samples.ts'
 
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
 
 export default defineCheck({
   connected: answering(connected),
+  'runs, empty': answering(connected),
+  'runs, busy': answeringRuns((request) => busyRuns(140, request, 2)),
   'connected, reopened on settings': { ...answering(connected), ...onSettings },
   'searching with nothing loaded': answering(searching),
   'not found, Archon is not running': answering(notRunning),

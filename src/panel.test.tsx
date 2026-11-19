@@ -23,11 +23,14 @@ afterEach(async () => {
   panel = undefined
 })
 
-/** What a person notices first: the selected tab and the placeholder under it. */
+/**
+ * What a person notices first: the selected tab and the empty state under it. Runs is built and
+ * the scripted worker has no runs; every other section is still a placeholder.
+ */
 function showing(view: TestPanel, label: string): void {
   assert.deepEqual(view.summary(), [
     `Tabs "Orchon sections": "${label}" selected`,
-    `EmptyState "${label}"`
+    `EmptyState "${label === 'Runs' ? 'No runs yet' : label}"`
   ])
 }
 
@@ -49,7 +52,7 @@ test('opens on Runs with the six sections in order, in words only', async () => 
   clean(panel)
 })
 
-test('switches between the section placeholders', async () => {
+test('switches between the sections', async () => {
   panel = await mount(panelModule)
   for (const [id, label] of [...SECTIONS].reverse()) {
     await panel.select(SECTION_BAR, id)

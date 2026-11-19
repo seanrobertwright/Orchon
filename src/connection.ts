@@ -8,6 +8,7 @@ import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
 import { checkPaths } from './path-check'
+import { refuseRequest } from './records'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
@@ -60,6 +61,8 @@ export type Connection = {
    * check, at most one in flight: a server that no longer answers moves the state to Searching.
    */
   read(): Promise<ConnectionView>
+  /** The state, once the settings were first read, with no health check. Data requests carry it. */
+  current(): Promise<ConnectionView>
   /**
    * "Try again": in Not found and Unsupported, runs discovery at once. In any other state it
    * changes nothing.
@@ -216,6 +219,11 @@ export function createConnection(ports: ConnectionPorts): Connection {
       return view
     },
 
+    async current() {
+      await ready
+      return view
+    },
+
     async retry() {
       await ready
       if (waitsToLookAgain(view)) {
@@ -252,14 +260,22 @@ export function createConnection(ports: ConnectionPorts): Connection {
 /** A frame sends these requests with no input. Anything else is refused. */
 function refuseInput(input: unknown): void {
   if (input === undefined || input === null) return
-  throw Object.assign(new Error('This request takes no input.'), { code: 'invalid_params' })
+  refuseRequest('This request takes no input.')
+}
+
+/** A started connection: what the data requests read through, and what stops it. */
+export type StartedConnection = {
+  /** The one client every call to Archon goes through. */
+  client: Client
+  current(): Promise<ConnectionView>
+  stop(): void
 }
 
 /**
  * Starts the connection on Orca: discovery begins at once, every change is posted to the frames
- * and shown in the status bar item, and the frames' requests are answered. Returns what stops it.
+ * and shown in the status bar item, and the frames' requests are answered.
  */
-export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
+export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): StartedConnection {
   const statusBar = createStatusBar({
     now: ports.now,
     timers: ports.timers,
@@ -269,10 +285,11 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
       })
     }
   })
+  const client = createClient({ fetch: ports.fetch, timers: ports.timers })
   const connection = createConnection({
     readSettings: () => orca.settings.get(),
     homeDir: ports.homeDir,
-    client: createClient({ fetch: ports.fetch, timers: ports.timers }),
+    client,
     openDisk: ports.openDisk,
     now: ports.now,
     timers: ports.timers,
@@ -297,9 +314,13 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
   statusBar.show(statusItem({ kind: 'searching', since: ports.now(), settings: NO_SETTINGS }))
   connection.start()
 
-  return () => {
-    for (const subscription of subscriptions) subscription.dispose()
-    connection.stop()
-    statusBar.stop()
+  return {
+    client,
+    current: () => connection.current(),
+    stop() {
+      for (const subscription of subscriptions) subscription.dispose()
+      connection.stop()
+      statusBar.stop()
+    }
   }
 }

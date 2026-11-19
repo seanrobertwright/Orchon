@@ -9,6 +9,7 @@ import type {
   SettingsView,
   Unsupported
 } from '../src/connection-view.ts'
+import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
 
 export const HOME = '/home/ada/.archon'
 export const OTHER_HOME = '/srv/archon-home'
@@ -105,9 +106,28 @@ export const unsupportedAtSetting: Unsupported = {
   version: null
 }
 
-/** A stand-in for the worker that answers every connection request with one state. */
-export function answering(connection: ConnectionView): {
-  requests: { 'connection.read': { connection: ConnectionView }; 'connection.retry': { connection: ConnectionView } }
+/** No runs at all, as the worker answers the runs table of an Archon that has run nothing. */
+export const noRuns: Extract<RunsView, { kind: 'ready' }> = { kind: 'ready', counts: EMPTY_COUNTS, total: 0, rows: [], unreadable: 0 }
+
+/** A stand-in for the worker that answers every connection request with one state, and the runs table as `runs` says. */
+export function answeringRuns(
+  runs: RunsView | ((request: RunsRequest) => RunsView),
+  connection: ConnectionView = connected
+): {
+  requests: {
+    'connection.read': { connection: ConnectionView }
+    'connection.retry': { connection: ConnectionView }
+    'runs.read': (request: RunsRequest) => RunsAnswer
+  }
 } {
-  return { requests: { 'connection.read': { connection }, 'connection.retry': { connection } } }
+  return {
+    requests: {
+      'connection.read': { connection },
+      'connection.retry': { connection },
+      'runs.read': (request) => ({ connection, runs: typeof runs === 'function' ? runs(request) : runs })
+    }
+  }
 }
+
+/** A stand-in for the worker that answers every connection request with one state, and the runs table with no runs. */
+export const answering = (connection: ConnectionView): ReturnType<typeof answeringRuns> => answeringRuns(noRuns, connection)
