@@ -146,3 +146,96 @@ describe('run detail, top to bottom', () => {
   })
 })
 
+
+const STEPS = { type: 'Tree', label: 'Steps' }
+
+describe('the step tree', () => {
+  test('a row is the glyph, the name, the shortest duration and "ran N times"; a loop is an open branch holding its inner steps', async () => {
+    const view = await openOn()
+    assert.deepEqual(view.find(STEPS)?.props.items, [
+      { key: 'step:plan', label: '✓ plan', description: '1m 35s' },
+      {
+        key: 'step:implement',
+        label: '‖ implement',
+        children: [
+          { key: 'step:implement.build', label: '✓ build', description: '12s · ran 3 times' },
+          { key: 'step:implement.test', label: '‖ test', description: 'ran 2 times' }
+        ]
+      },
+      {
+        key: 'not-reached',
+        label: 'Not reached (2)',
+        children: [
+          { key: 'step:review', label: '○ review' },
+          { key: 'step:ship', label: '○ ship' }
+        ]
+      }
+    ])
+    assert.deepEqual(view.expandedOf(STEPS), ['step:implement'])
+    clean(view)
+  })
+
+  test('the Not reached branch opens and shuts as the person says, and a loop shuts too', async () => {
+    const view = await openOn()
+    await view.expand(STEPS, 'not-reached')
+    await view.collapse(STEPS, 'step:implement')
+    assert.deepEqual(view.expandedOf(STEPS), ['not-reached'])
+  })
+
+  test('the list stops at 500 rows with a line saying how many are not shown', async () => {
+    const steps = Array.from({ length: 500 }, (_, index) => ({
+      id: `step-${String(index)}`,
+      name: `step-${String(index)}`,
+      kind: 'bash',
+      state: 'completed' as const,
+      loop: null,
+      starts: 1,
+      durationMs: 1_000,
+      reached: true
+    }))
+    const view = await openOn(() => ({ kind: 'ready', detail: sampleDetail(1, { steps, stepCount: 612 }) }))
+    assert.equal((view.find(STEPS)?.props.items as unknown[]).length, 500)
+    assert.ok(view.find({ type: 'Text', text: 'The list stops at 500 steps: 112 steps are not shown.' }))
+    assert.deepEqual(view.find(SHOW)?.props.options, [
+      { value: 'steps', label: 'Steps (612)' },
+      { value: 'artifacts', label: 'Artifacts' }
+    ])
+  })
+
+  test('selecting a step shows one line under the tree: its badge, name, kind, its loop and "ran N times"', async () => {
+    const view = await openOn()
+    await view.selectItem(STEPS, 'step:implement.build')
+    const line = view.find({ type: 'Text', text: 'build · bash · inner step of implement · ran 3 times' })
+    assert.ok(line)
+    assert.equal(view.find({ type: 'Badge', text: 'Completed' })?.text, 'Completed')
+    await view.selectItem(STEPS, 'step:plan')
+    assert.ok(view.find({ type: 'Text', text: 'plan · prompt' }))
+    assert.equal(view.find({ type: 'Text', text: /inner step of/ }), null)
+  })
+
+  test('the Not reached branch is not a step: selecting it shows no line', async () => {
+    const view = await openOn()
+    await view.selectItem(STEPS, 'not-reached')
+    assert.equal(view.findAll({ type: 'Badge' }).length, 1)
+  })
+
+  test('Artifacts takes the place of the tree', async () => {
+    const view = await openOn()
+    await view.select(SHOW, 'artifacts')
+    assert.equal(view.find(STEPS), null)
+    assert.ok(view.find({ type: 'Text', text: 'Artifacts are not shown in this version of Orchon.' }))
+  })
+
+  test('opening another run shows it from the start: folds shut, Steps chosen, nothing selected', async () => {
+    const view = await mountWith()
+    await view.activateRow(TABLE, 'run-1')
+    await view.toggle(FACTS)
+    await view.selectItem(STEPS, 'step:plan')
+    await view.select(SHOW, 'artifacts')
+    await view.press(BACK)
+    await view.activateRow(TABLE, 'run-2')
+    assert.equal(view.find(FACTS)?.props.open, false)
+    assert.equal(view.valueOf(SHOW), 'steps')
+    assert.equal(view.findAll({ type: 'Badge' }).length, 1)
+  })
+})

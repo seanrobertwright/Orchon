@@ -113,12 +113,14 @@ export function runDetailHasData(): boolean {
 export function clearRunDetail(): void {
   set(openRun, null)
   set(loaded, null)
+  resetView()
 }
 
 /** Opens a run in place of the runs table. */
 export function openRunDetail(runId: string): void {
   set(openRun, runId)
   set(loaded, null)
+  resetView()
   opening = runId
   fetcher?.restart()
 }
@@ -241,6 +243,15 @@ function treeOf(detail: RunDetail): StepTree {
 const flipped = atom<readonly string[]>([])
 const selectedStep = atom<string | null>(null)
 const shown = atom<'steps' | 'artifacts'>('steps')
+
+/** A run opens as it first shows: both folds shut, Steps chosen, every loop open and no step selected. */
+function resetView(): void {
+  set(factsOpen, false)
+  set(messageOpen, false)
+  set(flipped, [])
+  set(selectedStep, null)
+  set(shown, 'steps')
+}
 
 function toggle(tree: StepTree, key: string, expanded: boolean): void {
   const byDefault = tree.loops.includes(key)
