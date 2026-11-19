@@ -1,6 +1,7 @@
 // The System group of the Settings section: a read-only list of what Archon's health reported,
 // the range of releases Orchon is tested with, and the update check. A value the server did not
-// send shows a dash. The only control is Refresh, which reads both again.
+// send shows a dash. Its controls are Refresh, which reads both again, and "Try again" beside a
+// failed read, which does the same.
 import { Button, Callout, Collapsible, env, KeyValue, Link, Skeleton, Stack, Text, type KeyValueItem, type OrcaNode } from 'orca'
 import { TESTED_RANGE } from './connection-words'
 import { formatClock } from './dates'
