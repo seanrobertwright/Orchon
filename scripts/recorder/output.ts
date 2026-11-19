@@ -61,7 +61,8 @@ export function writeFixtures(folder: string, files: readonly File[], log: strin
   if (hadEarlier) rmSync(earlier, { recursive: true, force: true })
 }
 
-export interface Recording {
+/** What one run of the recorder produced, written or kept back by `writeRecording`. */
+export interface RecordingOutcome {
   files: readonly File[]
   log: string
   /** False when the run failed, was interrupted or held back a fixture that was not clean. */
@@ -72,7 +73,7 @@ export interface Recording {
  * Writes a complete recording into `folder`. An incomplete one writes nothing: an earlier
  * recording there stays as it was, and no folder is made. The caller prints its log instead.
  */
-export function writeRecording(folder: string, recording: Recording): 'written' | 'kept' {
+export function writeRecording(folder: string, recording: RecordingOutcome): 'written' | 'kept' {
   if (!recording.complete) return 'kept'
   writeFixtures(folder, recording.files, recording.log)
   return 'written'
