@@ -4,13 +4,14 @@
     <meta charset="utf-8" />
     <title>Orchon workflow builder</title>
     <link rel="stylesheet" href="../shared/editor.css" />
+    <!-- The canvas is the run graph's renderer, so the builder takes its styles too. -->
+    <link rel="stylesheet" href="../run-graph/run-graph.css" />
+    <link rel="stylesheet" href="./builder.css" />
   </head>
   <body>
-    <main>
-      <h1>Orchon workflow builder</h1>
-      <p>The workflow builder is not built yet.</p>
-      <p id="status" class="status" role="status"></p>
-    </main>
+    <div id="app" class="run-graph builder">
+      <p class="muted">Loading the workflow…</p>
+    </div>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

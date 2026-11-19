@@ -1,0 +1,197 @@
+/* The builder tab, in the layout chosen in #28: the canvas, a docked issues strip under it, and a
+   full-height right sidecar with the tabs Inspector, Outline and YAML, 310 px wide and 270 px at
+   860 px or narrower. Colours come from Orca's theme variables and the run graph's own mixes. A
+   read-only node is never told by colour alone: it also carries a lock glyph and a line. */
+.builder {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.builder .builder-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.builder-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: 'canvas sidecar' 'issues sidecar';
+  gap: 0.75rem;
+}
+
+@media (max-width: 860px) {
+  .builder-layout {
+    grid-template-columns: minmax(0, 1fr) 270px;
+  }
+}
+
+.canvas-pane {
+  grid-area: canvas;
+  min-height: 12rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidecar {
+  grid-area: sidecar;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--step-border);
+  padding-left: 0.75rem;
+}
+
+.issues-strip {
+  grid-area: issues;
+  max-height: 10rem;
+  overflow: auto;
+  border-top: 1px solid var(--step-border);
+  padding-top: 0.5rem;
+}
+
+.issues-strip h2,
+.sidecar h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.sidecar h3 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.sidecar-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.sidecar-tab,
+.outline-node {
+  font: inherit;
+  color: var(--orca-foreground);
+  background: transparent;
+  border: 1px solid var(--step-border);
+  border-radius: var(--orca-radius);
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+
+.sidecar-tab[aria-selected='true'] {
+  background: var(--orca-secondary);
+  color: var(--orca-secondary-foreground);
+  font-weight: 600;
+}
+
+.sidecar-tab:focus-visible,
+.outline-node:focus-visible,
+.sidecar-panel:focus-visible,
+.yaml:focus-visible {
+  outline: 2px solid var(--orca-ring);
+  outline-offset: 2px;
+}
+
+.sidecar-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.outline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.outline li {
+  margin: 0 0 0.25rem;
+}
+
+.outline-node {
+  display: flex;
+  width: 100%;
+  gap: 0.5rem;
+  align-items: baseline;
+  text-align: left;
+}
+
+.outline-node[aria-pressed='true'] {
+  background: var(--orca-accent);
+  color: var(--orca-accent-foreground);
+}
+
+.outline-id {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outline-kind {
+  color: var(--orca-muted-foreground);
+}
+
+.badge.ro {
+  margin-left: auto;
+  padding: 0 0.35rem;
+  border: 1px dashed var(--step-border);
+  border-radius: var(--orca-radius);
+  font-size: 0.8em;
+}
+
+.yaml {
+  margin: 0;
+  padding: 0.5rem;
+  overflow: auto;
+  white-space: pre;
+  font: 12px/1.45 ui-monospace, monospace;
+  background: var(--orca-muted);
+  border: 1px solid var(--step-border);
+  border-radius: var(--orca-radius);
+}
+
+.read-only-banner,
+.view-only {
+  padding: 0.4rem 0.6rem;
+  border: 1px dashed var(--step-border);
+  border-radius: var(--orca-radius);
+  background: var(--orca-muted);
+}
+
+.cap-notice {
+  margin: auto;
+  max-width: 28rem;
+  text-align: center;
+}
+
+.issues {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.issue-error {
+  color: var(--run-failed);
+}
+
+/* A read-only node on the canvas: a dashed border and a muted fill. */
+.step.read-only .box {
+  stroke-dasharray: 5 3;
+  fill: var(--orca-muted);
+}
+
+.step.read-only .name,
+.step.read-only .state {
+  fill: var(--orca-muted-foreground);
+}
+
+.step[aria-pressed='true'] .box {
+  stroke: var(--orca-ring);
+  stroke-width: 2;
+}
