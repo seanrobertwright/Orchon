@@ -1,3 +1,10 @@
+// The canvas tools, shared by the run graph and the builder (#11): a viewport that shows part of
+// a drawn graph, with pan by drag or the arrow keys, zoom by the wheel, the on-canvas buttons or
+// the plus and minus keys, fit by a button or the zero key, and a minimap whose frame can be
+// dragged to move the view. Until the person moves the view, the graph is fitted again each time
+// the canvas changes size. Panning and zooming change the drawing's viewBox only: nothing is laid
+// out or drawn again. The caller lays out and draws, and hands both over with `show`.
+import { elementMaker } from "./dom.js";
 const SVG = 'http://www.w3.org/2000/svg';
 /** How far one arrow key moves the view, in screen pixels. */
 export const PAN_STEP = 48;
@@ -28,13 +35,7 @@ export function zoomView(view, factor, about) {
 const num = (value) => String(Math.round(value * 1000) / 1000);
 export function createCanvas(options) {
     const { doc } = options;
-    const el = (tag, className, text) => {
-        const element = doc.createElement(tag);
-        element.setAttribute('class', className);
-        if (text !== undefined)
-            element.textContent = text;
-        return element;
-    };
+    const el = elementMaker(doc);
     const svgEl = (tag, attributes) => {
         const element = doc.createElementNS(SVG, tag);
         for (const [name, value] of Object.entries(attributes))
@@ -42,7 +43,7 @@ export function createCanvas(options) {
         return element;
     };
     const button = (text, name, run) => {
-        const made = el('button', 'tool', text);
+        const made = el('button', text, 'tool');
         made.setAttribute('type', 'button');
         if (name !== null) {
             made.setAttribute('aria-label', name);
@@ -51,11 +52,11 @@ export function createCanvas(options) {
         made.addEventListener('click', run);
         return made;
     };
-    const root = el('div', 'canvas-frame');
-    const tools = el('div', 'canvas-tools');
-    const viewport = el('div', 'viewport');
+    const root = el('div', undefined, 'canvas-frame');
+    const tools = el('div', undefined, 'canvas-tools');
+    const viewport = el('div', undefined, 'viewport');
     const helpId = `${options.idPrefix}-keys`;
-    const help = el('p', 'keys-help muted', KEYS_HELP);
+    const help = el('p', KEYS_HELP, 'keys-help muted');
     help.id = helpId;
     viewport.setAttribute('tabindex', '0');
     viewport.setAttribute('role', 'group');

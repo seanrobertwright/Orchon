@@ -4,6 +4,7 @@
 // dragged to move the view. Until the person moves the view, the graph is fitted again each time
 // the canvas changes size. Panning and zooming change the drawing's viewBox only: nothing is laid
 // out or drawn again. The caller lays out and draws, and hands both over with `show`.
+import { elementMaker } from './dom.ts'
 import type { Layout } from './graph-layout.ts'
 
 const SVG = 'http://www.w3.org/2000/svg'
@@ -76,19 +77,14 @@ export type Canvas = {
 
 export function createCanvas(options: CanvasOptions): Canvas {
   const { doc } = options
-  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] => {
-    const element = doc.createElement(tag)
-    element.setAttribute('class', className)
-    if (text !== undefined) element.textContent = text
-    return element
-  }
+  const el = elementMaker(doc)
   const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attributes: Record<string, string | number>): SVGElementTagNameMap[K] => {
     const element = doc.createElementNS(SVG, tag)
     for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value))
     return element
   }
   const button = (text: string, name: string | null, run: () => void): HTMLButtonElement => {
-    const made = el('button', 'tool', text)
+    const made = el('button', text, 'tool')
     made.setAttribute('type', 'button')
     if (name !== null) {
       made.setAttribute('aria-label', name)
@@ -98,11 +94,11 @@ export function createCanvas(options: CanvasOptions): Canvas {
     return made
   }
 
-  const root = el('div', 'canvas-frame')
-  const tools = el('div', 'canvas-tools')
-  const viewport = el('div', 'viewport')
+  const root = el('div', undefined, 'canvas-frame')
+  const tools = el('div', undefined, 'canvas-tools')
+  const viewport = el('div', undefined, 'viewport')
   const helpId = `${options.idPrefix}-keys`
-  const help = el('p', 'keys-help muted', KEYS_HELP)
+  const help = el('p', KEYS_HELP, 'keys-help muted')
   help.id = helpId
   viewport.setAttribute('tabindex', '0')
   viewport.setAttribute('role', 'group')

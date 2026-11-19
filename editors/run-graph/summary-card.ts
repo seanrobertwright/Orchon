@@ -2,6 +2,8 @@
 // over the edge of the canvas. It holds one control, Close, and nothing that writes. Every piece
 // of outside text is set through `textContent`. The worker's summary is parsed here, at the
 // frame's boundary: a field of the wrong type is dropped and read as not reported.
+import { elementMaker } from '../shared/dom.ts'
+import { holdsPhrase } from '../shared/graph-draw.ts'
 import type { GraphOutputShown, GraphStepSummary } from './graph-view.ts'
 
 export const PANEL_LINE = 'Tool calls and agent text are in the Orchon panel.'
@@ -56,12 +58,7 @@ export type SummaryCard = {
 }
 
 export function createSummaryCard(doc: Document, id: string, onClose: () => void): SummaryCard {
-  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, className?: string): HTMLElementTagNameMap[K] => {
-    const element = doc.createElement(tag)
-    if (text !== undefined) element.textContent = text
-    if (className !== undefined) element.setAttribute('class', className)
-    return element
-  }
+  const el = elementMaker(doc)
   const root = el('aside', undefined, 'summary-card')
   root.id = id
   const title = el('h2')
@@ -92,7 +89,7 @@ export function createSummaryCard(doc: Document, id: string, onClose: () => void
       const parts: HTMLElement[] = []
       if (step.note !== null) parts.push(el('p', step.note, 'card-note'))
       if (step.holds !== undefined) {
-        parts.push(el('p', `Holds ${String(step.holds)} ${step.holds === 1 ? 'step' : 'steps'}. Show loop steps to draw ${step.holds === 1 ? 'it' : 'them'}.`))
+        parts.push(el('p', `${holdsPhrase(step.holds, 'upper')}. Show loop steps to draw ${step.holds === 1 ? 'it' : 'them'}.`))
       }
       parts.push(facts)
       // A worker older than the card sends no summary, and so no word on the output either way.
