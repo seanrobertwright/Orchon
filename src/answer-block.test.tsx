@@ -2,7 +2,8 @@
 // the runs table, run detail and `run.answer`. These tests cover the answer block of a gate and of
 // an attention wait, what each press sends, the draft kept per question, and what the panel shows
 // once an answer returns.
-import { afterEach, assert, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
+import { mock } from 'node:test'
+import { afterEach, assert, beforeEach, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
 import { connected, searching } from '../scripts/connection-samples.ts'
 import { answeringRun, busyRuns, sampleDetail } from '../scripts/runs-samples.ts'
 import * as panelModule from './panel'
@@ -67,6 +68,9 @@ const answers = (view: TestPanel): unknown[] =>
     .callsOf('plugin.request')
     .filter((params) => (params as { name: string }).name === 'run.answer')
     .map((params) => (params as { input: unknown }).input)
+
+const reads = (view: TestPanel): number =>
+  view.host.callsOf('plugin.request').filter((params) => (params as { name: string }).name === 'run.read').length
 
 const buttons = (view: TestPanel): string[] => view.findAll({ type: 'Button' }).map((button) => button.text)
 
@@ -233,5 +237,143 @@ describe('the answer block of an attention wait', () => {
     assert.ok(view.find({ type: 'Text', text: "This wait asks in a way this version of Orchon does not know. Open Archon's console to answer it." }))
     assert.equal(view.find({ type: 'Button', text: 'Answer' }), null)
     assert.deepEqual(buttons(view).filter((text) => text === 'Abandon' || text === 'Resume'), ['Abandon'])
+  })
+})
+
+/** A run detail answer the test can change between reads. */
+function changing(first: RunDetailView): { detail: () => RunDetailView; next(view: RunDetailView): void } {
+  let current = first
+  return { detail: () => current, next: (view) => (current = view) }
+}
+
+/** A hint that names the run, as the worker posts one, and the read it sets off once the gap between reads has passed. */
+const rereadRun = async (view: TestPanel): Promise<void> => {
+  await view.post('runs.changed', { types: ['workflow_status'], runs: ['run-1'] })
+  mock.timers.tick(1_000)
+  await view.settled()
+}
+
+/** The frame's timers in the tests that read the run again are Node's mocked ones, moved by hand. */
+function mockedTimers(): void {
+  beforeEach(() => mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2026, 10, 18, 12) }))
+  afterEach(async () => {
+    await panel?.unmount()
+    panel = undefined
+    mock.timers.reset()
+  })
+}
+
+const MOVED_ON = 'The run moved on to a new question. Your unsent answer was discarded.'
+
+describe('drafts belong to one question', () => {
+  mockedTimers()
+  test('a read of the same question leaves the typed text alone', async () => {
+    const run = changing(paused(GATE))
+    const view = await openOn(run.detail)
+    await view.type({ type: 'Textarea', label: 'Comment (optional)' }, 'Half a thought')
+    const before = reads(view)
+    run.next(paused({ ...GATE }, { costUsd: 0.5 }))
+    await rereadRun(view)
+    assert.ok(reads(view) > before)
+    assert.equal(view.valueOf({ type: 'Textarea', label: 'Comment (optional)' }), 'Half a thought')
+    assert.equal(view.find({ type: 'Text', text: MOVED_ON }), null)
+  })
+
+  test('a read of a new question replaces the block and discards the draft, saying so', async () => {
+    const run = changing(paused(GATE))
+    const view = await openOn(run.detail)
+    await view.type({ type: 'Textarea', label: 'Comment (optional)' }, 'Half a thought')
+    run.next(paused({ ...GATE, pauseId: 'pause-2' }))
+    await rereadRun(view)
+    assert.ok(view.find({ type: 'Text', text: MOVED_ON }))
+    assert.equal(view.valueOf({ type: 'Textarea', label: 'Comment (optional)' }), '')
+    await view.press({ type: 'Button', text: 'Continue' })
+    assert.deepEqual(answers(view), [{ runId: 'run-1', kind: 'gate', nodeId: 'review-plan', pauseId: 'pause-2', decision: 'approve' }])
+  })
+
+  test('a wait with a new occurrence discards the options chosen', async () => {
+    const run = changing(paused(WAIT))
+    const view = await openOn(run.detail)
+    await view.select({ type: 'RadioGroup', label: 'Options' }, 'first')
+    run.next(paused({ ...WAIT, occurrence: 'occ-2' }))
+    await rereadRun(view)
+    assert.ok(view.find({ type: 'Text', text: MOVED_ON }))
+    assert.equal(view.find({ type: 'RadioGroup', label: 'Options' })?.props.value, undefined)
+    assert.equal(view.find({ type: 'Button', text: 'Answer' })?.props.disabled, true)
+  })
+
+  test('a draft survives a trip back to the runs table and into the run again', async () => {
+    const view = await openOn(() => paused(GATE))
+    await view.press({ type: 'Button', text: 'Reject' })
+    await view.type({ type: 'Textarea', label: 'Your reason to Reject' }, 'Not yet')
+    await view.press({ type: 'Button', text: 'Runs' })
+    assert.equal(view.find({ type: 'Textarea', label: 'Your reason to Reject' }), null)
+    await view.activateRow({ type: 'Table', label: 'Runs' }, 'run-1')
+    await view.settled()
+    assert.equal(view.valueOf({ type: 'Textarea', label: 'Your reason to Reject' }), 'Not yet')
+  })
+})
+
+describe('what the block shows once an answer returns', () => {
+  mockedTimers()
+  test('a 409 says the question was already answered, discards the draft and reads the run again, sent once', async () => {
+    const view = await openOn(
+      () => paused(GATE),
+      () => ({ kind: 'refused', status: 409, message: 'Workflow run run-1 was already resolved or is no longer paused at the expected gate.' })
+    )
+    await view.press({ type: 'Button', text: 'Reject' })
+    await view.type({ type: 'Textarea', label: 'Your reason to Reject' }, 'Too big')
+    const before = reads(view)
+    await view.press({ type: 'Button', text: 'Reject' })
+    assert.ok(view.find({ type: 'Text', text: 'This question was already answered, or the run moved on.' }))
+    assert.equal(view.find({ type: 'Text', text: /already resolved/ }), null)
+    assert.equal(reads(view), before + 1)
+    assert.equal(answers(view).length, 1)
+    assert.equal(view.find({ type: 'Textarea', label: 'Your reason to Reject' }), null)
+    assert.equal(view.valueOf({ type: 'Textarea', label: 'Comment (optional)' }), '')
+  })
+
+  test("another refusal shows Archon's text and keeps what was typed", async () => {
+    const refusal = 'Workflow run was already approved — resume in progress'
+    const view = await openOn(() => paused(GATE), () => ({ kind: 'refused', status: 400, message: refusal }))
+    await view.type({ type: 'Textarea', label: 'Comment (optional)' }, 'Fine')
+    await view.press({ type: 'Button', text: 'Continue' })
+    assert.ok(view.find({ type: 'Text', text: refusal }))
+    assert.equal(view.valueOf({ type: 'Textarea', label: 'Comment (optional)' }), 'Fine')
+  })
+
+  test('the pressed button reads Answering and every write control is off while the answer is in flight', async () => {
+    let settle: (outcome: RunControlOutcome) => void = () => undefined
+    const view = await openOn(() => paused(WAIT), () => new Promise<RunControlOutcome>((resolve) => (settle = resolve)))
+    await view.select({ type: 'RadioGroup', label: 'Options' }, 'first')
+    const pressing = view.press({ type: 'Button', text: 'Answer' })
+    for (let round = 0; round < 5; round += 1) await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.equal(view.find({ type: 'Button', text: 'Answering…' })?.props.disabled, true)
+    assert.equal(view.find({ type: 'Button', text: 'Abandon' })?.props.disabled, true)
+    settle({ kind: 'done', message: 'Workflow answered: w.' })
+    await pressing
+  })
+
+  test('a run still paused after an answer reads "Answered", with no Resume when the gate had a pause id', async () => {
+    const view = await openOn(() => paused(GATE), () => ({ kind: 'done', message: "Workflow responded 'approve': w. The run continues on its own." }))
+    await view.press({ type: 'Button', text: 'Continue' })
+    assert.ok(view.find({ type: 'Text', text: 'Answered. Waiting for Archon to continue this run.' }))
+    assert.ok(view.find({ type: 'Text', text: "Workflow responded 'approve': w. The run continues on its own." }))
+    assert.equal(view.find({ type: 'Button', text: 'Continue' }), null)
+    assert.equal(view.find({ type: 'Button', text: 'Resume' }), null)
+  })
+
+  test('after answering a gate with no pause id, the paused run offers Resume until it runs again', async () => {
+    const run = changing(paused({ ...GATE, pauseId: null }))
+    const view = await openOn(run.detail)
+    await view.press({ type: 'Button', text: 'Continue' })
+    run.next({ kind: 'ready', detail: sampleDetail(1, { id: 'run-1', status: 'paused' }) })
+    await rereadRun(view)
+    assert.ok(view.find({ type: 'Text', text: 'Answered. Waiting for Archon to continue this run.' }))
+    assert.ok(view.find({ type: 'Button', text: 'Resume' }))
+    run.next({ kind: 'ready', detail: sampleDetail(1, { id: 'run-1', status: 'running' }) })
+    await rereadRun(view)
+    assert.equal(view.find({ type: 'Text', text: 'Answered. Waiting for Archon to continue this run.' }), null)
+    assert.equal(view.find({ type: 'Button', text: 'Resume' }), null)
   })
 })
