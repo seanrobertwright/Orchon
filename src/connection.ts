@@ -19,6 +19,8 @@ export type WorkerPorts = {
   openDisk(roots: readonly string[]): Disk
   /** The person's home folder, which a leading `~` stands for. */
   homeDir: string
+  /** `process.platform`: the WSL share test of #25 runs on Windows only. */
+  platform: string
   now(): number
   timers: Timers
 }

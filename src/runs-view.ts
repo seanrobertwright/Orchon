@@ -17,8 +17,11 @@ export const STATUS_FILTERS: readonly StatusFilter[] = ['all', ...RUN_STATUSES]
 export const ROWS_STEP = 25
 export const ROWS_CAP = 500
 
-/** What a panel sends: the filter, and how many of the newest runs it wants, rows 0 to N. */
-export type RunsRequest = { status: StatusFilter; rows: number }
+/**
+ * What a panel sends: the filter, and how many of the newest runs it wants, rows 0 to N. Under
+ * "This project" it also sends the Archon project's id; under "All projects" it leaves it out.
+ */
+export type RunsRequest = { status: StatusFilter; rows: number; codebaseId?: string }
 
 /** How many runs Archon holds of each status, whatever the filter, and in all. */
 export type StatusCounts = Record<StatusFilter, number>
@@ -41,6 +44,8 @@ export type RunRow = {
   project: string | null
   /** The folder the run works in, as Archon spells it, or null. */
   workingPath: string | null
+  /** The `workspace.list` row whose path is the run's folder, once normalised. Left out when Orca lists none. */
+  workspaceId?: string
 }
 
 export type RunsView =

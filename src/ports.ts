@@ -22,5 +22,5 @@ const timers: Timers = {
 }
 
 export function realPorts(): WorkerPorts {
-  return { fetch: realFetch, openDisk, homeDir: homedir(), now, timers }
+  return { fetch: realFetch, openDisk, homeDir: homedir(), platform: process.platform, now, timers }
 }

@@ -258,6 +258,8 @@ export type Scene = {
   archon: ScriptedArchon
   clock: Clock
   disk: ScriptedDisk
+  /** What the worker reads as `process.platform`. Windows unless the test sets another before mounting. */
+  platform: string
   /** Mounts the worker on the scripted ports and lets its first discovery pass run. */
   mount(options?: MockHostOptions): Promise<MountedScene>
 }
@@ -291,10 +293,11 @@ export function scene(): Scene {
   const archon = scriptArchon()
   const clock = createClock()
   const disk = scriptDisk()
-  return {
+  const stage: Scene = {
     archon,
     clock,
     disk,
+    platform: 'win32',
     async mount(options = {}) {
       const host = mockHost(options)
       let given: OrcaWorkerApi | undefined
@@ -307,6 +310,7 @@ export function scene(): Scene {
               fetch: archon.fetch,
               openDisk: disk.open,
               homeDir: HOME_DIR,
+              platform: stage.platform,
               now: clock.now,
               timers: clock.timers
             })
@@ -338,4 +342,5 @@ export function scene(): Scene {
       }
     }
   }
+  return stage
 }

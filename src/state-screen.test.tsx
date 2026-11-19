@@ -72,9 +72,9 @@ const requests = (view: TestPanel): unknown[] =>
   view.host.callsOf('plugin.request').map((params) => (params as { name: string }).name)
 
 describe('the state screens', () => {
-  test('asks the worker for the connection state when it opens, then for the runs once connected', async () => {
+  test('asks the worker for the connection state when it opens, then for the scope and the runs once connected', async () => {
     const view = await mountIn(connected)
-    assert.deepEqual(requests(view), ['connection.read', 'runs.read'])
+    assert.deepEqual(requests(view), ['connection.read', 'scope.read', 'runs.read'])
     clean(view)
   })
 

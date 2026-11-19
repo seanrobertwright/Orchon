@@ -5,9 +5,12 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage } from './dashboard-runs'
+import type { WorkspaceRow } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { isRecord, refuseRequest } from './records'
+import { cappedTextRefusal, isCappedText, isRecord, refuseRequest } from './records'
 import { ROWS_CAP, STATUS_FILTERS, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
+import { PROJECT_ID_CAP } from './scope-view'
+import { normalisePath } from './workspaces'
 
 /** How many runs the worker asks Archon for at a time. */
 export const PAGE_SIZE = 50
@@ -23,15 +26,21 @@ export function parseRunsRequest(input: unknown): RunsRequest {
   if (typeof rows !== 'number' || !Number.isSafeInteger(rows) || rows < 1 || rows > ROWS_CAP) {
     refuseRequest(`The number of rows must be a whole number from 1 to ${String(ROWS_CAP)}.`)
   }
-  for (const key of Object.keys(input)) {
-    if (key !== 'status' && key !== 'rows') refuseRequest(`The runs request does not take ${key}.`)
+  if (Object.hasOwn(input, 'codebaseId')) {
+    const codebaseId = input['codebaseId']
+    if (!isCappedText(codebaseId, PROJECT_ID_CAP)) refuseRequest(cappedTextRefusal('The project id', PROJECT_ID_CAP))
   }
-  return { status, rows }
+  for (const key of Object.keys(input)) {
+    if (key !== 'status' && key !== 'rows' && key !== 'codebaseId') refuseRequest(`The runs request does not take ${key}.`)
+  }
+  const codebaseId = input['codebaseId']
+  return typeof codebaseId === 'string' ? { status, rows, codebaseId } : { status, rows }
 }
 
-function pagePath(status: StatusFilter, offset: number): string {
+function pagePath(request: RunsRequest, offset: number): string {
   const query = new URLSearchParams()
-  if (status !== 'all') query.set('status', status)
+  if (request.status !== 'all') query.set('status', request.status)
+  if (request.codebaseId !== undefined) query.set('codebaseId', request.codebaseId)
   query.set('limit', String(PAGE_SIZE))
   query.set('offset', String(offset))
   return `${DASHBOARD_RUNS_PATH}?${query.toString()}`
@@ -43,7 +52,7 @@ export async function readRuns(client: Client, server: Connected, request: RunsR
   let unreadable = 0
   let offset = 0
   for (;;) {
-    const answer = await client.request({ baseUrl: server.baseUrl, path: pagePath(request.status, offset), timeout: 'read', signal })
+    const answer = await client.request({ baseUrl: server.baseUrl, path: pagePath(request, offset), timeout: 'read', signal })
     if (!answer.ok) return { kind: 'failed', message: readFailureText(answer.failure) }
     const page = parseDashboardRunsPage(answer.value)
     if (page === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
@@ -60,6 +69,29 @@ export type RunsTablePorts = {
   client: Client
   /** The connection state now, once the settings were first read. */
   current(): Promise<ConnectionView>
+  /** Orca's workspaces, so a run whose folder Orca lists can be opened there. None when left out. */
+  workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
+}
+
+/**
+ * Gives each run whose folder a workspace row names, once both are normalised, that row's id.
+ * Nothing is asked of the disk: whether a worktree folder exists is not on the closed list of #32.
+ */
+function withWorkspaces(runs: RunsView, rows: readonly Pick<WorkspaceRow, 'id' | 'path'>[]): RunsView {
+  if (runs.kind !== 'ready' || rows.length === 0) return runs
+  const byPath = new Map<string, string>()
+  for (const row of rows) {
+    const key = normalisePath(row.path)
+    if (key !== null && !byPath.has(key)) byPath.set(key, row.id)
+  }
+  return {
+    ...runs,
+    rows: runs.rows.map((run) => {
+      const key = run.workingPath === null ? null : normalisePath(run.workingPath)
+      const workspaceId = key === null ? undefined : byPath.get(key)
+      return workspaceId === undefined ? run : { ...run, workspaceId }
+    })
+  }
 }
 
 /** Answers the frames' `runs.read`. */
@@ -68,7 +100,8 @@ export function startRunsTable(orca: OrcaWorkerApi, ports: RunsTablePorts): Disp
     const request = parseRunsRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, runs: { kind: 'not-connected' } }
-    const runs = await readRuns(ports.client, connection, request, context.signal)
+    const read = await readRuns(ports.client, connection, request, context.signal)
+    const runs = read.kind === 'ready' && ports.workspaces !== undefined ? withWorkspaces(read, await ports.workspaces()) : read
     return { connection: await ports.current(), runs }
   })
 }

@@ -11,6 +11,7 @@ import type {
 } from '../src/connection-view.ts'
 import type { FormsAnswer, FormsView } from '../src/forms-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
+import type { ScopeAnswer } from '../src/scope-view.ts'
 import type { SystemAnswer, SystemView } from '../src/system-view.ts'
 import { formsRead, formsUnread } from './forms-samples.ts'
 
@@ -150,6 +151,7 @@ type Answers = {
   'system.open': SystemAnswer
   'system.refresh': SystemAnswer
   'system.close': null
+  'scope.read': ScopeAnswer
   'forms.read': FormsAnswer
   'forms.edit': FormsAnswer
   'forms.discard': FormsAnswer
@@ -177,6 +179,8 @@ export function answeringRuns(
       'system.open': { connection, system },
       'system.refresh': { connection, system },
       'system.close': null,
+      // No workspace is focused, so the Runs section shows every project.
+      'scope.read': { connection, scope: { kind: 'no-workspace' } },
       'forms.read': formsAnswer,
       'forms.edit': formsAnswer,
       'forms.discard': formsAnswer,
