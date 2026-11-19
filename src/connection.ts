@@ -2,12 +2,13 @@
 // frame. This file owns the state and when discovery runs; `startConnection` ties it to Orca
 // (the settings, the frames' requests, the posts and the status bar item) and holds the
 // dashboard stream while Connected.
-import type { OrcaWorkerApi } from 'orca/worker'
+import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import { createClient, type Client, type ClientFailure, type FetchLike, type Timers } from './client'
 import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings } from './connection-settings'
 import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
+import type { RunsHint } from './hint-view'
 import { createLive } from './live'
 import { createNeedsYou, type NeedsYou } from './needs-you'
 import { checkPaths } from './path-check'
@@ -341,6 +342,8 @@ export type StartedConnection = {
   current(): Promise<ConnectionView>
   /** The snapshot of runs that need you, read while Connected. */
   needsYou: NeedsYou
+  /** Hears every dashboard hint the worker posts, until disposed. */
+  onHint(listener: (hint: RunsHint) => void): Disposable
   /** The status bar sentence now, as the "Orchon: Show runs" command returns it. */
   showRunsSentence(): string
   stop(): void
@@ -392,6 +395,8 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     }
   })
   let held: ConnectionView | undefined
+  /** Who else hears each dashboard hint, such as the launch tracker. */
+  const hintListeners = new Set<(hint: RunsHint) => void>()
   const needsYou = createNeedsYou({
     client,
     now: ports.now,
@@ -415,6 +420,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     hint(hint) {
       orca.panels.post('runs.changed', hint)
       needsYou.hint(hint)
+      for (const listener of [...hintListeners]) listener(hint)
     },
     live: (open) => connection.setLive(open),
     refused: () => connection.refused(),
@@ -465,6 +471,10 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     client,
     current: () => connection.current(),
     needsYou,
+    onHint(listener) {
+      hintListeners.add(listener)
+      return { dispose: () => void hintListeners.delete(listener) }
+    },
     showRunsSentence() {
       const view = held ?? { kind: 'searching', since: ports.now(), settings: NO_SETTINGS }
       return showRunsSentence(view, countsFor(view))

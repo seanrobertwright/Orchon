@@ -3,6 +3,7 @@
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
 import { startConnection, type WorkerPorts } from './connection'
+import { startLaunch } from './launch'
 import { realPorts } from './ports'
 import { startProjectScope } from './project-scope'
 import { startRunControl } from './run-control'
@@ -42,8 +43,17 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, connection)
   const runGraph = startRunGraph(orca, connection)
+  const launch = startLaunch(orca, {
+    client: connection.client,
+    current: connection.current,
+    focused: projectScope.focused,
+    onHint: (listener) => connection.onHint((hint) => listener(hint.types)),
+    now: ports.now,
+    timers: ports.timers
+  })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
+    launch.dispose()
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()
