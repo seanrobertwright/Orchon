@@ -221,3 +221,18 @@ describe('what the tab gets instead of a graph', () => {
     await worker.deactivate()
   })
 })
+
+describe('a tab Orca restores after a restart', () => {
+  test('is served by a worker that has just started, before any panel has opened', async () => {
+    const stage = stageFor()
+    const runId = ECHO_RUN['0.12.1']
+    stage.archon.answer(`${RUNS}${runId}`, recorded('0.12.1', 'run-detail'))
+    stage.archon.answer(workflowUrl('orchon-recorder-echo'), listedWorkflow('0.12.1', 'orchon-recorder-echo'))
+    const { worker, host } = await stage.mount()
+    // Nothing has asked the worker anything: no panel request reached it.
+    assert.deepEqual(host.callsOf('plugin.request'), [])
+    const answer = (await worker.request('graph.read', { runId, locale: 'en-US' }, { panel: 'run-graph' })) as GraphAnswer
+    assert.equal(answer.graph.kind, 'ready')
+    await worker.deactivate()
+  })
+})
