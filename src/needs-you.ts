@@ -10,7 +10,7 @@ import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage, parseRun } from './dashboa
 import type { RunsHint, ShowRuns } from './hint-view'
 import { isRecord, own } from './records'
 import { CALLOUT_CAP, ROWS_CAP, type NeedsYouView, type RunRow, type Waiting } from './runs-view'
-import type { StatusCounts } from './status-bar'
+import type { SnapshotCounts } from './status-bar'
 
 export const ATTENTION_PATH = '/api/runs/attention'
 /** The running count: one row is the least Archon sends, and the counts come with any page. */
@@ -33,20 +33,27 @@ type Entry = { row: RunRow & { waiting: Waiting }; codebaseId: string | null }
 /** Text on one line: every run of white space, line breaks included, becomes one space. */
 const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
+/** What a row's `attention` says: the run needs you and why, it does not, or the field cannot be read. */
+type Attention = { kind: 'needs-you'; waiting: Waiting } | { kind: 'not-needed' } | { kind: 'unread' }
+
+const NOT_NEEDED: Attention = { kind: 'not-needed' }
+const UNREAD: Attention = { kind: 'unread' }
+
 /**
- * What a row's `attention` says the person must do, or null when it does not need you. A gate
- * (`awaiting_response`), an attention wait (`attention`, legacy waits included) and an unreadable
- * run count; a usage-limit pause, a parent waiting on sub-runs, stalled tool calls and anything
- * else do not. A question with no message text cannot be shown, so it fails the row.
+ * What a row's `attention` says the person must do. A gate (`awaiting_response`), an attention
+ * wait (`attention`, legacy waits included) and an unreadable run need you; a usage-limit pause, a
+ * parent waiting on sub-runs, stalled tool calls and any other kind do not. A question with no
+ * message text cannot be shown, so the field cannot be read.
  */
-function parseWaiting(attention: unknown): Waiting | null | false {
-  if (!isRecord(attention)) return attention === null || attention === undefined ? null : false
+function parseAttention(attention: unknown): Attention {
+  if (!isRecord(attention)) return attention === null || attention === undefined ? NOT_NEEDED : UNREAD
   const kind = own(attention, 'kind')
-  if (kind === 'unreadable') return { kind: 'unreadable' }
-  if (kind !== 'awaiting_response' && kind !== 'attention') return typeof kind === 'string' ? null : false
+  if (kind === 'unreadable') return { kind: 'needs-you', waiting: { kind: 'unreadable' } }
+  if (kind !== 'awaiting_response' && kind !== 'attention') return typeof kind === 'string' ? NOT_NEEDED : UNREAD
   const message = own(attention, 'message')
-  if (typeof message !== 'string') return false
-  return { kind: kind === 'attention' ? 'wait' : 'gate', question: cutAt(oneLine(message), QUESTION_CAP) }
+  if (typeof message !== 'string') return UNREAD
+  const question = cutAt(oneLine(message), QUESTION_CAP)
+  return { kind: 'needs-you', waiting: { kind: kind === 'attention' ? 'wait' : 'gate', question } }
 }
 
 /**
@@ -76,13 +83,10 @@ export function parseAttentionRuns(value: unknown): { entries: Entry[]; unread: 
   const unread: Unread[] = []
   for (const run of runs as unknown[]) {
     const row = parseRun(run)
-    const waiting = isRecord(run) ? parseWaiting(own(run, 'attention')) : false
+    const attention = isRecord(run) ? parseAttention(own(run, 'attention')) : UNREAD
     const codebaseId = projectOf(run)
-    if (row === null || waiting === false || codebaseId === undefined) {
-      unread.push(codebaseId)
-      continue
-    }
-    if (waiting !== null) entries.push({ row: { ...row, waiting }, codebaseId })
+    if (row === null || attention.kind === 'unread' || codebaseId === undefined) unread.push(codebaseId)
+    else if (attention.kind === 'needs-you') entries.push({ row: { ...row, waiting: attention.waiting }, codebaseId })
   }
   return { entries, unread }
 }
@@ -107,13 +111,16 @@ export type NeedsYou = {
   /** A hint from the dashboard stream: a `workflow_status` reads again, at most once every 2 seconds. */
   hint(hint: RunsHint): void
   /** The counts for the status bar item, or undefined before the first read. */
-  counts(): StatusCounts | undefined
+  counts(): SnapshotCounts | undefined
   /** The runs that need you in one Archon project, or the whole install when none is named. */
   view(codebaseId?: string): NeedsYouView
-  /** Rows 0 to N of the runs that need you in the scope, in Archon's order. */
-  rows(count: number, codebaseId?: string): RunRow[] | null
-  /** What a run waits for from the person, when it needs you. */
-  waiting(runId: string): Waiting | undefined
+  /**
+   * The "Needs you" filter's list in the scope: rows 0 to N in Archon's order, how many need you
+   * and how many waiting runs could not be read. Null while the snapshot is unavailable or unread.
+   */
+  list(count: number, codebaseId?: string): { total: number; rows: RunRow[]; unreadable: number } | null
+  /** The rows with what each run that needs you waits for, so a preview can show its question. */
+  annotate(rows: readonly RunRow[]): RunRow[]
   /** Waits for a read in flight, so a frame's first answer after connecting has the snapshot. */
   settled(): Promise<void>
   /** Remembers a press of "Orchon: Show runs" and returns it. */
@@ -264,12 +271,19 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
         unreadable: unreadIn(codebaseId)
       }
     },
-    rows(count, codebaseId) {
+    list(count, codebaseId) {
       const entries = scoped(codebaseId)
-      return entries === null ? null : entries.slice(0, Math.min(count, ROWS_CAP)).map((entry) => entry.row)
+      if (entries === null) return null
+      const rows = entries.slice(0, Math.min(count, ROWS_CAP)).map((entry) => entry.row)
+      return { total: entries.length, rows, unreadable: unreadIn(codebaseId) }
     },
-    waiting(runId) {
-      return held?.kind === 'counted' ? held.entries.find((entry) => entry.row.id === runId)?.row.waiting : undefined
+    annotate(rows) {
+      if (held?.kind !== 'counted' || held.entries.length === 0) return [...rows]
+      const byId = new Map(held.entries.map((entry) => [entry.row.id, entry.row.waiting]))
+      return rows.map((row) => {
+        const waiting = byId.get(row.id)
+        return waiting === undefined ? row : { ...row, waiting }
+      })
     },
     settled() {
       return current

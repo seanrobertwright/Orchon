@@ -73,7 +73,7 @@ export type RunsTablePorts = {
   /** Orca's workspaces, so a run whose folder Orca lists can be opened there. None when left out. */
   workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
   /** The snapshot of runs that need you: the callout, the "Needs you" filter and each row's question. */
-  needsYou?: NeedsYou
+  needsYou: NeedsYou
 }
 
 /**
@@ -83,22 +83,18 @@ export type RunsTablePorts = {
  */
 async function readWithSnapshot(client: Client, server: Connected, request: RunsRequest, signal: AbortSignal, needsYou: NeedsYou): Promise<RunsView> {
   await needsYou.settled()
+  const callout = needsYou.view(request.codebaseId)
   if (request.status === 'needs-you') {
-    const rows = needsYou.rows(request.rows, request.codebaseId)
-    if (rows === null) return { kind: 'failed', message: NEEDS_YOU_UNAVAILABLE }
+    const list = needsYou.list(request.rows, request.codebaseId)
+    if (list === null) return { kind: 'failed', message: NEEDS_YOU_UNAVAILABLE }
     // The other filters' counts still come from Archon, in one page.
     const counted = await readRuns(client, server, { ...request, status: 'all', rows: 1 }, signal)
     if (counted.kind !== 'ready') return counted
-    const view = needsYou.view(request.codebaseId)
-    return { ...counted, total: view.kind === 'ready' ? view.total : rows.length, rows, unreadable: view.kind === 'ready' ? view.unreadable : 0, needsYou: view }
+    return { ...counted, ...list, needsYou: callout }
   }
   const read = await readRuns(client, server, request, signal)
   if (read.kind !== 'ready') return read
-  const rows = read.rows.map((row) => {
-    const waiting = needsYou.waiting(row.id)
-    return waiting === undefined ? row : { ...row, waiting }
-  })
-  return { ...read, rows, needsYou: needsYou.view(request.codebaseId) }
+  return { ...read, rows: needsYou.annotate(read.rows), needsYou: callout }
 }
 
 /** The id of the first workspace row whose path is `path`, once both are normalised, if any. */
@@ -135,10 +131,7 @@ export function startRunsTable(orca: OrcaWorkerApi, ports: RunsTablePorts): Disp
     const request = parseRunsRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, runs: { kind: 'not-connected' } }
-    const read =
-      ports.needsYou === undefined
-        ? await readRuns(ports.client, connection, request, context.signal)
-        : await readWithSnapshot(ports.client, connection, request, context.signal, ports.needsYou)
+    const read = await readWithSnapshot(ports.client, connection, request, context.signal, ports.needsYou)
     const runs = read.kind === 'ready' && ports.workspaces !== undefined ? withWorkspaces(read, await ports.workspaces()) : read
     return { connection: await ports.current(), runs }
   })

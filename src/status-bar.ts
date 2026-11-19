@@ -34,7 +34,7 @@ const TEXT: Record<ConnectionView['kind'], string> = {
  * `unread` is how many waiting runs could not be read. Before the first read there is none, and
  * the item reads as for no runs.
  */
-export type StatusCounts =
+export type SnapshotCounts =
   | { kind: 'counted'; needsYou: number; running: number | null; unread: number }
   | { kind: 'unavailable' }
 
@@ -52,7 +52,7 @@ const needVerb = (count: number): string => (count === 1 ? 'needs' : 'need')
 const isAre = (count: number): string => (count === 1 ? 'is' : 'are')
 
 /** The one full sentence of the tooltip while Connected. */
-function connectedSentence(view: Connected, counts: StatusCounts | undefined): string {
+function connectedSentence(view: Connected, counts: SnapshotCounts | undefined): string {
   if (counts === undefined) return statusSentence(view)
   if (counts.kind === 'unavailable') return `The count of runs that need you is unavailable from ${archonAt(view)}.`
   const { needsYou, running, unread } = counts
@@ -77,7 +77,7 @@ function connectedSentence(view: Connected, counts: StatusCounts | undefined): s
  * and the warning tone, and the running count moves to the tooltip. The text always carries the
  * meaning; the icon and the tone only repeat it.
  */
-export function statusItem(view: ConnectionView, counts?: StatusCounts): StatusItem {
+export function statusItem(view: ConnectionView, counts?: SnapshotCounts): StatusItem {
   if (view.kind === 'connected') {
     const tooltip = connectedSentence(view, counts)
     if (counts?.kind === 'counted' && counts.needsYou > 0) {
@@ -103,7 +103,7 @@ export const WHERE_TO_GO = 'Open the Orchon panel in the right sidebar.'
  * What the "Orchon: Show runs" command returns: while Connected, the status sentence and where to
  * go; in any other state, that state's sentence.
  */
-export function showRunsSentence(view: ConnectionView, counts?: StatusCounts): string {
+export function showRunsSentence(view: ConnectionView, counts?: SnapshotCounts): string {
   return view.kind === 'connected' ? `${connectedSentence(view, counts)} ${WHERE_TO_GO}` : statusSentence(view)
 }
 

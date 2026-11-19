@@ -12,7 +12,7 @@ import { createLive } from './live'
 import { createNeedsYou, type NeedsYou } from './needs-you'
 import { checkPaths } from './path-check'
 import { refuseRequest } from './records'
-import { createStatusBar, showRunsSentence, STATUS_ITEM_ID, statusItem } from './status-bar'
+import { createStatusBar, showRunsSentence, STATUS_ITEM_ID, statusItem, type SnapshotCounts } from './status-bar'
 import { createSystem } from './system'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
@@ -402,9 +402,11 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     },
     log: (message) => orca.log(message)
   })
+  /** The snapshot's counts while Connected; in any other state the item reads without them. */
+  const countsFor = (view: ConnectionView): SnapshotCounts | undefined => (view.kind === 'connected' ? needsYou.counts() : undefined)
   /** The item for the state now and, while Connected, the snapshot's counts. */
   function showStatus(): void {
-    if (held !== undefined) statusBar.show(statusItem(held, held.kind === 'connected' ? needsYou.counts() : undefined))
+    if (held !== undefined) statusBar.show(statusItem(held, countsFor(held)))
   }
   const live = createLive({
     client,
@@ -465,7 +467,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     needsYou,
     showRunsSentence() {
       const view = held ?? { kind: 'searching', since: ports.now(), settings: NO_SETTINGS }
-      return showRunsSentence(view, view.kind === 'connected' ? needsYou.counts() : undefined)
+      return showRunsSentence(view, countsFor(view))
     },
     stop() {
       for (const subscription of subscriptions) subscription.dispose()
