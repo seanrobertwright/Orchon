@@ -8,16 +8,14 @@ import {
   CHOOSE_A_PROVIDER,
   checkPreset,
   clean,
-  effortLevelsOf,
-  effortOptions,
-  MODEL_LENGTH,
   presetBody,
-  providerOptions,
+  presetFields,
+  presetText,
   withProvider,
-  type GroupContext,
   type GroupSpec,
   type Loaded,
   type PresetFields,
+  type PresetLook,
   type Values
 } from './form-group'
 import type { FormField } from './forms-view'
@@ -44,6 +42,9 @@ const NEW = 'new:'
 const TOTAL = 'total'
 const HIDDEN = 'hidden:'
 const UNREADABLE = '\u0000unreadable'
+/** A saved row's provider select has no empty choice; a new row's asks for one. */
+const SAVED_LOOK: PresetLook = { none: null, placeholder: '' }
+const NEW_LOOK: PresetLook = { none: { value: '', label: CHOOSE_A_PROVIDER }, placeholder: '' }
 /** A new row that names an alias and holds no preset yet: never equal to a saved value. */
 const INCOMPLETE = '\u0000incomplete'
 
@@ -74,17 +75,23 @@ const newRows = (values: Values): string[] =>
     .map(rowOf)
 
 /** A row's preset as one text, or empty when it holds none. */
-function presetText(values: Values, row: string): string {
+function rowText(values: Values, row: string): string {
   const ids = presetOf(row)
-  const parts = [clean(values[ids.provider]), clean(values[ids.model]), clean(values[ids.effort])]
-  return parts.every((part) => part === '') ? '' : parts.join('\u0000')
+  const [provider, model, effort] = [clean(values[ids.provider]), clean(values[ids.model]), clean(values[ids.effort])]
+  return provider === '' && model === '' && effort === '' ? '' : presetText(provider, model, effort)
 }
 
 const shownRow = (loaded: Loaded, values: Values, row: string): boolean =>
   Object.hasOwn(loaded.values, fieldOf(row, 'provider')) && Object.hasOwn(values, fieldOf(row, 'provider'))
 
-/** A saved row the person removed: its provider emptied, which only Remove does. */
-const isRemoved = (values: Values, row: string): boolean => clean(values[fieldOf(row, 'provider')]) === ''
+/**
+ * A saved row the person removed: its provider emptied, which only Remove does, or, for an
+ * unreadable alias, whose fields are empty and never drawn, its Remove pressed.
+ */
+const isRemoved = (values: Values, loaded: Loaded, row: string): boolean =>
+  loaded.unreadable.has(fieldOf(row, 'provider'))
+    ? values[fieldOf(row, 'remove')] === REMOVE
+    : clean(values[fieldOf(row, 'provider')]) === ''
 
 const hiddenKey = (name: string): string => `${HIDDEN}${name}`
 const isTierName = (name: string): boolean => TIER_NAMES.some((tier) => tier === name)
@@ -97,40 +104,6 @@ function nameError(name: string): string | null {
   if (!name.startsWith('@')) return NAME_NEEDS_AT
   if (name.length > NAME_LENGTH) return NAME_TOO_LONG
   return null
-}
-
-/** The fields of one preset, as drawn on a row. `none` is the provider select's empty choice, if it has one. */
-function presetFields(
-  row: string,
-  label: string,
-  current: Values,
-  loaded: Loaded,
-  errors: ReadonlyMap<string, string>,
-  context: GroupContext,
-  none: string | null
-): FormField[] {
-  const ids = presetOf(row)
-  const error = (fieldId: string): string | null => errors.get(fieldId) ?? null
-  const chosen = current[ids.provider] ?? ''
-  const first = none === null ? [] : [{ value: '', label: none }]
-  const options = providerOptions({ value: '', label: '' }, context, loaded.values[ids.provider] ?? '', chosen).slice(1)
-  const fields: FormField[] = [
-    { kind: 'select', id: ids.provider, label: `${label} provider`, value: chosen, options: [...first, ...options], error: error(ids.provider) },
-    { kind: 'text', id: ids.model, label: `${label} model`, value: current[ids.model] ?? '', placeholder: '', maxLength: MODEL_LENGTH, error: error(ids.model) }
-  ]
-  const levels = effortLevelsOf(context, chosen)
-  if (levels.length > 0) {
-    const value = current[ids.effort] ?? ''
-    fields.push({
-      kind: 'select',
-      id: ids.effort,
-      label: `${label} effort`,
-      value,
-      options: effortOptions({ value: '', label: 'None' }, levels, value),
-      error: error(ids.effort)
-    })
-  }
-  return fields
 }
 
 export function aliasesForm(): GroupSpec {
@@ -159,7 +132,7 @@ export function aliasesForm(): GroupSpec {
         if (index >= ALIASES_SHOWN) {
           // Never shown or sent: kept to tell whether it changed elsewhere, and to refuse its name.
           Object.defineProperty(shown, hiddenKey(name), {
-            value: set === null ? UNREADABLE : [set.provider, set.model, set.effort ?? ''].join('\u0000'),
+            value: set === null ? UNREADABLE : presetText(set.provider, set.model, set.effort ?? ''),
             enumerable: true,
             writable: true,
             configurable: true
@@ -185,11 +158,12 @@ export function aliasesForm(): GroupSpec {
       const { saved, added } = rowsNamed(values, loaded, key)
       if (Object.hasOwn(loaded.shown, hiddenKey(key))) parts.push(loaded.shown[hiddenKey(key)] ?? '')
       if (saved !== null) {
-        if (loaded.unreadable.has(fieldOf(saved, 'provider'))) parts.push(UNREADABLE)
-        else if (presetText(values, saved) !== '') parts.push(presetText(values, saved))
+        if (loaded.unreadable.has(fieldOf(saved, 'provider'))) {
+          if (!isRemoved(values, loaded, saved)) parts.push(UNREADABLE)
+        } else if (rowText(values, saved) !== '') parts.push(rowText(values, saved))
       }
       for (const row of added) {
-        const text = presetText(values, row)
+        const text = rowText(values, row)
         if (text !== '' || key !== '') parts.push(text === '' ? INCOMPLETE : text)
       }
       return parts.join('\u0001')
@@ -202,17 +176,17 @@ export function aliasesForm(): GroupSpec {
       for (const row of savedRows(loaded)) {
         const name = savedName(row) ?? ''
         const ids = presetOf(row)
-        if (loaded.unreadable.has(ids.provider)) {
-          fields.push({ kind: 'unreadable', id: ids.provider, label: `Alias ${name}` })
-          continue
-        }
-        if (isRemoved(current, row)) {
+        if (isRemoved(current, loaded, row)) {
           fields.push({ kind: 'struck', id: fieldOf(row, 'name'), label: 'Alias', value: name })
           fields.push({ kind: 'button', id: fieldOf(row, 'remove'), text: `Undo removing ${name}`, value: UNDO, disabled: false })
           continue
         }
-        fields.push({ kind: 'fixed', id: fieldOf(row, 'name'), label: 'Alias', value: name })
-        fields.push(...presetFields(row, name, current, loaded, errors, context, null))
+        if (loaded.unreadable.has(ids.provider)) {
+          fields.push({ kind: 'unreadable', id: ids.provider, label: `Alias ${name}` })
+        } else {
+          fields.push({ kind: 'fixed', id: fieldOf(row, 'name'), label: 'Alias', value: name })
+          fields.push(...presetFields(ids, name, SAVED_LOOK, current, loaded.values[ids.provider] ?? '', errors, context))
+        }
         fields.push({ kind: 'button', id: fieldOf(row, 'remove'), text: `Remove ${name}`, value: REMOVE, disabled: false })
       }
       const added = newRows(current)
@@ -221,7 +195,7 @@ export function aliasesForm(): GroupSpec {
         const id = fieldOf(row, 'name')
         const typed = clean(current[id])
         fields.push({ kind: 'text', id, label: `${label} name`, value: current[id] ?? '', placeholder: '@name', maxLength: NAME_LENGTH, error: errors.get(id) ?? null })
-        fields.push(...presetFields(row, label, current, loaded, errors, context, CHOOSE_A_PROVIDER))
+        fields.push(...presetFields(presetOf(row), label, NEW_LOOK, current, '', errors, context))
         fields.push({ kind: 'button', id: fieldOf(row, 'remove'), text: `Remove ${typed === '' ? label.toLowerCase() : typed}`, value: REMOVE, disabled: false })
       })
       const full = savedTotal(loaded) + added.length >= ALIASES_SHOWN
@@ -241,6 +215,10 @@ export function aliasesForm(): GroupSpec {
         if (savedName(row) === null) {
           return Object.fromEntries(Object.entries(current).filter(([id]) => rowOf(id) !== row))
         }
+        if (loaded.unreadable.has(ids.provider)) {
+          const rest = Object.fromEntries(Object.entries(current).filter(([id]) => id !== fieldId))
+          return value === UNDO ? rest : { ...rest, [fieldId]: REMOVE }
+        }
         const restored = (id: string): string => (value === UNDO ? (loaded.values[id] ?? '') : '')
         return { ...current, [ids.provider]: restored(ids.provider), [ids.model]: restored(ids.model), [ids.effort]: restored(ids.effort) }
       }
@@ -257,7 +235,7 @@ export function aliasesForm(): GroupSpec {
           const error = nameError(key) ?? (taken ? NAME_TAKEN : null)
           if (error !== null) errors.set(fieldOf(row, 'name'), error)
         }
-        const rows = [...added, ...(saved !== null && !isRemoved(current, saved) ? [saved] : [])]
+        const rows = [...added, ...(saved !== null && !isRemoved(current, loaded, saved) ? [saved] : [])]
         for (const row of rows) {
           if (clean(current[presetOf(row).provider]) === '') errors.set(presetOf(row).provider, CHOOSE_A_PROVIDER)
           else checkPreset(errors, presetOf(row), current, context)

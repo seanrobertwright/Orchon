@@ -347,6 +347,29 @@ describe('the checks before sending', () => {
     assert.deepEqual(bodyOf(patches(stage)[0]), { aliases: { '@ok': { provider: 'claude', model: 'm' } } })
     await mounted.worker.deactivate()
   })
+
+  test('an Unreadable alias has a Remove button naming it, with Undo, and Save sends null for it', async () => {
+    const { stage, mounted } = await connectedTo('0.14.0', configWith('0.14.0', { aliases: { '@bad': { provider: 'claude' } } }))
+    const { forms: read } = await mounted.worker.request('forms.read')
+    assert.deepEqual(drawn(read.aliases).slice(0, 2), [
+      ['saved:@bad:provider', 'unreadable', 'Alias @bad'],
+      ['saved:@bad:remove', 'button', 'Remove @bad']
+    ])
+    const { forms: removed } = await mounted.worker.request('forms.edit', { group: 'aliases', edits: { 'saved:@bad:remove': 'remove' } })
+    assert.deepEqual(drawn(removed.aliases).slice(0, 2), [
+      ['saved:@bad:name', 'struck', '@bad'],
+      ['saved:@bad:remove', 'button', 'Undo removing @bad']
+    ])
+    const { forms: undone } = await mounted.worker.request('forms.edit', { group: 'aliases', edits: { 'saved:@bad:remove': 'undo' } })
+    assert.deepEqual(drawn(undone.aliases), drawn(read.aliases))
+    await saved(mounted)
+    assert.equal(patches(stage).length, 0)
+    await mounted.worker.request('forms.edit', { group: 'aliases', edits: { 'saved:@bad:remove': 'remove' } })
+    stage.archon.answer(ALIASES, afterPatch({}))
+    await saved(mounted)
+    assert.deepEqual(bodyOf(patches(stage)[0]), { aliases: { '@bad': null } })
+    await mounted.worker.deactivate()
+  })
 })
 
 describe('the outside-change check and Archon refusing', () => {
