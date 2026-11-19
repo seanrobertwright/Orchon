@@ -420,6 +420,8 @@ export type LaunchPorts = {
   onHint(listener: (types: HintType[]) => void): Disposable
   now(): number
   timers: { set(run: () => void, ms: number): unknown; clear(handle: unknown): void }
+  /** Why the Edit link that opens the chosen workflow in the builder is off, or null when it is on. Never off when left out. */
+  builderOff?(): Promise<string | null>
 }
 
 export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable & { lists: LaunchLists } {
@@ -613,6 +615,8 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     if (draft.notes !== undefined && draft.notes.length > 0) view.notes = draft.notes
     const starting = draft.starting === undefined ? undefined : records.find((record) => record.launchId === draft.starting)
     if (starting !== undefined) view.starting = startingOf(starting)
+    const builderOff = ports.builderOff === undefined ? null : await ports.builderOff()
+    if (builderOff !== null) view.builderOff = builderOff
     return view
   }
 

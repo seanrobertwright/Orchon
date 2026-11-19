@@ -69,7 +69,8 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     focused: projectScope.focused,
     onHint: (listener) => connection.onHint((hint) => listener(hint.types)),
     now: ports.now,
-    timers: ports.timers
+    timers: ports.timers,
+    builderOff: wideTabs.builderOff
   })
   const workflows = startWorkflowsSection(orca, {
     client: connection.client,

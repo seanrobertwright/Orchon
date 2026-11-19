@@ -422,3 +422,34 @@ describe('a launch Archon did not start', () => {
     clean(view)
   })
 })
+
+describe("the chosen workflow's Edit link", () => {
+  const EDIT = button('Edit deliver')
+  const NO_WORKSPACE = 'No workspace is focused in Orca. Wide tabs open in a workspace on this computer.'
+
+  test('sits beside the chosen workflow and opens it in the builder with the chosen project', async () => {
+    const view = await mountLaunch({ launch: () => webForm })
+    assert.equal(view.find(EDIT)?.disabled, false)
+    await view.press(EDIT)
+    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'deliver', codebaseId: 'cb-web' }])
+    clean(view)
+  })
+
+  test('is not drawn while no workflow is chosen', async () => {
+    const view = await mountLaunch({ launch: () => ({ ...webForm, workflow: null }) })
+    assert.equal(view.findAll({ type: 'Button' }).filter((found) => found.text.startsWith('Edit ')).length, 0)
+  })
+
+  test('is disabled, with the reason the worker gives, when no local workspace is focused', async () => {
+    const view = await mountLaunch({ launch: () => ({ ...webForm, builderOff: NO_WORKSPACE }) })
+    assert.equal(view.find(EDIT)?.disabled, true)
+    assert.ok(view.find({ type: 'Text', text: NO_WORKSPACE }))
+  })
+
+  test('says why when the worker could not open the tab', async () => {
+    const reason = 'Archon has no workflow named deliver here.'
+    const view = await mountLaunch({ launch: () => webForm, open: () => ({ opened: false, reason }) })
+    await view.press(EDIT)
+    assert.ok(view.find({ type: 'Text', text: reason }))
+  })
+})

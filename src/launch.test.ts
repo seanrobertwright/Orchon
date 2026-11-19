@@ -115,6 +115,23 @@ describe('the launch form', () => {
   }
 })
 
+describe("why the chosen workflow's Edit link is off", () => {
+  const builderOff = async (focused: string | null): Promise<unknown> => {
+    const mounted = await launchScene().mount(orcaWith(focused))
+    const view = ready((await read(mounted, { project: RECORDED_ID['0.12.1'], reload: true })).launch)
+    await mounted.worker.deactivate()
+    return Object.hasOwn(view, 'builderOff') ? view.builderOff : 'left out'
+  }
+
+  test('it is left out when a local workspace is focused', async () => {
+    assert.equal(await builderOff('ws-local'), 'left out')
+  })
+
+  test('with no workspace focused', async () => {
+    assert.equal(await builderOff(null), 'No workspace is focused in Orca. Wide tabs open in a workspace on this computer.')
+  })
+})
+
 /** The recorded launch's three answers: the conversation, the run post and the project's runs. */
 function replayAccepted(stage: Scene, release: Release): { conversationId: string; runId: string } {
   const created = exchange(release, 'launch-accepted', 'POST', '/api/conversations')
