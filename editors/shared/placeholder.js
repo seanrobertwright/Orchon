@@ -1,4 +1,4 @@
-// What both editor tabs show until the run graph and the builder are built. Each page is static
+// What the workflow builder tab shows until the builder is built. Its page is static
 // HTML; this module only asks Orca for the tab's document and reports whether it arrived.
 const READ = 'Pointer file read.';
 const UNREADABLE = 'Orchon could not read this file.';

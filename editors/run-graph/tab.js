@@ -80,6 +80,7 @@ export function startTab(ports) {
     banners.setAttribute('role', 'status');
     banners.setAttribute('aria-live', 'polite');
     const content = el('main', undefined, 'content');
+    content.appendChild(el('p', 'Loading the run graph…', 'muted'));
     ports.app.replaceChildren(top, banners, content);
     let runId = null;
     let shown = null;
@@ -204,8 +205,11 @@ export function startTab(ports) {
             }
             return;
         }
-        if (graph.kind === 'failed' || graph.kind === 'not-connected') {
-            const message = graph.kind === 'failed' ? graph.message : WORKER_UNANSWERED;
+        // Archon was lost and found again while the worker read: what is shown stays until the next read.
+        if (graph.kind === 'not-connected')
+            return;
+        if (graph.kind === 'failed') {
+            const { message } = graph;
             // Over data the header's Refresh reads again; without data the message has its own button.
             if (shown !== null) {
                 drawShown(shown, [message]);
