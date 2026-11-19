@@ -1,12 +1,9 @@
 // What a view says when one read from Archon fails while Orchon is connected. The texts are
 // copied from the error table of the decision on what the plugin shows when Archon is missing
-// (#22, part 8), apart from the one line marked below, and every view that reads from Archon
-// says them from here.
+// (#22, part 8), apart from the one line marked below. The runs table says them all from here;
+// the System group says them from here too, except for a call that never reached Archon.
 import type { ClientFailure } from './client'
-import { FLOOR_RELEASE } from './connection-words'
-
-/** The newest Archon release with recorded fixtures. It is said to the person, never compared. */
-export const NEWEST_TESTED_RELEASE = '0.14.0'
+import { FLOOR_RELEASE, NEWEST_TESTED_RELEASE } from './connection-words'
 
 /** One sentence for a read that gave no answer. */
 export function readFailureText(failure: ClientFailure): string {

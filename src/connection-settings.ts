@@ -1,9 +1,12 @@
 // The parser of the two connection settings, Base URL and Archon home folder. A value either
-// passes as typed or is refused with the sentence the person is shown: nothing is trimmed,
-// completed or otherwise repaired, and a refused value connects to nothing.
+// passes or is refused with the sentence the person is shown, and a refused value connects to
+// nothing. Nothing is trimmed or completed. A Base URL that passes is written one way only: its
+// scheme and host in lower case and without its one allowed trailing `/`, since each spelling
+// names the same address.
 import { isAbsolute, join } from 'node:path'
 import type { RefusedSetting, SettingKey } from './connection-view'
 import { isLoopbackHost } from './loopback'
+import { isRecord, own } from './records'
 
 /** Why a value was refused, one sentence each. A word between backticks is shown as code. */
 export const REASONS = {
@@ -28,6 +31,8 @@ export type ParsedSettings =
   | {
       ok: true
       typed: TypedSettings
+      /** Both settings as stored, uncut: what decides whether a setting changed. */
+      stored: TypedSettings
       /** `http://`, a loopback host and a port, or null for automatic discovery. */
       baseUrl: string | null
       /** The Archon home folder, a full path. */
@@ -36,6 +41,8 @@ export type ParsedSettings =
   | {
       ok: false
       typed: TypedSettings
+      /** Both settings as stored, uncut: what decides whether a setting changed. */
+      stored: TypedSettings
       /** Each refused setting, the Base URL first. */
       refused: RefusedSetting[]
       /** The home folder when that setting passed, for display; null when it was refused. */
@@ -53,14 +60,13 @@ export function shown(text: string): string {
 
 /** One setting as it was stored: its own key of a plain object, or absent. */
 function stored(raw: unknown, key: SettingKey): unknown {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
-  return Object.hasOwn(raw, key) ? (raw as Record<string, unknown>)[key] : undefined
+  return isRecord(raw) ? own(raw, key) : undefined
 }
 
-/** A stored value as text to show: a string as typed, anything else as its JSON. */
-function typedText(value: unknown): string {
+/** A stored value as text: a string as typed, anything else as its JSON. */
+function storedText(value: unknown): string {
   if (value === undefined) return ''
-  return shown(typeof value === 'string' ? value : (JSON.stringify(value) ?? ''))
+  return typeof value === 'string' ? value : (JSON.stringify(value) ?? '')
 }
 
 /** A port as typed: digits with no leading zero, from 1 to 65535. */
@@ -72,7 +78,8 @@ function parsePort(text: string | undefined): number | null {
 
 /**
  * The Base URL as typed. It is read by hand, not with `URL`, which would quietly trim spaces and
- * turn `127.1` into `127.0.0.1`: both are repairs.
+ * turn `127.1` into `127.0.0.1`: both are repairs, and both are refused. A value that passes is
+ * answered in one spelling: `http://`, the host in lower case and the port, with no trailing `/`.
  */
 function parseBaseUrl(value: unknown): Parsed<string | null> {
   if (value === undefined || value === '') return { ok: true, value: null }
@@ -113,13 +120,14 @@ function parseHome(value: unknown, homeDir: string): Parsed<string> {
 export function parseConnectionSettings(raw: unknown, env: { homeDir: string }): ParsedSettings {
   const storedUrl = stored(raw, 'baseUrl')
   const storedHome = stored(raw, 'archonHome')
-  const typed: TypedSettings = { baseUrl: typedText(storedUrl), archonHome: typedText(storedHome) }
+  const asStored: TypedSettings = { baseUrl: storedText(storedUrl), archonHome: storedText(storedHome) }
+  const typed: TypedSettings = { baseUrl: shown(asStored.baseUrl), archonHome: shown(asStored.archonHome) }
   const baseUrl = parseBaseUrl(storedUrl)
   const home = parseHome(storedHome, env.homeDir)
-  if (baseUrl.ok && home.ok) return { ok: true, typed, baseUrl: baseUrl.value, home: home.value }
+  if (baseUrl.ok && home.ok) return { ok: true, typed, stored: asStored, baseUrl: baseUrl.value, home: home.value }
 
   const refused: RefusedSetting[] = []
   if (!baseUrl.ok) refused.push({ key: 'baseUrl', value: typed.baseUrl, reason: baseUrl.reason })
   if (!home.ok) refused.push({ key: 'archonHome', value: typed.archonHome, reason: home.reason })
-  return { ok: false, typed, refused, home: home.ok ? home.value : null }
+  return { ok: false, typed, stored: asStored, refused, home: home.ok ? home.value : null }
 }

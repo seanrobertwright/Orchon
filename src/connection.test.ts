@@ -1,6 +1,7 @@
 // The worker's request protocol seam: the worker mounted on a scripted Archon, clock and disk.
 // These tests cover the connection state: when it changes, what it carries, when discovery runs
 // again, and what a frame and the status bar item are told.
+import { join } from 'node:path'
 import { assert, describe, hostError, test } from 'orca/testing'
 import {
   ARCHON_HOME,
@@ -10,6 +11,7 @@ import {
   DEFAULT_OPENAPI,
   HANG,
   health,
+  HOME_DIR,
   json,
   kinds,
   REFUSE,
@@ -278,6 +280,20 @@ describe('the connection state', () => {
     await mounted.orca.settings.set('archonHome', '')
     await stage.clock.advance(0)
     assert.deepEqual(kinds(mounted), ['searching', 'connected', 'bad-setting', 'searching', 'connected'])
+  })
+
+  test('a change to the home folder past the shown length is a change: discovery looks in the new folder', async () => {
+    const stage = scene()
+    // The manifest allows 1,024 characters, and a value is shown cut to 200: these two differ
+    // only after the cut.
+    const before = join(HOME_DIR, 'a'.repeat(300))
+    const after = join(HOME_DIR, `${'a'.repeat(250)}b${'a'.repeat(49)}`)
+    const mounted = await stage.mount({ settings: { archonHome: before } })
+    await mounted.orca.settings.set('archonHome', after)
+    await stage.clock.advance(0)
+    assert.ok(stage.disk.asked.includes(join(after, 'server.json')))
+    const state = mounted.latest()
+    assert.equal(state.settings.homeFolder?.endsWith('…'), true)
   })
 
   test('a change to a setting that is not a connection setting changes nothing', async () => {

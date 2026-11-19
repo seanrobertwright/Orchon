@@ -10,6 +10,7 @@ import type {
   Unsupported
 } from '../src/connection-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
+import type { SystemAnswer, SystemView } from '../src/system-view.ts'
 
 export const HOME = '/home/ada/.archon'
 export const OTHER_HOME = '/srv/archon-home'
@@ -106,28 +107,74 @@ export const unsupportedAtSetting: Unsupported = {
   version: null
 }
 
+/** The System group before health has answered. */
+export const systemUnread: SystemView = {
+  since: 5,
+  health: null,
+  readAt: null,
+  failure: null,
+  updates: { kind: 'checking' }
+}
+
+/** The System group as the worker answers it from a floor release with a newer one out. */
+export const systemRead: SystemView = {
+  since: 25,
+  health: {
+    status: 'ok',
+    adapter: 'web',
+    database: null,
+    version: '0.12.1',
+    storeId: '00000000-0000-4000-8000-000000000000',
+    concurrency: { active: 2, max: 10 },
+    runningWorkflows: 1,
+    platforms: { names: ['Web'], more: 0 }
+  },
+  readAt: 20,
+  failure: null,
+  updates: {
+    kind: 'available',
+    version: '0.14.0',
+    releaseUrl: 'https://github.com/coleam00/Archon/releases/tag/v0.14.0'
+  }
+}
+
 /** No runs at all, as the worker answers the runs table of an Archon that has run nothing. */
 export const noRuns: Extract<RunsView, { kind: 'ready' }> = { kind: 'ready', counts: EMPTY_COUNTS, total: 0, rows: [], unreadable: 0 }
 
-/** A stand-in for the worker that answers every connection request with one state, and the runs table as `runs` says. */
+type Answers = {
+  'connection.read': { connection: ConnectionView }
+  'connection.retry': { connection: ConnectionView }
+  'runs.read': (request: RunsRequest) => RunsAnswer
+  'system.open': SystemAnswer
+  'system.refresh': SystemAnswer
+  'system.close': null
+}
+
+/**
+ * A stand-in for the worker that answers every connection request with one state, the runs table
+ * as `runs` says, and every System request with one view: by default the read one while
+ * Connected and the unread one otherwise.
+ */
 export function answeringRuns(
   runs: RunsView | ((request: RunsRequest) => RunsView),
-  connection: ConnectionView = connected
-): {
-  requests: {
-    'connection.read': { connection: ConnectionView }
-    'connection.retry': { connection: ConnectionView }
-    'runs.read': (request: RunsRequest) => RunsAnswer
-  }
-} {
+  connection: ConnectionView = connected,
+  system: SystemView = connection.kind === 'connected' ? systemRead : systemUnread
+): { requests: Answers } {
   return {
     requests: {
       'connection.read': { connection },
       'connection.retry': { connection },
-      'runs.read': (request) => ({ connection, runs: typeof runs === 'function' ? runs(request) : runs })
+      'runs.read': (request) => ({ connection, runs: typeof runs === 'function' ? runs(request) : runs }),
+      'system.open': { connection, system },
+      'system.refresh': { connection, system },
+      'system.close': null
     }
   }
 }
 
-/** A stand-in for the worker that answers every connection request with one state, and the runs table with no runs. */
-export const answering = (connection: ConnectionView): ReturnType<typeof answeringRuns> => answeringRuns(noRuns, connection)
+/**
+ * A stand-in for the worker that answers every connection request with one state, the runs table
+ * with no runs, and every System request as `answeringRuns` does.
+ */
+export const answering = (connection: ConnectionView, system?: SystemView): { requests: Answers } =>
+  answeringRuns(noRuns, connection, system)

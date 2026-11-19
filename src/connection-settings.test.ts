@@ -20,6 +20,7 @@ describe('the connection settings parser', () => {
       assert.deepEqual(parseConnectionSettings(raw, env), {
         ok: true,
         typed: { baseUrl: '', archonHome: '' },
+        stored: { baseUrl: '', archonHome: '' },
         baseUrl: null,
         home: DEFAULT_HOME
       })
@@ -38,7 +39,13 @@ describe('the connection settings parser', () => {
     ]
     for (const [typed, baseUrl] of accepted) {
       const parsed = parseConnectionSettings({ baseUrl: typed }, env)
-      assert.deepEqual(parsed, { ok: true, typed: { baseUrl: typed, archonHome: '' }, baseUrl, home: DEFAULT_HOME })
+      assert.deepEqual(parsed, {
+        ok: true,
+        typed: { baseUrl: typed, archonHome: '' },
+        stored: { baseUrl: typed, archonHome: '' },
+        baseUrl,
+        home: DEFAULT_HOME
+      })
     }
   })
 
@@ -130,7 +137,13 @@ describe('the connection settings parser', () => {
     ]
     for (const [typed, home] of accepted) {
       const parsed = parseConnectionSettings({ archonHome: typed }, env)
-      assert.deepEqual(parsed, { ok: true, typed: { baseUrl: '', archonHome: typed }, baseUrl: null, home })
+      assert.deepEqual(parsed, {
+        ok: true,
+        typed: { baseUrl: '', archonHome: typed },
+        stored: { baseUrl: '', archonHome: typed },
+        baseUrl: null,
+        home
+      })
     }
   })
 
@@ -146,6 +159,7 @@ describe('the connection settings parser', () => {
     assert.deepEqual(parsed, {
       ok: false,
       typed: { baseUrl: 'https://archon.example.com', archonHome: 'archon' },
+      stored: { baseUrl: 'https://archon.example.com', archonHome: 'archon' },
       refused: [
         { key: 'baseUrl', value: 'https://archon.example.com', reason: REASONS.notHttp },
         { key: 'archonHome', value: 'archon', reason: REASONS.notFullPath }

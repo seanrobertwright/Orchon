@@ -12,6 +12,7 @@ import {
   notRunning,
   oneBadSetting,
   searching,
+  systemRead,
   twoBadSettings,
   unsupported
 } from '../scripts/connection-samples.ts'
@@ -33,6 +34,7 @@ export default defineCheck({
   unsupported: answering(unsupported),
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
+  'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
   'settings while not found': { ...answering(notRunning), ...onSettings },
   'settings while unsupported': { ...answering(unsupported), ...onSettings },
   'settings with two refused settings': { ...answering(twoBadSettings), ...onSettings }

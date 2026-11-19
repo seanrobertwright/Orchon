@@ -10,6 +10,7 @@ import { checkHealth, discover } from './discovery'
 import { checkPaths } from './path-check'
 import { refuseRequest } from './records'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
+import { createSystem } from './system'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
 export type WorkerPorts = {
@@ -50,7 +51,8 @@ function canonical(value: unknown): string {
   )
 }
 
-const sameTyped = (first: TypedSettings, second: TypedSettings): boolean =>
+/** Compares the stored values, never the text cut for display: the cut can hide a change. */
+const sameStored = (first: TypedSettings, second: TypedSettings): boolean =>
   first.baseUrl === second.baseUrl && first.archonHome === second.archonHome
 
 export type Connection = {
@@ -88,8 +90,8 @@ export type ConnectionPorts = {
 
 export function createConnection(ports: ConnectionPorts): Connection {
   let view: ConnectionView = { kind: 'searching', since: ports.now(), settings: NO_SETTINGS }
-  /** The settings as last parsed, or null before the first read. */
-  let typed: TypedSettings | null = null
+  /** The settings as last stored, uncut, or null before the first read. */
+  let stored: TypedSettings | null = null
   /** Rises whenever a new pass begins, so an older pass still in flight changes nothing. */
   let generation = 0
   let inFlight = new AbortController()
@@ -143,7 +145,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
     try {
       const parsed = known ?? parseConnectionSettings(await ports.readSettings(), { homeDir: ports.homeDir })
       if (mine !== generation) return
-      typed = parsed.typed
+      stored = parsed.stored
       const settings: SettingsView = { ...parsed.typed, homeFolder: parsed.home === null ? null : shown(parsed.home) }
       if (!parsed.ok) {
         // Nothing is repaired and nothing is called until the setting changes.
@@ -244,7 +246,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
         return
       }
       // A pass that began meanwhile has read the settings itself.
-      if (mine !== generation || (typed !== null && sameTyped(parsed.typed, typed))) return
+      if (mine !== generation || (stored !== null && sameStored(parsed.stored, stored))) return
       retryDelay = FIRST_RETRY_MS
       await look(parsed)
     },
@@ -297,7 +299,16 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     changed(view) {
       orca.panels.post('connection.changed', view)
       statusBar.show(statusItem(view))
+      system.connectionChanged()
     }
+  })
+
+  const system = createSystem({
+    client,
+    connection: () => connection.current(),
+    now: ports.now,
+    timers: ports.timers,
+    changed: (view) => orca.panels.post('system.changed', view)
   })
 
   const subscriptions = [
@@ -309,6 +320,21 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     orca.panels.handle('connection.retry', async (input) => {
       refuseInput(input)
       return { connection: await connection.retry() }
+    }),
+    orca.panels.handle('system.open', async (input) => {
+      refuseInput(input)
+      const view = await system.open()
+      return { connection: await connection.current(), system: view }
+    }),
+    orca.panels.handle('system.refresh', async (input) => {
+      refuseInput(input)
+      const view = await system.refresh()
+      return { connection: await connection.current(), system: view }
+    }),
+    orca.panels.handle('system.close', (input) => {
+      refuseInput(input)
+      system.close()
+      return null
     })
   ]
   statusBar.show(statusItem({ kind: 'searching', since: ports.now(), settings: NO_SETTINGS }))
@@ -320,6 +346,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     stop() {
       for (const subscription of subscriptions) subscription.dispose()
       connection.stop()
+      system.close()
       statusBar.stop()
     }
   }

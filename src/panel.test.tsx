@@ -25,13 +25,12 @@ afterEach(async () => {
 
 /**
  * What a person notices first: the selected tab and the empty state under it. Runs is built and
- * the scripted worker has no runs; every other section is still a placeholder.
+ * the scripted worker has no runs. Settings is built, so it has no empty state; its own tests are
+ * in settings.test.tsx. Every other section is still a placeholder.
  */
 function showing(view: TestPanel, label: string): void {
-  assert.deepEqual(view.summary(), [
-    `Tabs "Orchon sections": "${label}" selected`,
-    `EmptyState "${label === 'Runs' ? 'No runs yet' : label}"`
-  ])
+  const empty = label === 'Settings' ? [] : [`EmptyState "${label === 'Runs' ? 'No runs yet' : label}"`]
+  assert.deepEqual(view.summary(), [`Tabs "Orchon sections": "${label}" selected`, ...empty])
 }
 
 function clean(view: TestPanel): void {

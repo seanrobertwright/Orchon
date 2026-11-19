@@ -4,7 +4,7 @@
 // a page that fails as a whole is an error.
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
-import { isRecord } from './records'
+import { isRecord, own } from './records'
 import { EMPTY_COUNTS, RUN_STATUSES, type RunRow, type RunStatus, type StatusCounts } from './runs-view'
 
 export const DASHBOARD_RUNS_PATH = '/api/dashboard/runs'
@@ -23,8 +23,6 @@ export type DashboardRunsPage = {
 }
 
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-
-const own = (record: Record<string, unknown>, key: string): unknown => (Object.hasOwn(record, key) ? record[key] : undefined)
 
 /** A text field that may be missing or null. Any other type fails the run. */
 function optionalText(record: Record<string, unknown>, key: string): string | null | false {
