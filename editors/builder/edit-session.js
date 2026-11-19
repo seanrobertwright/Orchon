@@ -1,7 +1,7 @@
 // The copy of a workflow the builder tab edits (#16, #28). Each edit goes through the copied
 // Archon editor state (`archon/editor/state.ts`) and its undo history, so the builder holds one
 // model of a workflow, Archon's. The session also knows whether the copy differs from the one
-// opened, which is what "Unsaved changes" says. Node positions carry no meaning: the tab lays the
+// opened, or from the one last saved, which is what "Unsaved changes" says. Node positions carry no meaning: the tab lays the
 // graph out again after every change, and nothing is dragged or saved; the state's positions are
 // only kept in each undo step as the copied history expects. The session holds its own state and
 // touches nothing outside it: no page, no file, no clock.
@@ -26,7 +26,7 @@ export function openSession(definition) {
     catch {
         return null;
     }
-    const openedText = JSON.stringify(toWorkflowDefinition(opened.workflow));
+    let openedText = JSON.stringify(toWorkflowDefinition(opened.workflow));
     let state = createEditorState(opened.workflow);
     /** The time each edit is stamped with for the history: a burst shares one, any other edit moves on past the coalescing window. */
     let at = 0;
@@ -69,6 +69,10 @@ export function openSession(definition) {
                 dirty = JSON.stringify(toWorkflowDefinition(state.workflow)) !== openedText;
             }
             return dirty;
+        },
+        markSaved() {
+            openedText = JSON.stringify(toWorkflowDefinition(state.workflow));
+            dirtyFor = null;
         },
         canUndo: () => canUndo(state.history),
         canRedo: () => canRedo(state.history),

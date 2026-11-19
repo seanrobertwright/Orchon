@@ -5,9 +5,11 @@
 // inspector's form, nodes added from a menu and removed or duplicated from the canvas or the
 // outline, and dependencies in the "Depends on" list or in connect mode. Each edit goes through
 // the edit session, which uses the copied Archon editor state; the graph is laid out again after
-// every change, and the local rules run on the copy as it stands. Nothing is saved yet: the tab
-// never edits its file, and no edit leaves the frame. An installed workflow is only viewed. Every
-// piece of outside text is set through `textContent`.
+// every change, and the local rules run on the copy as it stands. Save (or Ctrl or Cmd+S) runs
+// the local blocking rules and sends the definition to the worker, which checks for an outside
+// change, has Archon validate it and writes it; Validate asks Archon only. Archon's sentences show
+// at the top of the issues. The tab never edits its file. An installed workflow is only viewed.
+// Every piece of outside text is set through `textContent`.
 import { createCanvas } from "../shared/canvas.js";
 import { elementMaker } from "../shared/dom.js";
 import { drawGraph } from "../shared/graph-draw.js";
@@ -18,6 +20,8 @@ import { mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
 import { openSession } from "./edit-session.js";
 import { fieldControl, option } from "./field-control.js";
 import { formFields } from "./node-form.js";
+import { sameDefinition } from "./same-definition.js";
+import { SAVE_BLOCKING_RULES } from "./save-blockers.js";
 import { workflowFactsOf } from "./workflow-facts.js";
 /** The most nodes the canvas lays out, as the run graph (#17). Past it the outline carries on. */
 export const CANVAS_CAP = 300;
@@ -38,6 +42,15 @@ export const UNSAVED_LINE = 'Unsaved changes';
 export const OUTSIDE_CHANGE = 'This workflow changed outside the builder. Your unsaved changes are kept until you choose.';
 export const RELOAD_ASKED = 'Reloading replaces the copy you are editing. Your unsaved changes are kept until you choose.';
 const WORKER_UNANSWERED = "Orchon's worker did not answer.";
+export const SAVED_LINE = 'Saved.';
+export const SAVE_BLOCKED = 'Fix the errors that block saving before you save: they are listed under Issues. Nothing was sent.';
+export const SAVE_UNANSWERED = "Orchon's worker did not answer, so it is not known whether the workflow was saved. Reload to see what Archon holds.";
+export const SAVE_REJECTED = "Archon's validation rejected this workflow, so it was not saved. Its sentences are at the top of Issues.";
+export const VALID_LINE = "Archon's validation found no problems.";
+export const WRITE_NOT_CONNECTED = 'Orchon is not connected to Archon, so this workflow cannot be saved or validated now.';
+export const WRITE_SAVING = 'A save is waiting for Archon.';
+export const WRITE_VALIDATING = 'Archon is validating this workflow.';
+export const SHOWN_CHANGED = 'This workflow changed outside the builder while the tab was away. The builder now shows the copy Archon serves.';
 const NOT_CONNECTED_BANNER = 'Orchon is not connected to Archon. What is shown was read before.';
 const PICK_A_NODE = 'Choose a node on the canvas or in the outline to see it here.';
 const capped = (value, cap) => typeof value === 'string' && value !== '' && value.length <= cap;
@@ -67,6 +80,8 @@ export function parseBuilderPointer(text) {
 function isAnswer(value) {
     return isRecord(value) && isRecord(value.connection) && isRecord(value.builder) && typeof value.builder.kind === 'string' && typeof value.connection.kind === 'string';
 }
+const isSaveAnswer = (value) => isRecord(value) && isRecord(value.connection) && typeof value.connection.kind === 'string' && isRecord(value.save) && typeof value.save.kind === 'string';
+const isValidateAnswer = (value) => isRecord(value) && isRecord(value.connection) && typeof value.connection.kind === 'string' && isRecord(value.validate) && typeof value.validate.kind === 'string';
 const SIDECAR_TABS = [
     { id: 'inspector', name: 'Inspector' },
     { id: 'outline', name: 'Outline' },
@@ -234,6 +249,33 @@ export function startBuilderTab(ports) {
         addMenu.hidden = !open;
         addButton.setAttribute('aria-expanded', String(open));
     }
+    // Save and Validate, made once. A button that cannot act now stays focusable and says why, on
+    // focus and on hover, in its title and in a line it is described by.
+    const saveButton = button('Save', () => save());
+    const validateButton = button('Validate', () => validate());
+    const writeReason = el('p', '', 'write-reason');
+    writeReason.id = freshId('write-reason');
+    writeReason.hidden = true;
+    const writeBar = el('div', undefined, 'write-bar');
+    writeBar.setAttribute('role', 'group');
+    writeBar.setAttribute('aria-label', 'Saving');
+    writeBar.append(saveButton, validateButton, writeReason);
+    /** Whether the pointer is over, or the focus is on, Save or Validate. */
+    let reasonAsked = false;
+    for (const writeButton of [saveButton, validateButton]) {
+        writeButton.setAttribute('aria-describedby', writeReason.id);
+        for (const [event, asking] of [
+            ['focus', true],
+            ['blur', false],
+            ['mouseenter', true],
+            ['mouseleave', false]
+        ]) {
+            writeButton.addEventListener(event, () => {
+                reasonAsked = asking;
+                writeReason.hidden = !reasonAsked || writeReason.textContent === '';
+            });
+        }
+    }
     // The canvas's own editing tools, for the node chosen on it.
     const canvasConnect = button('Connect', () => toggleConnect());
     const canvasDuplicate = button('Duplicate', () => {
@@ -248,11 +290,24 @@ export function startBuilderTab(ports) {
     let identity = null;
     /** The view last drawn, or null before one. */
     let shown = null;
-    /** The copy being edited, opened from `openedText`. */
+    /** The copy being edited, opened from `opened`. */
     let session = null;
-    let openedText = '';
+    /** The definition the copy was opened from, or last saved as: a read that brings it again changes nothing. */
+    let opened = null;
+    /** What a save expects Archon to serve: the copy opened, or the one last saved, or an outside change the person chose to overwrite. */
+    let base = null;
     /** A definition the person chose to keep editing over: a read that brings it again asks nothing. */
-    let keptOver = '';
+    let keptOver = null;
+    let saving = false;
+    let validating = false;
+    /** Archon's last validation, shown at the top of the issues while the copy is the one it checked. */
+    let serverCheck = null;
+    /** The lines Save and Validate last said, under the connection's. */
+    let writeLines = [];
+    /** Whether the read in flight was sent because the tab was shown again. */
+    let shownAgain = false;
+    /** Whether the next read replaces the copy being edited without asking: the person chose to reload and lose their edits. */
+    let forceOpen = false;
     /** The read that would replace the copy being edited, held until the person chooses. */
     let waiting = null;
     let editable = false;
@@ -288,7 +343,7 @@ export function startBuilderTab(ports) {
     const subscriptions = [];
     /** The banners: the connection's lines, then connect mode's. */
     function showBanners() {
-        const lines = [...connectionLines];
+        const lines = [...connectionLines, ...writeLines];
         const from = connecting === null ? undefined : facts?.nodes[connecting];
         if (from !== undefined)
             lines.push(`Connecting from ${nodeLabel(from)}: choose the node that runs after it. Esc cancels.`);
@@ -296,6 +351,11 @@ export function startBuilderTab(ports) {
     }
     function setBanners(lines) {
         connectionLines = [...lines];
+        showBanners();
+    }
+    /** What Save or Validate says, under the connection's lines. */
+    function setWrite(lines) {
+        writeLines = [...lines];
         showBanners();
     }
     /** Stops the canvas and lets it go, so the next draw makes a new one. */
@@ -323,7 +383,7 @@ export function startBuilderTab(ports) {
         }));
         parts.push(actions);
         if (!view.viewOnly)
-            parts.push(editBar);
+            parts.push(writeBar, editBar);
         top.replaceChildren(...parts);
     }
     /** Says whether the copy differs from the one opened, and what can be undone and redone. */
@@ -334,6 +394,165 @@ export function startBuilderTab(ports) {
         canvasConnect.setAttribute('aria-pressed', String(connecting !== null));
         for (const tool of canvasTools)
             tool.disabled = selected === null;
+        const reason = whyNoWrite();
+        for (const writeButton of [saveButton, validateButton]) {
+            if (reason === null) {
+                writeButton.removeAttribute('aria-disabled');
+                writeButton.removeAttribute('title');
+            }
+            else {
+                writeButton.setAttribute('aria-disabled', 'true');
+                writeButton.setAttribute('title', reason);
+            }
+        }
+        writeReason.textContent = reason ?? '';
+        writeReason.hidden = !reasonAsked || reason === null;
+    }
+    /** Why Save and Validate cannot act now, or null when they can. */
+    function whyNoWrite() {
+        if (!connected)
+            return WRITE_NOT_CONNECTED;
+        if (saving)
+            return WRITE_SAVING;
+        if (validating)
+            return WRITE_VALIDATING;
+        if (session === null)
+            return UNREADABLE_DEFINITION;
+        return null;
+    }
+    /** The definition as it stands, as a save would write it. */
+    const definitionNow = () => (session === null ? null : session.definition());
+    /** Save: the local blocking rules here, then the worker's outside-change check, Archon's validation and the write. */
+    function save() {
+        const definition = definitionNow();
+        if (definition === null || identity === null || !editable || whyNoWrite() !== null)
+            return;
+        if ((facts?.issues ?? []).some((issue) => SAVE_BLOCKING_RULES.includes(issue.rule))) {
+            setWrite([SAVE_BLOCKED]);
+            return;
+        }
+        const checked = session?.workflow();
+        saving = true;
+        setWrite([]);
+        drawEditState();
+        void ports
+            .request('builder.save', { ...identity, locale: ports.locale, definition, base })
+            .then((answer) => {
+            if (stopped)
+                return;
+            if (!isSaveAnswer(answer))
+                setWrite([SAVE_UNANSWERED]);
+            else {
+                connected = answer.connection.kind === 'connected';
+                settleSave(answer.save, definition, checked);
+            }
+        }, () => {
+            if (!stopped)
+                setWrite([SAVE_UNANSWERED]);
+        })
+            .finally(() => {
+            saving = false;
+            if (!stopped)
+                drawEditState();
+        });
+    }
+    /** What a save's outcome changes: the copy later checks compare against, Archon's sentences, or the three choices. */
+    function settleSave(outcome, definition, checked) {
+        switch (outcome.kind) {
+            case 'saved':
+                savedAs(definition, outcome.source);
+                serverCheck = { kind: 'valid', checked };
+                setWrite([SAVED_LINE]);
+                break;
+            case 'timeout':
+                if (outcome.landed === true)
+                    savedAs(definition, outcome.source ?? base?.source ?? '');
+                setWrite([outcome.message]);
+                break;
+            case 'invalid':
+                serverCheck = { kind: 'invalid', errors: outcome.errors, more: outcome.more, checked };
+                setWrite([SAVE_REJECTED]);
+                break;
+            case 'changed':
+                setWrite([]);
+                askAfterChange(outcome.message, outcome.current);
+                break;
+            case 'refused':
+            case 'failed':
+                setWrite([outcome.message]);
+        }
+        if (facts !== null)
+            drawIssues(facts);
+    }
+    /**
+     * The definition is what Archon holds now, read from `source`: later checks compare with it and
+     * Unsaved changes clears. A bundled workflow saved as the project's own copy is the project's
+     * from now on, in this tab; its pointer file is never changed.
+     */
+    function savedAs(definition, source) {
+        base = { source, authored: definition };
+        opened = definition;
+        keptOver = null;
+        session?.markSaved();
+        drawEditState();
+        if (identity !== null && source !== '' && source !== identity.scope) {
+            identity = { ...identity, scope: source };
+            load();
+        }
+    }
+    /** The three choices after a save stopped for an outside change. Nothing was written. */
+    function askAfterChange(sentence, current) {
+        waiting = null;
+        const reload = button('Reload and lose my edits', () => {
+            closePrompt();
+            forceOpen = true;
+            load();
+        });
+        const overwrite = button('Overwrite the outside change', () => {
+            closePrompt();
+            base = current;
+            save();
+        });
+        const keep = button('Keep editing', () => closePrompt());
+        changePrompt.replaceChildren(el('p', sentence), reload, overwrite, keep);
+        changePrompt.hidden = false;
+    }
+    /** Validate: Archon's validation of the copy as it stands. Nothing is written. */
+    function validate() {
+        const definition = definitionNow();
+        if (definition === null || !editable || whyNoWrite() !== null)
+            return;
+        const checked = session?.workflow();
+        validating = true;
+        drawEditState();
+        void ports
+            .request('builder.validate', { definition, locale: ports.locale })
+            .then((answer) => {
+            if (stopped)
+                return;
+            if (!isValidateAnswer(answer)) {
+                setWrite([WORKER_UNANSWERED]);
+                return;
+            }
+            connected = answer.connection.kind === 'connected';
+            const outcome = answer.validate;
+            if (outcome.kind === 'valid' || outcome.kind === 'invalid') {
+                serverCheck = outcome.kind === 'valid' ? { kind: 'valid', checked } : { kind: 'invalid', errors: outcome.errors, more: outcome.more, checked };
+                setWrite([]);
+            }
+            else
+                setWrite([outcome.message]);
+            if (facts !== null)
+                drawIssues(facts);
+        }, () => {
+            if (!stopped)
+                setWrite([WORKER_UNANSWERED]);
+        })
+            .finally(() => {
+            validating = false;
+            if (!stopped)
+                drawEditState();
+        });
     }
     function openYaml() {
         if (identity === null)
@@ -841,17 +1060,38 @@ export function startBuilderTab(ports) {
                 }, 'issue-link'));
             list.appendChild(row);
         }
-        const parts = [el('h2', `Issues (${String(count)})`)];
+        const parts = [el('h2', `Issues (${String(count)})`), ...serverParts()];
         parts.push(count === 0 ? el('p', 'No issues found.', 'muted') : list);
         if (count > ISSUES_CAP)
             parts.push(el('p', `${String(count - ISSUES_CAP)} more issues are not shown.`, 'muted'));
         issuesStrip.replaceChildren(...parts);
     }
+    /** Archon's validation sentences, at the top of the issues, while the copy is the one it checked. They name no node. */
+    function serverParts() {
+        if (serverCheck === null || session === null || serverCheck.checked !== session.workflow())
+            return [];
+        const group = el('section', undefined, 'server-check');
+        group.setAttribute('aria-label', "Archon's validation");
+        if (serverCheck.kind === 'valid') {
+            group.appendChild(el('p', VALID_LINE, 'server-valid'));
+            return [group];
+        }
+        const list = el('ul', undefined, 'server-errors');
+        for (const sentence of serverCheck.errors)
+            list.appendChild(el('li', `✖ Archon: ${sentence}`, 'issue issue-error'));
+        group.append(el('h3', "Archon's validation"), list);
+        if (serverCheck.more > 0)
+            group.appendChild(el('p', `${String(serverCheck.more)} more ${serverCheck.more === 1 ? 'sentence is' : 'sentences are'} not shown.`, 'muted'));
+        return [group];
+    }
     /** Opens a read workflow for editing, in place of whatever copy was held. */
     function openView(view) {
         shown = view;
-        openedText = JSON.stringify(view.definition);
-        keptOver = '';
+        opened = view.definition;
+        base = { source: view.header.source, authored: view.definition };
+        keptOver = null;
+        serverCheck = null;
+        writeLines = [];
         closePrompt();
         editable = !view.header.viewOnly;
         session = openSession(view.definition);
@@ -884,7 +1124,7 @@ export function startBuilderTab(ports) {
         });
         const keep = button('Keep editing', () => {
             if (waiting !== null)
-                keptOver = JSON.stringify(waiting.definition);
+                keptOver = waiting.definition;
             closePrompt();
         });
         changePrompt.replaceChildren(el('p', sentence), take, keep);
@@ -898,22 +1138,28 @@ export function startBuilderTab(ports) {
     /** Whether the person has changes a read must not replace without asking. */
     const editing = () => session !== null && editable && session.dirty();
     /** Draws a read workflow. A copy with unsaved changes is never replaced without asking. */
-    function drawReady(view, lines, byPerson) {
+    function drawReady(view, lines, byPerson, byShow) {
         drawHeader(view.header);
         setBanners(lines);
         drawEditState();
-        const text = JSON.stringify(view.definition);
-        if (editing()) {
+        const same = opened !== null && sameDefinition(view.definition, opened);
+        if (editing() && !forceOpen) {
             if (byPerson)
                 ask(view, RELOAD_ASKED);
-            else if (text !== openedText && text !== keptOver)
+            else if (!same && (keptOver === null || !sameDefinition(view.definition, keptOver)))
                 ask(view, OUTSIDE_CHANGE);
             if (content.children[0] !== layout)
                 content.replaceChildren(layout);
             return;
         }
-        if (session === null || text !== openedText || shown?.kind !== 'ready') {
+        const forced = forceOpen;
+        forceOpen = false;
+        if (session === null || !same || shown?.kind !== 'ready' || forced) {
+            // Shown again over a copy with no unsaved changes, an outside change replaces it, with a notice.
+            const notice = byShow && session !== null && shown?.kind === 'ready' && !same;
             openView(view);
+            if (notice)
+                setWrite([SHOWN_CHANGED]);
             return;
         }
         shown = view;
@@ -924,7 +1170,8 @@ export function startBuilderTab(ports) {
         shown = view;
         session = null;
         facts = null;
-        openedText = '';
+        opened = null;
+        base = null;
         closePrompt();
         dropCanvas();
         drawHeader(view.header);
@@ -944,7 +1191,7 @@ export function startBuilderTab(ports) {
         else
             drawTooLarge(shown, lines);
     }
-    function apply(answer, byPerson) {
+    function apply(answer, byPerson, byShow) {
         const tabConnection = answer.connection;
         const { builder } = answer;
         connected = tabConnection.kind === 'connected';
@@ -997,7 +1244,7 @@ export function startBuilderTab(ports) {
                 drawTooLarge(builder, []);
                 return;
             case 'ready':
-                drawReady(builder, [], byPerson);
+                drawReady(builder, [], byPerson, byShow);
         }
     }
     /** Reads the workflow: one read in flight, and at most one more queued. */
@@ -1013,12 +1260,14 @@ export function startBuilderTab(ports) {
         const mine = counter;
         const byPerson = asked;
         asked = false;
+        const byShow = shownAgain;
+        shownAgain = false;
         const request = { ...identity, locale: ports.locale };
         void ports
             .request('builder.read', request)
             .then((answer) => {
             if (!stopped && mine === counter && isAnswer(answer))
-                apply(answer, byPerson);
+                apply(answer, byPerson, byShow);
         }, () => {
             if (stopped || mine !== counter)
                 return;
@@ -1052,9 +1301,15 @@ export function startBuilderTab(ports) {
             }
             return;
         }
+        const command = event.ctrlKey || event.metaKey;
+        // Ctrl or Cmd+S saves, from a field too, and never reaches Orca as its own Save.
+        if (command && !event.altKey && (event.key === 's' || event.key === 'S')) {
+            event.preventDefault();
+            save();
+            return;
+        }
         if (!editable || session === null || typedIntoField(event.target))
             return;
-        const command = event.ctrlKey || event.metaKey;
         if (command && !event.altKey && (event.key === 'z' || event.key === 'Z')) {
             event.preventDefault();
             if (event.shiftKey)
@@ -1093,6 +1348,13 @@ export function startBuilderTab(ports) {
             return;
         load();
     }));
+    // Shown again: the same comparison as a save's, with a notice when the workflow changed outside.
+    const onShown = ports.onShown?.(() => {
+        shownAgain = true;
+        load();
+    });
+    if (onShown !== undefined)
+        subscriptions.push(onShown);
     void ports.readPointer().then((text) => {
         if (stopped)
             return;
