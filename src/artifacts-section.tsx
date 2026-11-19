@@ -25,6 +25,7 @@ import {
 import {
   ARTIFACT_FILTER_CAP,
   ARTIFACT_TEXT_CAP_BYTES,
+  type ArtifactCounts,
   type ArtifactEntry,
   type ArtifactFile,
   type ArtifactsRequest,
@@ -35,7 +36,7 @@ import { formatDateTime } from './dates'
 import { frameTimers } from './frame-timers'
 import { rejectionOf } from './view-fetch'
 import { warningLine } from './view-notices'
-import { CONSENT_TEXT, UNREACHABLE_TEXT } from './worker-words'
+import { CONSENT_TEXT, NOT_CONNECTED_TEXT, UNREACHABLE_TEXT } from './worker-words'
 
 /** How long the filter waits after the last key before it asks the worker. */
 export const FILTER_PAUSE_MS = 300
@@ -53,7 +54,7 @@ const heldRun = atom<string | null>(null)
 /** Each folder asked for, the top level under the empty path. */
 const folders = atom<ReadonlyMap<string, FolderState>>(new Map())
 /** The run's file count and its unreadable entries, from the newest list answer. */
-const counts = atom<{ total: number; unreadable: number } | null>(null)
+const counts = atom<ArtifactCounts | null>(null)
 /** Set when Archon answered that the run does not exist. */
 const runGone = atom(false)
 const expanded = atom<readonly string[]>([])
@@ -109,6 +110,35 @@ export function resetArtifacts(): void {
   set(chosenFile, null)
 }
 
+/**
+ * Asks the worker once for `place` of the run held. The answer, or the sentence for a rejected
+ * request, is passed on only while it is the newest asked for in its place and the run is still held.
+ */
+async function askWorker<T>(
+  place: string,
+  runId: string,
+  send: () => Promise<T>,
+  apply: (answer: T) => void,
+  fail: (message: string) => void
+): Promise<void> {
+  const current = ask(place)
+  const stillWanted = (): boolean => current() && read(heldRun) === runId
+  let answer: T
+  try {
+    answer = await send()
+  } catch (error) {
+    if (stillWanted()) fail(troubleOf(error))
+    return
+  }
+  if (stillWanted()) apply(answer)
+}
+
+/** A list answer of another kind than asked for: the run is gone, or `fail` gets the sentence to show. */
+function listTrouble(view: ArtifactsView, fail: (message: string) => void): void {
+  if (view.kind === 'gone') set(runGone, true)
+  else fail(view.kind === 'failed' ? view.message : NOT_CONNECTED_TEXT)
+}
+
 function setFolder(folder: string, state: FolderState): void {
   const next = new Map(read(folders))
   next.set(folder, state)
@@ -117,27 +147,22 @@ function setFolder(folder: string, state: FolderState): void {
 
 /** Asks for one folder's entries; `open` reads the run's list from Archon again. */
 async function loadFolder(runId: string, folder: string, open: boolean): Promise<void> {
-  const current = ask(`folder:${folder}`)
-  setFolder(folder, { kind: 'loading' })
   const request: ArtifactsRequest = folder === '' ? { runId } : { runId, folder }
   if (open) request.open = true
-  try {
-    const answer = await plugin.request('artifacts.read', request)
-    if (!current() || read(heldRun) !== runId) return
-    const view = answer.artifacts
-    if (view.kind === 'folder') {
-      setFolder(folder, { kind: 'loaded', entries: view.entries, notShown: view.notShown })
-      set(counts, { total: view.total, unreadable: view.unreadable })
-    } else if (view.kind === 'gone') {
-      set(runGone, true)
-    } else if (view.kind === 'failed') {
-      setFolder(folder, { kind: 'failed', message: view.message })
-    } else {
-      setFolder(folder, { kind: 'failed', message: 'Orchon is not connected to Archon.' })
-    }
-  } catch (error) {
-    if (current() && read(heldRun) === runId) setFolder(folder, { kind: 'failed', message: troubleOf(error) })
-  }
+  setFolder(folder, { kind: 'loading' })
+  const failed = (message: string): void => setFolder(folder, { kind: 'failed', message })
+  await askWorker(
+    `folder:${folder}`,
+    runId,
+    () => plugin.request('artifacts.read', request),
+    ({ artifacts: view }) => {
+      if (view.kind === 'folder') {
+        setFolder(folder, { kind: 'loaded', entries: view.entries, notShown: view.notShown })
+        set(counts, { total: view.total, unreadable: view.unreadable })
+      } else listTrouble(view, failed)
+    },
+    failed
+  )
 }
 
 /** Artifacts was chosen: the list is read again from Archon and its top level shown. */
@@ -148,18 +173,18 @@ export function openArtifacts(runId: string): void {
 }
 
 async function loadMatches(runId: string, filter: string): Promise<void> {
-  const current = ask('matches')
   set(matches, { kind: 'loading' })
-  try {
-    const answer = await plugin.request('artifacts.read', { runId, filter })
-    if (!current() || read(heldRun) !== runId) return
-    const view = answer.artifacts
-    if (view.kind === 'matches') set(matches, view)
-    else if (view.kind === 'gone') set(runGone, true)
-    else set(matches, { kind: 'failed', message: view.kind === 'failed' ? view.message : 'Orchon is not connected to Archon.' })
-  } catch (error) {
-    if (current() && read(heldRun) === runId) set(matches, { kind: 'failed', message: troubleOf(error) })
-  }
+  const failed = (message: string): void => set(matches, { kind: 'failed', message })
+  await askWorker(
+    'matches',
+    runId,
+    () => plugin.request('artifacts.read', { runId, filter }),
+    ({ artifacts: view }) => {
+      if (view.kind === 'matches') set(matches, view)
+      else listTrouble(view, failed)
+    },
+    failed
+  )
 }
 
 function changeFilter(value: string): void {
@@ -180,15 +205,15 @@ function changeFilter(value: string): void {
 }
 
 async function loadFile(runId: string, path: string): Promise<void> {
-  const current = ask('file')
   set(chosen, path)
   set(chosenFile, { kind: 'loading' })
-  try {
-    const answer = await plugin.request('artifact.read', { runId, path })
-    if (current() && read(heldRun) === runId) set(chosenFile, answer.artifact)
-  } catch (error) {
-    if (current() && read(heldRun) === runId) set(chosenFile, { kind: 'trouble', message: troubleOf(error) })
-  }
+  await askWorker(
+    'file',
+    runId,
+    () => plugin.request('artifact.read', { runId, path }),
+    (answer) => set(chosenFile, answer.artifact),
+    (message) => set(chosenFile, { kind: 'trouble', message })
+  )
 }
 
 const FOLDER_KEY = 'folder:'
@@ -348,7 +373,7 @@ function fileBody(): OrcaNode {
   if (view.kind === 'not-listed') return <Text>{`${path} is no longer in the run's list of artifacts.`}</Text>
   if (view.kind === 'gone') return <Text>{`${path} is no longer there.`}</Text>
   if (view.kind === 'failed') return <Text>{view.message}</Text>
-  if (view.kind === 'not-connected') return <Text>Orchon is not connected to Archon.</Text>
+  if (view.kind === 'not-connected') return <Text>{NOT_CONNECTED_TEXT}</Text>
   const { file, content } = view
   if (content.kind === 'too-large' || content.kind === 'not-text') {
     return (

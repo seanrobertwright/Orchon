@@ -43,6 +43,9 @@ export type ArtifactFolder = { path: string; name: string; files: number }
 
 export type ArtifactEntry = ({ kind: 'folder' } & ArtifactFolder) | ({ kind: 'file' } & ArtifactFile)
 
+/** The run's file count from its list, and how many of the list's entries could not be read. */
+export type ArtifactCounts = { total: number; unreadable: number }
+
 export type ArtifactsView =
   /** Orchon is not connected, so Archon was not asked. */
   | { kind: 'not-connected' }
@@ -50,9 +53,9 @@ export type ArtifactsView =
    * One folder's entries, folders first and then files, each by name: at most
    * `ARTIFACT_ROWS_CAP`, and how many more it holds. `folder` is empty for the top level.
    */
-  | { kind: 'folder'; folder: string; entries: ArtifactEntry[]; notShown: number; total: number; unreadable: number }
+  | ({ kind: 'folder'; folder: string; entries: ArtifactEntry[]; notShown: number } & ArtifactCounts)
   /** The files whose path holds the filter, by path: at most `ARTIFACT_ROWS_CAP`, and how many match. */
-  | { kind: 'matches'; filter: string; files: ArtifactFile[]; matches: number; notShown: number; total: number; unreadable: number }
+  | ({ kind: 'matches'; filter: string; files: ArtifactFile[]; matches: number; notShown: number } & ArtifactCounts)
   /** Archon has no run with this id. */
   | { kind: 'gone' }
   /** The read failed. The message is one sentence for the person. */
