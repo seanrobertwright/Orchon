@@ -9,7 +9,7 @@ import type { Connected, ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import type { LaunchLists, ListResult } from './launch'
 import type { ArchonProject } from './project-match'
-import type { FocusedWorkspace } from './project-scope'
+import { storeKey, type FocusedWorkspace } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { SERVER_TEXT_CAP } from './run-control-view'
@@ -21,6 +21,7 @@ import {
   DELETE_NAME_CAP,
   DELETE_TIMED_OUT,
   isDeletableName,
+  isOwnedSource,
   NOT_DELETABLE,
   SECTION_DESCRIPTION_CAP,
   SECTION_PROJECTS_CAP,
@@ -35,12 +36,6 @@ import {
   type WorkflowsRequest,
   type WorkflowsSectionView
 } from './workflows-section-view'
-
-/** The sources a person owns, which Delete is offered for. */
-const OWNED_SOURCES = new Set(['project', 'global'])
-
-/** What saved data is stored under: the server's store id, or its base URL when it reports none. */
-const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
 
 const contains = (text: string, needle: string): boolean => text.toLowerCase().includes(needle.toLowerCase())
 
@@ -133,7 +128,7 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
   function sectionList(result: ListResult, listed: ListedWorkflow[], filter: string): SectionList {
     if (result.kind !== 'ready') return result
     const all: SectionWorkflow[] = listed
-      .map((row) => ({ name: row.name, description: cutAt(row.description, SECTION_DESCRIPTION_CAP), source: row.source, deletable: OWNED_SOURCES.has(row.source) && isDeletableName(row.name) }))
+      .map((row) => ({ name: row.name, description: cutAt(row.description, SECTION_DESCRIPTION_CAP), source: row.source, deletable: isOwnedSource(row.source) && isDeletableName(row.name) }))
       .sort((first, second) => first.name.localeCompare(second.name) || first.source.localeCompare(second.source))
     const matching = filter === '' ? all : all.filter((row) => contains(row.name, filter) || contains(row.description, filter))
     return { kind: 'ready', rows: matching.slice(0, SECTION_WORKFLOWS_CAP), total: all.length, matching: matching.length, unreadable: result.list.unreadable }
@@ -194,7 +189,7 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
     // The workflow must be in the list the person saw, and one they own; its source is the
     // worker's, never the frame's.
     const { rows } = await listFor(connection, project, false)
-    const row = rows.find((entry) => entry.name === input.name && OWNED_SOURCES.has(entry.source))
+    const row = rows.find((entry) => entry.name === input.name && isOwnedSource(entry.source))
     if (row === undefined) return failed(NOT_DELETABLE)
     let query: URLSearchParams
     if (row.source === 'global') query = new URLSearchParams({ source: 'global' })

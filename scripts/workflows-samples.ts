@@ -4,7 +4,7 @@
 import type { MockHostOptions } from 'orca/testing'
 import type { ConnectionView } from '../src/connection-view.ts'
 import type { ScopeView } from '../src/scope-view.ts'
-import type { DeleteAnswer, DeleteOutcome, SectionWorkflow, WorkflowDelete, WorkflowsAnswer, WorkflowsRequest, WorkflowsSectionView } from '../src/workflows-section-view.ts'
+import { SECTION_WORKFLOWS_CAP, type DeleteAnswer, type DeleteOutcome, type SectionWorkflow, type WorkflowDelete, type WorkflowsAnswer, type WorkflowsRequest, type WorkflowsSectionView } from '../src/workflows-section-view.ts'
 import { connected } from './connection-samples.ts'
 import { answeringScope, choices, matchedWeb } from './scope-samples.ts'
 import { busyRuns } from './runs-samples.ts'
@@ -32,9 +32,9 @@ export const unscopedWorkflows: Extract<WorkflowsSectionView, { kind: 'ready' }>
   list: { kind: 'ready', rows: [packed, deliverWorkflow, tidy], total: 3, matching: 3, unreadable: 0 }
 }
 
-/** An install with `count` bundled workflows, of which the worker sends the first 200. */
+/** An install with `count` bundled workflows, of which the worker sends the first `SECTION_WORKFLOWS_CAP`. */
 export function manyWorkflows(count: number): Extract<WorkflowsSectionView, { kind: 'ready' }> {
-  const rows = Array.from({ length: Math.min(count, 200) }, (_, index) => ({ ...deliverWorkflow, name: `wf-${String(index).padStart(3, '0')}` }))
+  const rows = Array.from({ length: Math.min(count, SECTION_WORKFLOWS_CAP) }, (_, index) => ({ ...deliverWorkflow, name: `wf-${String(index).padStart(3, '0')}` }))
   return { ...webWorkflows, list: { kind: 'ready', rows, total: count, matching: count, unreadable: 0 } }
 }
 

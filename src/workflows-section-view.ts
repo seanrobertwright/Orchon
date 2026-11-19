@@ -32,11 +32,23 @@ export function isDeletableName(name: string): boolean {
   return name.length <= DELETE_NAME_CAP && DELETE_NAME_PATTERN.test(name) && !name.includes('..')
 }
 
+/** The sources a person owns, which Delete is offered for. */
+export type OwnedSource = 'project' | 'global'
+
+/** Whether a workflow from this source is one the person owns. */
+export function isOwnedSource(source: string): source is OwnedSource {
+  return source === 'project' || source === 'global'
+}
+
 /** One workflow as the section lists it. */
 export type SectionWorkflow = {
   name: string
   description: string
-  /** Where Archon read it from: `project`, `global`, `bundled` or `installed`. */
+  /**
+   * Where Archon read it from: `project`, `global`, `bundled` or `installed` at the tested
+   * releases. It stays text because Archon's list is not a closed set; `isOwnedSource` names the
+   * two Delete is offered for.
+   */
   source: string
   /** Delete is offered: a project or global workflow whose name Delete takes. */
   deletable: boolean
