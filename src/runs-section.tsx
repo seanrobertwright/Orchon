@@ -60,15 +60,13 @@ export type RunsSectionHooks = {
   keep(view: ConnectionView): void
 }
 
-export type RunsSection = Pick<ViewFetch, 'refresh' | 'restart'>
-
 const frameTimers: Timers = {
   set: (run, ms) => setTimeout(run, ms),
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>)
 }
 
+/** The section's fetch rules for this panel run: the one handle every restart goes through. */
 let fetcher: ViewFetch | undefined
-let hooks: RunsSectionHooks | undefined
 
 /** What a rejected `plugin.request` means for the person. */
 function requestFailure(error: unknown): string {
@@ -81,10 +79,9 @@ function report(message: string): void {
   set(problem, { message, lastGood: read(lastGood) })
 }
 
-function apply(answer: RunsAnswer | null): void {
+function apply(answer: RunsAnswer | null, hooks: RunsSectionHooks): void {
   if (answer === null) return
-  // A stand-in worker may leave the state out; the worker itself always sends it.
-  if (Object.hasOwn(answer, 'connection')) hooks?.keep(answer.connection)
+  hooks.keep(answer.connection)
   const { runs } = answer
   if (runs.kind === 'ready') {
     set(loaded, runs)
@@ -97,14 +94,13 @@ function apply(answer: RunsAnswer | null): void {
 
 
 /** Starts the section's fetch rules for this panel run. They stop when the panel closes. */
-export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): RunsSection {
-  hooks = given
+export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): void {
   const view = createViewFetch<RunsAnswer | null>({
     load(signal) {
       if (given.connection()?.kind !== 'connected' || !given.showing()) return Promise.resolve(null)
       return plugin.request('runs.read', { status: read(filter), rows: read(requested) }, { signal })
     },
-    apply,
+    apply: (answer) => apply(answer, given),
     fail: (error) => report(requestFailure(error)),
     minGapMs: RUNS_TABLE_GAP_MS,
     safetyMs: SAFETY_REFETCH_MS,
@@ -118,7 +114,11 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): Ru
       if (fetcher === view) fetcher = undefined
     }
   })
-  return { refresh: () => view.refresh(), restart: () => view.restart() }
+}
+
+/** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
+export function restartRuns(): void {
+  fetcher?.restart()
 }
 
 function chooseFilter(value: string): void {
@@ -127,12 +127,12 @@ function chooseFilter(value: string): void {
   set(filter, next)
   set(requested, ROWS_STEP)
   set(selected, null)
-  fetcher?.restart()
+  restartRuns()
 }
 
 function loadMore(): void {
   set(requested, Math.min(read(requested) + ROWS_STEP, ROWS_CAP))
-  fetcher?.restart()
+  restartRuns()
 }
 
 const COLUMNS: readonly TableColumn[] = [
@@ -201,7 +201,7 @@ function problemLine(held: Problem, hasData: boolean): OrcaNode {
       <Stack gap="xs">
         <Text>{`${held.message}${when}`}</Text>
         <Row>
-          <Button size="sm" variant="outline" onPress={() => fetcher?.restart()}>
+          <Button size="sm" variant="outline" onPress={() => restartRuns()}>
             Try again
           </Button>
         </Row>
@@ -258,7 +258,7 @@ export function runsSection(state: Connected): OrcaNode {
     <Stack gap="sm">
       <Row gap="sm" align="center">
         <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
-        <IconButton icon="refresh" label="Refresh runs" onPress={() => fetcher?.restart()} />
+        <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />
       </Row>
       {held === null ? null : problemLine(held, runs !== null)}
       {body}

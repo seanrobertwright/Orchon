@@ -1,9 +1,9 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
-import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, Text, update, type OrcaNode, type PanelContext } from 'orca'
+import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, Text, type OrcaNode, type PanelContext } from 'orca'
 import { connectionGroup } from './connection-group'
 import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
-import { runsSection, startRunsSection, type RunsSection } from './runs-section'
+import { restartRuns, runsSection, startRunsSection } from './runs-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { stateScreen, type StateScreenActions } from './state-screen'
 
@@ -19,21 +19,19 @@ const section = atom<unknown>('section', DEFAULT_SECTION, { persist: 'workspace'
  */
 const connection = atom<ConnectionView | null>(null)
 
-/** The Runs section's fetch rules, for this panel run. */
-let runs: RunsSection | undefined
-
 /** Keeps the newest state: an answer and a post can arrive in either order. */
 function keepNewest(next: ConnectionView): void {
   const held = read(connection)
-  update(connection, (current) => (current === null || next.since > current.since ? next : current))
+  if (held !== null && next.since <= held.since) return
+  set(connection, next)
   // On return to Connected every view that is showing fetches again.
-  if (next.kind === 'connected' && held?.kind !== 'connected' && (held === null || next.since > held.since)) runs?.restart()
+  if (next.kind === 'connected' && held?.kind !== 'connected') restartRuns()
 }
 
 /** Shows a section. Coming back to Runs always reads the table again. */
 function show(id: SectionId): void {
   set(section, id)
-  if (id === 'runs') runs?.restart()
+  if (id === 'runs') restartRuns()
 }
 
 /** Sends a connection request and keeps the state its answer carries. A failed request changes nothing. */
@@ -51,7 +49,7 @@ const actions: StateScreenActions = {
 
 /** Runs once before the first render; what it pushes to `subscriptions` ends with the panel. */
 export function setup(ctx: PanelContext): void {
-  runs = startRunsSection(ctx, {
+  startRunsSection(ctx, {
     connection: () => read(connection),
     showing: () => parseSection(read(section)) === 'runs',
     keep: keepNewest
