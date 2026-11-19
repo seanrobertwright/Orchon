@@ -10,11 +10,19 @@ import { isRecord, isText, own, refuseRequest } from './records'
 import { RUN_PATH } from './run-detail'
 import { RUN_ACTIONS, SERVER_TEXT_CAP, type RunControlAnswer, type RunControlOutcome, type RunControlRequest } from './run-control-view'
 
+/** A field of an answer body, or undefined when the body is not an object or lacks it. */
+function ownOf(value: unknown, key: string): unknown {
+  return isRecord(value) ? own(value, key) : undefined
+}
+
 /** Archon's text, cut at the cap, or null when the field is not text. */
 function serverText(value: unknown, key: string): string | null {
-  const text = isRecord(value) ? own(value, key) : undefined
+  const text = ownOf(value, key)
   return typeof text === 'string' ? cutAt(text, SERVER_TEXT_CAP) : null
 }
+
+/** The statuses that, with an `error`, are a refusal (#14, part 8). Any other is a failure. */
+const REFUSAL_STATUSES: readonly number[] = [400, 403, 409]
 
 /** What one write's answer means for the person. */
 export function controlOutcome(result: ClientResult): RunControlOutcome {
@@ -23,12 +31,12 @@ export function controlOutcome(result: ClientResult): RunControlOutcome {
     return message === null ? { kind: 'failed', message: null } : { kind: 'done', message }
   }
   const { failure } = result
-  if (failure.kind === 'timeout') return { kind: 'timeout' }
+  if (failure.kind === 'timeout') return { kind: 'timeout', timeoutMs: failure.timeoutMs }
   if (failure.kind !== 'status') return { kind: 'failed', message: null }
   if (failure.status === 404) return { kind: 'gone' }
   const error = serverText(failure.body, 'error')
-  if (failure.status >= 400 && failure.status < 500 && error !== null && error !== '') {
-    const child = isRecord(failure.body) ? own(failure.body, 'childRunId') : undefined
+  if (REFUSAL_STATUSES.includes(failure.status) && error !== null && error !== '') {
+    const child = ownOf(failure.body, 'childRunId')
     return isText(child)
       ? { kind: 'refused', status: failure.status, message: error, childRunId: child }
       : { kind: 'refused', status: failure.status, message: error }

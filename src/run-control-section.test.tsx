@@ -304,10 +304,11 @@ describe('what the panel shows once a write returns', () => {
     return view
   }
 
-  test("Archon's message is shown as plain text", async () => {
+  test("Archon's message is shown as plain text, on an info line rather than a callout", async () => {
     const view = await outcomeOf({ kind: 'done', message: 'Resuming **workflow**: workflow-1' })
     assert.ok(view.find({ type: 'Text', text: 'Resuming **workflow**: workflow-1' }))
     assert.equal(view.findAll({ type: 'Markdown' }).length, 0)
+    assert.equal(view.findAll({ type: 'Callout' }).length, 0)
     clean(view)
   })
 
@@ -367,9 +368,14 @@ describe('what the panel shows once a write returns', () => {
   })
 
   test('a timeout says the action may still have happened, and nothing is sent again', async () => {
-    const view = await outcomeOf({ kind: 'timeout' })
+    const view = await outcomeOf({ kind: 'timeout', timeoutMs: 30_000 })
     assert.ok(view.find({ type: 'Text', text: 'Archon did not answer in 30 seconds. The action may still have happened.' }))
     assert.equal(controls(view).length, 1)
+  })
+
+  test('the timeout sentence gives the time the worker waited', async () => {
+    const view = await outcomeOf({ kind: 'timeout', timeoutMs: 45_000 })
+    assert.ok(view.find({ type: 'Text', text: 'Archon did not answer in 45 seconds. The action may still have happened.' }))
   })
 
   test('the outcome goes when the person leaves the run', async () => {

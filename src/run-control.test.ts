@@ -154,6 +154,24 @@ describe('outcomes Archon was not recorded giving', () => {
     assert.deepEqual(cancel.outcome, { kind: 'failed', message: null })
   })
 
+  test('a 4xx other than 400, 403, 404 and 409 is a failure, even with error text', async () => {
+    const stage = connectedScene()
+    stage.archon.answer(write('cancel'), json({ error: 'Unprocessable' }, 422))
+    stage.archon.answer(write('abandon'), json({ error: 'Too many requests' }, 429))
+    const { worker } = await stage.mount()
+    const cancel = (await worker.request('run.control', { runId: RUN, action: 'cancel' })) as RunControlAnswer
+    const abandon = (await worker.request('run.control', { runId: RUN, action: 'abandon' })) as RunControlAnswer
+    assert.deepEqual(cancel.outcome, { kind: 'failed', message: 'Unprocessable' })
+    assert.deepEqual(abandon.outcome, { kind: 'failed', message: 'Too many requests' })
+  })
+
+  test('a 403 with error text is a refusal', async () => {
+    const stage = connectedScene()
+    stage.archon.answer(write('cancel'), json({ error: 'Forbidden' }, 403))
+    const answer = await control(stage, { runId: RUN, action: 'cancel' })
+    assert.deepEqual(answer.outcome, { kind: 'refused', status: 403, message: 'Forbidden' })
+  })
+
   test('a write Archon does not answer times out after 30 seconds and is not sent again', async () => {
     const stage = connectedScene()
     stage.archon.answer(write('cancel'), HANG)
@@ -165,7 +183,7 @@ describe('outcomes Archon was not recorded giving', () => {
     await settle()
     assert.equal(settled, false)
     await stage.clock.advance(1)
-    assert.deepEqual((await pending).outcome, { kind: 'timeout' })
+    assert.deepEqual((await pending).outcome, { kind: 'timeout', timeoutMs: 30_000 })
     await stage.clock.advance(60_000)
     assert.equal(stage.archon.calls.filter((call) => call.url === write('cancel')).length, 1)
   })
@@ -223,7 +241,7 @@ describe("the worker's refusals", () => {
     const other = (await worker.request('run.control', { runId: 'other', action: 'resume' })) as RunControlAnswer
     assert.equal(other.outcome.kind, 'done')
     await stage.clock.advance(30_000)
-    assert.deepEqual((await first).outcome, { kind: 'timeout' })
+    assert.deepEqual((await first).outcome, { kind: 'timeout', timeoutMs: 30_000 })
     const after = (await worker.request('run.control', { runId: RUN, action: 'abandon' })) as RunControlAnswer
     assert.equal(after.outcome.kind, 'done')
     assert.deepEqual(

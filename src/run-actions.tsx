@@ -23,7 +23,14 @@ const CONFIRM = {
   abandon: { sentence: 'Abandon this run? Its sub-runs are cancelled and its worktrees are released.', keep: 'Keep run', go: 'Abandon run' }
 } as const
 
-type Confirming = { runId: string; control: keyof typeof CONFIRM; status: RunDetail['status'] }
+type Confirmed = keyof typeof CONFIRM
+
+/** Whether a control asks before it sends. */
+function confirms(control: Control): control is Confirmed {
+  return Object.hasOwn(CONFIRM, control)
+}
+
+type Confirming = { runId: string; control: Confirmed; status: RunDetail['status'] }
 
 /** What the panel shows once a write returned: Archon's outcome, or the worker's own trouble. */
 type Shown = RunControlOutcome | { kind: 'worker'; message: string }
@@ -137,7 +144,7 @@ export function actionRow(detail: RunDetail, writable: boolean, hooks: RunAction
           variant="outline"
           disabled={off}
           onPress={() => {
-            if (control === 'cancel' || control === 'abandon') set(confirming, { runId: detail.id, control, status: detail.status })
+            if (confirms(control)) set(confirming, { runId: detail.id, control, status: detail.status })
             else send(detail.id, control, hooks)
           }}
         >
@@ -155,11 +162,8 @@ export function outcomeCallout(detail: RunDetail, hooks: RunActionHooks): OrcaNo
   const { outcome } = held
   switch (outcome.kind) {
     case 'done':
-      return (
-        <Callout tone="success">
-          <Text>{outcome.message === '' ? 'Archon accepted the change.' : outcome.message}</Text>
-        </Callout>
-      )
+      // An info line, not a callout (#14, part 8).
+      return <Text>{outcome.message === '' ? 'Archon accepted the change.' : outcome.message}</Text>
     case 'refused': {
       const child = outcome.childRunId
       return (
@@ -189,7 +193,7 @@ export function outcomeCallout(detail: RunDetail, hooks: RunActionHooks): OrcaNo
     case 'timeout':
       return (
         <Callout tone="warning">
-          <Text>Archon did not answer in 30 seconds. The action may still have happened.</Text>
+          <Text>{`Archon did not answer in ${Math.round(outcome.timeoutMs / 1_000)} seconds. The action may still have happened.`}</Text>
         </Callout>
       )
     case 'not-connected':

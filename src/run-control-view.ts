@@ -19,16 +19,19 @@ export type RunControlOutcome =
   /** Archon did it. `message` is its own text, cut at `SERVER_TEXT_CAP`, and may be empty. */
   | { kind: 'done'; message: string }
   /**
-   * Archon refused with its own text (a 4xx other than 404), or the worker refused before asking.
+   * Archon refused with its own text (a 400, 403 or 409), or the worker refused before asking.
    * `status` is Archon's, or null for the worker's own refusal. `childRunId` when Archon named the
    * sub-run that holds the action up.
    */
   | { kind: 'refused'; status: number | null; message: string; childRunId?: string }
   /** Archon has no run with this id. */
   | { kind: 'gone' }
-  /** A 500 or an answer that is not the expected JSON. `message` is Archon's text, when it gave one. */
+  /**
+   * A 500, any status other than a refusal's or 404, or an answer that is not the expected JSON.
+   * `message` is Archon's text, when it gave one.
+   */
   | { kind: 'failed'; message: string | null }
-  /** Archon did not answer within the write timeout. The action may still have happened. */
-  | { kind: 'timeout' }
+  /** Archon did not answer within the write timeout, `timeoutMs`. The action may still have happened. */
+  | { kind: 'timeout'; timeoutMs: number }
 
 export type RunControlAnswer = ConnectionAnswer & { outcome: RunControlOutcome }
