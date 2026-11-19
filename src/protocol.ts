@@ -32,8 +32,9 @@ declare module 'orca' {
     /** Returns one group to its loaded values. */
     'forms.discard': { input: { group: FormGroupId }; output: FormsAnswer }
     /**
-     * Saves one group. The answer comes at once, with the group saving; the outcome is posted as
-     * `forms.changed`.
+     * Saves one group. The answer comes at once: with the group saving when the save started, and
+     * then its outcome is posted as `forms.changed`; with the failed checks on their fields, and
+     * nothing sent, when it did not.
      */
     'forms.save': { input: { group: FormGroupId }; output: FormsAnswer }
     /** Settles a save stopped by an outside change: load, overwrite or keep editing. */

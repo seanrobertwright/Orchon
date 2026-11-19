@@ -157,6 +157,28 @@ describe('reading the editable groups', () => {
   }
 })
 
+describe('the providers', () => {
+  test('lists at most 50, says how many more there are, and drops and counts a row it cannot read', async () => {
+    const { stage, mounted } = await connectedTo('0.12.1')
+    const rows: unknown[] = Array.from({ length: 53 }, (_, index) => ({ id: `p${String(index)}`, displayName: `P ${String(index)}` }))
+    rows.push({ displayName: 'no id' })
+    stage.archon.answer(PROVIDERS, json({ providers: rows }))
+    const { forms } = await mounted.worker.request('forms.read')
+    assert.equal(forms.providers.length, 50)
+    const assistant = field(forms.defaults, 'assistant')
+    assert.ok(assistant.kind === 'select')
+    // Besides "Inherit" and the 50 listed, the saved claude, which this Archon does not list.
+    assert.equal(assistant.options.filter((option) => option.value.startsWith('p')).length, 50)
+    assert.deepEqual(assistant.options.at(-1), { value: 'claude', label: 'claude (not registered)' })
+    assert.deepEqual(forms.defaults.notes, [
+      '3 more registered providers are not listed. Edit config.yaml to use one of them.',
+      '1 provider could not be read and is not listed.'
+    ])
+    assert.deepEqual(forms.tiers.notes, forms.defaults.notes)
+    await mounted.worker.deactivate()
+  })
+})
+
 describe('editing a group', () => {
   test('shows Codex reasoning effort from its effort levels and web search when Codex is registered', async () => {
     const { stage, mounted } = await connectedTo('0.14.0')

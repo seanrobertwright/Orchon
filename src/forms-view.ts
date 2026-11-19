@@ -1,6 +1,6 @@
 // The editable groups of the Settings section as a frame gets them: the view model the worker
-// answers and posts. The worker holds each group's unsaved form and decides every field, option,
-// placeholder and message; a frame draws the fields in order and sends back only field values.
+// answers and posts. The worker holds each group's unsaved form and decides every field, option
+// and placeholder; a frame draws the fields in order and sends back only field values.
 // It is types only, so the panel and the worker read one contract and no code crosses between them.
 import type { ConnectionView } from './connection-view'
 

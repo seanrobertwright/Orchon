@@ -120,10 +120,14 @@ export function createSettingsForms(ports: SettingsFormsPorts): SettingsForms {
     const { spec, loaded } = state
     const changed = changedKeys(state)
     const notes: string[] = []
-    if (providers.more > 0) {
-      notes.push(`${String(providers.more)} more registered providers are not listed. Edit config.yaml to use one of them.`)
+    const { more, unreadable } = providers
+    if (more > 0) {
+      const these = more === 1 ? '1 more registered provider is' : `${String(more)} more registered providers are`
+      notes.push(`${these} not listed. Edit config.yaml to use one of them.`)
     }
-    if (providers.unreadable > 0) notes.push(`${String(providers.unreadable)} providers could not be read and are not listed.`)
+    if (unreadable > 0) {
+      notes.push(unreadable === 1 ? '1 provider could not be read and is not listed.' : `${String(unreadable)} providers could not be read and are not listed.`)
+    }
     if (loaded === null) {
       return { group: spec.id, title: spec.title, summary: '', loaded: false, fields: [], notes, dirty: false, saving: state.saving, notice: state.notice, conflict: null }
     }
