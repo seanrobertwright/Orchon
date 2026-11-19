@@ -9,7 +9,8 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
-import { formatDateTime } from './dates'
+import { cutAt } from './cutter'
+import { formatDateTime, formatDuration } from './dates'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, ownRecord, refuseOtherKeys, refuseRequest } from './records'
 import { readRun } from './run-detail'
@@ -19,7 +20,16 @@ import type { RunStatus } from './runs-view'
 import { stepWords } from './step-tree'
 import { tabConnection } from './tab-screen'
 import { NO_PROJECT_GRAPH } from './wide-tabs'
-import type { GraphAnswer, GraphEdge, GraphHeader, GraphRequest, GraphStep, GraphStepState, GraphView } from '../editors/run-graph/graph-view'
+import type {
+  GraphAnswer,
+  GraphEdge,
+  GraphHeader,
+  GraphRequest,
+  GraphStep,
+  GraphStepState,
+  GraphStepSummary,
+  GraphView
+} from '../editors/run-graph/graph-view'
 
 /** The most steps one graph lays out (#17). The builder uses the same number. */
 export const GRAPH_STEPS_CAP = 300
@@ -75,6 +85,127 @@ function parseWorkflow(value: unknown): FileNode[] | null {
 }
 
 const LIVE: readonly RunStatus[] = ['running', 'paused', 'pending']
+
+/** The most characters of one step's output the graph answer carries: 4 KiB (#17). */
+export const GRAPH_OUTPUT_CAP = 4 * 1024
+/**
+ * The most bytes of output, as JSON text, one graph answer carries over all its steps, so the
+ * answer stays well inside a request answer's 1 MiB with 300 steps. Steps past it, in the
+ * graph's order, carry none and say so.
+ */
+export const GRAPH_OUTPUT_BUDGET_BYTES = 384 * 1024
+
+/** Archon's skip reasons as a sentence. A reason it adds later is shown as Archon names it. */
+const SKIP_REASONS: Record<string, string> = {
+  prior_success: 'It had completed before the run resumed.',
+  when_condition: 'Its when condition was false.',
+  when_condition_parse_error: 'Its when condition could not be read.',
+  trigger_rule: 'Its trigger rule was not met.',
+  timeout: 'It timed out.'
+}
+const NO_SKIP_REASON = 'Archon gave no reason.'
+
+/** What the run's events say about one step's latest start, before its output is cut. */
+type StepFacts = { durationMs: number | null; costUsd: number | null; model: string | null; skipReason: string | null; output: string }
+
+const isAmount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0
+
+/** A measurement Archon reported, `{ source: "provider", value }`, or undefined. */
+function reported(record: Record<string, unknown>, key: string): unknown {
+  const measured = ownRecord(record, key)
+  return own(measured, 'source') === 'provider' ? own(measured, 'value') : undefined
+}
+
+/** The model a start used: the one the provider reported, else the one asked for. */
+function modelOf(data: Record<string, unknown>): string | null {
+  const model = ownRecord(ownRecord(data, 'binding'), 'model')
+  const resolved = reported(model, 'resolved')
+  if (isText(resolved)) return resolved
+  const usage = own(ownRecord(data, 'model_usage'), 'resolved')
+  if (isText(usage)) return usage
+  const requested = own(model, 'requested')
+  return isText(requested) ? requested : null
+}
+
+function costOf(data: Record<string, unknown>): number | null {
+  const fromSpend = reported(ownRecord(data, 'spend'), 'costUsd')
+  if (isAmount(fromSpend)) return fromSpend
+  const flat = own(data, 'cost_usd')
+  return isAmount(flat) ? flat : null
+}
+
+function durationOf(data: Record<string, unknown>): number | null {
+  const fromTiming = own(ownRecord(data, 'timing'), 'durationMs')
+  if (isAmount(fromTiming)) return fromTiming
+  const flat = own(data, 'duration_ms')
+  return isAmount(flat) ? flat : null
+}
+
+const blank = (): StepFacts => ({ durationMs: null, costUsd: null, model: null, skipReason: null, output: '' })
+
+/** Folds the run's events into each step's latest start, in one pass. An event that cannot be read is passed over. */
+function foldFacts(value: unknown): Map<string, StepFacts> {
+  const facts = new Map<string, StepFacts>()
+  const events = isRecord(value) ? own(value, 'events') : undefined
+  if (!Array.isArray(events)) return facts
+  for (const event of events as unknown[]) {
+    if (!isRecord(event)) continue
+    const id = own(event, 'step_name')
+    const type = own(event, 'event_type')
+    if (!isText(id) || !isText(type)) continue
+    const data = ownRecord(event, 'data')
+    if (type === 'node_started') {
+      facts.set(id, { ...blank(), model: modelOf(data) })
+    } else if (type === 'node_completed' || type === 'node_failed') {
+      const output = own(data, 'node_output')
+      facts.set(id, {
+        durationMs: durationOf(data),
+        costUsd: costOf(data),
+        model: modelOf(data) ?? facts.get(id)?.model ?? null,
+        skipReason: null,
+        output: typeof output === 'string' ? output : ''
+      })
+    } else if (type === 'node_skipped' || type.startsWith('node_skipped_')) {
+      const reason = own(data, 'reason')
+      const said = isText(reason) ? (Object.hasOwn(SKIP_REASONS, reason) ? SKIP_REASONS[reason] : reason) : undefined
+      facts.set(id, { ...blank(), skipReason: said ?? NO_SKIP_REASON })
+    }
+  }
+  return facts
+}
+
+/** What a cost reads as on the card, as the panel's run facts write it. */
+function costText(cost: number | null): string | null {
+  if (cost === null) return null
+  if (cost > 0 && cost < 0.005) return 'Under $0.01'
+  return `$${cost.toFixed(2)}`
+}
+
+const encoder = new TextEncoder()
+
+/**
+ * Each step with its summary, in the graph's order. Output is cut at `GRAPH_OUTPUT_CAP`, and once
+ * the answer's output would pass `GRAPH_OUTPUT_BUDGET_BYTES` a step carries none.
+ */
+function withSummaries(steps: readonly GraphStep[], facts: ReadonlyMap<string, StepFacts>): GraphStep[] {
+  let spent = 0
+  return steps.map((step) => {
+    const known = facts.get(step.id) ?? blank()
+    const cut = cutAt(known.output, GRAPH_OUTPUT_CAP)
+    const size = cut === '' ? 0 : encoder.encode(JSON.stringify(cut)).length
+    const fits = spent + size <= GRAPH_OUTPUT_BUDGET_BYTES
+    if (fits) spent += size
+    const summary: GraphStepSummary = {
+      duration: known.durationMs === null || step.state === 'running' ? null : formatDuration(known.durationMs),
+      cost: costText(known.costUsd),
+      model: known.model,
+      skipReason: known.skipReason,
+      output: fits ? cut : '',
+      outputShown: !fits ? 'withheld' : cut.length < known.output.length ? 'cut' : 'whole'
+    }
+    return { ...step, summary }
+  })
+}
 
 /** A step's state as the tab shows it, from the run's step and the run's status. */
 function stateOf(step: Pick<Step, 'state' | 'reached'>, run: RunStatus): GraphStepState {
@@ -186,11 +317,12 @@ export function startRunGraph(orca: OrcaWorkerApi, ports: RunGraphPorts): Dispos
     const mismatch = nodes === null ? 'deleted' : mismatched(runTopIds(fetched.value, run.steps), fileIds, live) ? 'changed' : null
     if (mismatch !== null || nodes === null) {
       if (run.stepCount > GRAPH_STEPS_CAP) return { kind: 'too-many', header, count: run.stepCount, cap: GRAPH_STEPS_CAP }
-      return { kind: 'ready', header, mismatch: mismatch ?? 'deleted', steps: fromRun(run.steps, run.status), edges: [] }
+      const steps = withSummaries(fromRun(run.steps, run.status), foldFacts(fetched.value))
+      return { kind: 'ready', header, mismatch: mismatch ?? 'deleted', steps, edges: [] }
     }
     const drawn = fromFile(nodes, ran, run.status)
     if (drawn.steps.length > GRAPH_STEPS_CAP) return { kind: 'too-many', header, count: drawn.steps.length, cap: GRAPH_STEPS_CAP }
-    return { kind: 'ready', header, mismatch: null, ...drawn }
+    return { kind: 'ready', header, mismatch: null, steps: withSummaries(drawn.steps, foldFacts(fetched.value)), edges: drawn.edges }
   }
 
   return orca.panels.handle('graph.read', async (input, context): Promise<GraphAnswer> => {
