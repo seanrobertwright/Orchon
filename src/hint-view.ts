@@ -1,5 +1,6 @@
 // The hint as a frame gets it: a worker post saying runs changed in Archon. It holds the contract
 // and the one list it is built from, so the panel and the worker read the same thing.
+import type { ConnectionAnswer } from './connection-view'
 
 /** The two dashboard frames the plugin acts on, the same two Archon's console acts on. */
 export const HINT_TYPES = ['workflow_status', 'dag_node'] as const
@@ -20,3 +21,6 @@ export type RunsHint = {
  * press once, telling presses apart by `at`.
  */
 export type ShowRuns = { at: number; needsYou: boolean }
+
+/** The answer to `connection.read`: the state, and the last press while the worker remembers it. */
+export type ConnectionReadAnswer = ConnectionAnswer & { showRuns?: ShowRuns }

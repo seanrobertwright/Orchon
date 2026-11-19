@@ -1,6 +1,6 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
 import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
-import type { Connected, ConnectionAnswer, ConnectionView } from './connection-view'
+import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
@@ -18,7 +18,7 @@ import {
   showNeedsYou,
   startRunsSection
 } from './runs-section'
-import type { ShowRuns } from './hint-view'
+import type { ConnectionReadAnswer, ShowRuns } from './hint-view'
 import { startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
@@ -99,7 +99,7 @@ function applyShowRuns(press: ShowRuns | null): void {
 }
 
 /** A connection read or retry answered: the worker answers, and the state it carries is kept. */
-function connectionAnswered(answer: ConnectionAnswer & { showRuns?: ShowRuns }): void {
+function connectionAnswered(answer: ConnectionReadAnswer): void {
   set(connectionTrouble, null)
   keepNewest(answer.connection)
   if (answer.showRuns !== undefined) applyShowRuns(answer.showRuns)
@@ -195,7 +195,7 @@ export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
   startFormGroups(ctx, { keep: keepNewest })
   // The first read, then one on the safety refetch: a worker that did not answer is tried again.
-  const fetch = createViewFetch<ConnectionAnswer & { showRuns?: ShowRuns }>({
+  const fetch = createViewFetch<ConnectionReadAnswer>({
     load: (signal) => plugin.request('connection.read', undefined, { signal }),
     apply: connectionAnswered,
     fail: (_error, trouble) => connectionFailed(trouble),

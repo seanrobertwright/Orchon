@@ -2,7 +2,7 @@
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
-import type { RunsHint, ShowRuns } from './hint-view'
+import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
 import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
@@ -14,7 +14,7 @@ declare module 'orca' {
      * The connection state. Neither request takes an input. The read also carries the last press
      * of "Orchon: Show runs" while the worker remembers it, for a panel that mounts after it.
      */
-    'connection.read': { output: ConnectionAnswer & { showRuns?: ShowRuns } }
+    'connection.read': { output: ConnectionReadAnswer }
     /** "Try again": in Not found and Unsupported, runs discovery at once. */
     'connection.retry': { output: ConnectionAnswer }
     /** The runs table: the counts and rows 0 to N of one status filter, in one answer. */

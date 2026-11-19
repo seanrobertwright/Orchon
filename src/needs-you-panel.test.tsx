@@ -6,7 +6,7 @@ import { mock } from 'node:test'
 import { afterEach, assert, describe, mockHost, mount, test, type TestPanel, type TreeSnapshot } from 'orca/testing'
 import { answeringRuns, connected } from '../scripts/connection-samples.ts'
 import { busyRuns, sampleRun } from '../scripts/runs-samples.ts'
-import type { ShowRuns } from './hint-view'
+import type { ConnectionReadAnswer } from './hint-view'
 import * as panelModule from './panel'
 import type { NeedsYouView, RunRow, RunsRequest, RunsView } from './runs-view'
 
@@ -44,7 +44,7 @@ function withNeedsYou(needsYou: NeedsYouView) {
   }
 }
 
-type Extra = { showRuns?: ShowRuns }
+type Extra = Pick<ConnectionReadAnswer, 'showRuns'>
 
 async function mountWith(needsYou: NeedsYouView, options: { section?: string; extra?: Extra; applied?: number } = {}): Promise<TestPanel> {
   const answers = answeringRuns(withNeedsYou(needsYou))
