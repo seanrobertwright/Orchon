@@ -72,8 +72,11 @@ describe('the CI workflow', () => {
     assert.notEqual(config.gitignore, true)
   })
 
-  test('the pre-commit hook runs the tracked-files check', () => {
-    assert.match(readRepoText('.githooks/pre-commit'), /^git ls-files -z \| node scripts\/check-tracked-files\.ts$/m)
+  test('the pre-commit hook runs the tracked-files check on the staged content', () => {
+    const hook = readRepoText('.githooks/pre-commit')
+    assert.match(hook, /^staged=\$\(mktemp -d\)$/m)
+    assert.match(hook, /^git checkout-index --all --prefix="\$staged\/"$/m)
+    assert.match(hook, /^git ls-files -z \| node scripts\/check-tracked-files\.ts --root "\$staged"$/m)
     assert.equal(scripts['hooks:install'], 'git config core.hooksPath .githooks')
   })
 })

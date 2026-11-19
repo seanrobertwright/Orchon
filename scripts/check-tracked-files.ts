@@ -1,10 +1,12 @@
 // The pre-commit check. It fails when a tracked file holds U+FFFD or text that is not valid
 // UTF-8, or the owner's personal handle, home path or email address.
 //
-//   git ls-files -z | node scripts/check-tracked-files.ts
+//   git ls-files -z | node scripts/check-tracked-files.ts [--root <folder>]
 //
 // It reads the NUL-separated list of tracked files on standard input and starts no process.
-import { readFileSync } from 'node:fs'
+// Without --root it reads each file from the working tree. The pre-commit hook writes the staged
+// content to a temporary folder and passes it as --root, so what is checked is what is committed.
+import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { isSkippedPath, repoRoot } from './repo-files.ts'
 
@@ -92,10 +94,10 @@ async function readStandardInput(): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
-/** The bytes of a tracked file, or null when it is deleted in the working tree or is not a file. */
-function readTracked(path: string): Uint8Array | null {
+/** The bytes of a listed file, or null when it is not in `root` or is not a file. */
+function readListed(path: string, root: string): Uint8Array | null {
   try {
-    return readFileSync(join(repoRoot, path))
+    return readFileSync(join(root, path))
   } catch (error) {
     const code = error instanceof Error && 'code' in error ? error.code : undefined
     if (code === 'ENOENT' || code === 'EISDIR') return null
@@ -103,7 +105,43 @@ function readTracked(path: string): Uint8Array | null {
   }
 }
 
+/** Every banned thing in the listed files, read from `root`, in list order. */
+export function checkFiles(paths: readonly string[], root: string): Finding[] {
+  return paths.flatMap((path) => {
+    const bytes = readListed(path, root)
+    return bytes === null ? [] : findBannedText(path, bytes)
+  })
+}
+
+/** The folder to read from: null for the working tree. An argument it does not know is an error. */
+export function parseArguments(args: readonly string[]): { root: string | null } | { error: string } {
+  if (args.length === 0) return { root: null }
+  const [flag, folder] = args
+  if (args.length === 2 && flag === '--root' && folder !== undefined && folder !== '') {
+    return { root: folder }
+  }
+  return { error: 'Usage: git ls-files -z | node scripts/check-tracked-files.ts [--root <folder>]' }
+}
+
+function isFolder(path: string): boolean {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 async function main(): Promise<number> {
+  const parsed = parseArguments(process.argv.slice(2))
+  if ('error' in parsed) {
+    console.error(parsed.error)
+    return 2
+  }
+  const root = parsed.root ?? repoRoot
+  if (!isFolder(root)) {
+    console.error('--root does not name a folder.')
+    return 2
+  }
   const paths = process.stdin.isTTY ? [] : pathsToCheck(await readStandardInput())
   if (paths.length === 0) {
     console.error(
@@ -111,10 +149,7 @@ async function main(): Promise<number> {
     )
     return 2
   }
-  const findings = paths.flatMap((path) => {
-    const bytes = readTracked(path)
-    return bytes === null ? [] : findBannedText(path, bytes)
-  })
+  const findings = checkFiles(paths, root)
   for (const finding of findings) {
     console.error(`${finding.path}:${finding.line}: ${finding.rule}`)
   }

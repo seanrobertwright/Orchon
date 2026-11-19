@@ -1,4 +1,6 @@
 // What a gate needs beyond Node: the development dependencies and Orca's generated types.
+// This is the one file that may import `node:module`: the lint config bans it everywhere else.
+import { createRequire } from 'node:module'
 
 /** A gate could not start because something it needs is not installed. */
 export class MissingTooling extends Error {
@@ -6,9 +8,25 @@ export class MissingTooling extends Error {
 }
 
 /** Whether loading a package failed because it is not installed. */
-export function isModuleNotFound(error: unknown): boolean {
+function isModuleNotFound(error: unknown): boolean {
   if (!(error instanceof Error) || !('code' in error)) return false
   return error.code === 'MODULE_NOT_FOUND' || error.code === 'ERR_MODULE_NOT_FOUND'
+}
+
+const loadFromNodeModules = createRequire(import.meta.url)
+
+/**
+ * A development dependency, loaded through Node's own resolver: `orca plugin test` resolves the
+ * imports of this folder itself and refuses a package imported by name. Throws `MissingTooling`
+ * when the package is not installed.
+ */
+export function loadPackage(name: 'eslint' | 'typescript'): unknown {
+  try {
+    return loadFromNodeModules(name)
+  } catch (error) {
+    if (isModuleNotFound(error)) throw new MissingTooling(`${name} is not installed. Run: npm ci`)
+    throw error
+  }
 }
 
 /**

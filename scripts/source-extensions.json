@@ -1,0 +1,5 @@
+{
+  "typescript": ["ts", "tsx", "mts", "cts"],
+  "javascript": ["js", "jsx", "mjs", "cjs"],
+  "transpiled": ["ts", "tsx", "mts", "jsx"]
+}

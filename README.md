@@ -34,7 +34,7 @@ There is no bundler. Orca loads `src/worker.ts` and `src/panel.tsx` as written. 
 | --- | --- |
 | `npm run check:tracked` | No tracked file holds U+FFFD, text that is not valid UTF-8, or the owner's personal handle, home path or email address. |
 | `npm run typecheck` | The whole repository type-checks against Orca's generated types. |
-| `npm run check:editors` | The committed editor JavaScript equals the compiler's output. |
+| `npm run check:editors` | The committed editor JavaScript equals the compiler's output, and every JavaScript file under `editors/` has a TypeScript source. |
 | `npm run lint` | ESLint: unused code, the module bans below, and accessibility rules for the editors' HTML. |
 | `npm run lint:md` | markdownlint on every Markdown file. |
 | `npm test` | `orca plugin test`: the worker, the panel, the editors and the gates' own rules. |
@@ -54,16 +54,17 @@ Turn the pre-commit hook on once per clone:
 npm run hooks:install
 ```
 
-It runs the same check as `npm run check:tracked` before each commit.
+Before each commit it runs the same check as `npm run check:tracked`, on the staged content and not on the working tree.
 
 ### Module bans
 
-ESLint fails the build on any of these.
+ESLint fails the build on any of these. A module counts as loaded by `import`, `export ... from`, `import()` or `require()`. The rules cover every file of code; `scripts/source-extensions.json` lists the extensions for all the gates.
 
-- An import of `node:child_process`, `node:net`, `node:http`, `node:https`, `node:tls`, `node:dgram` or `node:worker_threads`, in any file.
-- An import of `node:fs` outside the disk module `src/disk.ts`. The gates' scripts and the tests are the exception: they may read files.
+- Loading `node:child_process`, `node:net`, `node:http`, `node:https`, `node:tls`, `node:dgram` or `node:worker_threads`, in any file.
+- Loading `node:fs` outside the disk module `src/disk.ts`. The gates' scripts and the tests are the exception: they may read files.
 - A use of `fetch` outside the client module `src/client.ts`.
-- `eval`, `new Function`, and an `import()` whose target is not a literal string.
+- `eval`, `new Function`, and an `import()` or `require()` whose target is not a literal string.
+- The ways around those rules: `require()` outside `eslint.config.cjs`, `node:module` outside `scripts/tooling.ts`, and `process.getBuiltinModule` in any file.
 
 A test also fails when the source names a `workspace:write` host method other than `editor.open` and `workspace.open`.
 

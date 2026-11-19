@@ -2,48 +2,35 @@
 // tests, docs and source all count.
 //
 //   node scripts/check-install-limits.ts
-import { listRepoFiles } from './repo-files.ts'
-
-export interface InstallLimits {
-  files: number
-  totalBytes: number
-  /** For one file Orca transpiles when it loads the plugin. */
-  transpiledFileBytes: number
-}
+import { hasExtension, listRepoFiles, SOURCE_EXTENSIONS } from './repo-files.ts'
 
 const MIB = 1024 * 1024
 
-export const INSTALL_LIMITS: InstallLimits = {
+export const INSTALL_LIMITS = {
   files: 2000,
   totalBytes: 50 * MIB,
+  /** For one file Orca transpiles when it loads the plugin. */
   transpiledFileBytes: MIB
-}
-
-/** The files Orca transpiles as written: `.ts`, `.tsx`, `.mts` and `.jsx`. */
-const TRANSPILED = /\.(?:ts|tsx|mts|jsx)$/
+} as const
 
 const count = (value: number): string => value.toLocaleString('en-US')
 const mib = (bytes: number): string => `${count(bytes / MIB)} MiB`
 
 /** One sentence for each total the files exceed and for each oversized file Orca transpiles; empty when they fit. */
-export function checkInstallLimits(
-  files: readonly { path: string; bytes: number }[],
-  limits: InstallLimits = INSTALL_LIMITS
-): string[] {
+export function checkInstallLimits(files: readonly { path: string; bytes: number }[]): string[] {
+  const { files: fileLimit, totalBytes, transpiledFileBytes } = INSTALL_LIMITS
   const problems: string[] = []
-  if (files.length > limits.files) {
-    problems.push(`${count(files.length)} files: the limit is ${count(limits.files)}.`)
+  if (files.length > fileLimit) {
+    problems.push(`${count(files.length)} files: the limit is ${count(fileLimit)}.`)
   }
   const total = files.reduce((sum, file) => sum + file.bytes, 0)
-  if (total > limits.totalBytes) {
-    problems.push(
-      `${count(total)} bytes in total: the limit is ${count(limits.totalBytes)} (${mib(limits.totalBytes)}).`
-    )
+  if (total > totalBytes) {
+    problems.push(`${count(total)} bytes in total: the limit is ${count(totalBytes)} (${mib(totalBytes)}).`)
   }
   for (const file of files) {
-    if (TRANSPILED.test(file.path) && file.bytes > limits.transpiledFileBytes) {
+    if (hasExtension(file.path, SOURCE_EXTENSIONS.transpiled) && file.bytes > transpiledFileBytes) {
       problems.push(
-        `${file.path} is ${count(file.bytes)} bytes: a file Orca transpiles may be at most ${count(limits.transpiledFileBytes)} (${mib(limits.transpiledFileBytes)}).`
+        `${file.path} is ${count(file.bytes)} bytes: a file Orca transpiles may be at most ${count(transpiledFileBytes)} (${mib(transpiledFileBytes)}).`
       )
     }
   }

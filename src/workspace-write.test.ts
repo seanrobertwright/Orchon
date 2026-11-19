@@ -2,7 +2,7 @@
 // focusing terminals and running built-in commands. Orchon uses the capability for `editor.open`
 // and `workspace.open` only, so this test fails when the source names any other of its methods.
 import { assert, describe, test } from 'orca/testing'
-import { listRepoFiles, readRepoText } from '../scripts/repo-files.ts'
+import { CODE_EXTENSIONS, hasExtension, listRepoFiles, readRepoText } from '../scripts/repo-files.ts'
 
 /** Every `workspace:write` method of host API 1.10. */
 const WORKSPACE_WRITE_METHODS = [
@@ -19,7 +19,7 @@ const ALLOWED = ['editor.open', 'workspace.open']
 function isShippedSource(path: string): boolean {
   if (!/^(?:src|editors)\//.test(path)) return false
   if (/\.(?:test|check)\.[a-z]+$/.test(path)) return false
-  return /\.(?:ts|tsx|mts|js|mjs|jsx|html)$/.test(path)
+  return hasExtension(path, [...CODE_EXTENSIONS, 'html'])
 }
 
 /** The methods outside the allowed two that `text` names, as a word of their own. */

@@ -1,6 +1,9 @@
 // The pre-commit check's rules, driven through the functions its command line uses.
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
-import { findBannedText, pathsToCheck } from './check-tracked-files.ts'
+import { checkFiles, findBannedText, parseArguments, pathsToCheck } from './check-tracked-files.ts'
 
 // This file is tracked, so it is checked too: every banned string is put together at run time.
 const handle = ['sea', 'nr'].join('')
@@ -72,5 +75,31 @@ describe('the tracked-files check', () => {
   test('reads a NUL-separated list and skips the folders no gate reads', () => {
     const list = ['README.md', '.lril/state.json', 'src/worker.ts', 'node_modules/a/b.js', ''].join('\0')
     assert.deepEqual(pathsToCheck(list), ['README.md', 'src/worker.ts'])
+  })
+
+  test('reads the working tree unless it is given the folder the staged files were written to', () => {
+    assert.deepEqual(parseArguments([]), { root: null })
+    assert.deepEqual(parseArguments(['--root', 'staged']), { root: 'staged' })
+  })
+
+  test('refuses arguments it does not know', () => {
+    for (const bad of [['--root'], ['--root', ''], ['--root', 'a', 'b'], ['--staged'], ['staged']]) {
+      const parsed = parseArguments(bad)
+      assert.ok('error' in parsed, `accepted: ${bad.join(' ')}`)
+    }
+  })
+
+  test('checks the files of the folder it is given, and passes a listed file that is not there', () => {
+    const staged = mkdtempSync(join(tmpdir(), 'orchon-staged-'))
+    try {
+      mkdirSync(join(staged, 'docs'))
+      writeFileSync(join(staged, 'docs', 'notes.md'), `clean\nby ${handle}\n`)
+      writeFileSync(join(staged, 'clean.md'), 'clean\n')
+      assert.deepEqual(checkFiles(['clean.md', 'docs/notes.md', 'deleted.md'], staged), [
+        { path: 'docs/notes.md', line: 2, rule: 'personal handle' }
+      ])
+    } finally {
+      rmSync(staged, { recursive: true, force: true })
+    }
   })
 })
