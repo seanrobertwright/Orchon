@@ -52,6 +52,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const launch = startLaunch(orca, {
     client: connection.client,
     streams,
+    failed: (notice) => connection.launchFailed(notice),
     current: connection.current,
     focused: projectScope.focused,
     onHint: (listener) => connection.onHint((hint) => listener(hint.types)),

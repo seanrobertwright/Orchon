@@ -94,6 +94,8 @@ declare module 'orca' {
     'launch.notices': { output: NoticesAnswer }
     /** Dismisses a callout, or a run the Starting view opened. */
     'launch.dismiss': { input: { launchId: string }; output: NoticesAnswer }
+    /** The Launch section stopped showing, so a launch that fails now raises a notification. It takes no input. */
+    'launch.hide': { output: null }
     /** "Edit and try again": the form again, filled in from the launch record. */
     'launch.retry': { input: { launchId: string }; output: LaunchAnswer }
   }

@@ -57,7 +57,9 @@ export const identities = {
   /** An unreadable run: its run and `reason`. */
   unreadable: (runId: string, reason: string): string => JSON.stringify(['unreadable', runId, reason]),
   /** A run's ending: its run and final status. */
-  ended: (runId: string, status: EndedStatus): string => JSON.stringify(['ended', runId, status])
+  ended: (runId: string, status: EndedStatus): string => JSON.stringify(['ended', runId, status]),
+  /** A launch Archon did not start: its launch conversation. */
+  notStarted: (conversationId: string): string => JSON.stringify(['not-started', conversationId])
 }
 
 /**
@@ -66,7 +68,7 @@ export const identities = {
  */
 export type Notice = {
   identity: string
-  kind: NoticeKind | EndedStatus
+  kind: NoticeKind | EndedStatus | 'not-started'
   workflow: string
   project: string | null
 }
@@ -77,7 +79,8 @@ const PHRASES: Record<Notice['kind'], string> = {
   unreadable: "Needs a look in Archon's console",
   completed: 'Completed',
   failed: 'Failed',
-  cancelled: 'Cancelled'
+  cancelled: 'Cancelled',
+  'not-started': 'Could not start'
 }
 
 /** A project name that looks like a folder path is left out, so no path reaches a notification. */
@@ -97,10 +100,12 @@ const runs = (count: number): string => (count === 1 ? '1 run' : `${String(count
 /** The title of a folded batch: the count of each kind of event, with no body. */
 export function foldedTitle(notices: readonly Notice[]): string {
   const ended = notices.filter((notice) => isEnded(notice.kind)).length
-  const waiting = notices.length - ended
+  const notStarted = notices.filter((notice) => notice.kind === 'not-started').length
+  const waiting = notices.length - ended - notStarted
   const parts: string[] = []
   if (waiting > 0) parts.push(`${runs(waiting)} ${waiting === 1 ? 'needs' : 'need'} you`)
   if (ended > 0) parts.push(`${runs(ended)} ended`)
+  if (notStarted > 0) parts.push(`${notStarted === 1 ? '1 launch' : `${String(notStarted)} launches`} could not start`)
   return parts.join(', ')
 }
 
@@ -148,6 +153,8 @@ export type Notifications = {
    * read yet, the ending is only recorded.
    */
   ended(storeId: string | null, notice: Notice): void
+  /** A launch Archon did not start, while the Launch section was not showing. */
+  launchFailed(notice: Notice): void
   /** Clears every timer; nothing is sent after. */
   stop(): void
 }
@@ -204,6 +211,7 @@ export function createNotifications(ports: NotificationsPorts): Notifications {
       if (store === undefined || store.id !== storeId) seen.meet(notice.identity)
       else add(notice)
     },
+    launchFailed: (notice) => add(notice),
     stop() {
       if (timer !== undefined) ports.timers.clear(timer)
       timer = undefined

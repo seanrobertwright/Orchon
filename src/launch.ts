@@ -10,6 +10,7 @@ import type { ConversationStreams, StreamHold, StreamListener } from './conversa
 import { cutAt } from './cutter'
 import { DASHBOARD_RUNS_PATH } from './dashboard-runs'
 import type { HintType } from './hint-view'
+import { identities, type Notice } from './notifications'
 import {
   BINDING_TEXT_CAP,
   BINDINGS_CAP,
@@ -311,6 +312,12 @@ function archonWords(body: unknown): string | null {
   return isText(error) ? cutAt(error, SERVER_TEXT_CAP) : null
 }
 
+/**
+ * How long a read of the Launch section counts as the section showing. A showing section reads at
+ * least every 30 seconds; a panel Orca closed says nothing, so its lease runs out.
+ */
+export const SHOWING_LEASE_MS = 60_000
+
 /** How many of a launch conversation's saved messages are read when its stream was lost. */
 export const SAVED_MESSAGES_READ = 10
 
@@ -361,6 +368,8 @@ export type LaunchPorts = {
   streams: ConversationStreams
   current(): Promise<ConnectionView>
   focused(): Promise<FocusedWorkspace>
+  /** A launch Archon did not start while the Launch section was not showing. */
+  failed(notice: Notice): void
   /** Subscribes to every dashboard hint the worker posts. */
   onHint(listener: (types: HintType[]) => void): Disposable
   now(): number
@@ -374,6 +383,8 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   let projects: { store: string; listed: Listed } | undefined
   let nextLaunch = 1
   let stopped = false
+  /** Until when the Launch section counts as showing. */
+  let showingUntil = 0
 
   function draftOf(workspace: string): Draft {
     let draft = drafts.get(workspace)
@@ -588,7 +599,11 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     letGo(record)
     if (record.timer !== undefined) ports.timers.clear(record.timer)
     record.timer = undefined
-    if (record.tracked) changed()
+    if (!record.tracked) return
+    changed()
+    if (ports.now() >= showingUntil) {
+      ports.failed({ identity: identities.notStarted(record.conversationId), kind: 'not-started', workflow: record.workflow, project: record.project })
+    }
   }
 
   /** What the launch conversation's stream tells the tracker. */
@@ -868,6 +883,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   const subscriptions: Disposable[] = [
     orca.panels.handle('launch.read', (input) => {
       const request = parseLaunchRequest(input)
+      showingUntil = ports.now() + SHOWING_LEASE_MS
       return answer(request, request.reload === true, true)
     }),
     orca.panels.handle('launch.edit', (input) => edit(parseLaunchEdit(input))),
@@ -889,6 +905,11 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       if (record !== undefined) record.dismissed = true
       for (const draft of drafts.values()) if (draft.starting === launchId) delete draft.starting
       return notices()
+    }),
+    orca.panels.handle('launch.hide', (input) => {
+      refuseInput(input)
+      showingUntil = 0
+      return null
     }),
     // "Edit and try again": the form again, filled in from the launch record. Nothing is sent.
     orca.panels.handle('launch.retry', async (input) => {

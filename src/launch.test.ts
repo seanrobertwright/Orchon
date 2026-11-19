@@ -858,3 +858,85 @@ describe('Edit and try again', () => {
     await mounted.worker.deactivate()
   })
 })
+
+describe('a failed launch while the Launch section is not showing', () => {
+  const release: Release = '0.14.0'
+  const INPUTS = 'orchon-recorder-inputs'
+
+  /** A launch refused after a 200, with the section hidden (`hide`) or showing when Archon refuses it. */
+  async function refuseLaunch(hide: boolean, settings: MockHostOptions['settings'] = {}): Promise<{ stage: Scene; mounted: MountedScene }> {
+    const stage = launchScene(release)
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+    const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+    const mounted = await stage.mount({ ...orcaWith('ws-local'), settings })
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    await pressWith(mounted, release, launch.body, INPUTS)
+    if (hide) await mounted.worker.request('launch.hide')
+    for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+    await stage.clock.advance(10_000)
+    return { stage, mounted }
+  }
+
+  test('raises a desktop notification: the workflow name as title, "Could not start" and the project as body, never Archon\'s text', async () => {
+    const { mounted } = await refuseLaunch(true)
+    assert.deepEqual(mounted.host.callsOf('notifications.show'), [{ title: INPUTS, body: `Could not start · ${RECORDED_NAME}` }])
+    await mounted.worker.deactivate()
+  })
+
+  test('raises none while the section shows, or with the setting off', async () => {
+    const showing = await refuseLaunch(false)
+    assert.deepEqual(showing.mounted.host.callsOf('notifications.show'), [])
+    await showing.mounted.worker.deactivate()
+    const off = await refuseLaunch(true, { notifications: 'off' })
+    assert.deepEqual(off.mounted.host.callsOf('notifications.show'), [])
+    await off.mounted.worker.deactivate()
+  })
+
+  test('a section that stopped reading for a minute counts as not showing', async () => {
+    const stage = launchScene(release)
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+    const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    await pressWith(mounted, release, launch.body, INPUTS)
+    // The panel was closed with no word to the worker: its reads stop.
+    await stage.clock.advance(60_000)
+    for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+    await stage.clock.advance(10_000)
+    assert.equal(mounted.host.callsOf('notifications.show').length, 1)
+    await mounted.worker.deactivate()
+  })
+})
+
+describe('a burst of failed launches', () => {
+  test('folds into one notification with the count, as other bursts do', async () => {
+    const release: Release = '0.12.1'
+    const stage = launchScene(release)
+    replayAccepted(stage, release)
+    let made = 0
+    stage.archon.answer(CONVERSATIONS, () => {
+      made += 1
+      return json({ conversationId: `web-burst-${String(made)}`, id: `db-${String(made)}` })
+    })
+    const streams = Array.from({ length: 4 }, (_, index) => {
+      const stream = openStream()
+      stage.archon.answer(`${DEFAULT}/api/stream/web-burst-${String(index + 1)}`, stream)
+      return stream
+    })
+    stage.archon.answer(runsUrl(RECORDED_ID[release]), recorded(release, 'dashboard-runs-empty', 0))
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    for (let count = 0; count < 4; count += 1) {
+      await mounted.worker.request('launch.another')
+      await mounted.worker.request('launch.start', { codebaseId: RECORDED_ID[release], workflow: ECHO, message: `Run ${String(count)}.` })
+    }
+    await mounted.worker.request('launch.hide')
+    for (const stream of streams) {
+      stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: true })}\n\n`)
+      stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: false })}\n\n`)
+    }
+    await stage.clock.advance(10_000)
+    assert.deepEqual(mounted.host.callsOf('notifications.show'), [{ title: '4 launches could not start' }])
+    await mounted.worker.deactivate()
+  })
+})
