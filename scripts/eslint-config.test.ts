@@ -154,6 +154,40 @@ ${keep(RECORDER_PROCESS, 'disk')}`)
     await refused(eslint, RECORDER_PROCESS, keep(RECORDER_PROCESS, "fetch('http://127.0.0.1:3090/')"), 'no-restricted-globals')
   })
 
+  test('bans every file Orca loads or the editors ship from loading anything under scripts/', async (t) => {
+    const eslint = await linterOrSkip(t)
+    if (eslint === undefined) return
+    for (const path of SHIPPED) {
+      const up = path.startsWith('editors/shared/') ? '../../' : '../'
+      const specifiers = [
+        `${up}scripts/record-fixtures.ts`,
+        `${up}scripts/recorder/http.ts`,
+        `./${up}scripts/repo-files.ts`,
+        `${up}scripts`,
+        `${up}scripts/`,
+        `${up}scripts/source-extensions.json`,
+        // Windows reads a backslash as a separator too.
+        `${up.replaceAll('/', '\\\\')}scripts\\\\tooling.ts`
+      ]
+      for (const specifier of specifiers) {
+        for (const [code, rule] of waysToLoad(path, specifier)) await refused(eslint, path, code, rule)
+      }
+      if (hasExtension(path, ['ts', 'tsx', 'mts', 'cts'])) {
+        await refused(eslint, path, `import type { Answer } from '${up}scripts/recorder/http.ts'\nexport type Kept = Answer\n`, 'no-restricted-imports')
+        await refused(eslint, path, `export type Kept = typeof import('${up}scripts/recorder/http.ts')\n`, 'no-restricted-syntax')
+      }
+      // A file or folder whose name only contains the word is not the scripts folder.
+      if (isCommonJs(path)) continue
+      for (const specifier of ['./scripts-view.ts', './descriptions.ts', `${up}src/transcripts.ts`]) {
+        await allowed(eslint, path, `import * as loaded from '${specifier}'\n${keep(path, 'loaded')}`)
+      }
+    }
+    // The tooling may: the tests share the scripted Archon and the repository readers.
+    for (const path of TOOLING.filter((file) => file.startsWith('src/'))) {
+      await allowed(eslint, path, `import * as loaded from '../scripts/repo-files.ts'\n${keep(path, 'loaded')}`)
+    }
+  })
+
   test('lets only the disk module, the gates and the tests load node:fs', async (t) => {
     const eslint = await linterOrSkip(t)
     if (eslint === undefined) return
@@ -226,6 +260,17 @@ ${keep(RECORDER_PROCESS, 'disk')}`)
       await allowed(eslint, CLIENT, keep(CLIENT, expression))
       await allowed(eslint, RECORDER_HTTP, keep(RECORDER_HTTP, expression))
     }
+    // The refusal names both files that may use fetch.
+    const [result] = await eslint.lintText(keep('src/worker.ts', 'fetch'), { filePath: 'src/worker.ts' })
+    const message = result?.messages.find((entry) => entry.ruleId === 'no-restricted-globals')?.message ?? ''
+    assert.ok(message.includes(CLIENT) && message.includes(RECORDER_HTTP), message)
+  })
+
+  test("the recorder's HTTP module keeps every other ban", async (t) => {
+    const eslint = await linterOrSkip(t)
+    if (eslint === undefined) return
+    await refused(eslint, RECORDER_HTTP, keep(RECORDER_HTTP, "process.getBuiltinModule('node:net')"), 'no-restricted-properties')
+    await refused(eslint, RECORDER_HTTP, `import { spawn } from 'node:child_process'\n${keep(RECORDER_HTTP, 'spawn')}`, 'no-restricted-imports')
   })
 
   test('lets only the date helper, among the files Orca loads, read the clock or parse or format a date', async (t) => {

@@ -72,11 +72,29 @@ const NON_LITERAL_LOADS = [
 }))
 
 /**
+ * A path that passes through a folder named `scripts`, with either slash: the scripts folder,
+ * which holds the gates, the test helpers and the fixture recorder. Shipped code names no other
+ * folder of that name, so the ban does not resolve the path first.
+ */
+const SCRIPTS_FOLDER = '(^|[\\u002F\\\\])scripts([\\u002F\\\\]|$)'
+const SCRIPTS_MESSAGE = 'Orca never loads scripts/: shipped code (src/ and editors/) imports nothing from it.'
+
+/** `import()`, `require()`, `import x = require()` and `typeof import()` of the scripts folder. */
+const SCRIPTS_SELECTORS = [
+  `ImportExpression[source.value=/${SCRIPTS_FOLDER}/]`,
+  `CallExpression[callee.name="require"][arguments.0.value=/${SCRIPTS_FOLDER}/]`,
+  `TSExternalModuleReference[expression.value=/${SCRIPTS_FOLDER}/]`,
+  `TSImportType[argument.literal.value=/${SCRIPTS_FOLDER}/]`,
+  `TSImportType[source.value=/${SCRIPTS_FOLDER}/]`
+].map((selector) => ({ selector, message: SCRIPTS_MESSAGE }))
+
+/**
  * The module bans for one group of files. The network modules are banned in every group;
  * `disk`, `loader` and `startsProcess` say whether the group may load `node:fs`, `node:module`
- * and `node:child_process`.
+ * and `node:child_process`, and `shipped` whether it is code Orca loads or the editors ship,
+ * which may load nothing from the scripts folder.
  */
-const moduleBans = ({ disk, loader, startsProcess = false }) => {
+const moduleBans = ({ disk, loader, shipped, startsProcess = false }) => {
   const banned = [
     [BANNED_MODULES.filter((name) => !(startsProcess && name === PROCESS_MODULE)), BANNED_MESSAGE],
     ...(disk ? [] : [[DISK_MODULES, DISK_MESSAGE]]),
@@ -85,17 +103,21 @@ const moduleBans = ({ disk, loader, startsProcess = false }) => {
   return {
     'no-restricted-imports': [
       'error',
-      { paths: banned.flatMap(([names, message]) => importPaths(names, message)) }
+      {
+        paths: banned.flatMap(([names, message]) => importPaths(names, message)),
+        patterns: shipped ? [{ regex: SCRIPTS_FOLDER.replaceAll('\\u002F', '/'), message: SCRIPTS_MESSAGE }] : []
+      }
     ],
     'no-restricted-syntax': [
       'error',
       ...NON_LITERAL_LOADS,
-      ...banned.flatMap(([names, message]) => loadSelectors(names, message))
+      ...banned.flatMap(([names, message]) => loadSelectors(names, message)),
+      ...(shipped ? SCRIPTS_SELECTORS : [])
     ]
   }
 }
 
-const FETCH_MESSAGE = `Only the client module (${CLIENT_MODULE}) uses fetch.`
+const FETCH_MESSAGE = `Only the client module (${CLIENT_MODULE}) and the fixture recorder's HTTP module (${RECORDER_HTTP_MODULE}) use fetch.`
 const DATE_MESSAGE = `Only the date helper (${DATE_MODULE}) reads the clock, parses a date or formats one.`
 
 const GLOBAL_OBJECTS = ['globalThis', 'window', 'self']
@@ -157,13 +179,13 @@ module.exports = tseslint.config(
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
-      ...moduleBans({ disk: false, loader: false }),
+      ...moduleBans({ disk: false, loader: false, shipped: true }),
       ...globalBans({ fetch: false, dates: false })
     }
   },
 
   // The disk module may load node:fs.
-  { files: [DISK_MODULE], rules: moduleBans({ disk: true, loader: false }) },
+  { files: [DISK_MODULE], rules: moduleBans({ disk: true, loader: false, shipped: true }) },
 
   // The client module may use fetch.
   { files: [CLIENT_MODULE], rules: globalBans({ fetch: true, dates: false }) },
@@ -175,18 +197,20 @@ module.exports = tseslint.config(
   // also use dates: a test builds the instants it expects, and a script stamps what it records.
   {
     files: TOOLING,
-    rules: { ...moduleBans({ disk: true, loader: false }), ...globalBans({ fetch: false, dates: true }) }
+    rules: { ...moduleBans({ disk: true, loader: false, shipped: false }), ...globalBans({ fetch: false, dates: true }) }
   },
 
   // The loader may also load node:module.
-  { files: [LOADER_MODULE], rules: moduleBans({ disk: true, loader: true }) },
+  { files: [LOADER_MODULE], rules: moduleBans({ disk: true, loader: true, shipped: false }) },
 
   // The recorder's process module may also load node:child_process, to start the release it records.
-  { files: [RECORDER_PROCESS_MODULE], rules: moduleBans({ disk: true, loader: false, startsProcess: true }) },
+  { files: [RECORDER_PROCESS_MODULE], rules: moduleBans({ disk: true, loader: false, shipped: false, startsProcess: true }) },
 
   // The recorder's HTTP module may use fetch, to call that release.
   {
     files: [RECORDER_HTTP_MODULE],
+    // It is tooling, which may use dates, so with fetch allowed too no global is banned. The rule
+    // is turned off: a rule given a severity and no list keeps the list of the blocks above.
     rules: {
       'no-restricted-globals': 'off',
       'no-restricted-properties': ['error', BUILTIN_MODULE_PROPERTY]

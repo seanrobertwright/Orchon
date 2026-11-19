@@ -1,5 +1,5 @@
 {
-  "about": "Rows of workspace.list, one or more for each row shape in the table of decision #25 (What hostId does Orca report for SSH and WSL workspaces?), with Windows paths in both slash directions. They are written from that table and are not recordings: no SSH or WSL workspace was available to record.",
+  "about": "Rows of workspace.list, one or more for each row shape in the table of decision #25 (What hostId does Orca report for SSH and WSL workspaces?), with Windows paths in both slash directions, except a path with the long-path prefix, which Windows reads with backslashes only. They are written from that table and are not recordings: no SSH or WSL workspace was available to record.",
   "fields": {
     "shape": "the row of the table this row stands for",
     "platform": "'win32' when the answer holds for a worker on Windows only, 'any' when it holds on every platform",

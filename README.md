@@ -75,10 +75,11 @@ ESLint fails the build on any of these. A module counts as loaded by `import`, `
 - Loading `node:fs` outside the disk module `src/disk.ts`. The gates' scripts and the tests are the exception: they may read files.
 - A use of `fetch` outside the client module `src/client.ts` and the fixture recorder's HTTP module `scripts/recorder/http.ts`.
 - A use of `Date` or `Intl.DateTimeFormat` outside the date helper `src/dates.ts`, so that every clock read, date parse and formatted time goes through one file. The gates' scripts and the tests are the exception.
+- Loading anything under `scripts/` from shipped code: a file under `src/` or `editors/` that is not a test or a check. Orca never loads `scripts/`. The tests may load its shared helpers.
 - `eval`, `new Function`, and an `import()` or `require()` whose target is not a literal string.
 - The ways around those rules: `require()` outside `eslint.config.cjs`, `node:module` outside `scripts/tooling.ts`, and `process.getBuiltinModule` in any file.
 
-The fixture recorder is the one exception to the `node:child_process` ban and the `fetch` ban. It is a script a developer runs by hand, described under [Recorded fixtures](#recorded-fixtures), and Orca never loads it. It has to start an Archon release and call it, so one of its files may start a program and one may use `fetch`. Every other file of the recorder keeps every ban.
+The fixture recorder is the one exception to the `node:child_process` ban and the `fetch` ban. It is a script a developer runs by hand, described under [Recorded fixtures](#recorded-fixtures), and Orca never loads it. It has to start an Archon release and call it, so one of its files may start a program and one may use `fetch`. Every other file of the recorder keeps both bans.
 
 A test also fails when the source names a `workspace:write` host method other than `editor.open` and `workspace.open`.
 
@@ -92,7 +93,7 @@ A test also fails when the source names a `workspace:write` host method other th
 - `RECORDED.md` is the log: when the folder was recorded, from which binary, what each file holds, and what could not be recorded.
 - Machine paths, the account name, the machine name and the store id are replaced by placeholders such as `<project-path>` and `<store-id>`. `RECORDED.md` lists them.
 
-`fixtures/workspace-rows.json` is different. It holds rows of Orca's `workspace.list` for local, SSH and WSL workspaces, with Windows paths in both slash directions. It is written from the table of the decision on host ids, because no SSH or WSL workspace was available to record.
+`fixtures/workspace-rows.json` is different. It holds rows of Orca's `workspace.list` for local, SSH and WSL workspaces, with Windows paths in both slash directions. A path with the long-path prefix `\\?\UNC\` is given with backslashes only, as Windows reads it. It is written from the table of the decision on host ids, because no SSH or WSL workspace was available to record.
 
 To record a release, download its `archon` binary for your machine from the release's page on GitHub into a folder outside this repository, then run:
 
