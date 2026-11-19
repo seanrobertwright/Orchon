@@ -1,6 +1,6 @@
 // Pure logic: the per-view fetch rules every view of the panel and the tabs shares. Driven with
 // the scripted clock, and loads the test settles by hand.
-import { assert, describe, test } from 'orca/testing'
+import { assert, describe, hostError, test } from 'orca/testing'
 import { createClock, settle } from '../scripts/scripted-archon.ts'
 import { createViewFetch, type ViewFetch } from './view-fetch'
 
@@ -169,5 +169,60 @@ describe('the per-view fetch rules', () => {
     view.restart()
     view.refresh()
     assert.deepEqual(clock.waiting(), [])
+  })
+
+  test('a read rejected as rate_limited waits retryAfterMs and is sent once more', async () => {
+    const { view, loads, clock, applied, failed, last } = harness()
+    view.restart()
+    last().reject(hostError('rate_limited', 'Too many requests.', 1_500))
+    await clock.advance(1_499)
+    assert.equal(loads.length, 1)
+    assert.deepEqual(failed, [])
+    await clock.advance(1)
+    assert.equal(loads.length, 2)
+    last().answer('after the wait')
+    await settle()
+    assert.deepEqual(applied, ['after the wait'])
+    view.stop()
+  })
+
+  test('a read rate-limited again is not sent a third time until the safety refetch', async () => {
+    const { view, loads, clock, failed, last } = harness()
+    view.restart()
+    last().reject(hostError('rate_limited', 'Too many requests.', 100))
+    await clock.advance(100)
+    last().reject(hostError('rate_limited', 'Too many requests.', 100))
+    await clock.advance(29_999)
+    assert.equal(loads.length, 2)
+    assert.equal(failed.length, 1)
+    await clock.advance(1)
+    assert.equal(loads.length, 3)
+    view.stop()
+  })
+
+  test('a newer fetch drops the wait of a rate-limited one, and stop clears it', async () => {
+    const { view, loads, clock, last } = harness()
+    view.restart()
+    last().reject(hostError('rate_limited', 'Too many requests.', 1_000))
+    await settle()
+    view.stop()
+    assert.deepEqual(clock.waiting(), [])
+    await clock.advance(5_000)
+    assert.equal(loads.length, 1)
+  })
+
+  test('consent_required is reported and sets no safety refetch', async () => {
+    const { view, loads, clock, failed, last } = harness()
+    view.restart()
+    last().reject(hostError('consent_required', 'Turned off.'))
+    await settle()
+    assert.equal(failed.length, 1)
+    assert.deepEqual(clock.waiting(), [])
+    await clock.advance(120_000)
+    assert.equal(loads.length, 1)
+    // A person's action still fetches.
+    view.restart()
+    assert.equal(loads.length, 2)
+    view.stop()
   })
 })
