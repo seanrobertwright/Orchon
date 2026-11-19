@@ -312,6 +312,9 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
       return sent.ok ? { reread: true } : { refused: readFailureText(sent.failure) }
     }
 
+  /** The workspace the last `workspace.changed` named: null for none, undefined before the first. */
+  let lastFocused: string | null | undefined
+
   const subscriptions: Disposable[] = [
     orca.panels.handle('scope.read', (input, context) => {
       refuseInput(input)
@@ -322,7 +325,16 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
       refuseInput(input)
       return answer(context.signal, link(null))
     }),
-    orca.panels.handle('scope.register', (input, context) => answer(context.signal, register(parseRegisterRequest(input).folder)))
+    orca.panels.handle('scope.register', (input, context) => answer(context.signal, register(parseRegisterRequest(input).folder))),
+    // The event also fires when the focused workspace's terminals change, and once on subscribing:
+    // only a different workspace, or none, is a hint worth posting.
+    orca.events.on('workspace.changed', (payload) => {
+      const id = payload.context === null ? null : (payload.context.workspaceId ?? '')
+      if (id === lastFocused) return
+      const first = lastFocused === undefined
+      lastFocused = id
+      if (!first) orca.panels.post('scope.changed', null)
+    })
   ]
 
   return {

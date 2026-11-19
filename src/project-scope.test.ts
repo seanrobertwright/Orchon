@@ -376,3 +376,30 @@ describe('Register with Archon', () => {
     await worker.deactivate()
   })
 })
+
+describe('following the focused workspace', () => {
+  const context = (workspaceId: string, terminals: { id: string }[] = []): { context: { workspaceId: string; branch: string; displayName: string; terminals: { id: string }[] } } => ({
+    context: { workspaceId, branch: 'main', displayName: workspaceId, terminals }
+  })
+  const hints = (posts: readonly { event: string }[]): number => posts.filter((post) => post.event === 'scope.changed').length
+
+  test('posts a scope hint, with no data, each time the focused workspace changes', async () => {
+    const { worker } = await connectedScene().mount(orcaWith('ws-main'))
+    const before = hints(worker.posts)
+    await worker.emit('workspace.changed', context('ws-feature'))
+    assert.equal(hints(worker.posts), before + 1)
+    assert.deepEqual(worker.posts.filter((post) => post.event === 'scope.changed').at(-1), { event: 'scope.changed', payload: null })
+    await worker.emit('workspace.changed', { context: null })
+    assert.equal(hints(worker.posts), before + 2)
+    await worker.deactivate()
+  })
+
+  test('a change of terminals in the same workspace posts nothing', async () => {
+    const { worker } = await connectedScene().mount(orcaWith('ws-main'))
+    await worker.emit('workspace.changed', context('ws-feature'))
+    const before = hints(worker.posts)
+    await worker.emit('workspace.changed', context('ws-feature', [{ id: 't-1' }]))
+    assert.equal(hints(worker.posts), before)
+    await worker.deactivate()
+  })
+})
