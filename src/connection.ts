@@ -7,6 +7,7 @@ import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings
 import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
+import { checkPaths } from './path-check'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
@@ -133,9 +134,17 @@ export function createConnection(ports: ConnectionPorts): Connection {
       settingsRead()
       const found = await discover(parsed, { client: ports.client, disk: ports.openDisk([parsed.home]), signal })
       if (mine !== generation) return
-      enter({ ...found, settings })
-      if (found.kind === 'connected') retryDelay = FIRST_RETRY_MS
-      else retryLater()
+      if (found.kind === 'not-found') {
+        enter({ ...found, settings })
+        retryLater()
+        return
+      }
+      const paths = await checkPaths(ports.client, found.baseUrl, signal)
+      if (mine !== generation) return
+      if (paths.kind === 'supported') {
+        enter({ ...found, settings, features: paths.features })
+        retryDelay = FIRST_RETRY_MS
+      }
     } catch (error) {
       if (mine !== generation) return
       ports.log(`Orchon could not look for Archon: ${error instanceof Error ? error.message : String(error)}`)

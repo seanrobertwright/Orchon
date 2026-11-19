@@ -8,6 +8,8 @@ import type { FetchAnswer, FetchInit, FetchLike, Timers } from '../src/client.ts
 import type { ConnectionView } from '../src/connection-view.ts'
 import type { Disk, FolderState, TextFile } from '../src/disk.ts'
 import { start } from '../src/worker.ts'
+import { readRepoText } from './repo-files.ts'
+import { field } from './shape.ts'
 
 /** Lets every promise chain that is ready run to its next real wait. */
 export async function settle(rounds = 5): Promise<void> {
@@ -82,7 +84,11 @@ export type ScriptedArchon = {
   fetch: FetchLike
   /** Every request that reached the transport, in order. */
   calls: ScriptedCall[]
-  /** Sets what one URL answers from now on. A URL never set refuses the connection. */
+  /**
+   * Sets what one URL answers from now on. A URL never set refuses the connection, except a path
+   * list: an Archon is the floor release unless told otherwise, so `/api/openapi.json` answers
+   * the recorded document of 0.12.1.
+   */
   answer(url: string, scripted: Scripted | ((call: ScriptedCall) => Scripted)): void
   /** How many body chunks the caller took from the last answer, and whether it closed the body. */
   lastBody: { taken: number; closed: boolean }
@@ -104,6 +110,46 @@ export const HANG: Scripted = { kind: 'hang' }
 export const health = (fields: Record<string, unknown> = {}): Scripted =>
   json({ status: 'ok', adapter: 'web', runningWorkflows: 0, version: '0.12.1', ...fields })
 
+/** The releases with recorded fixtures, oldest first. */
+export const RELEASES = ['0.12.1', '0.13.2', '0.14.0'] as const
+export type Release = (typeof RELEASES)[number]
+
+export const OPENAPI_PATH = '/api/openapi.json'
+
+/**
+ * The first answer a recorded fixture holds, as the scripted Archon gives it: the recorded
+ * status, content type and body. Fixtures are recorded from real releases, never typed.
+ */
+export function recorded(release: Release, scenario: string): Scripted {
+  const log = field(JSON.parse(readRepoText(`fixtures/${release}/${scenario}.json`)), 'log')
+  const first: unknown = Array.isArray(log) ? log[0] : undefined
+  const status = field(first, 'status')
+  const contentType = field(first, 'contentType')
+  const body = field(first, 'body')
+  if (typeof status !== 'number' || typeof contentType !== 'string') {
+    throw new Error(`fixtures/${release}/${scenario}.json holds no recorded answer.`)
+  }
+  return typeof body === 'string'
+    ? { kind: 'text', text: body, contentType, status }
+    : { kind: 'json', value: body, status, contentType }
+}
+
+/** A recorded path list with some paths taken out, as an Archon that lacks them would answer. */
+export function pathListWithout(release: Release, ...paths: string[]): Scripted {
+  const document = recorded(release, 'openapi')
+  if (document.kind !== 'json') throw new Error(`The recorded path list of ${release} is not JSON.`)
+  const all = field(document.value, 'paths')
+  const kept = Object.fromEntries(Object.entries(all as Record<string, unknown>).filter(([path]) => !paths.includes(path)))
+  return { ...document, value: { ...(document.value as Record<string, unknown>), paths: kept } }
+}
+
+let floorPathList: Scripted | undefined
+
+function floorPathListAnswer(): Scripted {
+  floorPathList ??= recorded('0.12.1', 'openapi')
+  return floorPathList
+}
+
 export function scriptArchon(): ScriptedArchon {
   const answers = new Map<string, Scripted | ((call: ScriptedCall) => Scripted)>()
   const archon: ScriptedArchon = {
@@ -116,7 +162,7 @@ export function scriptArchon(): ScriptedArchon {
       const call: ScriptedCall = { url, method: init.method, redirect: init.redirect, headers: init.headers }
       if (init.body !== undefined) call.body = init.body
       archon.calls.push(call)
-      const found = answers.get(url) ?? REFUSE
+      const found = answers.get(url) ?? (new URL(url).pathname === OPENAPI_PATH ? floorPathListAnswer() : REFUSE)
       const scripted = typeof found === 'function' ? found(call) : found
       if (scripted.kind === 'refuse') {
         return Promise.reject(new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }))

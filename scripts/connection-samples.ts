@@ -6,7 +6,8 @@ import type {
   ConnectionView,
   NotFound,
   Searching,
-  SettingsView
+  SettingsView,
+  Unsupported
 } from '../src/connection-view.ts'
 
 export const HOME = '/home/ada/.archon'
@@ -22,8 +23,12 @@ export const connected: Connected = {
   baseUrl: 'http://127.0.0.1:3090',
   source: 'default',
   version: '0.12.1',
-  storeId: '00000000-0000-4000-8000-000000000000'
+  storeId: '00000000-0000-4000-8000-000000000000',
+  features: { metrics: false }
 }
+
+/** Connected to a server whose path list has the metrics paths. */
+export const connectedWithMetrics: Connected = { ...connected, version: '0.14.0', features: { metrics: true } }
 
 export const connectedFromRecord: Connected = { ...connected, baseUrl: 'http://127.0.0.1:4100', source: 'server-json' }
 
@@ -80,6 +85,24 @@ export const twoBadSettings: BadSetting = {
     },
     { key: 'archonHome', value: 'archon', reason: 'The folder must be a full path.' }
   ]
+}
+
+/** A server that answers health and lacks a required path, as a release before the floor does. */
+export const unsupported: Unsupported = {
+  kind: 'unsupported',
+  since: 60,
+  settings: UNSET,
+  baseUrl: 'http://127.0.0.1:3090',
+  source: 'default',
+  version: '0.11.1'
+}
+
+export const unsupportedAtSetting: Unsupported = {
+  ...unsupported,
+  settings: { ...UNSET, baseUrl: 'http://localhost:4000' },
+  baseUrl: 'http://localhost:4000',
+  source: 'setting',
+  version: null
 }
 
 /** A stand-in for the worker that answers every connection request with one state. */

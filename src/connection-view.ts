@@ -38,6 +38,12 @@ type Stamped = {
   settings: SettingsView
 }
 
+/** The optional features a connected server has, each decided by its paths in the path list. */
+export type Features = {
+  /** `/api/metrics` and `/api/metric-views`, first served by Archon 0.14.0. */
+  metrics: boolean
+}
+
 export type Searching = Stamped & { kind: 'searching' }
 export type Connected = Stamped & {
   kind: 'connected'
@@ -46,6 +52,7 @@ export type Connected = Stamped & {
   /** The version string health reported. It is shown and never decides anything. */
   version: string | null
   storeId: string | null
+  features: Features
 }
 export type NotFound = Stamped & {
   kind: 'not-found'
@@ -55,9 +62,19 @@ export type NotFound = Stamped & {
   home: HomeFolder
 }
 export type BadSetting = Stamped & { kind: 'bad-setting'; refused: RefusedSetting[] }
+/**
+ * A server answered health, but its path list lacks a path Orchon needs, is not JSON, or has no
+ * `paths` object. The version is what health reported, shown and never the reason.
+ */
+export type Unsupported = Stamped & {
+  kind: 'unsupported'
+  baseUrl: string
+  source: AddressSource
+  version: string | null
+}
 
 /** The worker's one connection state. A frame keeps the one with the greatest `since`. */
-export type ConnectionView = Searching | Connected | NotFound | BadSetting
+export type ConnectionView = Searching | Connected | NotFound | BadSetting | Unsupported
 
 /** What every answer from the worker carries beside its own data. */
 export type ConnectionAnswer = { connection: ConnectionView }

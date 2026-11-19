@@ -15,6 +15,10 @@ export const NOT_RUNNING_TITLE = 'Archon is not running.'
 export const NO_HOME_TITLE = 'Orchon could not find Archon.'
 export const BAD_SETTING_TITLE = 'A connection setting is not valid.'
 export const CONNECTED_LABEL = 'Connected'
+export const UNSUPPORTED_TITLE = 'This Archon is not supported.'
+
+/** The oldest Archon release Orchon works with. It is said to the person, never compared. */
+export const FLOOR_RELEASE = '0.12.1'
 
 /** Archon's installation guide: the plugin's one link to a site outside this computer. */
 export const INSTALL_URL = 'https://archon.diy/getting-started/installation/'
@@ -35,6 +39,8 @@ export function stateTitle(view: ConnectionView): string {
       return isHomeMissing(view) ? NO_HOME_TITLE : NOT_RUNNING_TITLE
     case 'bad-setting':
       return BAD_SETTING_TITLE
+    case 'unsupported':
+      return UNSUPPORTED_TITLE
   }
 }
 
@@ -60,5 +66,7 @@ export function statusSentence(view: ConnectionView): string {
         ? `The ${SETTING_LABELS[only.key]} setting is not valid.`
         : 'Two connection settings are not valid.'
     }
+    case 'unsupported':
+      return `The Archon at ${view.baseUrl} is not supported. Orchon needs ${FLOOR_RELEASE} or newer.`
   }
 }
