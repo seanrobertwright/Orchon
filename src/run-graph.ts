@@ -2,7 +2,9 @@
 // `GET /api/workflows/runs/{runId}`, its workflow as it is now from `GET /api/workflows/{name}`
 // with the project's folder as `cwd`, and the run's states attached by step id. On a mismatch,
 // the run's own steps in run order with no edges. Only ids, kinds, nesting, `depends_on` and
-// whether a step has a `when` are read from the workflow; prompts and scripts are dropped. The
+// whether a step has a `when` are read from the workflow; prompts and scripts are dropped. From
+// the run's events, each step's latest start gives its summary card's facts: duration, cost,
+// model, skip reason and its output cut at 4 KiB, within a budget for the whole answer. The
 // worker serves the request from the moment it starts, so a tab Orca restores after a restart
 // is answered before any panel opens.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
