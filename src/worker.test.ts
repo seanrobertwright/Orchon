@@ -2,13 +2,14 @@
 // Archon, the clock and the disk are scripted: no test reaches what runs on the machine.
 import { assert, test } from 'orca/testing'
 import { readRepoText } from '../scripts/repo-files.ts'
-import { scene } from '../scripts/scripted-archon.ts'
+import { ARCHON_HOME, scene } from '../scripts/scripted-archon.ts'
 import * as main from './worker'
 
 test('activates and answers the status bar press with the status sentence and a show-runs hint', async () => {
   const stage = scene()
   const { worker } = await stage.mount()
-  assert.equal(await worker.command('show-runs'), 'Looking for Archon.')
+  // The scripted disk has no Archon home folder, so the first pass ends in Not found.
+  assert.equal(await worker.command('show-runs'), `No Archon home folder at ${ARCHON_HOME}.`)
   assert.deepEqual(
     worker.posts.filter((post) => post.event === 'show-runs'),
     [{ event: 'show-runs', payload: { at: stage.clock.now(), needsYou: false } }]
