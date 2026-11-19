@@ -3,7 +3,7 @@
 // written from the table of #25.
 import { assert, describe, test } from 'orca/testing'
 import { readRepoText } from '../scripts/repo-files.ts'
-import { isSameOrInside, localAndWritable, normaliseRemote, originUrl, samePath } from './workspaces'
+import { isSameOrInside, localAndWritable, normalisePath, normaliseRemote, originUrl } from './workspaces'
 
 interface RowFixture {
   name: string
@@ -31,14 +31,14 @@ describe('the local-and-writable test', () => {
 
 describe('path normalising', () => {
   test('the same folder in both slash directions, any drive-letter case and a trailing separator is the same', () => {
-    assert.ok(samePath('C:\\Projects\\App\\', 'c:/projects/app'))
-    assert.ok(samePath('C:/Users/ada/.archon/workspaces/x', String.raw`C:\Users\ada\.archon\workspaces\x`))
+    assert.equal(normalisePath('C:\\Projects\\App\\'), normalisePath('c:/projects/app'))
+    assert.equal(normalisePath('C:/Users/ada/.archon/workspaces/x'), normalisePath(String.raw`C:\Users\ada\.archon\workspaces\x`))
   })
 
   test('POSIX paths compare with case, Windows paths without', () => {
-    assert.ok(!samePath('/home/ada/App', '/home/ada/app'))
-    assert.ok(samePath('/home/ada/app/', '/home/ada/app'))
-    assert.ok(samePath(String.raw`\\server\Share\x`, '//server/share/x'))
+    assert.notEqual(normalisePath('/home/ada/App'), normalisePath('/home/ada/app'))
+    assert.equal(normalisePath('/home/ada/app/'), normalisePath('/home/ada/app'))
+    assert.equal(normalisePath(String.raw`\\server\Share\x`), normalisePath('//server/share/x'))
   })
 
   test('a folder is inside itself and its own subfolders, never inside a sibling with a longer name', () => {
@@ -51,7 +51,7 @@ describe('path normalising', () => {
   })
 
   test('an empty path is never the same as or inside anything', () => {
-    assert.ok(!samePath('', ''))
+    assert.equal(normalisePath(''), null)
     assert.ok(!isSameOrInside('', '/home'))
   })
 })

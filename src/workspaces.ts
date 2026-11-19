@@ -32,12 +32,6 @@ export function normalisePath(path: string): string | null {
   return isWindowsSpelling(forward) ? forward.toLowerCase() : forward
 }
 
-/** Whether two paths name the same folder once normalised. */
-export function samePath(first: string, second: string): boolean {
-  const one = normalisePath(first)
-  return one !== null && one === normalisePath(second)
-}
-
 /** Whether `child` is the folder `parent` or inside it, once both are normalised. */
 export function isSameOrInside(child: string, parent: string): boolean {
   const inner = normalisePath(child)
