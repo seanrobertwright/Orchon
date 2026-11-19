@@ -50,6 +50,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     ...connection,
     workspaces: projectScope.workspaces,
     graphOff: wideTabs.graphOff,
+    builderOff: wideTabs.builderOff,
     remote: async () => (await projectScope.focused()).kind === 'remote',
     questionRead: questions.read,
     now: ports.now

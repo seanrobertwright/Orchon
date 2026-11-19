@@ -127,6 +127,13 @@ export type RunDetailAnswer = ConnectionAnswer & {
    */
   graphOff?: string
   /**
+   * Why Open workflow in builder is off for a ready run, as one sentence: no local workspace is
+   * focused, it is remote, or a write failed there. Left out when it is on.
+   */
+  builderOff?: string
+  /** A ready run's Archon project id, which Open workflow in builder names. Left out for a run with none. */
+  codebaseId?: string
+  /**
    * Set when run detail offers Re-run: a completed or cancelled run whose project Archon still
    * lists, outside a remote workspace. Left out otherwise.
    */
