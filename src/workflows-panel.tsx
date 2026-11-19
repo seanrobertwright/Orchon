@@ -5,6 +5,7 @@ import { atom, Button, Callout, IconButton, Input, Link, plugin, read, Row, Sele
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
+import { plural } from './plural'
 import { createViewFetch, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { problemLine, type ReadProblem } from './view-notices'
 import { NOT_CONNECTED_TEXT, offersTryAgain, troubleText } from './worker-words'
@@ -193,10 +194,6 @@ function removedOf(view: Ready, row: SectionWorkflow): string {
   const folder = view.folder ?? ''
   const separator = separatorOf(folder)
   return `In ${folder.replace(/[\\/]+$/, '')}${separator}.archon${separator}workflows this deletes ${what}`
-}
-
-function plural(count: number, one: string, many: string): string {
-  return count === 1 ? `1 ${one}` : `${String(count)} ${many}`
 }
 
 function confirmation(view: Ready, row: SectionWorkflow, writable: boolean): OrcaNode {
