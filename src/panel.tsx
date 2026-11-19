@@ -1,12 +1,13 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
-import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
+import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
+import { clearLaunch, launchHasData, launchNotices, launchSection, openLaunch, restartLaunch, startLaunchSection } from './launch-section'
 import { liveOffLine } from './live-line'
 import { startNotificationsGroup } from './notifications-group'
-import { hintRunDetail, startRunDetail } from './run-detail-section'
+import { hintRunDetail, openRunDetail, startRunDetail } from './run-detail-section'
 import {
   clearRuns,
   hintRuns,
@@ -20,7 +21,7 @@ import {
   startRunsSection
 } from './runs-section'
 import type { ConnectionReadAnswer, ShowRuns } from './hint-view'
-import { startScope } from './scope-section'
+import { scopedProjectId, scopeNotice, scopeSettled, startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
@@ -53,7 +54,10 @@ function keepNewest(next: ConnectionView): void {
   if (held !== null && next.since <= held.since) return
   if (next.kind === 'connected') {
     const before = read(lastConnected)
-    if (before !== null && before.storeId !== next.storeId) clearRuns()
+    if (before !== null && before.storeId !== next.storeId) {
+      clearRuns()
+      clearLaunch()
+    }
     set(lastConnected, next)
   }
   set(connection, next)
@@ -154,6 +158,8 @@ function show(next: SectionId): void {
   set(section, next)
   if (next === 'runs') restartRunsView()
   if (before === next) return
+  // Opening the Launch section reads Archon's projects and the workflow list again.
+  if (next === 'launch') openLaunch()
   if (next === 'settings') {
     readForms()
     askSystem('system.open')
@@ -174,7 +180,8 @@ export function setup(ctx: PanelContext): void {
   startRunsSection(ctx, {
     connection: () => read(connection),
     showing: () => parseSection(read(section)) === 'runs',
-    keep: keepNewest
+    keep: keepNewest,
+    newRun: () => show('launch')
   })
   startRunDetail(ctx, {
     connection: () => read(connection),
@@ -184,9 +191,27 @@ export function setup(ctx: PanelContext): void {
   })
   startScope(ctx, {
     connection: () => read(connection),
-    showing: () => parseSection(read(section)) === 'runs',
+    // The Launch section's default project is the scope's, so it reads the scope too.
+    showing: () => {
+      const showing = parseSection(read(section))
+      return showing === 'runs' || showing === 'launch'
+    },
     keep: keepNewest,
-    changed: rescopeRuns
+    changed: () => {
+      rescopeRuns()
+      restartLaunch()
+    }
+  })
+  startLaunchSection(ctx, {
+    connection: () => read(connection),
+    showing: () => parseSection(read(section)) === 'launch',
+    keep: keepNewest,
+    project: scopedProjectId,
+    settled: scopeSettled,
+    openRun(runId) {
+      show('runs')
+      openRunDetail(runId)
+    }
   })
   ctx.subscriptions.push(plugin.on('show-runs', applyShowRuns))
   ctx.subscriptions.push(plugin.on('needs-you.changed', refreshRuns))
@@ -232,7 +257,8 @@ export function setup(ctx: PanelContext): void {
  * `dataViewBody`, so a new data view only adds itself here.
  */
 const DATA_VIEWS: Partial<Record<SectionId, DataView>> = {
-  runs: { hasData: runsHaveData, draw: runsSection }
+  runs: { hasData: runsHaveData, draw: runsSection },
+  launch: { hasData: launchHasData, draw: (state, writable) => launchSection(state, writable, scopeNotice(writable)) }
 }
 
 /** What one section shows below the section bar. */
@@ -268,7 +294,7 @@ function underLiveLine(body: OrcaNode, state: ConnectionView | null): OrcaNode {
 
 export default function Panel() {
   const state = read(connection)
-  return (
+  const tabs = (
     <Tabs
       label="Orchon sections"
       value={parseSection(read(section))}
@@ -280,5 +306,13 @@ export default function Panel() {
         </Tab>
       ))}
     </Tabs>
+  )
+  const notices = launchNotices()
+  if (notices === null) return tabs
+  return (
+    <Stack gap="sm">
+      {notices}
+      {tabs}
+    </Stack>
   )
 }

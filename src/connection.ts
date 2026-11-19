@@ -2,12 +2,13 @@
 // frame. This file owns the state and when discovery runs; `startConnection` ties it to Orca
 // (the settings, the frames' requests, the posts, the status bar item and the desktop
 // notifications) and holds the dashboard stream while Connected.
-import type { OrcaWorkerApi } from 'orca/worker'
+import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import { createClient, type Client, type ClientFailure, type FetchLike, type Timers } from './client'
 import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings } from './connection-settings'
 import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
+import type { RunsHint } from './hint-view'
 import { createLive } from './live'
 import { createNeedsYou, type NeedsYou } from './needs-you'
 import {
@@ -350,6 +351,8 @@ export type StartedConnection = {
   current(): Promise<ConnectionView>
   /** The snapshot of runs that need you, read while Connected. */
   needsYou: NeedsYou
+  /** Hears every dashboard hint the worker posts, until disposed. */
+  onHint(listener: (hint: RunsHint) => void): Disposable
   /** The status bar sentence now, as the "Orchon: Show runs" command returns it. */
   showRunsSentence(): string
   /** The Notifications setting as last read. */
@@ -416,6 +419,8 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     }
   })
   let held: ConnectionView | undefined
+  /** Who else hears each dashboard hint, such as the launch tracker. */
+  const hintListeners = new Set<(hint: RunsHint) => void>()
   const notifications = createNotifications({
     now: ports.now,
     timers: ports.timers,
@@ -468,6 +473,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     hint(hint) {
       orca.panels.post('runs.changed', hint)
       needsYou.hint(hint)
+      for (const listener of [...hintListeners]) listener(hint)
     },
     status: (runId) => endings.status(runId),
     live: (open) => connection.setLive(open),
@@ -533,6 +539,10 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     client,
     current: () => connection.current(),
     needsYou,
+    onHint(listener) {
+      hintListeners.add(listener)
+      return { dispose: () => void hintListeners.delete(listener) }
+    },
     showRunsSentence() {
       const view = held ?? { kind: 'searching', since: ports.now(), settings: NO_SETTINGS }
       return showRunsSentence(view, countsFor(view))

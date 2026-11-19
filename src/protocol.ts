@@ -12,6 +12,7 @@ import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
 import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
+import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer } from './launch-view'
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 
 declare module 'orca' {
@@ -79,6 +80,20 @@ declare module 'orca' {
     'graph.open': { input: GraphOpenRequest; output: GraphOpenAnswer }
     /** A run graph tab: the run on its workflow as it is now, and the connection as the tab draws it. */
     'graph.read': { input: GraphRequest; output: GraphAnswer }
+    /** The Launch section: the form's lists, the draft and the Starting view. Reload reads Archon again. */
+    'launch.read': { input: LaunchRequest; output: LaunchAnswer }
+    /** Changes the focused workspace's draft. */
+    'launch.edit': { input: LaunchEdit; output: LaunchAnswer }
+    /** Start: creates a conversation and posts the run once, never again. A press while one posts is ignored. */
+    'launch.start': { input: LaunchStart; output: LaunchAnswer }
+    /** "Launch another": the form again in place of the Starting view. It takes no input. */
+    'launch.another': { output: LaunchAnswer }
+    /** "Keep waiting": the launch looks for its run for another 60 seconds. */
+    'launch.wait': { input: { launchId: string }; output: LaunchAnswer }
+    /** The callouts of runs launches started, and how many launches still look. It takes no input. */
+    'launch.notices': { output: NoticesAnswer }
+    /** Dismisses a callout, or a run the Starting view opened. */
+    'launch.dismiss': { input: { launchId: string }; output: NoticesAnswer }
   }
   interface PluginPanelEvents {
     /**
@@ -100,5 +115,7 @@ declare module 'orca' {
     'notifications.changed': NotificationsView
     /** The editable groups, posted when a save or a read that no request waits for has ended. */
     'forms.changed': FormsView
+    /** A hint that a launch changed: its run was found, or it waited 60 seconds. It carries no data. */
+    'launch.changed': null
   }
 }
