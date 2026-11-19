@@ -1,0 +1,182 @@
+{
+  "release": "0.12.1",
+  "scenario": "workflows/archon-plan",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-plan?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-plan",
+          "description": "Turn decided intent — a feature request, an investigation report, an idea —\ninto an implementable plan: the approach chosen with alternatives rejected for\nstated reasons, the work broken into verifiable steps, and the validation that\nproves it (archon-plan-block). Advisory: it reads and reports — the repository is\nleft exactly as it was found. When the plan stops on questions only a person can\nanswer, the run pauses as one attention item instead of leaving them in an\nartifact. The answer plans again with the person's note, or ends the run with the\nquestions as they stand.\n\nUse when: what to build is known but how is not yet decided — \"plan this\nfeature\", \"turn this investigation into a plan\", \"how should we build this\".\nNOT for: root-causing a bug (investigate), or building the plan (implement).\n",
+          "nodes": [
+            {
+              "id": "cycle",
+              "kind": "loop_group",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'",
+                    "kind": "exec",
+                    "script": "true",
+                    "runtime": "sh"
+                  },
+                  {
+                    "id": "stage",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "kind": "include",
+                    "include": "archon-plan-block",
+                    "with": {
+                      "report": "$INPUTS.report",
+                      "work": "$INPUTS.work\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "kind": "include",
+                    "include": "archon-attention",
+                    "with": {
+                      "stage": "archon-plan",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "kind": "exec",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "runtime": "bun",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ready"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "work": {
+              "default": "",
+              "description": "What to plan — a feature description, an issue reference, or a goal. When empty, the run's trigger message is the work."
+            },
+            "report": {
+              "default": "",
+              "description": "Optional path to a prior investigation report to build on — its claims are verified, not trusted. Empty means no prior report."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "ready"
+        },
+        "authored": {
+          "name": "archon-plan",
+          "description": "Turn decided intent — a feature request, an investigation report, an idea —\ninto an implementable plan: the approach chosen with alternatives rejected for\nstated reasons, the work broken into verifiable steps, and the validation that\nproves it (archon-plan-block). Advisory: it reads and reports — the repository is\nleft exactly as it was found. When the plan stops on questions only a person can\nanswer, the run pauses as one attention item instead of leaving them in an\nartifact. The answer plans again with the person's note, or ends the run with the\nquestions as they stand.\n\nUse when: what to build is known but how is not yet decided — \"plan this\nfeature\", \"turn this investigation into a plan\", \"how should we build this\".\nNOT for: root-causing a bug (investigate), or building the plan (implement).\n",
+          "inputs": {
+            "work": {
+              "default": "",
+              "description": "What to plan — a feature description, an issue reference, or a goal. When empty, the run's trigger message is the work."
+            },
+            "report": {
+              "default": "",
+              "description": "Optional path to a prior investigation report to build on — its claims are verified, not trusted. Empty means no prior report."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "ready",
+          "nodes": [
+            {
+              "id": "cycle",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "bash": "true",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'"
+                  },
+                  {
+                    "id": "stage",
+                    "include": "archon-plan-block",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "with": {
+                      "report": "$INPUTS.report",
+                      "work": "$INPUTS.work\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "include": "archon-attention",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "with": {
+                      "stage": "archon-plan",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "runtime": "bun",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ready"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-plan.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

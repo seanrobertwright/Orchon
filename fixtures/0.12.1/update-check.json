@@ -1,0 +1,22 @@
+{
+  "release": "0.12.1",
+  "scenario": "update-check",
+  "log": [
+    {
+      "atMs": 187,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/update-check",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "updateAvailable": true,
+        "currentVersion": "0.12.1",
+        "latestVersion": "0.14.0",
+        "releaseUrl": "https://github.com/coleam00/Archon/releases/tag/v0.14.0"
+      }
+    }
+  ]
+}

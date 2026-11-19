@@ -1,0 +1,262 @@
+{
+  "release": "0.14.0",
+  "scenario": "config-tiers",
+  "log": [
+    {
+      "atMs": 9,
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/api/config/tiers",
+      "requestBody": {
+        "tiers": {
+          "small": {
+            "provider": "claude",
+            "model": "orchon-recorded-model"
+          }
+        }
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {
+              "model": "orchon-recorded-model"
+            },
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tiers": {
+            "small": {
+              "provider": "claude",
+              "model": "orchon-recorded-model"
+            }
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    },
+    {
+      "atMs": 9,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/config",
+      "requestBody": null,
+      "startedMs": 9,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {
+              "model": "orchon-recorded-model"
+            },
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tiers": {
+            "small": {
+              "provider": "claude",
+              "model": "orchon-recorded-model"
+            }
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    },
+    {
+      "atMs": 12,
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/api/config/tiers",
+      "requestBody": {
+        "tiers": {
+          "small": null
+        }
+      },
+      "startedMs": 9,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {
+              "model": "orchon-recorded-model"
+            },
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    },
+    {
+      "atMs": 13,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/config",
+      "requestBody": null,
+      "startedMs": 12,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {
+              "model": "orchon-recorded-model"
+            },
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    },
+    {
+      "atMs": 13,
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/api/config/tiers",
+      "requestBody": {},
+      "startedMs": 13,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "tiers: Invalid input: expected object, received undefined"
+      }
+    },
+    {
+      "atMs": 14,
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/api/config/tiers",
+      "requestBody": {
+        "tiers": {
+          "small": {
+            "provider": "orchon-recorder-no-such-provider",
+            "model": "x"
+          }
+        }
+      },
+      "startedMs": 13,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "tier 'small': Unknown provider: 'orchon-recorder-no-such-provider'. Available: opencode, copilot, claude"
+      }
+    }
+  ]
+}

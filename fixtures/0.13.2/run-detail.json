@@ -1,0 +1,382 @@
+{
+  "release": "0.13.2",
+  "scenario": "run-detail",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/542b1888-311b-4b65-b005-8b78e33a7c79",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "542b1888-311b-4b65-b005-8b78e33a7c79",
+          "conversation_id": "c4745dd3b4f08606b5fcd9ddaf5507f1",
+          "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+          "workflow_name": "orchon-recorder-echo",
+          "user_message": "Recording a launch for Orchon: one shell step.",
+          "status": "completed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\542b1888-311b-4b65-b005-8b78e33a7c79",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-19T01:03:13.621Z",
+              "digest": "1b796b4567cde3d43654422e5ecb151d4d2797da229a0cf2cd7ae9f624045fe2",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 139,
+              "byte_count": 868176
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": ""
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 77620
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "write"
+              ]
+            },
+            "node_counts": {
+              "completed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "total": 1
+            }
+          },
+          "parent_conversation_id": "ebfa70ea682ba173f7b88e67651a6ecd",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-19T01:03:14.000Z",
+          "completed_at": "2026-11-19T01:03:16.000Z",
+          "last_activity_at": "2026-11-19T01:03:16.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-19T01:03:16.308Z",
+            "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+            "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "c4745dd3b4f08606b5fcd9ddaf5507f1",
+            "parentConversationId": "ebfa70ea682ba173f7b88e67651a6ecd"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "542b1888-311b-4b65-b005-8b78e33a7c79",
+            "status": "completed",
+            "at": "2026-11-19T01:03:16.000Z"
+          },
+          "worker_platform_id": "web-worker-1795050194452-i06suv",
+          "parent_platform_id": "web-1795050191420-o7xrhr",
+          "conversation_platform_id": null,
+          "owner_observation": null,
+          "terminal_record": {
+            "run_id": "542b1888-311b-4b65-b005-8b78e33a7c79",
+            "status": "completed",
+            "outcome": null,
+            "error": null,
+            "first_failed_node": null,
+            "nodes": [
+              {
+                "node_id": "write",
+                "state": "completed"
+              }
+            ],
+            "returns": {
+              "availability": "unavailable",
+              "node_id": null,
+              "reason": "not_declared"
+            },
+            "artifacts": {
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\542b1888-311b-4b65-b005-8b78e33a7c79",
+              "files": [
+                {
+                  "path": ".archon/typed-artifacts/6946b835-105c-4329-bd93-f4ed5479566b.json",
+                  "size": 94
+                },
+                {
+                  "path": "notes/recorded.md",
+                  "size": 52
+                }
+              ],
+              "limitations": []
+            }
+          },
+          "nodes": [
+            {
+              "node_id": "write",
+              "state": "completed"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "8a064a86-e6fb-4cb6-a562-19b263f48ee3",
+            "workflow_run_id": "542b1888-311b-4b65-b005-8b78e33a7c79",
+            "event_order": 1,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-echo",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": null,
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording a launch for Orchon: one shell step.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\542b1888-311b-4b65-b005-8b78e33a7c79.jsonl"
+            },
+            "created_at": "2026-11-19 01:03:16"
+          },
+          {
+            "id": "e4f6ebb0-e20b-45d6-a69f-9da1dc2541fb",
+            "workflow_run_id": "542b1888-311b-4b65-b005-8b78e33a7c79",
+            "event_order": 2,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "write",
+            "data": {
+              "node": {
+                "id": "write",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "a0c7e4e9-3b84-4d3e-99bd-0e5795fb3698",
+                "startedAt": "2026-11-19T01:03:16.504Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:03:16.506Z",
+                  "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "16c9391d-c417-4759-990d-d386a6b16fb3",
+                "startedAt": "2026-11-19T01:03:16.619Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:03:16.506Z",
+                  "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:03:16.619Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash"
+            },
+            "created_at": "2026-11-19 01:03:16"
+          },
+          {
+            "id": "38d83c84-818b-4729-a0ab-74b1b5f59282",
+            "workflow_run_id": "542b1888-311b-4b65-b005-8b78e33a7c79",
+            "event_order": 3,
+            "event_type": "node_completed",
+            "step_index": null,
+            "step_name": "write",
+            "data": {
+              "node": {
+                "id": "write",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "a0c7e4e9-3b84-4d3e-99bd-0e5795fb3698",
+                "startedAt": "2026-11-19T01:03:16.504Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:03:16.506Z",
+                  "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "16c9391d-c417-4759-990d-d386a6b16fb3",
+                "startedAt": "2026-11-19T01:03:16.619Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:03:16.506Z",
+                  "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:03:16.619Z",
+                "durationMs": 257
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash",
+              "duration_ms": 257,
+              "node_output": "recorded"
+            },
+            "created_at": "2026-11-19 01:03:16"
+          },
+          {
+            "id": "0b8425e3-7b90-44ef-9423-ad7e6f88115b",
+            "workflow_run_id": "542b1888-311b-4b65-b005-8b78e33a7c79",
+            "event_order": 4,
+            "event_type": "workflow_completed",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "duration_ms": 268,
+              "terminal_record": {
+                "run_id": "542b1888-311b-4b65-b005-8b78e33a7c79",
+                "status": "completed",
+                "outcome": null,
+                "error": null,
+                "first_failed_node": null,
+                "nodes": [
+                  {
+                    "node_id": "write",
+                    "state": "completed"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\542b1888-311b-4b65-b005-8b78e33a7c79",
+                  "files": [
+                    {
+                      "path": ".archon/typed-artifacts/6946b835-105c-4329-bd93-f4ed5479566b.json",
+                      "size": 94
+                    },
+                    {
+                      "path": "notes/recorded.md",
+                      "size": 52
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-19 01:03:16"
+          }
+        ]
+      }
+    }
+  ]
+}

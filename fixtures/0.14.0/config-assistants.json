@@ -1,0 +1,142 @@
+{
+  "release": "0.14.0",
+  "scenario": "config-assistants",
+  "log": [
+    {
+      "atMs": 9,
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/api/config/assistants",
+      "requestBody": {
+        "assistants": {
+          "claude": {
+            "model": "orchon-recorded-model"
+          }
+        }
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {
+              "model": "orchon-recorded-model"
+            },
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    },
+    {
+      "atMs": 10,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/config",
+      "requestBody": null,
+      "startedMs": 9,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {
+              "model": "orchon-recorded-model"
+            },
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    },
+    {
+      "atMs": 10,
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/api/config/assistants",
+      "requestBody": {
+        "assistant": "orchon-recorder-no-such-provider"
+      },
+      "startedMs": 10,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "Unknown provider: 'orchon-recorder-no-such-provider'. Available: opencode, copilot, claude"
+      }
+    },
+    {
+      "atMs": 11,
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/api/config/assistants",
+      "requestBody": {
+        "assistant": ""
+      },
+      "startedMs": 10,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "assistant: Too small: expected string to have >=1 characters"
+      }
+    }
+  ]
+}

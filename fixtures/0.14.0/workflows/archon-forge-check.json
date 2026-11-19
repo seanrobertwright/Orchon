@@ -1,0 +1,51 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-forge-check",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-forge-check?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-forge-check",
+          "description": "Check that the pack's forge plugin can act for this checkout, without\nstarting any delivery. It runs the check the pack's forge-using workflows\nrun as their first node, with the env a run gets. The installed plugin must\nadvertise every operation the delivery workflows use; the merge queue checks\nits own when it starts. One repository the checkout's remotes name must\nanswer an authenticated read. That proves read access,\nnot write access. A pass names the credential source used; a refusal says\nwhat to fix.\n\nUse when: setting up the pack on a checkout, installing or updating the\nforge plugin, or a delivery run refused at its forge node.\nNOT for: proving write access (the first write does that).\n",
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "forge",
+              "kind": "exec",
+              "script": "forge-check",
+              "runtime": "bun"
+            }
+          ],
+          "worktree": {
+            "enabled": false
+          }
+        },
+        "authored": {
+          "name": "archon-forge-check",
+          "description": "Check that the pack's forge plugin can act for this checkout, without\nstarting any delivery. It runs the check the pack's forge-using workflows\nrun as their first node, with the env a run gets. The installed plugin must\nadvertise every operation the delivery workflows use; the merge queue checks\nits own when it starts. One repository the checkout's remotes name must\nanswer an authenticated read. That proves read access,\nnot write access. A pass names the credential source used; a refusal says\nwhat to fix.\n\nUse when: setting up the pack on a checkout, installing or updating the\nforge plugin, or a delivery run refused at its forge node.\nNOT for: proving write access (the first write does that).\n",
+          "worktree": {
+            "enabled": false
+          },
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "forge",
+              "script": "forge-check",
+              "runtime": "bun"
+            }
+          ]
+        },
+        "filename": "archon-forge-check.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

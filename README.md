@@ -70,14 +70,51 @@ Before each commit it runs the same check as `npm run check:tracked`, on the sta
 
 ESLint fails the build on any of these. A module counts as loaded by `import`, `export ... from`, `import()` or `require()`. The rules cover every file of code; `scripts/source-extensions.json` lists the extensions for all the gates.
 
-- Loading `node:child_process`, `node:net`, `node:http`, `node:https`, `node:tls`, `node:dgram` or `node:worker_threads`, in any file.
+- Loading `node:net`, `node:http`, `node:https`, `node:tls`, `node:dgram` or `node:worker_threads`, in any file.
+- Loading `node:child_process` outside the fixture recorder's process module `scripts/recorder/process.ts`.
 - Loading `node:fs` outside the disk module `src/disk.ts`. The gates' scripts and the tests are the exception: they may read files.
-- A use of `fetch` outside the client module `src/client.ts`.
+- A use of `fetch` outside the client module `src/client.ts` and the fixture recorder's HTTP module `scripts/recorder/http.ts`.
 - A use of `Date` or `Intl.DateTimeFormat` outside the date helper `src/dates.ts`, so that every clock read, date parse and formatted time goes through one file. The gates' scripts and the tests are the exception.
+- Loading anything under `scripts/` from shipped code: a file under `src/` or `editors/` that is not a test or a check. Orca never loads `scripts/`. The tests may load its shared helpers.
 - `eval`, `new Function`, and an `import()` or `require()` whose target is not a literal string.
 - The ways around those rules: `require()` outside `eslint.config.cjs`, `node:module` outside `scripts/tooling.ts`, and `process.getBuiltinModule` in any file.
 
+The fixture recorder is the one exception to the `node:child_process` ban and the `fetch` ban. It is a script a developer runs by hand, described under [Recorded fixtures](#recorded-fixtures), and Orca never loads it. It has to start an Archon release and call it, so one of its files may start a program and one may use `fetch`. Every other file of the recorder keeps both bans.
+
 A test also fails when the source names a `workspace:write` host method other than `editor.open` and `workspace.open`.
+
+### Recorded fixtures
+
+`fixtures/` holds what real Archon releases answered, so that the plugin can be tested against them. There is one folder for each supported release, named after it. Do not edit these files by hand: record them again.
+
+- Each JSON file in a release folder is one recording: `{ release, scenario, log }`. The log holds every request the recorder sent with the release's answer, every stream frame, and notes of what the recorder did between them, in order. An entry of kind `http` has `method`, `path`, `requestBody`, `status`, `contentType` and `body`. A recording that would be larger than 1 MiB indented is written on one line.
+- `workflows/` holds, for each bundled workflow of the release, its load answer and its YAML file.
+- `server.json` is the file the release wrote into its Archon home. A release that writes none has no such file.
+- `RECORDED.md` is the log: when the folder was recorded, from which binary, what each file holds, and what could not be recorded.
+- Machine paths, the account name, the machine name and the store id are replaced by placeholders such as `<project-path>` and `<store-id>`. `RECORDED.md` lists them.
+
+`fixtures/workspace-rows.json` is different. It holds rows of Orca's `workspace.list` for local, SSH and WSL workspaces, with Windows paths in both slash directions. A path with the long-path prefix `\\?\UNC\` is given with backslashes only, as Windows reads it. It is written from the table of the decision on host ids, because no SSH or WSL workspace was available to record.
+
+To record a release, download its `archon` binary for your machine from the release's page on GitHub into a folder outside this repository, then run:
+
+```sh
+node scripts/record-fixtures.ts 0.14.0 --binary <path to the downloaded archon binary>
+```
+
+Read this before you run it. The recorder:
+
+- Makes a new Archon home in the temp folder and points the release at it. It never reads or writes your own Archon home or its `config.yaml`, and it refuses to start a release against a home it did not make in that run.
+- Starts the release with `archon serve` on port 39417, or the port given with `--port`. It refuses port 3090, where your own Archon listens, and it never calls or stops an Archon it did not start.
+- Lets the release download its own server and web UI from its GitHub release, and installs the `claude` provider into the throwaway home with the release's own `provider add`. A release with no provider cannot create a conversation.
+- Registers one project: a scratch Git repository it makes inside the throwaway folder.
+- Launches only its own workflows, which it writes into that project. They hold shell steps, an approval gate and an attention wait, and no agent. It never launches a bundled workflow, so it never launches `archon-worktree-cleanup`, and it never sends a chat message.
+- Costs a little: for each launch that saves its message, Archon writes a title with its small model, through your own Claude login.
+- Leaves the release reachable the way `archon serve` does while it runs. Archon listens on every network interface by default.
+- Stops the release and every process it started, deletes the throwaway folder, scrubs what it recorded, and writes the fixtures. On Linux and macOS a process that has not ended five seconds after SIGTERM is sent SIGKILL; on Windows `taskkill /T /F` ends the tree at once.
+- Does the same on Ctrl+C at any point, the release's first boot and `provider add` included. A second Ctrl+C does not cut the cleanup short: the recorder ends once the release is gone and the throwaway folder is deleted.
+- Writes nothing when the run failed, was interrupted, or held back a fixture that still named a machine path or name after scrubbing. The fixtures folder of that release is left as it was, and the log is printed instead. A complete run replaces the folder only once the new recording is on disk.
+
+After recording, run `npm run check` and read the diff before you commit.
 
 ### Seeing it in Orca
 

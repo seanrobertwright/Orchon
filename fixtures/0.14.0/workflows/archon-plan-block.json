@@ -1,0 +1,186 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-plan-block",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-plan-block?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-plan-block",
+          "description": "Turn decided intent — a feature request, an investigation report, an idea —\ninto an implementable plan: the approach chosen with alternatives rejected for\nstated reasons, the work broken into verifiable steps, and the validation that\nproves it. Advisory: it reads and reports — the repository is left exactly as\nit was found.\n\nThe graph of archon-plan, as a building block for a workflow that composes the\nstage and owns what follows its ending. It never pauses for a person: run\narchon-plan, which adds that pause, by hand.\n",
+          "model": [
+            "@planner",
+            "large"
+          ],
+          "nodes": [
+            {
+              "id": "plan",
+              "mutates_checkout": false,
+              "output_type": "implementation-plan",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  },
+                  "open_questions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "\\S"
+                    }
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "plan.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "ready",
+                  "open_questions",
+                  "summary",
+                  "report"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "plan"
+              }
+            }
+          ],
+          "inputs": {
+            "work": {
+              "default": "",
+              "description": "What to plan — a feature description, an issue reference, or a goal. When empty, the run's trigger message is the work."
+            },
+            "report": {
+              "default": "",
+              "description": "Optional path to a prior investigation report to build on — its claims are verified, not trusted. Empty means no prior report."
+            },
+            "related": {
+              "default": "[]",
+              "description": "Related work triage found, as a JSON list of { url, relation }: overlapping open issues, closed earlier attempts, recent merged changes on the same surface. Defaults to an empty list."
+            }
+          },
+          "returns": "plan",
+          "outcome_field": "ready"
+        },
+        "authored": {
+          "name": "archon-plan-block",
+          "description": "Turn decided intent — a feature request, an investigation report, an idea —\ninto an implementable plan: the approach chosen with alternatives rejected for\nstated reasons, the work broken into verifiable steps, and the validation that\nproves it. Advisory: it reads and reports — the repository is left exactly as\nit was found.\n\nThe graph of archon-plan, as a building block for a workflow that composes the\nstage and owns what follows its ending. It never pauses for a person: run\narchon-plan, which adds that pause, by hand.\n",
+          "model": [
+            "@planner",
+            "large"
+          ],
+          "inputs": {
+            "work": {
+              "default": "",
+              "description": "What to plan — a feature description, an issue reference, or a goal. When empty, the run's trigger message is the work."
+            },
+            "report": {
+              "default": "",
+              "description": "Optional path to a prior investigation report to build on — its claims are verified, not trusted. Empty means no prior report."
+            },
+            "related": {
+              "default": "[]",
+              "description": "Related work triage found, as a JSON list of { url, relation }: overlapping open issues, closed earlier attempts, recent merged changes on the same surface. Defaults to an empty list."
+            }
+          },
+          "returns": "plan",
+          "outcome_field": "ready",
+          "nodes": [
+            {
+              "id": "plan",
+              "command": "plan",
+              "mutates_checkout": false,
+              "output_type": "implementation-plan",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  },
+                  "open_questions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "\\S"
+                    }
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "plan.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "ready",
+                  "open_questions",
+                  "summary",
+                  "report"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-plan-block.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

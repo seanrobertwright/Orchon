@@ -1,0 +1,222 @@
+{
+  "release": "0.13.2",
+  "scenario": "workflows/archon-review",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-review?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-review",
+          "description": "Review a change through parallel specialist lenses and produce one evidence-based\nverdict, held to the accepted contract (archon-review-block). Advisory and\nread-only on the code: it judges, it never edits, and it posts its report to the\npull request as one canonical comment (on `gh`, a write that landed but returned\na retryable response (5xx, or a rate limit) or no response can leave a second one; the next upsert then\nrefuses: inspect both and delete one). When the verdict is Ready on a pull\nrequest that is still a draft, the run pauses as one attention item instead of\nending with nothing to hand it on. The answer takes the pull request out of draft\nfor review and merge, or ends the run with the draft as it stands.\n\nUse when: changes need judging — \"review this PR\", \"review my changes\",\n\"is this ready to merge\".\nNOT for: fixing findings (implement), running the project's checks (validate),\nor writing code.\n",
+          "nodes": [
+            {
+              "id": "cycle",
+              "kind": "loop_group",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'",
+                    "kind": "exec",
+                    "script": "true",
+                    "runtime": "sh"
+                  },
+                  {
+                    "id": "stage",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "kind": "include",
+                    "include": "archon-review-block",
+                    "with": {
+                      "scope": "$INPUTS.scope",
+                      "prior_report": "$INPUTS.prior_report",
+                      "light": "$INPUTS.light",
+                      "part": "$INPUTS.part",
+                      "errors": "$INPUTS.errors",
+                      "work_order": "$INPUTS.work_order\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "kind": "include",
+                    "include": "archon-attention",
+                    "with": {
+                      "stage": "archon-review",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "kind": "exec",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "runtime": "bun",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ready"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "scope": {
+              "default": "",
+              "description": "What to review — a PR number/URL or a branch. Empty selects the current branch's open PR first, otherwise the working diff against the merge-base."
+            },
+            "prior_report": {
+              "default": "",
+              "description": "Path to the previous review round's report. When set, this round verifies prior findings first and reviews only the delta since the commit that round reviewed, which its publish recorded beside the report."
+            },
+            "work_order": {
+              "default": "",
+              "description": "The accepted outcome and scope boundaries for this change. Delivery passes the same work order implementation received. Standalone review may leave this empty and use the PR's problem, outcome, and explicit scope instead."
+            },
+            "light": {
+              "default": "false",
+              "description": "\"true\" when this continuation follows a correction for CI rather than for review: the general code lens alone reviews the delta."
+            },
+            "part": {
+              "default": "",
+              "description": "The part of an approved multi-part plan this change delivers, as JSON naming the delivered part and each part's contract items, quoted: `{\"delivers\": 1, \"parts\": [{\"part\": 1, \"items\": [\"...\"]}, {\"part\": 2, \"items\": [\"...\"]}]}`. A contract item that only later parts list is deferred, not unmet. Empty reviews against the whole contract. The `mode` node's `output_format` owns and enforces the shape."
+            },
+            "errors": {
+              "default": "auto",
+              "description": "Silent-failure lens — auto, true, or false."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "ready"
+        },
+        "authored": {
+          "name": "archon-review",
+          "description": "Review a change through parallel specialist lenses and produce one evidence-based\nverdict, held to the accepted contract (archon-review-block). Advisory and\nread-only on the code: it judges, it never edits, and it posts its report to the\npull request as one canonical comment (on `gh`, a write that landed but returned\na retryable response (5xx, or a rate limit) or no response can leave a second one; the next upsert then\nrefuses: inspect both and delete one). When the verdict is Ready on a pull\nrequest that is still a draft, the run pauses as one attention item instead of\nending with nothing to hand it on. The answer takes the pull request out of draft\nfor review and merge, or ends the run with the draft as it stands.\n\nUse when: changes need judging — \"review this PR\", \"review my changes\",\n\"is this ready to merge\".\nNOT for: fixing findings (implement), running the project's checks (validate),\nor writing code.\n",
+          "inputs": {
+            "scope": {
+              "default": "",
+              "description": "What to review — a PR number/URL or a branch. Empty selects the current branch's open PR first, otherwise the working diff against the merge-base."
+            },
+            "prior_report": {
+              "default": "",
+              "description": "Path to the previous review round's report. When set, this round verifies prior findings first and reviews only the delta since the commit that round reviewed, which its publish recorded beside the report."
+            },
+            "work_order": {
+              "default": "",
+              "description": "The accepted outcome and scope boundaries for this change. Delivery passes the same work order implementation received. Standalone review may leave this empty and use the PR's problem, outcome, and explicit scope instead."
+            },
+            "light": {
+              "default": "false",
+              "description": "\"true\" when this continuation follows a correction for CI rather than for review: the general code lens alone reviews the delta."
+            },
+            "part": {
+              "default": "",
+              "description": "The part of an approved multi-part plan this change delivers, as JSON naming the delivered part and each part's contract items, quoted: `{\"delivers\": 1, \"parts\": [{\"part\": 1, \"items\": [\"...\"]}, {\"part\": 2, \"items\": [\"...\"]}]}`. A contract item that only later parts list is deferred, not unmet. Empty reviews against the whole contract. The `mode` node's `output_format` owns and enforces the shape."
+            },
+            "errors": {
+              "default": "auto",
+              "description": "Silent-failure lens — auto, true, or false."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "ready",
+          "nodes": [
+            {
+              "id": "cycle",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "bash": "true",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'"
+                  },
+                  {
+                    "id": "stage",
+                    "include": "archon-review-block",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "with": {
+                      "scope": "$INPUTS.scope",
+                      "prior_report": "$INPUTS.prior_report",
+                      "light": "$INPUTS.light",
+                      "part": "$INPUTS.part",
+                      "errors": "$INPUTS.errors",
+                      "work_order": "$INPUTS.work_order\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "include": "archon-attention",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "with": {
+                      "stage": "archon-review",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "runtime": "bun",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ready"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-review.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

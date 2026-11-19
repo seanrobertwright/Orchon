@@ -1,0 +1,634 @@
+{
+  "release": "0.12.1",
+  "scenario": "workflows/archon-validate",
+  "log": [
+    {
+      "atMs": 7,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-validate?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-validate",
+          "description": "Discover and run the project's own checks — types, lint, tests, build,\nwhatever the repository itself defines — and report a structured verdict.\nJudges nothing and fixes nothing: it runs what the project declares and\ntells the truth about the result.\n\nUse when: the current state of the checkout needs a validation verdict —\n\"run the checks\", \"is this green\", \"validate this\".\nNOT for: fixing failures (implement) or reviewing code (review).\n",
+          "model": "medium",
+          "nodes": [
+            {
+              "id": "mode",
+              "kind": "exec",
+              "script": "mode",
+              "runtime": "bun",
+              "with": {
+                "comparison": "$INPUTS.comparison"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "comparison": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "comparison"
+                ]
+              }
+            },
+            {
+              "id": "compare",
+              "depends_on": [
+                "mode"
+              ],
+              "when": "$mode.output.comparison == true",
+              "always_run": true,
+              "kind": "exec",
+              "script": "compare",
+              "runtime": "bun",
+              "with": {
+                "comparison": "$INPUTS.comparison"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "interaction",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "archon_artifact"
+                            ]
+                          },
+                          "run_id": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "run_id",
+                          "path"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "green",
+                  "red_cause",
+                  "summary",
+                  "evidence"
+                ]
+              }
+            },
+            {
+              "id": "discover",
+              "depends_on": [
+                "mode"
+              ],
+              "when": "$mode.output.comparison == false",
+              "always_run": true,
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "checks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "argv": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "minItems": 1
+                        },
+                        "group": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "argv",
+                        "group"
+                      ]
+                    }
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "checks",
+                  "notes"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "discover-checks"
+              }
+            },
+            {
+              "id": "run",
+              "depends_on": [
+                "discover"
+              ],
+              "always_run": true,
+              "kind": "exec",
+              "script": "run-checks",
+              "runtime": "bun",
+              "timeout": 7200000,
+              "on_timeout": "skip",
+              "with": {
+                "discovery": "$discover.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "green",
+                      "red",
+                      "incomplete"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "classify",
+              "depends_on": [
+                "run"
+              ],
+              "when": "$run.output.status == 'red'",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "red_cause",
+                  "summary"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "classify-red"
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "compare",
+                "discover",
+                "run",
+                "classify"
+              ],
+              "trigger_rule": "none_failed_min_one_success",
+              "output_type": "validation",
+              "kind": "exec",
+              "script": "result",
+              "runtime": "bun",
+              "with": {
+                "comparison": {
+                  "from": "$compare.output",
+                  "if_skipped": null
+                },
+                "run": {
+                  "from": "$run.output",
+                  "if_skipped": null
+                },
+                "classification": {
+                  "from": "$classify.output",
+                  "if_skipped": null
+                }
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "interaction",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "archon_artifact"
+                            ]
+                          },
+                          "run_id": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "run_id",
+                          "path"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "green",
+                  "red_cause",
+                  "summary",
+                  "evidence"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "scope": {
+              "default": "",
+              "description": "Optional narrowing — a package, directory, or named check to focus on. Empty means the project's full applicable gate."
+            },
+            "comparison": {
+              "default": "",
+              "description": "Optional path to a composition request JSON: pinned original_base/base/head, change/base_changes, merge method and the project check argv/environment identity. Runs that exact gate on separate and composed trees without an agent."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "green"
+        },
+        "authored": {
+          "name": "archon-validate",
+          "description": "Discover and run the project's own checks — types, lint, tests, build,\nwhatever the repository itself defines — and report a structured verdict.\nJudges nothing and fixes nothing: it runs what the project declares and\ntells the truth about the result.\n\nUse when: the current state of the checkout needs a validation verdict —\n\"run the checks\", \"is this green\", \"validate this\".\nNOT for: fixing failures (implement) or reviewing code (review).\n",
+          "model": "medium",
+          "inputs": {
+            "scope": {
+              "default": "",
+              "description": "Optional narrowing — a package, directory, or named check to focus on. Empty means the project's full applicable gate."
+            },
+            "comparison": {
+              "default": "",
+              "description": "Optional path to a composition request JSON: pinned original_base/base/head, change/base_changes, merge method and the project check argv/environment identity. Runs that exact gate on separate and composed trees without an agent."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "green",
+          "nodes": [
+            {
+              "id": "mode",
+              "script": "mode",
+              "runtime": "bun",
+              "with": {
+                "comparison": "$INPUTS.comparison"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "comparison": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "comparison"
+                ]
+              }
+            },
+            {
+              "id": "compare",
+              "script": "compare",
+              "runtime": "bun",
+              "always_run": true,
+              "depends_on": [
+                "mode"
+              ],
+              "when": "$mode.output.comparison == true",
+              "with": {
+                "comparison": "$INPUTS.comparison"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "interaction",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "archon_artifact"
+                            ]
+                          },
+                          "run_id": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "run_id",
+                          "path"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "green",
+                  "red_cause",
+                  "summary",
+                  "evidence"
+                ]
+              }
+            },
+            {
+              "id": "discover",
+              "command": "discover-checks",
+              "depends_on": [
+                "mode"
+              ],
+              "when": "$mode.output.comparison == false",
+              "always_run": true,
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "checks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "argv": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "minItems": 1
+                        },
+                        "group": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "argv",
+                        "group"
+                      ]
+                    }
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "checks",
+                  "notes"
+                ]
+              }
+            },
+            {
+              "id": "run",
+              "script": "run-checks",
+              "runtime": "bun",
+              "depends_on": [
+                "discover"
+              ],
+              "always_run": true,
+              "timeout": 7200000,
+              "on_timeout": "skip",
+              "with": {
+                "discovery": "$discover.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "green",
+                      "red",
+                      "incomplete"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "classify",
+              "command": "classify-red",
+              "depends_on": [
+                "run"
+              ],
+              "when": "$run.output.status == 'red'",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "red_cause",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "script": "result",
+              "runtime": "bun",
+              "depends_on": [
+                "compare",
+                "discover",
+                "run",
+                "classify"
+              ],
+              "trigger_rule": "none_failed_min_one_success",
+              "with": {
+                "comparison": {
+                  "from": "$compare.output",
+                  "if_skipped": null
+                },
+                "run": {
+                  "from": "$run.output",
+                  "if_skipped": null
+                },
+                "classification": {
+                  "from": "$classify.output",
+                  "if_skipped": null
+                }
+              },
+              "output_type": "validation",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "interaction",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "archon_artifact"
+                            ]
+                          },
+                          "run_id": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "run_id",
+                          "path"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "green",
+                  "red_cause",
+                  "summary",
+                  "evidence"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-validate.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

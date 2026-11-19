@@ -1,0 +1,75 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-metrics-prs",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-metrics-prs?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-metrics-prs",
+          "description": "Record the outcomes of the pull requests the build queue opened, as metrics:\nsdlc.prs_opened, sdlc.prs_merged, sdlc.prs_abandoned and sdlc.pr_merge_rate.\nEach record is attributed to the build-queue runs that built its pull request,\nso `archon metrics --compare` splits pull requests by when those runs started.\nPull requests a round only continued, such as a contributor's, are reported in\n`skipped` and count in no metric. Re-runs replace earlier records.\n\nUse when: an operator wants current PR counts and merge rate (`archon metrics\nsdlc.pr_merge_rate`), or a schedule binding the operator installed starts it\n(see the SDLC pack README, \"Metrics\"). The pack installs no binding.\nNOT for: pull requests opened by hand. It needs a forge plugin whose pr.view\nreports pull request timestamps, and refuses without them.\n",
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "prs",
+              "mutates_checkout": false,
+              "kind": "exec",
+              "script": "prs",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "metrics"
+                ],
+                "properties": {
+                  "metrics": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          ],
+          "worktree": {
+            "enabled": false
+          }
+        },
+        "authored": {
+          "name": "archon-metrics-prs",
+          "description": "Record the outcomes of the pull requests the build queue opened, as metrics:\nsdlc.prs_opened, sdlc.prs_merged, sdlc.prs_abandoned and sdlc.pr_merge_rate.\nEach record is attributed to the build-queue runs that built its pull request,\nso `archon metrics --compare` splits pull requests by when those runs started.\nPull requests a round only continued, such as a contributor's, are reported in\n`skipped` and count in no metric. Re-runs replace earlier records.\n\nUse when: an operator wants current PR counts and merge rate (`archon metrics\nsdlc.pr_merge_rate`), or a schedule binding the operator installed starts it\n(see the SDLC pack README, \"Metrics\"). The pack installs no binding.\nNOT for: pull requests opened by hand. It needs a forge plugin whose pr.view\nreports pull request timestamps, and refuses without them.\n",
+          "worktree": {
+            "enabled": false
+          },
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "prs",
+              "script": "prs",
+              "runtime": "bun",
+              "mutates_checkout": false,
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "metrics"
+                ],
+                "properties": {
+                  "metrics": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "filename": "archon-metrics-prs.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

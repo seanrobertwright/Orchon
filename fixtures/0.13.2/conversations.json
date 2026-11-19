@@ -1,0 +1,136 @@
+{
+  "release": "0.13.2",
+  "scenario": "conversations",
+  "log": [
+    {
+      "atMs": 1,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?platform=web",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "ebfa70ea682ba173f7b88e67651a6ecd",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050191420-o7xrhr",
+          "ai_assistant_type": "claude",
+          "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch recording shell step",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:11",
+          "updated_at": "2026-11-19 01:03:22",
+          "last_activity_at": "2026-11-19 01:03:11"
+        }
+      ]
+    },
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?platform=web&codebaseId=6feec5b110ac5147f1d58ffa49d2790c",
+      "requestBody": null,
+      "startedMs": 1,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "ebfa70ea682ba173f7b88e67651a6ecd",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050191420-o7xrhr",
+          "ai_assistant_type": "claude",
+          "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch recording shell step",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:11",
+          "updated_at": "2026-11-19 01:03:22",
+          "last_activity_at": "2026-11-19 01:03:11"
+        }
+      ]
+    },
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050191420-o7xrhr",
+      "requestBody": null,
+      "startedMs": 2,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "ebfa70ea682ba173f7b88e67651a6ecd",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795050191420-o7xrhr",
+        "ai_assistant_type": "claude",
+        "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Orchon launch recording shell step",
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-19 01:03:11",
+        "updated_at": "2026-11-19 01:03:22",
+        "last_activity_at": "2026-11-19 01:03:11"
+      }
+    },
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050191420-o7xrhr/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 2,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "3e15411262282c8d2ea8f84b61d822eb",
+          "conversation_id": "ebfa70ea682ba173f7b88e67651a6ecd",
+          "role": "user",
+          "content": "Recording a launch for Orchon: one shell step.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:11"
+        },
+        {
+          "id": "56f0662942da3207c3e168c7b828853b",
+          "conversation_id": "ebfa70ea682ba173f7b88e67651a6ecd",
+          "role": "assistant",
+          "content": "🚀 Dispatching workflow: **orchon-recorder-echo** (background)",
+          "metadata": "{\"category\":\"workflow_dispatch_status\",\"workflowDispatch\":{\"workerConversationId\":\"web-worker-1795050194452-i06suv\",\"workflowName\":\"orchon-recorder-echo\"}}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:14"
+        },
+        {
+          "id": "5a811e3ff4503b62a553a4c367545fec",
+          "conversation_id": "ebfa70ea682ba173f7b88e67651a6ecd",
+          "role": "assistant",
+          "content": "Starting workflow: `orchon-recorder-echo`",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:14"
+        },
+        {
+          "id": "79fa2471ba172659a7cc96de0430638f",
+          "conversation_id": "ebfa70ea682ba173f7b88e67651a6ecd",
+          "role": "assistant",
+          "content": "recorded",
+          "metadata": "{\"category\":\"workflow_result\",\"workflowResult\":{\"workflowName\":\"orchon-recorder-echo\",\"runId\":\"542b1888-311b-4b65-b005-8b78e33a7c79\"}}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:16"
+        }
+      ]
+    }
+  ]
+}

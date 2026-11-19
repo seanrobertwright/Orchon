@@ -1,0 +1,626 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-pr",
+  "log": [
+    {
+      "atMs": 8,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-pr?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-pr",
+          "description": "Open a pull request for the committed work on the current branch — draft by\ndefault when composed, template-aware, with the body built from the run's\nartifacts — or push to the one it already has. Pushes and verifies by reading\nthe pull request back. When its caller allows it, it also publishes content the\nrun prepared for the description as a marked section of it, and reads that back.\nIt runs no validation and merges no base: CI judges the pushed head. Never sweeps unrelated changes, never rebases and never\nforce-pushes.\n\nUse when: committed work on a branch needs a PR — \"open a PR\", \"create a\ndraft PR for this branch\".\nNOT for: implementing (implement), reviewing (review), or merging (always human).\n",
+          "model": "medium",
+          "nodes": [
+            {
+              "id": "forge",
+              "kind": "exec",
+              "script": "forge-check",
+              "runtime": "bun"
+            },
+            {
+              "id": "prepare",
+              "depends_on": [
+                "forge"
+              ],
+              "output_type": "pull-request-intent",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "head_repo": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "head": {
+                    "type": "string",
+                    "pattern": "\\S"
+                  },
+                  "base": {
+                    "type": "string",
+                    "pattern": "\\S"
+                  },
+                  "existing": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  },
+                  "title": {
+                    "type": "string",
+                    "pattern": "\\S"
+                  },
+                  "body": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "pr-body.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  },
+                  "description": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "pr-description.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "repo",
+                  "head_repo",
+                  "head",
+                  "base",
+                  "existing",
+                  "title",
+                  "body",
+                  "description",
+                  "summary"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "pr"
+              }
+            },
+            {
+              "id": "publish",
+              "depends_on": [
+                "prepare"
+              ],
+              "output_type": "pull-request",
+              "kind": "exec",
+              "script": "publish-pr",
+              "runtime": "bun",
+              "timeout": 180000,
+              "with": {
+                "repo": {
+                  "from": "$prepare.output.repo"
+                },
+                "head_repo": {
+                  "from": "$prepare.output.head_repo"
+                },
+                "head": "$prepare.output.head",
+                "base": "$prepare.output.base",
+                "existing": {
+                  "from": "$prepare.output.existing"
+                },
+                "title": "$prepare.output.title",
+                "body": {
+                  "from": "$prepare.output.body"
+                },
+                "description": {
+                  "from": "$prepare.output.description"
+                },
+                "publish_description": "$INPUTS.publish_description",
+                "draft": "$INPUTS.draft",
+                "pull_request": "$INPUTS.pull_request",
+                "branch": "$INPUTS.branch"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "integer",
+                    "enum": [
+                      1
+                    ]
+                  },
+                  "repo": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "number": {
+                    "type": "integer"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "head": {
+                    "type": "string"
+                  },
+                  "base": {
+                    "type": "string"
+                  },
+                  "is_draft": {
+                    "type": "boolean"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed",
+                      "merged"
+                    ]
+                  },
+                  "head_repo": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "head_revision": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "base_revision": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "maintainer_can_modify": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "repo",
+                  "number",
+                  "url",
+                  "head",
+                  "base",
+                  "is_draft",
+                  "state",
+                  "head_repo",
+                  "head_revision",
+                  "base_revision",
+                  "maintainer_can_modify"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "draft": {
+              "default": "true",
+              "description": "\"true\" opens the PR as a draft; anything else opens it ready for review."
+            },
+            "pull_request": {
+              "default": "",
+              "description": "The number of an open pull request to continue, as the caller resolved it; empty or `null` when it names none."
+            },
+            "branch": {
+              "default": "",
+              "description": "The branch a new pull request opens from, as the caller resolved it. When an open pull request already has that head, the push updates it instead of opening another. Empty opens it from the checkout's branch."
+            },
+            "publish_description": {
+              "default": "false",
+              "description": "\"true\" lets the run publish content it prepared for the pull request's description, as a marked section of it, on any pull request it opens or continues; anything else leaves a continued pull request's description as its author left it."
+            }
+          },
+          "returns": "publish"
+        },
+        "authored": {
+          "name": "archon-pr",
+          "description": "Open a pull request for the committed work on the current branch — draft by\ndefault when composed, template-aware, with the body built from the run's\nartifacts — or push to the one it already has. Pushes and verifies by reading\nthe pull request back. When its caller allows it, it also publishes content the\nrun prepared for the description as a marked section of it, and reads that back.\nIt runs no validation and merges no base: CI judges the pushed head. Never sweeps unrelated changes, never rebases and never\nforce-pushes.\n\nUse when: committed work on a branch needs a PR — \"open a PR\", \"create a\ndraft PR for this branch\".\nNOT for: implementing (implement), reviewing (review), or merging (always human).\n",
+          "model": "medium",
+          "inputs": {
+            "draft": {
+              "default": "true",
+              "description": "\"true\" opens the PR as a draft; anything else opens it ready for review."
+            },
+            "pull_request": {
+              "default": "",
+              "description": "The number of an open pull request to continue, as the caller resolved it; empty or `null` when it names none."
+            },
+            "branch": {
+              "default": "",
+              "description": "The branch a new pull request opens from, as the caller resolved it. When an open pull request already has that head, the push updates it instead of opening another. Empty opens it from the checkout's branch."
+            },
+            "publish_description": {
+              "default": "false",
+              "description": "\"true\" lets the run publish content it prepared for the pull request's description, as a marked section of it, on any pull request it opens or continues; anything else leaves a continued pull request's description as its author left it."
+            }
+          },
+          "returns": "publish",
+          "nodes": [
+            {
+              "id": "forge",
+              "script": "forge-check",
+              "runtime": "bun"
+            },
+            {
+              "id": "prepare",
+              "command": "pr",
+              "depends_on": [
+                "forge"
+              ],
+              "output_type": "pull-request-intent",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "head_repo": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "head": {
+                    "type": "string",
+                    "pattern": "\\S"
+                  },
+                  "base": {
+                    "type": "string",
+                    "pattern": "\\S"
+                  },
+                  "existing": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  },
+                  "title": {
+                    "type": "string",
+                    "pattern": "\\S"
+                  },
+                  "body": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "pr-body.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  },
+                  "description": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "pr-description.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "repo",
+                  "head_repo",
+                  "head",
+                  "base",
+                  "existing",
+                  "title",
+                  "body",
+                  "description",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "publish",
+              "script": "publish-pr",
+              "runtime": "bun",
+              "timeout": 180000,
+              "depends_on": [
+                "prepare"
+              ],
+              "with": {
+                "repo": {
+                  "from": "$prepare.output.repo"
+                },
+                "head_repo": {
+                  "from": "$prepare.output.head_repo"
+                },
+                "head": "$prepare.output.head",
+                "base": "$prepare.output.base",
+                "existing": {
+                  "from": "$prepare.output.existing"
+                },
+                "title": "$prepare.output.title",
+                "body": {
+                  "from": "$prepare.output.body"
+                },
+                "description": {
+                  "from": "$prepare.output.description"
+                },
+                "publish_description": "$INPUTS.publish_description",
+                "draft": "$INPUTS.draft",
+                "pull_request": "$INPUTS.pull_request",
+                "branch": "$INPUTS.branch"
+              },
+              "output_type": "pull-request",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "integer",
+                    "enum": [
+                      1
+                    ]
+                  },
+                  "repo": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "number": {
+                    "type": "integer"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "head": {
+                    "type": "string"
+                  },
+                  "base": {
+                    "type": "string"
+                  },
+                  "is_draft": {
+                    "type": "boolean"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed",
+                      "merged"
+                    ]
+                  },
+                  "head_repo": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "path"
+                    ]
+                  },
+                  "head_revision": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "base_revision": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "maintainer_can_modify": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "repo",
+                  "number",
+                  "url",
+                  "head",
+                  "base",
+                  "is_draft",
+                  "state",
+                  "head_repo",
+                  "head_revision",
+                  "base_revision",
+                  "maintainer_can_modify"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-pr.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

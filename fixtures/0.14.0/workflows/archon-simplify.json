@@ -1,0 +1,121 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-simplify",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-simplify?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-simplify",
+          "description": "Judge whether a change delivers its outcome through more structure than it needs,\nand name the smaller shape. Read-only: it judges, it never edits.\n\nDelivery runs it once per run, after a review round passes and before CI, and\nhands its findings to the implementer to adopt or decline.\n\nUse when: a change needs its structure judged — \"is this overbuilt\", \"simplify\nreview\".\nNOT for: correctness (review), fixing findings (implement), or writing code.\n",
+          "model": [
+            "@review-simplify",
+            "@reviewer",
+            "medium"
+          ],
+          "nodes": [
+            {
+              "id": "simplify",
+              "mutates_checkout": false,
+              "output_type": "structure-review",
+              "context": "fresh",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "findings": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "findings"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "simplify"
+              }
+            },
+            {
+              "id": "prune-scratch",
+              "depends_on": [
+                "simplify"
+              ],
+              "trigger_rule": "all_done",
+              "kind": "exec",
+              "script": "prune-scratch",
+              "runtime": "bun",
+              "with": {
+                "lens": "simplify"
+              }
+            }
+          ],
+          "inputs": {
+            "work_order": {
+              "default": "",
+              "description": "The accepted outcome and scope boundaries the structure is judged against."
+            }
+          },
+          "returns": "simplify"
+        },
+        "authored": {
+          "name": "archon-simplify",
+          "description": "Judge whether a change delivers its outcome through more structure than it needs,\nand name the smaller shape. Read-only: it judges, it never edits.\n\nDelivery runs it once per run, after a review round passes and before CI, and\nhands its findings to the implementer to adopt or decline.\n\nUse when: a change needs its structure judged — \"is this overbuilt\", \"simplify\nreview\".\nNOT for: correctness (review), fixing findings (implement), or writing code.\n",
+          "model": [
+            "@review-simplify",
+            "@reviewer",
+            "medium"
+          ],
+          "inputs": {
+            "work_order": {
+              "default": "",
+              "description": "The accepted outcome and scope boundaries the structure is judged against."
+            }
+          },
+          "returns": "simplify",
+          "nodes": [
+            {
+              "id": "simplify",
+              "output_type": "structure-review",
+              "command": "simplify",
+              "context": "fresh",
+              "mutates_checkout": false,
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "findings": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "findings"
+                ]
+              }
+            },
+            {
+              "id": "prune-scratch",
+              "script": "prune-scratch",
+              "runtime": "bun",
+              "depends_on": [
+                "simplify"
+              ],
+              "trigger_rule": "all_done",
+              "with": {
+                "lens": "simplify"
+              }
+            }
+          ]
+        },
+        "filename": "archon-simplify.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-metrics-test-value",
+  "log": [
+    {
+      "atMs": 17,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-metrics-test-value?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-metrics-test-value",
+          "description": "Judge the tests in each factory pull request merged since a date, and record\nper pull request how many tests it added or changed (sdlc.tests_added) and how\nmany of them protect nothing on their own merits (sdlc.tests_unprotective).\nEach record is attributed to the build-queue runs that built its pull request;\nboth counts name the judge's identity, so agreement from\n`archon-metrics-test-value-calibrate` is read for the same judge. Re-runs\nreplace earlier records. It needs a forge plugin whose pr.view reports pull\nrequest timestamps and that provides pr.files and repo.file.\n\nUse when: an operator wants to see whether factory pull requests carry tests\nthat protect nothing, or a schedule binding the operator installed starts it\n(see the SDLC pack README, \"Metrics\"). The pack installs no binding.\nNOT for: reviewing an open pull request's tests (review).\n",
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "prs",
+              "mutates_checkout": false,
+              "kind": "exec",
+              "script": "prs",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "prs",
+                  "urls"
+                ],
+                "properties": {
+                  "prs": {
+                    "type": "array"
+                  },
+                  "urls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "judge",
+              "depends_on": [
+                "prs"
+              ],
+              "kind": "workflow",
+              "workflow": "archon-metrics-test-value-judge",
+              "fan_out": {
+                "items": "$prs.output.urls",
+                "as": "pr",
+                "max_parallel": 3,
+                "join": "all_done"
+              }
+            },
+            {
+              "id": "emit",
+              "depends_on": [
+                "prs",
+                "judge"
+              ],
+              "mutates_checkout": false,
+              "kind": "exec",
+              "script": "emit",
+              "runtime": "bun",
+              "with": {
+                "prs": "$prs.output.prs",
+                "verdicts": "$judge.output"
+              },
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "metrics"
+                ],
+                "properties": {
+                  "metrics": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          ],
+          "worktree": {
+            "enabled": false
+          },
+          "inputs": {
+            "since": {
+              "required": true,
+              "description": "An ISO date or time, or a number of days back from now such as 7d. Pull requests merged at or after it are judged, one judge run each, so the window sets the cost."
+            }
+          }
+        },
+        "authored": {
+          "name": "archon-metrics-test-value",
+          "description": "Judge the tests in each factory pull request merged since a date, and record\nper pull request how many tests it added or changed (sdlc.tests_added) and how\nmany of them protect nothing on their own merits (sdlc.tests_unprotective).\nEach record is attributed to the build-queue runs that built its pull request;\nboth counts name the judge's identity, so agreement from\n`archon-metrics-test-value-calibrate` is read for the same judge. Re-runs\nreplace earlier records. It needs a forge plugin whose pr.view reports pull\nrequest timestamps and that provides pr.files and repo.file.\n\nUse when: an operator wants to see whether factory pull requests carry tests\nthat protect nothing, or a schedule binding the operator installed starts it\n(see the SDLC pack README, \"Metrics\"). The pack installs no binding.\nNOT for: reviewing an open pull request's tests (review).\n",
+          "worktree": {
+            "enabled": false
+          },
+          "mutates_checkout": false,
+          "inputs": {
+            "since": {
+              "required": true,
+              "description": "An ISO date or time, or a number of days back from now such as 7d. Pull requests merged at or after it are judged, one judge run each, so the window sets the cost."
+            }
+          },
+          "nodes": [
+            {
+              "id": "prs",
+              "script": "prs",
+              "runtime": "bun",
+              "mutates_checkout": false,
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "prs",
+                  "urls"
+                ],
+                "properties": {
+                  "prs": {
+                    "type": "array"
+                  },
+                  "urls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "judge",
+              "workflow": "archon-metrics-test-value-judge",
+              "depends_on": [
+                "prs"
+              ],
+              "fan_out": {
+                "items": "$prs.output.urls",
+                "as": "pr",
+                "max_parallel": 3
+              }
+            },
+            {
+              "id": "emit",
+              "script": "emit",
+              "runtime": "bun",
+              "depends_on": [
+                "prs",
+                "judge"
+              ],
+              "mutates_checkout": false,
+              "with": {
+                "prs": "$prs.output.prs",
+                "verdicts": "$judge.output"
+              },
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "metrics"
+                ],
+                "properties": {
+                  "metrics": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "filename": "archon-metrics-test-value.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

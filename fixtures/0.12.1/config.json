@@ -1,0 +1,55 @@
+{
+  "release": "0.12.1",
+  "scenario": "config",
+  "log": [
+    {
+      "atMs": 1,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/config",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {},
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "slack": "batch",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "release": "0.13.2",
+  "scenario": "workflows/archon-forge-check",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-forge-check?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-forge-check",
+          "description": "Check that the pack's selected forge source (ARCHON_SDLC_FORGE, gh by\ndefault) can act for this checkout, without starting any delivery. It runs\nthe check the pack's forge-using workflows run as their first node, with the\nenv a run gets. On forge, the installed plugin must advertise every\noperation the delivery workflows use; the merge queue checks its own when\nit starts. On both sources, one repository the checkout's\nremotes name must answer an authenticated read. That proves read access,\nnot write access. A pass names the credential source used; a refusal says\nwhat to fix.\n\nUse when: setting up the pack on a checkout, switching ARCHON_SDLC_FORGE, or\na delivery run refused at its forge node.\nNOT for: proving write access (the first write does that).\n",
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "forge",
+              "kind": "exec",
+              "script": "forge-check",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "gh",
+                      "forge"
+                    ]
+                  }
+                },
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ],
+          "worktree": {
+            "enabled": false
+          }
+        },
+        "authored": {
+          "name": "archon-forge-check",
+          "description": "Check that the pack's selected forge source (ARCHON_SDLC_FORGE, gh by\ndefault) can act for this checkout, without starting any delivery. It runs\nthe check the pack's forge-using workflows run as their first node, with the\nenv a run gets. On forge, the installed plugin must advertise every\noperation the delivery workflows use; the merge queue checks its own when\nit starts. On both sources, one repository the checkout's\nremotes name must answer an authenticated read. That proves read access,\nnot write access. A pass names the credential source used; a refusal says\nwhat to fix.\n\nUse when: setting up the pack on a checkout, switching ARCHON_SDLC_FORGE, or\na delivery run refused at its forge node.\nNOT for: proving write access (the first write does that).\n",
+          "worktree": {
+            "enabled": false
+          },
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "forge",
+              "script": "forge-check",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "gh",
+                      "forge"
+                    ]
+                  }
+                },
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-forge-check.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

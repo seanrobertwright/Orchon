@@ -1,0 +1,57 @@
+{
+  "release": "0.12.1",
+  "scenario": "deletes",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "DELETE",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true,
+        "message": "Deleted workflow run: orchon-recorder-fail"
+      }
+    },
+    {
+      "atMs": 5,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+      "requestBody": null,
+      "startedMs": 4,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    },
+    {
+      "atMs": 11,
+      "kind": "http",
+      "method": "DELETE",
+      "path": "/api/codebases/cd8c6f17a56a08ff6e8c24143751f5c4",
+      "requestBody": null,
+      "startedMs": 5,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true
+      }
+    },
+    {
+      "atMs": 11,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/codebases",
+      "requestBody": null,
+      "startedMs": 11,
+      "status": 200,
+      "contentType": "application/json",
+      "body": []
+    }
+  ]
+}

@@ -1,0 +1,1012 @@
+{
+  "release": "0.13.2",
+  "scenario": "attention-wait",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/runs/attention",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "runs": [
+          {
+            "id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "conversation_id": "e8c661a6a5e75f5a805bb4798f27f1cd",
+            "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+            "workflow_name": "orchon-recorder-gate",
+            "user_message": "Recording a gate for Orchon: answered, then the wait answered.",
+            "status": "paused",
+            "outcome": null,
+            "current_step_index": null,
+            "metadata": {
+              "ai_configuration": {
+                "version": 1,
+                "assistant": "claude",
+                "assistants": {
+                  "opencode": {},
+                  "copilot": {},
+                  "claude": {}
+                },
+                "baseAiProfile": {
+                  "defaultProvider": "claude",
+                  "aliases": {
+                    "small": {
+                      "provider": "claude",
+                      "model": "haiku"
+                    },
+                    "medium": {
+                      "provider": "claude",
+                      "model": "sonnet"
+                    },
+                    "large": {
+                      "provider": "claude",
+                      "model": "opus"
+                    }
+                  }
+                },
+                "modelOverrides": {}
+              },
+              "workflow_source": {
+                "version": 1,
+                "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\122e7550-1d38-43f0-92eb-67ed11e0cd37",
+                "origin": "<project-path>",
+                "captured_at": "2026-11-19T01:04:12.364Z",
+                "digest": "1b796b4567cde3d43654422e5ecb151d4d2797da229a0cf2cd7ae9f624045fe2",
+                "source_config": {
+                  "load_default_workflows": true,
+                  "load_default_commands": true
+                },
+                "file_count": 139,
+                "byte_count": 868176
+              },
+              "model_bindings": {
+                "overrides": {},
+                "effective": {
+                  "defaultProvider": "claude",
+                  "aliases": {
+                    "small": {
+                      "provider": "claude",
+                      "model": "haiku"
+                    },
+                    "medium": {
+                      "provider": "claude",
+                      "model": "sonnet"
+                    },
+                    "large": {
+                      "provider": "claude",
+                      "model": "opus"
+                    }
+                  }
+                }
+              },
+              "dispatch": {
+                "base_branch": ""
+              },
+              "execution_owner": {
+                "host": "<host>",
+                "pid": 77620
+              },
+              "terminal_graph": {
+                "node_ids": [
+                  "gate",
+                  "ask",
+                  "done"
+                ]
+              },
+              "pause_cause": "wait",
+              "approval_response": "approved",
+              "rejection_reason": "",
+              "rejection_count": 0,
+              "execution_claim": "17012b7e-6629-43cb-bf01-93437f69a655",
+              "wait": {
+                "owner": "node",
+                "nodeId": "ask",
+                "kind": "attention",
+                "waitingSince": "2026-11-19T01:04:20.438Z",
+                "message": "Recorded question: pick one.",
+                "pauseId": "48cc9504-2dcb-428a-b601-892a0a13a823",
+                "form": "select",
+                "options": [
+                  {
+                    "id": "first",
+                    "label": "The first option"
+                  },
+                  {
+                    "id": "second",
+                    "label": "The second option"
+                  }
+                ]
+              }
+            },
+            "parent_conversation_id": "7b80db606fa0f0b8acab48e35ba6add4",
+            "user_id": null,
+            "parent_run_id": null,
+            "adopted_from_run_id": null,
+            "started_at": "2026-11-19T01:04:20.000Z",
+            "completed_at": null,
+            "last_activity_at": "2026-11-19T01:04:20.000Z",
+            "working_path": "<project-path>",
+            "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+            "checkout_baseline": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:04:14.673Z",
+              "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            },
+            "origin": {
+              "conversationId": "e8c661a6a5e75f5a805bb4798f27f1cd",
+              "parentConversationId": "7b80db606fa0f0b8acab48e35ba6add4"
+            },
+            "platform_type": "web",
+            "worker_platform_id": "web-worker-1795050253140-nv5p29",
+            "parent_platform_id": "web-1795050250979-rh6dgq",
+            "codebase_name": "orchon-recorder/throwaway-project",
+            "agents_completed": null,
+            "agents_failed": null,
+            "agents_total": null,
+            "active_nodes": [],
+            "current_step_name": null,
+            "current_step_status": null,
+            "total_steps": null,
+            "owner_observation": null,
+            "attention": {
+              "kind": "attention",
+              "runId": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+              "nodeId": "ask",
+              "message": "Recorded question: pick one.",
+              "occurrence": "48cc9504-2dcb-428a-b601-892a0a13a823",
+              "form": "select",
+              "options": [
+                {
+                  "id": "first",
+                  "label": "The first option"
+                },
+                {
+                  "id": "second",
+                  "label": "The second option"
+                }
+              ]
+            }
+          }
+        ],
+        "items": [
+          {
+            "kind": "attention",
+            "runId": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "workflow": "orchon-recorder-gate",
+            "project": {
+              "key": "orchon-recorder/throwaway-project",
+              "codebaseId": "6feec5b110ac5147f1d58ffa49d2790c",
+              "name": "orchon-recorder/throwaway-project"
+            },
+            "parentRunId": null,
+            "fanOut": null,
+            "revision": 1,
+            "labels": {},
+            "pausedAt": "2026-11-19T01:04:20.438Z",
+            "context": {
+              "artifactsDir": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\122e7550-1d38-43f0-92eb-67ed11e0cd37",
+              "transcript": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\122e7550-1d38-43f0-92eb-67ed11e0cd37.jsonl",
+              "workingPath": "<project-path>",
+              "branch": null
+            },
+            "node": "ask",
+            "occurrence": "48cc9504-2dcb-428a-b601-892a0a13a823",
+            "message": "Recorded question: pick one.",
+            "form": "select",
+            "options": [
+              {
+                "id": "first",
+                "label": "The first option"
+              },
+              {
+                "id": "second",
+                "label": "The second option"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/runs/122e7550-1d38-43f0-92eb-67ed11e0cd37/attention",
+      "requestBody": null,
+      "startedMs": 2,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "item": {
+          "kind": "attention",
+          "runId": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+          "workflow": "orchon-recorder-gate",
+          "project": {
+            "key": "orchon-recorder/throwaway-project",
+            "codebaseId": "6feec5b110ac5147f1d58ffa49d2790c",
+            "name": "orchon-recorder/throwaway-project"
+          },
+          "parentRunId": null,
+          "fanOut": null,
+          "revision": 1,
+          "labels": {},
+          "pausedAt": "2026-11-19T01:04:20.438Z",
+          "context": {
+            "artifactsDir": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "transcript": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\122e7550-1d38-43f0-92eb-67ed11e0cd37.jsonl",
+            "workingPath": "<project-path>",
+            "branch": null
+          },
+          "node": "ask",
+          "occurrence": "48cc9504-2dcb-428a-b601-892a0a13a823",
+          "message": "Recorded question: pick one.",
+          "form": "select",
+          "options": [
+            {
+              "id": "first",
+              "label": "The first option"
+            },
+            {
+              "id": "second",
+              "label": "The second option"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "atMs": 5,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/122e7550-1d38-43f0-92eb-67ed11e0cd37",
+      "requestBody": null,
+      "startedMs": 3,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+          "conversation_id": "e8c661a6a5e75f5a805bb4798f27f1cd",
+          "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+          "workflow_name": "orchon-recorder-gate",
+          "user_message": "Recording a gate for Orchon: answered, then the wait answered.",
+          "status": "paused",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\122e7550-1d38-43f0-92eb-67ed11e0cd37",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-19T01:04:12.364Z",
+              "digest": "1b796b4567cde3d43654422e5ecb151d4d2797da229a0cf2cd7ae9f624045fe2",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 139,
+              "byte_count": 868176
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": ""
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 77620
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "gate",
+                "ask",
+                "done"
+              ]
+            },
+            "pause_cause": "wait",
+            "approval_response": "approved",
+            "rejection_reason": "",
+            "rejection_count": 0,
+            "execution_claim": "17012b7e-6629-43cb-bf01-93437f69a655",
+            "wait": {
+              "owner": "node",
+              "nodeId": "ask",
+              "kind": "attention",
+              "waitingSince": "2026-11-19T01:04:20.438Z",
+              "message": "Recorded question: pick one.",
+              "pauseId": "48cc9504-2dcb-428a-b601-892a0a13a823",
+              "form": "select",
+              "options": [
+                {
+                  "id": "first",
+                  "label": "The first option"
+                },
+                {
+                  "id": "second",
+                  "label": "The second option"
+                }
+              ]
+            }
+          },
+          "parent_conversation_id": "7b80db606fa0f0b8acab48e35ba6add4",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-19T01:04:20.000Z",
+          "completed_at": null,
+          "last_activity_at": "2026-11-19T01:04:20.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-19T01:04:14.673Z",
+            "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+            "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "e8c661a6a5e75f5a805bb4798f27f1cd",
+            "parentConversationId": "7b80db606fa0f0b8acab48e35ba6add4"
+          },
+          "attention": {
+            "kind": "attention",
+            "runId": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "nodeId": "ask",
+            "message": "Recorded question: pick one.",
+            "occurrence": "48cc9504-2dcb-428a-b601-892a0a13a823",
+            "form": "select",
+            "options": [
+              {
+                "id": "first",
+                "label": "The first option"
+              },
+              {
+                "id": "second",
+                "label": "The second option"
+              }
+            ]
+          },
+          "worker_platform_id": "web-worker-1795050253140-nv5p29",
+          "parent_platform_id": "web-1795050250979-rh6dgq",
+          "conversation_platform_id": null,
+          "owner_observation": null,
+          "terminal_record": null,
+          "nodes": [
+            {
+              "node_id": "gate",
+              "state": "completed"
+            },
+            {
+              "node_id": "ask",
+              "state": "running"
+            },
+            {
+              "node_id": "done",
+              "state": "pending"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "e62431b8-5758-4a51-9911-29dcd18fbbfc",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 9,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-gate",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": null,
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording a gate for Orchon: answered, then the wait answered.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\122e7550-1d38-43f0-92eb-67ed11e0cd37.jsonl"
+            },
+            "created_at": "2026-11-19 01:04:14"
+          },
+          {
+            "id": "b4aea11f-0442-4b71-99ab-56b62596e178",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 10,
+            "event_type": "workflow_parse_warnings",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-gate",
+              "warnings": [
+                "Node 'gate': 'approval:' is deprecated. Write 'wait: { attention: <message>, form: approval }' instead; the next node reads '$<id>.output.decision' and '$<id>.output.text'. A legacy reject cancels the run, while an attention wait continues with decision 'reject', so add a 'cancel:' node with when: \"$<id>.output.decision == 'reject'\" where rejecting should end the run. It keeps running as before until rewritten."
+              ]
+            },
+            "created_at": "2026-11-19 01:04:14"
+          },
+          {
+            "id": "c9126246-1ac2-4d3d-8ebc-e9524ba8ea9f",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 11,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "gate",
+            "data": {
+              "node": {
+                "id": "gate",
+                "kind": "gate"
+              },
+              "invocation": {
+                "id": "f3097244-15f3-4bf9-b021-b830c7ff8186",
+                "startedAt": "2026-11-19T01:04:14.870Z",
+                "loopPath": []
+              },
+              "attempt": {
+                "id": "76b8ce4e-a15f-47a0-aa09-aab5b51a5b44",
+                "startedAt": "2026-11-19T01:04:14.873Z"
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:04:14.873Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "gate"
+            },
+            "created_at": "2026-11-19 01:04:14"
+          },
+          {
+            "id": "cde0b64c-b6ae-4070-b415-fb1e0b773c59",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 12,
+            "event_type": "node_suspended",
+            "step_index": null,
+            "step_name": "gate",
+            "data": {
+              "node": {
+                "id": "gate",
+                "kind": "gate"
+              },
+              "invocation": {
+                "id": "f3097244-15f3-4bf9-b021-b830c7ff8186",
+                "startedAt": "2026-11-19T01:04:14.870Z",
+                "loopPath": []
+              },
+              "attempt": {
+                "id": "76b8ce4e-a15f-47a0-aa09-aab5b51a5b44",
+                "startedAt": "2026-11-19T01:04:14.873Z"
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:04:14.873Z",
+                "durationMs": 4
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "gate",
+              "duration_ms": 4,
+              "suspend_point": "approval",
+              "node_output": ""
+            },
+            "created_at": "2026-11-19 01:04:14"
+          },
+          {
+            "id": "1ce27df1-37de-40cd-98e2-aae2d7465e93",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 13,
+            "event_type": "approval_requested",
+            "step_index": null,
+            "step_name": "gate",
+            "data": {
+              "message": "Recorded gate: approve to go on."
+            },
+            "created_at": "2026-11-19 01:04:14"
+          },
+          {
+            "id": "f2d2074c-42dc-4127-88fe-7afd8e35dd67",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 14,
+            "event_type": "node_completed",
+            "step_index": null,
+            "step_name": "gate",
+            "data": {
+              "node": {
+                "id": "gate",
+                "kind": "gate"
+              },
+              "invocation": {
+                "id": "f3097244-15f3-4bf9-b021-b830c7ff8186",
+                "startedAt": "2026-11-19T01:04:14.870Z",
+                "loopPath": []
+              },
+              "attempt": {
+                "id": "76b8ce4e-a15f-47a0-aa09-aab5b51a5b44",
+                "startedAt": "2026-11-19T01:04:14.873Z"
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:04:14.873Z",
+                "durationMs": 66
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "gate",
+              "duration_ms": 66,
+              "node_output": "",
+              "approval_decision": "approved"
+            },
+            "created_at": "2026-11-19 01:04:14"
+          },
+          {
+            "id": "05542414-1d18-4894-88cc-17dc68f7d54e",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 15,
+            "event_type": "approval_received",
+            "step_index": null,
+            "step_name": "gate",
+            "data": {
+              "via": "api",
+              "occurrence": "a07f9535-b6ca-4518-8664-55c3ea783b22",
+              "decision": "approved",
+              "comment": "Recorded approval."
+            },
+            "created_at": "2026-11-19 01:04:14"
+          },
+          {
+            "id": "af33c553-ddb4-4168-9d9f-6668ab0f8a0c",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 16,
+            "event_type": "workflow_unpaused",
+            "step_index": null,
+            "step_name": null,
+            "data": {},
+            "created_at": "2026-11-19 01:04:20"
+          },
+          {
+            "id": "6e8dc2f4-f750-4167-beb0-36863a17fd30",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 17,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-gate",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": null,
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording a gate for Orchon: answered, then the wait answered.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\122e7550-1d38-43f0-92eb-67ed11e0cd37.jsonl"
+            },
+            "created_at": "2026-11-19 01:04:20"
+          },
+          {
+            "id": "a4540846-4cb8-44cc-ba2c-7f05dcf229cc",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 18,
+            "event_type": "node_skipped_prior_success",
+            "step_index": null,
+            "step_name": "gate",
+            "data": {
+              "node": {
+                "id": "gate",
+                "kind": "gate"
+              },
+              "reason": "prior_success",
+              "node_output": ""
+            },
+            "created_at": "2026-11-19 01:04:20"
+          },
+          {
+            "id": "010310cd-6e99-4c11-8c92-5cf5eb12b727",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 19,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "ask",
+            "data": {
+              "node": {
+                "id": "ask",
+                "kind": "wait"
+              },
+              "invocation": {
+                "id": "eb091acf-44ed-479f-84b0-494288839bb9",
+                "startedAt": "2026-11-19T01:04:20.438Z",
+                "loopPath": []
+              },
+              "attempt": {
+                "id": "3c120ccb-c275-4b88-b1fd-95821c0803c9",
+                "startedAt": "2026-11-19T01:04:20.438Z"
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:04:20.438Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "wait"
+            },
+            "created_at": "2026-11-19 01:04:20"
+          },
+          {
+            "id": "18d2b057-9b6d-4cd6-8880-04c72ebbe852",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 20,
+            "event_type": "wait_started",
+            "step_index": null,
+            "step_name": "ask",
+            "data": {
+              "kind": "attention"
+            },
+            "created_at": "2026-11-19 01:04:20"
+          },
+          {
+            "id": "ed97ef59-9aba-4299-ba4e-7fc097eb8f48",
+            "workflow_run_id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "event_order": 21,
+            "event_type": "node_suspended",
+            "step_index": null,
+            "step_name": "ask",
+            "data": {
+              "node": {
+                "id": "ask",
+                "kind": "wait"
+              },
+              "invocation": {
+                "id": "eb091acf-44ed-479f-84b0-494288839bb9",
+                "startedAt": "2026-11-19T01:04:20.438Z",
+                "loopPath": []
+              },
+              "attempt": {
+                "id": "3c120ccb-c275-4b88-b1fd-95821c0803c9",
+                "startedAt": "2026-11-19T01:04:20.438Z"
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:04:20.438Z",
+                "durationMs": 8
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "wait",
+              "duration_ms": 8,
+              "suspend_point": "wait",
+              "node_output": ""
+            },
+            "created_at": "2026-11-19 01:04:20"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 6,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/dashboard/runs?limit=1",
+      "requestBody": null,
+      "startedMs": 5,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "runs": [
+          {
+            "id": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+            "conversation_id": "e8c661a6a5e75f5a805bb4798f27f1cd",
+            "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+            "workflow_name": "orchon-recorder-gate",
+            "user_message": "Recording a gate for Orchon: answered, then the wait answered.",
+            "status": "paused",
+            "outcome": null,
+            "current_step_index": null,
+            "metadata": {
+              "ai_configuration": {
+                "version": 1,
+                "assistant": "claude",
+                "assistants": {
+                  "opencode": {},
+                  "copilot": {},
+                  "claude": {}
+                },
+                "baseAiProfile": {
+                  "defaultProvider": "claude",
+                  "aliases": {
+                    "small": {
+                      "provider": "claude",
+                      "model": "haiku"
+                    },
+                    "medium": {
+                      "provider": "claude",
+                      "model": "sonnet"
+                    },
+                    "large": {
+                      "provider": "claude",
+                      "model": "opus"
+                    }
+                  }
+                },
+                "modelOverrides": {}
+              },
+              "workflow_source": {
+                "version": 1,
+                "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\122e7550-1d38-43f0-92eb-67ed11e0cd37",
+                "origin": "<project-path>",
+                "captured_at": "2026-11-19T01:04:12.364Z",
+                "digest": "1b796b4567cde3d43654422e5ecb151d4d2797da229a0cf2cd7ae9f624045fe2",
+                "source_config": {
+                  "load_default_workflows": true,
+                  "load_default_commands": true
+                },
+                "file_count": 139,
+                "byte_count": 868176
+              },
+              "model_bindings": {
+                "overrides": {},
+                "effective": {
+                  "defaultProvider": "claude",
+                  "aliases": {
+                    "small": {
+                      "provider": "claude",
+                      "model": "haiku"
+                    },
+                    "medium": {
+                      "provider": "claude",
+                      "model": "sonnet"
+                    },
+                    "large": {
+                      "provider": "claude",
+                      "model": "opus"
+                    }
+                  }
+                }
+              },
+              "dispatch": {
+                "base_branch": ""
+              },
+              "execution_owner": {
+                "host": "<host>",
+                "pid": 77620
+              },
+              "terminal_graph": {
+                "node_ids": [
+                  "gate",
+                  "ask",
+                  "done"
+                ]
+              },
+              "pause_cause": "wait",
+              "approval_response": "approved",
+              "rejection_reason": "",
+              "rejection_count": 0,
+              "execution_claim": "17012b7e-6629-43cb-bf01-93437f69a655",
+              "wait": {
+                "owner": "node",
+                "nodeId": "ask",
+                "kind": "attention",
+                "waitingSince": "2026-11-19T01:04:20.438Z",
+                "message": "Recorded question: pick one.",
+                "pauseId": "48cc9504-2dcb-428a-b601-892a0a13a823",
+                "form": "select",
+                "options": [
+                  {
+                    "id": "first",
+                    "label": "The first option"
+                  },
+                  {
+                    "id": "second",
+                    "label": "The second option"
+                  }
+                ]
+              }
+            },
+            "parent_conversation_id": "7b80db606fa0f0b8acab48e35ba6add4",
+            "user_id": null,
+            "parent_run_id": null,
+            "adopted_from_run_id": null,
+            "started_at": "2026-11-19T01:04:20.000Z",
+            "completed_at": null,
+            "last_activity_at": "2026-11-19T01:04:20.000Z",
+            "working_path": "<project-path>",
+            "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+            "checkout_baseline": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:04:14.673Z",
+              "commit": "204aeb5a960d621b8532c3f4d3cf64810acdec6b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            },
+            "origin": {
+              "conversationId": "e8c661a6a5e75f5a805bb4798f27f1cd",
+              "parentConversationId": "7b80db606fa0f0b8acab48e35ba6add4"
+            },
+            "platform_type": "web",
+            "worker_platform_id": "web-worker-1795050253140-nv5p29",
+            "parent_platform_id": "web-1795050250979-rh6dgq",
+            "codebase_name": "orchon-recorder/throwaway-project",
+            "agents_completed": 0,
+            "agents_failed": 0,
+            "agents_total": null,
+            "active_nodes": [
+              "ask"
+            ],
+            "current_step_name": "ask",
+            "current_step_status": "running",
+            "total_steps": null,
+            "owner_observation": null,
+            "attention": {
+              "kind": "attention",
+              "runId": "122e7550-1d38-43f0-92eb-67ed11e0cd37",
+              "nodeId": "ask",
+              "message": "Recorded question: pick one.",
+              "occurrence": "48cc9504-2dcb-428a-b601-892a0a13a823",
+              "form": "select",
+              "options": [
+                {
+                  "id": "first",
+                  "label": "The first option"
+                },
+                {
+                  "id": "second",
+                  "label": "The second option"
+                }
+              ]
+            }
+          }
+        ],
+        "total": 3,
+        "counts": {
+          "all": 3,
+          "pending": 0,
+          "running": 0,
+          "completed": 2,
+          "failed": 0,
+          "cancelled": 0,
+          "paused": 1
+        }
+      }
+    }
+  ]
+}

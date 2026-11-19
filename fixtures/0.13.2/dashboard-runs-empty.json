@@ -1,0 +1,52 @@
+{
+  "release": "0.13.2",
+  "scenario": "dashboard-runs-empty",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/dashboard/runs?limit=50&offset=0",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "runs": [],
+        "total": 0,
+        "counts": {
+          "all": 0,
+          "pending": 0,
+          "running": 0,
+          "completed": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "paused": 0
+        }
+      }
+    },
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/dashboard/runs?limit=1",
+      "requestBody": null,
+      "startedMs": 3,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "runs": [],
+        "total": 0,
+        "counts": {
+          "all": 0,
+          "pending": 0,
+          "running": 0,
+          "completed": 0,
+          "failed": 0,
+          "cancelled": 0,
+          "paused": 0
+        }
+      }
+    }
+  ]
+}

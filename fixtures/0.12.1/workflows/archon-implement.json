@@ -1,0 +1,160 @@
+{
+  "release": "0.12.1",
+  "scenario": "workflows/archon-implement",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-implement?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-implement",
+          "description": "Implement a change and keep working until it is complete and the focused checks\non what it changed pass. Commits as it goes; opens no PR. The input is anything intent-shaped:\na plan (path or inline), review findings, a CI failure to fix, or a plain\ndescription of what to build.\n\nUse when: the work is already decided and needs building — \"implement this plan\",\n\"apply these review findings\", \"build what this describes\", \"fix this CI failure\".\nNOT for: deciding what to build, reviewing changes, or opening a PR.\n",
+          "model": "large",
+          "nodes": [
+            {
+              "id": "implement",
+              "output_type": "implementation",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "done": {
+                    "type": "boolean"
+                  },
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "done",
+                  "green",
+                  "red_cause",
+                  "summary"
+                ]
+              },
+              "kind": "loop",
+              "loop": {
+                "max_iterations": 5,
+                "fresh_context": true,
+                "command": "implement",
+                "until_field": "done"
+              }
+            },
+            {
+              "id": "assert-changed",
+              "depends_on": [
+                "implement"
+              ],
+              "kind": "exec",
+              "script": "assert-changed",
+              "runtime": "bun",
+              "with": {
+                "green": "$implement.output.green",
+                "red_cause": "$implement.output.red_cause",
+                "summary": "$implement.output.summary",
+                "baseline": "$implement.execution.checkoutStart"
+              }
+            }
+          ],
+          "inputs": {
+            "work": {
+              "default": "",
+              "description": "What to implement — a plan path, review findings, a CI failure, a plain description, or the repair of an existing pull request when this run was launched on its branch. When empty, the run's trigger message is the work."
+            }
+          },
+          "returns": "implement",
+          "outcome_field": "green"
+        },
+        "authored": {
+          "name": "archon-implement",
+          "description": "Implement a change and keep working until it is complete and the focused checks\non what it changed pass. Commits as it goes; opens no PR. The input is anything intent-shaped:\na plan (path or inline), review findings, a CI failure to fix, or a plain\ndescription of what to build.\n\nUse when: the work is already decided and needs building — \"implement this plan\",\n\"apply these review findings\", \"build what this describes\", \"fix this CI failure\".\nNOT for: deciding what to build, reviewing changes, or opening a PR.\n",
+          "model": "large",
+          "inputs": {
+            "work": {
+              "default": "",
+              "description": "What to implement — a plan path, review findings, a CI failure, a plain description, or the repair of an existing pull request when this run was launched on its branch. When empty, the run's trigger message is the work."
+            }
+          },
+          "returns": "implement",
+          "outcome_field": "green",
+          "nodes": [
+            {
+              "id": "implement",
+              "loop": {
+                "command": "implement",
+                "until_field": "done",
+                "max_iterations": 5,
+                "fresh_context": true
+              },
+              "output_type": "implementation",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "done": {
+                    "type": "boolean"
+                  },
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "done",
+                  "green",
+                  "red_cause",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "assert-changed",
+              "script": "assert-changed",
+              "runtime": "bun",
+              "depends_on": [
+                "implement"
+              ],
+              "with": {
+                "green": "$implement.output.green",
+                "red_cause": "$implement.output.red_cause",
+                "summary": "$implement.output.summary",
+                "baseline": "$implement.execution.checkoutStart"
+              }
+            }
+          ]
+        },
+        "filename": "archon-implement.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

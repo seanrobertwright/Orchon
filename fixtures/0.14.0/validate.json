@@ -1,0 +1,105 @@
+{
+  "release": "0.14.0",
+  "scenario": "validate",
+  "log": [
+    {
+      "atMs": 38,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/validate",
+      "requestBody": {
+        "definition": {
+          "name": "orchon-recorder-gate",
+          "description": "Orchon fixture recorder: an approval gate and an attention wait, no agent.",
+          "worktree": {
+            "enabled": false
+          },
+          "nodes": [
+            {
+              "id": "gate",
+              "approval": {
+                "message": "Recorded gate: approve to go on."
+              }
+            },
+            {
+              "id": "ask",
+              "depends_on": [
+                "gate"
+              ],
+              "wait": {
+                "attention": "Recorded question: pick one.",
+                "form": "select",
+                "options": [
+                  {
+                    "id": "first",
+                    "label": "The first option"
+                  },
+                  {
+                    "id": "second",
+                    "label": "The second option"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "done",
+              "depends_on": [
+                "ask"
+              ],
+              "bash": "echo \"recorded\""
+            }
+          ]
+        }
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "valid": true
+      }
+    },
+    {
+      "atMs": 40,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/validate",
+      "requestBody": {
+        "definition": {
+          "name": "orchon-recorder-invalid",
+          "description": "Depends on a step that does not exist.",
+          "nodes": [
+            {
+              "id": "a",
+              "bash": "true",
+              "depends_on": [
+                "missing"
+              ]
+            }
+          ]
+        }
+      },
+      "startedMs": 38,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "valid": false,
+        "errors": [
+          "Node 'a' depends_on unknown node 'missing'"
+        ]
+      }
+    },
+    {
+      "atMs": 41,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/validate",
+      "requestBody": {},
+      "startedMs": 40,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "definition: Invalid input: expected record, received undefined"
+      }
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "release": "0.12.1",
+  "scenario": "workflows/archon-triage",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-triage?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-triage",
+          "description": "Ground one work item against the current repository before deciding what kind\nof work it needs, judge whether it is a contract a run can start from, then route\nit to investigate, plan, deliver, continue an open PR, or no action\n(archon-triage-block). Advisory: it leaves the checkout unchanged, and writes\nlabels only when asked to publish. When the item is blocked or needs contract\nwork, the run pauses as one attention item carrying the question. The answer\ntriages again with the person's note, or ends the run with the verdict as it\nstands.\n\nUse when: an issue, plan, report, or request may be stale or may prescribe an\nunverified solution — \"triage this issue\", \"what does this need next\", \"is\nthis ready to build\".\nNOT for: performing the investigation, writing the plan, or delivering work.\n",
+          "nodes": [
+            {
+              "id": "cycle",
+              "kind": "loop_group",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'",
+                    "kind": "exec",
+                    "script": "true",
+                    "runtime": "sh"
+                  },
+                  {
+                    "id": "stage",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "kind": "include",
+                    "include": "archon-triage-block",
+                    "with": {
+                      "publish": "$INPUTS.publish",
+                      "target": "$INPUTS.target\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "kind": "include",
+                    "include": "archon-attention",
+                    "with": {
+                      "stage": "archon-triage",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "kind": "exec",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "runtime": "bun",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ready"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to triage — an issue, document, plan, report, or free-form request. When empty, the run's trigger message is the target. One item per run."
+            },
+            "publish": {
+              "default": "false",
+              "description": "Write the derived labels to the tracker item — true or false. Off by default; the run then records the labels it would apply."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "ready"
+        },
+        "authored": {
+          "name": "archon-triage",
+          "description": "Ground one work item against the current repository before deciding what kind\nof work it needs, judge whether it is a contract a run can start from, then route\nit to investigate, plan, deliver, continue an open PR, or no action\n(archon-triage-block). Advisory: it leaves the checkout unchanged, and writes\nlabels only when asked to publish. When the item is blocked or needs contract\nwork, the run pauses as one attention item carrying the question. The answer\ntriages again with the person's note, or ends the run with the verdict as it\nstands.\n\nUse when: an issue, plan, report, or request may be stale or may prescribe an\nunverified solution — \"triage this issue\", \"what does this need next\", \"is\nthis ready to build\".\nNOT for: performing the investigation, writing the plan, or delivering work.\n",
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to triage — an issue, document, plan, report, or free-form request. When empty, the run's trigger message is the target. One item per run."
+            },
+            "publish": {
+              "default": "false",
+              "description": "Write the derived labels to the tracker item — true or false. Off by default; the run then records the labels it would apply."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "ready",
+          "nodes": [
+            {
+              "id": "cycle",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "bash": "true",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'"
+                  },
+                  {
+                    "id": "stage",
+                    "include": "archon-triage-block",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "with": {
+                      "publish": "$INPUTS.publish",
+                      "target": "$INPUTS.target\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "include": "archon-attention",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "with": {
+                      "stage": "archon-triage",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "runtime": "bun",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "ready": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ready"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-triage.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}
