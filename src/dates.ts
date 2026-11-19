@@ -67,6 +67,22 @@ export function formatClock(at: number, locale: string): string {
   }
 }
 
+const DATE_TIME: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+
+/**
+ * A date and a wall-clock time such as "19 Nov 2026, 14:32", in the machine's own zone and
+ * written as `locale` writes it, for a time that may not be today. A locale the runtime does not
+ * know falls back to the runtime's default; a time no date can hold gives an empty text.
+ */
+export function formatDateTime(at: number, locale: string): string {
+  if (!Number.isFinite(at) || Math.abs(at) > LAST_INSTANT) return ''
+  try {
+    return new Intl.DateTimeFormat(locale, DATE_TIME).format(at)
+  } catch {
+    return new Intl.DateTimeFormat(undefined, DATE_TIME).format(at)
+  }
+}
+
 const UNITS: readonly [string, number][] = [
   ['d', 86_400_000],
   ['h', 3_600_000],
