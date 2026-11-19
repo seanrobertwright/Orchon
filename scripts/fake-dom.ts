@@ -1,11 +1,35 @@
 // A small stand-in for the browser DOM, for the editor tests: `orca plugin test` runs in plain
 // Node, which has none. It holds what the editors use and no more: elements in a tree with
-// attributes, text set through `textContent`, and listeners. A test reads what was drawn through
-// the helpers below. It is development tooling: Orca never loads it.
+// attributes, text set through `textContent`, listeners, events that bubble to the root, and the
+// element with focus. A test reads what was drawn through the helpers below. It is development
+// tooling: Orca never loads it.
 
 type Listener = (event: FakeEvent) => void
 
-export type FakeEvent = { type: string; key?: string; preventDefault(): void; defaultPrevented: boolean }
+/** What a test may set on an event: a key, a pointer's place and button, a wheel's turn. */
+export type EventFields = {
+  key?: string
+  ctrlKey?: boolean
+  metaKey?: boolean
+  altKey?: boolean
+  clientX?: number
+  clientY?: number
+  button?: number
+  pointerId?: number
+  deltaY?: number
+}
+
+export type FakeEvent = EventFields & {
+  type: string
+  /** The element the event was delivered to first. */
+  target: FakeElement
+  preventDefault(): void
+  defaultPrevented: boolean
+  stopPropagation(): void
+}
+
+/** The element with focus in each stand-in document, by the document's root. */
+const focused = new WeakMap<FakeElement, FakeElement>()
 
 export class FakeElement {
   readonly tagName: string
@@ -18,6 +42,8 @@ export class FakeElement {
   private text = ''
   /** Whether `innerHTML` or another way of writing markup was used. Editors never do. */
   markupWritten = false
+  /** A radio's or checkbox's state. */
+  checked = false
 
   constructor(tagName: string, namespaceURI: string | null) {
     this.tagName = tagName
@@ -123,18 +149,58 @@ export class FakeElement {
     )
   }
 
-  /** Delivers an event to this element's listeners, as a press or a key would. */
-  dispatch(type: string, fields: { key?: string } = {}): FakeEvent {
+  /** Delivers an event to this element's listeners and then to each ancestor's, as a press or a key would. */
+  dispatch(type: string, fields: EventFields = {}): FakeEvent {
+    let stopped = false
     const event: FakeEvent = {
       type,
       ...fields,
+      target: this,
       defaultPrevented: false,
       preventDefault() {
         event.defaultPrevented = true
+      },
+      stopPropagation() {
+        stopped = true
       }
     }
-    for (const listener of this.listeners.get(type) ?? []) listener(event)
+    for (const at of [this, ...this.ancestors()]) {
+      if (stopped) break
+      for (const listener of at.listeners.get(type) ?? []) listener(event)
+    }
     return event
+  }
+
+  /** The root of the tree that holds this element. */
+  private root(): FakeElement {
+    return this.ancestors().at(-1) ?? this
+  }
+
+  /** The element's parent, its parent's parent and so on, nearest first. */
+  private ancestors(): FakeElement[] {
+    const found: FakeElement[] = []
+    for (let at = this.parentElement; at !== null; at = at.parentElement) found.push(at)
+    return found
+  }
+
+  /** Gives this element focus within its document. */
+  focus(): void {
+    focused.set(this.root(), this)
+  }
+
+  /** Whether this element has focus within its document. */
+  get hasFocus(): boolean {
+    return focused.get(this.root()) === this
+  }
+
+  contains(other: FakeElement | null): boolean {
+    for (let at = other; at !== null; at = at.parentElement) if (at === this) return true
+    return false
+  }
+
+  /** A stand-in document lays nothing out: every element sits at the origin with no size. */
+  getBoundingClientRect(): { left: number; top: number; width: number; height: number } {
+    return { left: 0, top: 0, width: 0, height: 0 }
   }
 
   click(): void {
@@ -144,6 +210,8 @@ export class FakeElement {
 
 export type FakeDocument = {
   documentElement: FakeElement
+  /** The element with focus, or the body. */
+  readonly activeElement: FakeElement
   body: FakeElement
   createElement(tagName: string): FakeElement
   createElementNS(namespaceURI: string, tagName: string): FakeElement
@@ -158,6 +226,9 @@ export function fakeDocument(): FakeDocument {
   app.id = 'app'
   return {
     documentElement,
+    get activeElement() {
+      return focused.get(documentElement) ?? body
+    },
     body,
     createElement: (tagName) => new FakeElement(tagName.toLowerCase(), null),
     createElementNS: (namespaceURI, tagName) => new FakeElement(tagName, namespaceURI),

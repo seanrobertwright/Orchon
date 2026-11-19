@@ -81,6 +81,20 @@ describe('the graph layout', () => {
     assert.deepEqual(laid.edges.map((edge) => `${edge.from} → ${edge.to}`), ['a → empty'])
   })
 
+  test('left to right, each edge starts left of where it ends, and a group still frames its own steps', () => {
+    const laid = layoutGraph(steps, edges, 'LR')
+    for (const edge of laid.edges) {
+      const from = laid.steps.find((box) => box.id === edge.from)
+      const to = laid.steps.find((box) => box.id === edge.to)
+      assert.ok(from !== undefined && to !== undefined && from.x + from.width <= to.x, `${edge.from} → ${edge.to}`)
+    }
+    const [group] = laid.groups
+    for (const box of laid.steps.filter((one) => one.id.startsWith('rounds.'))) {
+      assert.ok(group !== undefined && box.x >= group.x && box.y >= group.y && box.x + box.width <= group.x + group.width && box.y + box.height <= group.y + group.height)
+    }
+    for (const box of laid.steps) assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= laid.width && box.y + box.height <= laid.height)
+  })
+
   test('an edge to a step it does not know is left out', () => {
     const laid = layoutGraph([step('a')], [{ from: 'a', to: 'nowhere' }])
     assert.deepEqual(laid.edges, [])
@@ -96,5 +110,14 @@ describe('the layout in run order', () => {
     assert.ok(first.y + first.height < second.y && second.y + second.height < third.y)
     assert.deepEqual(laid.edges, [])
     assert.deepEqual(laid.groups, [])
+  })
+
+  test('left to right, places them side by side in the order given', () => {
+    const laid = layoutInOrder(['c', 'a', 'b'], 'LR')
+    const [first, second, third] = laid.steps
+    assert.ok(first !== undefined && second !== undefined && third !== undefined)
+    assert.ok(first.x + first.width < second.x && second.x + second.width < third.x)
+    assert.equal(first.y, second.y)
+    assert.ok(third.x + third.width <= laid.width && first.y + first.height <= laid.height)
   })
 })

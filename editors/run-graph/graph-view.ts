@@ -27,6 +27,35 @@ export type GraphStep = {
   conditional: boolean
   /** A line under the name, such as where a paused step is answered, or null. */
   note: string | null
+  /**
+   * The facts the step's summary card shows, from its latest start. Left out by a worker older
+   * than the card, so the tab draws the card without them.
+   */
+  summary?: GraphStepSummary
+}
+
+/** How much of a step's output the summary card holds. */
+export type GraphOutputShown =
+  /** All of it, or there was none. */
+  | 'whole'
+  /** Its first 4 KiB: the worker cuts it at 4,096 characters. */
+  | 'cut'
+  /** None: the graph's output had reached the size one answer may carry. */
+  | 'withheld'
+
+/** A step's facts for its summary card. Every text is plain text, set through `textContent`. */
+export type GraphStepSummary = {
+  /** How long its latest start took, in the shortest form, or null while it runs or when Archon gave none. */
+  duration: string | null
+  /** What its latest start cost, such as "$0.12", or null when Archon reported none. */
+  cost: string | null
+  /** The model its latest start used, or null when Archon named none. */
+  model: string | null
+  /** Why the step was skipped, as a sentence, or null when it was not. */
+  skipReason: string | null
+  /** The start of its output, at most 4,096 characters. Empty when it has none or it is withheld. */
+  output: string
+  outputShown: GraphOutputShown
 }
 
 /** An edge of the workflow: `to` depends on `from`. Either end may be a loop group. */

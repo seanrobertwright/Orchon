@@ -24,6 +24,8 @@ export type LayoutEdge = { from: string; to: string }
 export type Box = { id: string; x: number; y: number; width: number; height: number }
 export type RoutedEdge = { from: string; to: string; points: Point[]; dashed: boolean }
 export type Layout = { width: number; height: number; steps: Box[]; groups: Box[]; edges: RoutedEdge[] }
+/** Which way the graph runs: top to bottom or left to right. */
+export type Direction = 'TB' | 'LR'
 
 /** The steps directly inside each group. */
 function childrenOf(steps: readonly LayoutStep[]): Map<string, LayoutStep[]> {
@@ -57,8 +59,8 @@ function endsOf(
   return (ends.length === 0 ? [...inside] : ends).flatMap((child) => endsOf(child, side, framed, children, edges, seen))
 }
 
-/** Lays the graph out with dagre, top to bottom. */
-export function layoutGraph(steps: readonly LayoutStep[], edges: readonly LayoutEdge[]): Layout {
+/** Lays the graph out with dagre, top to bottom unless told left to right. */
+export function layoutGraph(steps: readonly LayoutStep[], edges: readonly LayoutEdge[], direction: Direction = 'TB'): Layout {
   const children = childrenOf(steps)
   /** The groups drawn as frames: those holding at least one step. An empty one is drawn as a step. */
   const framed = new Set(steps.filter((step) => step.isGroup && (children.get(step.id)?.length ?? 0) > 0).map((step) => step.id))
@@ -66,7 +68,7 @@ export function layoutGraph(steps: readonly LayoutStep[], edges: readonly Layout
   const conditional = new Set(steps.filter((step) => step.conditional).map((step) => step.id))
 
   const graph = new Graph({ compound: true, multigraph: false })
-  graph.setGraph({ rankdir: 'TB', nodesep: 28, ranksep: 44, marginx: MARGIN, marginy: MARGIN })
+  graph.setGraph({ rankdir: direction, nodesep: 28, ranksep: 44, marginx: MARGIN, marginy: MARGIN })
   graph.setDefaultEdgeLabel(() => ({}))
   for (const step of steps) {
     graph.setNode(step.id, framed.has(step.id) ? { width: 0, height: 0 } : { width: STEP_WIDTH, height: STEP_HEIGHT })
@@ -115,12 +117,20 @@ export function layoutGraph(steps: readonly LayoutStep[], edges: readonly Layout
   }
 }
 
-/** The steps one under another in the order given, with no edges: a run drawn in run order. */
-export function layoutInOrder(ids: readonly string[]): Layout {
-  const steps = ids.map((id, index) => ({ id, x: MARGIN, y: MARGIN + index * (STEP_HEIGHT + ORDER_GAP), width: STEP_WIDTH, height: STEP_HEIGHT }))
+/** The steps one after another in the order given, with no edges: a run drawn in run order. */
+export function layoutInOrder(ids: readonly string[], direction: Direction = 'TB'): Layout {
+  const across = direction === 'LR'
+  const steps = ids.map((id, index) => ({
+    id,
+    x: MARGIN + (across ? index * (STEP_WIDTH + ORDER_GAP) : 0),
+    y: MARGIN + (across ? 0 : index * (STEP_HEIGHT + ORDER_GAP)),
+    width: STEP_WIDTH,
+    height: STEP_HEIGHT
+  }))
+  const run = (size: number): number => (ids.length === 0 ? 2 * MARGIN : 2 * MARGIN + ids.length * size + (ids.length - 1) * ORDER_GAP)
   return {
-    width: STEP_WIDTH + 2 * MARGIN,
-    height: ids.length === 0 ? 2 * MARGIN : 2 * MARGIN + ids.length * STEP_HEIGHT + (ids.length - 1) * ORDER_GAP,
+    width: across ? run(STEP_WIDTH) : STEP_WIDTH + 2 * MARGIN,
+    height: across ? STEP_HEIGHT + 2 * MARGIN : run(STEP_HEIGHT),
     steps,
     groups: [],
     edges: []
