@@ -7,6 +7,7 @@ import { drawGraph, type DrawStep } from '../shared/graph-draw.ts'
 import { layoutGraph, layoutInOrder, type Direction, type Layout } from '../shared/graph-layout.ts'
 import type { GraphAnswer, GraphEdge, GraphHeader, GraphStep, GraphView, TabConnection, TabScreen } from './graph-view.ts'
 import { createRefetch, type TabTimers } from './refetch.ts'
+import { createSummaryCard, parseSummary, type CardStep } from './summary-card.ts'
 
 /** The least time between two reads nobody asked for, as run detail's. */
 export const GAP_MS = 1_000
@@ -80,12 +81,23 @@ function isAnswer(value: unknown): value is GraphAnswer {
 }
 
 type Ready = Extract<GraphView, { kind: 'ready' }>
-type Area = { canvas: Canvas; loops: HTMLButtonElement; drawn: string }
+type Area = { canvas: Canvas; loops: HTMLButtonElement; drawn: string; boxes: Map<string, Element> }
 
 /** A graph view that carries something to show, which Searching and a failed read keep. */
 type Shown = Extract<GraphView, { header: GraphHeader }> | Extract<GraphView, { kind: 'gone' }>
 
 let drawings = 0
+
+/** The drawn steps of a graph drawing, in the order drawn. */
+function stepBoxes(root: Element): Element[] {
+  const found: Element[] = []
+  const visit = (element: Element): void => {
+    if (element.getAttribute('data-step') !== null) found.push(element)
+    for (const child of Array.from(element.children)) visit(child)
+  }
+  visit(root)
+  return found
+}
 
 export function startTab(ports: TabPorts): Tab {
   const { doc } = ports
@@ -214,7 +226,13 @@ export function startTab(ports: TabPorts): Tab {
 
   /** The canvas with the tab's own tools after its own: the direction and the loop switch. */
   function makeArea(label: string): Area {
-    const canvas = createCanvas({ doc, label, idPrefix: prefix, ...(ports.observeSize === undefined ? {} : { observeSize: ports.observeSize }) })
+    const canvas = createCanvas({
+      doc,
+      label,
+      idPrefix: prefix,
+      onStep: (id) => openCard(id),
+      ...(ports.observeSize === undefined ? {} : { observeSize: ports.observeSize })
+    })
     const set = el('fieldset', undefined, 'direction')
     set.appendChild(el('legend', 'Direction'))
     for (const [value, text] of [
@@ -244,8 +262,50 @@ export function startTab(ports: TabPorts): Tab {
     loops.setAttribute('aria-pressed', 'false')
     loops.setAttribute('class', 'tool')
     canvas.tools.append(set, loops)
-    return { canvas, loops, drawn: '' }
+    return { canvas, loops, drawn: '', boxes: new Map() }
   }
+
+  /** Each drawn step as the card shows it, by id, from the last graph drawn. */
+  let cardSteps = new Map<string, CardStep>()
+  /** The step whose card is open, or null. */
+  let selected: string | null = null
+  const card = createSummaryCard(doc, `${prefix}-card`, () => closeCard())
+
+  /** Marks which step's card is open, on every drawn step. */
+  function markSelected(): void {
+    for (const [id, box] of area?.boxes ?? []) {
+      box.setAttribute('aria-expanded', String(id === selected))
+      box.setAttribute('aria-controls', card.root.id)
+      box.setAttribute('class', `${(box.getAttribute('class') ?? '').replace(/ selected$/, '')}${id === selected ? ' selected' : ''}`)
+    }
+  }
+
+  /** Opens a step's card over the canvas, or shows another step on the open card. The focus stays where it is. */
+  function openCard(id: string): void {
+    const step = cardSteps.get(id)
+    if (step === undefined || area === undefined) return
+    selected = id
+    card.show(step)
+    if (card.root.parentElement !== area.canvas.root) area.canvas.root.appendChild(card.root)
+    markSelected()
+  }
+
+  /** Closes the card. When the focus was in it, it goes back to the step the card was for, as it would otherwise be lost. */
+  function closeCard(): void {
+    if (selected === null) return
+    const had = card.root.contains(doc.activeElement)
+    const box = area?.boxes.get(selected)
+    selected = null
+    card.root.parentElement?.removeChild(card.root)
+    markSelected()
+    if (had && box !== undefined) (box as HTMLElement).focus()
+  }
+
+  ports.app.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || selected === null) return
+    event.preventDefault()
+    closeCard()
+  })
 
   /** Draws the last ready graph again after a change of direction or of the loop switch, and fits it. */
   function redraw(fit: boolean): void {
@@ -267,12 +327,29 @@ export function startTab(ports: TabPorts): Tab {
         return [step.id, holds === undefined ? facts : { ...facts, holds }]
       })
     )
+    cardSteps = new Map(
+      part.steps.map((step) => {
+        const facts = steps.get(step.id)
+        const shownStep: CardStep = { name: step.name, kind: step.kind, stateText: `${step.glyph} ${step.word}`, note: step.note, summary: parseSummary(step.summary) }
+        return [step.id, facts?.holds === undefined ? shownStep : { ...shownStep, holds: facts.holds }]
+      })
+    )
     const laid = layoutOf(view, part)
     const drawn = JSON.stringify([laidOut?.key, label, [...steps]])
-    if (drawn === area.drawn) return
-    area.drawn = drawn
-    const svg = drawGraph(doc, laid, steps, { label, idPrefix: prefix })
-    area.canvas.show(svg, laid, new Map(part.steps.map((step) => [step.id, step.state])), { fit })
+    if (drawn !== area.drawn) {
+      area.drawn = drawn
+      // A step with the focus is drawn again with it, so a refetch does not take it away.
+      const focused = [...area.boxes].find(([, box]) => box === doc.activeElement)?.[0]
+      const svg = drawGraph(doc, laid, steps, { label, idPrefix: prefix })
+      area.boxes = new Map(stepBoxes(svg).map((box) => [box.getAttribute('data-step') ?? '', box]))
+      area.canvas.show(svg, laid, new Map(part.steps.map((step) => [step.id, step.state])), { fit })
+      if (focused !== undefined) (area.boxes.get(focused) as HTMLElement | undefined)?.focus()
+    }
+    if (selected !== null) {
+      if (cardSteps.has(selected)) openCard(selected)
+      else closeCard()
+    }
+    markSelected()
   }
 
   /** Draws what the tab shows, with banners first: the Searching banner, a mismatch, a failed read. */

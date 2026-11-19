@@ -17,7 +17,13 @@ if (app !== null) {
             set: (run, ms) => setTimeout(run, ms),
             clear: (handle) => clearTimeout(handle)
         },
-        openExternal: (url) => orca.shell?.openExternal(url) ?? Promise.resolve()
+        openExternal: (url) => orca.shell?.openExternal(url) ?? Promise.resolve(),
+        observeSize(element, told) {
+            const observer = new ResizeObserver(() => told(element.clientWidth, element.clientHeight));
+            observer.observe(element);
+            told(element.clientWidth, element.clientHeight);
+            return { dispose: () => observer.disconnect() };
+        }
     });
     // Orca unmounts a hidden tab: nothing outlives it.
     window.addEventListener('pagehide', () => tab.stop(), { once: true });

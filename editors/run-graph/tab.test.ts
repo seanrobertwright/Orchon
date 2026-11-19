@@ -504,3 +504,175 @@ describe('the direction and the loop groups', () => {
     assert.ok(toggle === null || toggle.hidden)
   })
 })
+
+describe("a step's summary card", () => {
+  const summarised: GraphView = {
+    kind: 'ready',
+    header,
+    mismatch: null,
+    edges: [{ from: 'forge', to: 'review' }],
+    steps: [
+      step('forge', {
+        kind: 'agent',
+        summary: { duration: '2m 5s', cost: '$0.12', model: 'claude-sonnet-4-5', skipReason: null, output: '<b>made</b> it', outputShown: 'cut' }
+      }),
+      step('review', {
+        state: 'skipped',
+        glyph: '−',
+        word: 'Skipped',
+        summary: { duration: null, cost: null, model: null, skipReason: 'Its when condition was false.', output: '', outputShown: 'whole' }
+      })
+    ]
+  }
+  const card = (stage: Stage): FakeElement | null => withClass(stage.app, 'summary-card')[0] ?? null
+  const facts = (root: FakeElement): string[][] => {
+    const terms = findAll(root, (element) => element.tagName === 'dt').map((term) => term.textContent)
+    const values = findAll(root, (element) => element.tagName === 'dd').map((value) => value.textContent)
+    return terms.map((term, index) => [term, values[index] ?? ''])
+  }
+  const stepBox = (stage: Stage, id: string): FakeElement => {
+    const box = find(stage.app, (element) => element.getAttribute('data-step') === id)
+    if (box === null) throw new Error(`No step ${id} is drawn.`)
+    return box
+  }
+
+  test('a click opens a card over the canvas with the facts, the first 4 KiB of output and where the rest is', async () => {
+    const stage = await open({ connection, graph: summarised })
+    assert.equal(card(stage), null)
+    stepBox(stage, 'forge').click()
+    const shown = card(stage)
+    assert.ok(shown !== null)
+    assert.ok(withClass(stage.app, 'canvas-frame')[0]?.contains(shown), 'the card lies over the canvas, not beside it')
+    assert.equal(find(shown, (element) => element.tagName === 'h2')?.textContent, 'forge')
+    assert.deepEqual(facts(shown), [
+      ['Kind', 'agent'],
+      ['State', '✓ Completed'],
+      ['Duration', '2m 5s'],
+      ['Cost', '$0.12'],
+      ['Model', 'claude-sonnet-4-5']
+    ])
+    assert.equal(find(shown, (element) => element.tagName === 'pre')?.textContent, '<b>made</b> it')
+    assert.equal(markupWritten(stage.app), false)
+    const lines = texts(shown, 'p')
+    assert.ok(lines.includes('Only the first 4 KiB of the output is shown here.'))
+    assert.ok(lines.includes('Tool calls and agent text are in the Orchon panel.'))
+  })
+
+  test("a skipped step's card says why; facts Archon did not report say so", async () => {
+    const stage = await open({ connection, graph: summarised })
+    stepBox(stage, 'review').click()
+    const shown = card(stage)
+    assert.ok(shown !== null)
+    assert.deepEqual(facts(shown), [
+      ['Kind', 'exec'],
+      ['State', '− Skipped'],
+      ['Duration', 'Not reported'],
+      ['Cost', 'No cost reported'],
+      ['Model', 'Not reported'],
+      ['Skipped because', 'Its when condition was false.']
+    ])
+    assert.ok(texts(shown, 'p').includes('This step has no output.'))
+  })
+
+  test('a paused step says it is answered in the Orchon panel, and withheld output says where it is', async () => {
+    const graph: GraphView = {
+      kind: 'ready',
+      header,
+      mismatch: null,
+      edges: [],
+      steps: [
+        step('review', {
+          state: 'waiting',
+          glyph: '‖',
+          word: 'Waiting',
+          note: 'Answered in the Orchon panel.',
+          summary: { duration: null, cost: null, model: null, skipReason: null, output: '', outputShown: 'withheld' }
+        })
+      ]
+    }
+    const stage = await open({ connection, graph })
+    stepBox(stage, 'review').click()
+    const lines = texts(card(stage) as FakeElement, 'p')
+    assert.ok(lines.includes('Answered in the Orchon panel.'))
+    assert.ok(lines.includes("This graph's output was too large to send in full, so this step's is not shown here."))
+  })
+
+  test('Enter or Space on a focused step opens its card; Escape and Close close it; the card holds only Close', async () => {
+    const stage = await open({ connection, graph: summarised })
+    const forge = stepBox(stage, 'forge')
+    assert.equal(forge.getAttribute('aria-expanded'), 'false')
+    const enter = forge.dispatch('keydown', { key: 'Enter' })
+    assert.ok(enter.defaultPrevented)
+    assert.ok(card(stage) !== null)
+    assert.equal(forge.getAttribute('aria-expanded'), 'true')
+    assert.equal(forge.getAttribute('aria-controls'), card(stage)?.id)
+    const shown = card(stage) as FakeElement
+    assert.deepEqual(
+      findAll(shown, (element) => ['button', 'input', 'select', 'textarea', 'form', 'a'].includes(element.tagName)).map((element) => element.textContent),
+      ['Close']
+    )
+    shown.dispatch('keydown', { key: 'Escape' })
+    assert.equal(card(stage), null)
+    assert.equal(forge.getAttribute('aria-expanded'), 'false')
+    stepBox(stage, 'review').dispatch('keydown', { key: ' ' })
+    assert.equal(find(card(stage) as FakeElement, (element) => element.tagName === 'h2')?.textContent, 'review')
+    const close = named(card(stage) as FakeElement, 'Close')
+    close.focus()
+    close.click()
+    assert.equal(card(stage), null)
+    // Close took the focus with it, so it goes back to the step whose card it was.
+    assert.equal(stage.doc.activeElement, stepBox(stage, 'review'))
+  })
+
+  test('opening a card does not move the focus', async () => {
+    const stage = await open({ connection, graph: summarised })
+    const forge = stepBox(stage, 'forge')
+    forge.focus()
+    forge.dispatch('keydown', { key: 'Enter' })
+    assert.equal(stage.doc.activeElement, forge)
+  })
+
+  test('the click that ends a drag opens no card', async () => {
+    const stage = await open({ connection, graph: summarised })
+    const forge = stepBox(stage, 'forge')
+    forge.dispatch('pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+    forge.dispatch('pointermove', { clientX: 60, clientY: 10, pointerId: 1 })
+    forge.dispatch('pointerup', { clientX: 60, clientY: 10, pointerId: 1 })
+    forge.click()
+    assert.equal(card(stage), null)
+    forge.click()
+    assert.ok(card(stage) !== null)
+  })
+
+  test('a newer answer updates an open card, and closes it when its step is no longer drawn', async () => {
+    const stage = await open({ connection, graph: summarised })
+    stepBox(stage, 'forge').click()
+    const failed = summarised.steps.map((one) => (one.id === 'forge' ? { ...one, state: 'failed' as const, glyph: '✕', word: 'Failed' } : one))
+    stage.answer.value = { connection, graph: { ...summarised, steps: failed } }
+    await stage.clock.advance(30_000)
+    assert.ok(facts(card(stage) as FakeElement).some(([term, value]) => term === 'State' && value === '✕ Failed'))
+    stage.answer.value = { connection, graph: { ...summarised, steps: summarised.steps.filter((one) => one.id !== 'forge'), edges: [] } }
+    await stage.clock.advance(30_000)
+    assert.equal(card(stage), null)
+  })
+
+  test('a step from a worker that sends no summary still opens a card with what the tab has', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stepBox(stage, 'forge').click()
+    assert.deepEqual(facts(card(stage) as FakeElement).map(([term]) => term), ['Kind', 'State', 'Duration', 'Cost', 'Model'])
+    assert.ok(texts(card(stage) as FakeElement, 'p').includes('Tool calls and agent text are in the Orchon panel.'))
+  })
+
+  test('a collapsed loop group says on its card how many steps it holds', async () => {
+    const graph: GraphView = {
+      kind: 'ready',
+      header,
+      mismatch: null,
+      edges: [],
+      steps: [step('rounds', { kind: 'loop_group', isGroup: true }), step('rounds.a', { name: 'a', group: 'rounds' })]
+    }
+    const stage = await open({ connection, graph })
+    stepBox(stage, 'rounds').click()
+    assert.ok(texts(card(stage) as FakeElement, 'p').includes('Holds 1 step. Show loop steps to draw it.'))
+  })
+})
