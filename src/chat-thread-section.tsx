@@ -38,6 +38,8 @@ import {
   type ThreadToolCall
 } from './chat-thread-view'
 import { BUSY_REFETCH_MS, chatBusy, composer, observeThread, type ComposerHooks } from './chat-composer'
+import { closeDelete, deleteButton, deleteCallout, type DeleteHooks } from './chat-delete-section'
+import type { ChatLastAnswer } from './chat-last-view'
 import { observeLive } from './chat-working'
 import type { ChatRunAnswer } from './chat-run-view'
 import type { ConnectionView } from './connection-view'
@@ -59,7 +61,7 @@ const toolCallsOn = atom<unknown>('chatToolCalls', false, { persist: 'workspace'
 /** How many of the newest messages the thread asks for. */
 const limit = atom(THREAD_PAGE)
 const loaded = atom<Thread | null>(null)
-/** Set when Archon answered that the open conversation does not exist. */
+/** Set when Archon answered that the conversation being read does not exist. */
 const gone = atom(false)
 const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
@@ -111,6 +113,12 @@ function apply(answer: ThreadAnswer | null): void {
     set(problem, null)
     set(lastGood, now())
   } else if (thread.kind === 'gone') {
+    // On open, before Archon has answered with the thread, the list opens with nothing said. A
+    // thread already read afresh and deleted elsewhere says so, with the way back.
+    if (read(lastGood) === null) {
+      back()
+      return
+    }
     set(loaded, null)
     set(gone, true)
     set(problem, null)
@@ -153,6 +161,8 @@ export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks
       if (hint.conversationId === openChatId()) view.refresh()
     })
   )
+  const remembered = openChatId()
+  if (remembered !== null) readLast(remembered)
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -161,7 +171,23 @@ export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks
   })
 }
 
+/**
+ * Draws the worker's last answer for the thread while the thread is read afresh, when nothing
+ * newer has arrived: a panel that mounted again shows the thread at once.
+ */
+function readLast(conversationId: string): void {
+  plugin.request('chat.last', { conversationId }).then(
+    (answer: ChatLastAnswer) => {
+      const thread = answer.thread
+      if (thread === null || thread.id !== conversationId || openChatId() !== conversationId || read(loaded) !== null) return
+      set(loaded, thread)
+    },
+    () => {}
+  )
+}
+
 function resetView(): void {
+  closeDelete()
   set(loaded, null)
   set(gone, false)
   set(problem, null)
@@ -176,6 +202,7 @@ export function openChatThread(conversationId: string): void {
   set(openChat, conversationId)
   opening = true
   resetView()
+  readLast(conversationId)
   fetcher?.restart()
 }
 
@@ -390,13 +417,26 @@ function messageNode(message: ThreadMessage, withToolCalls: boolean): OrcaNode {
   )
 }
 
-function header(): OrcaNode {
+/** Whether the open thread's writes that change it are off: writes are off, or its turn is in flight. */
+const deleteOff = (conversationId: string, writable: boolean): boolean => !writable || chatBusy(conversationId)
+
+/** What the Delete of the open thread tells the thread. */
+const threadDeleteHooks: DeleteHooks = {
+  keep: (view) => hooks?.keep(view),
+  deleted: back,
+  refetch: () => fetcher?.restart()
+}
+
+function header(thread: Thread | null, writable: boolean): OrcaNode {
   return (
     <Row gap="sm" align="center" justify="between" wrap>
       <Button size="sm" variant="ghost" tooltip="Back to the conversations" onPress={back}>
         Chats
       </Button>
-      <Switch label="Show tool calls" checked={showingToolCalls()} onChange={toggleToolCalls} />
+      <Row gap="sm" align="center" wrap>
+        <Switch label="Show tool calls" checked={showingToolCalls()} onChange={toggleToolCalls} />
+        {thread === null ? null : deleteButton(thread.id, deleteOff(thread.id, writable))}
+      </Row>
     </Row>
   )
 }
@@ -476,7 +516,8 @@ export function chatThreadSection(writable: boolean): OrcaNode {
   else body = threadBody(thread, writable)
   return (
     <Stack gap="sm">
-      {header()}
+      {header(thread, writable)}
+      {thread === null ? null : deleteCallout(thread.id, deleteOff(thread.id, writable), threadDeleteHooks)}
       {held === null ? null : problemLine(held, thread !== null, () => fetcher?.restart())}
       {body}
     </Stack>

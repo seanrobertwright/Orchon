@@ -357,6 +357,8 @@ export type ChatThreadPorts = {
   current(): Promise<ConnectionView>
   /** The conversations' streams: each read of a thread is their lease. */
   chatStreams?: ChatStreams
+  /** A read of the thread was answered from Archon. */
+  answered?(conversationId: string, view: ThreadView): void
 }
 
 /** Answers the frames' `chat.read`. */
@@ -369,6 +371,7 @@ export function startChatThread(orca: OrcaWorkerApi, ports: ChatThreadPorts): Di
     const thread = await readThread(ports.client, connection, request, context.signal)
     const live = ports.chatStreams?.live(connection.baseUrl, request.conversationId) ?? null
     if (thread.kind === 'ready' && live !== null) thread.thread.live = live
+    ports.answered?.(request.conversationId, thread)
     return { connection: await ports.current(), thread }
   })
 }

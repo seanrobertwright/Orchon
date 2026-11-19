@@ -205,9 +205,9 @@ describe('the System group', () => {
     assert.deepEqual(requests(view), ['connection.read', 'scope.read', 'runs.read'])
     await view.select(SECTION_BAR, 'settings')
     assert.deepEqual(requests(view), ['connection.read', 'scope.read', 'runs.read', 'forms.read', 'system.open'])
-    // The Chat section reads the scope and its list when it shows.
+    // The Chat section reads the scope, the drafts and its list when it shows.
     await view.select(SECTION_BAR, 'chat')
-    const afterChat = ['connection.read', 'scope.read', 'runs.read', 'forms.read', 'system.open', 'scope.read', 'chats.read', 'system.close']
+    const afterChat = ['connection.read', 'scope.read', 'runs.read', 'forms.read', 'system.open', 'scope.read', 'chat.drafts.read', 'chats.read', 'system.close']
     assert.deepEqual(requests(view), afterChat)
     await view.select(SECTION_BAR, 'metrics')
     assert.deepEqual(requests(view), afterChat)

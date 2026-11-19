@@ -310,12 +310,35 @@ describe('when the thread is read', () => {
     clean(view)
   })
 
-  test('when the conversation no longer exists the thread says so and offers the way back to the list', async () => {
+  test('when the conversation no longer exists on open the list opens, quietly, and is read again', async () => {
     const view = await openFirst(() => ({ kind: 'gone' }))
+    assert.ok(view.find({ type: 'List', label: 'Conversations' }))
+    assert.equal(view.find({ text: /no longer exists/ }), null)
+    assert.equal(view.host.callsOf('plugin.request').filter((params) => (params as { name: string }).name === 'chats.read').length, 2)
+    clean(view)
+  })
+
+  test('a thread already read that Archon later says no longer exists says so and offers the way back', async () => {
+    let deleted = false
+    const view = await openFirst((request) => (deleted ? { kind: 'gone' } : sampleThread(2, request)))
+    assert.ok(view.find({ type: 'Heading', text: 'Question 0' }))
+    deleted = true
+    await advance(view, 30_000)
     assert.ok(view.find({ type: 'Text', text: 'This conversation no longer exists in Archon.' }))
+    assert.equal(view.find({ type: 'List', label: 'Conversations' }), null)
     await view.press({ type: 'Button', text: 'Back to conversations' })
     assert.ok(view.find({ type: 'List', label: 'Conversations' }))
     clean(view)
+  })
+
+  test('a remembered conversation that was deleted opens the list when the panel mounts again', async () => {
+    panel = await mount(panelModule, {
+      host: mockHost(answeringThread(() => ({ kind: 'gone' }), { chats: (request) => sampleChats(4, request) })),
+      persisted: { workspace: { section: 'chat', openChat: 'web-chat-9' } }
+    })
+    assert.ok(panel.find({ type: 'List', label: 'Conversations' }))
+    assert.equal(panel.persisted.workspace.openChat, null)
+    clean(panel)
   })
 
   test('Searching keeps the loaded thread under its banner', async () => {
@@ -333,6 +356,24 @@ describe('when the thread is read', () => {
     })
     assert.deepEqual(sent(panel), [{ conversationId: 'web-chat-3', limit: 50, open: true }])
     assert.ok(panel.find({ type: 'Heading', text: 'Question 0' }))
+    clean(panel)
+  })
+
+  test("a panel that mounts again on a thread draws the worker's last answer for it, which a failed read keeps under its warning line", async () => {
+    const remembered = sampleThread(2, { conversationId: 'web-chat-3', limit: 50 }, { title: 'As the worker last read it' })
+    const base = answeringThread(() => ({ kind: 'failed', message: 'Archon answered with an error (500).' }))
+    panel = await mount(panelModule, {
+      host: mockHost({
+        requests: {
+          ...base.requests,
+          'chat.last': (request: { conversationId: string }) => ({ thread: request.conversationId === 'web-chat-3' && remembered.kind === 'ready' ? remembered.thread : null })
+        }
+      }),
+      persisted: { workspace: { section: 'chat', openChat: 'web-chat-3' } }
+    })
+    assert.ok(panel.find({ type: 'Heading', text: 'As the worker last read it' }))
+    assert.ok(panel.find({ type: 'Callout', text: /Archon answered with an error \(500\)\./ }))
+    assert.deepEqual(sent(panel), [{ conversationId: 'web-chat-3', limit: 50, open: true }])
     clean(panel)
   })
 

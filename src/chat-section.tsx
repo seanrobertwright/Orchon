@@ -26,6 +26,7 @@ import {
   type OrcaNode,
   type PanelContext
 } from 'orca'
+import { readComposerDrafts, startComposerDrafts } from './chat-composer'
 import { closeNewChat, newChatHasData, newChatSection, newChatShowing, openNewChat, rescopeNewChat } from './chat-new'
 import { chatThreadHasData, chatThreadSection, clearChatThread, openChatId, openChatThread, restartChatThread, startChatThreadSection } from './chat-thread-section'
 import { ARCHON_CONVERSATIONS_CAP, CHAT_LIST_GAP_MS, type ChatRow, type ChatsAnswer, type ChatsRequest, type ChatsView } from './chats-view'
@@ -114,6 +115,7 @@ export function startChatSection(ctx: PanelContext, given: ChatSectionHooks): vo
     })
   )
   startChatThreadSection(ctx, { ...given, back: () => view.restart() })
+  startComposerDrafts(ctx)
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -142,6 +144,7 @@ export function clearChats(): void {
  * While a thread shows in its place, the thread is read instead.
  */
 export function restartChats(): void {
+  if (sectionHooks?.showing() === true) readComposerDrafts()
   if (openChatId() === null) fetcher?.restart()
   else restartChatThread()
 }

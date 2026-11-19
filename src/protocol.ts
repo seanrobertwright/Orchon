@@ -1,6 +1,9 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
+import type { ChatDeleteAnswer, ChatDeleteRequest } from './chat-delete-view'
+import type { ChatDraftsAnswer, ChatDraftWrite } from './chat-drafts-view'
+import type { ChatLastAnswer, ChatLastRequest } from './chat-last-view'
 import type { ChatRunAnswer, ChatRunRequest } from './chat-run-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
 import type { ChatHint, ThreadAnswer, ThreadRequest } from './chat-thread-view'
@@ -149,6 +152,14 @@ declare module 'orca' {
     'chat.projects': { input: ChatProjectsRequest; output: ChatProjectsAnswer }
     /** Open run on a dispatch row: the run that works in the worker conversation the dispatch named, once. */
     'chat.findRun': { input: ChatRunRequest; output: ChatRunAnswer }
+    /** The unsent drafts the worker keeps in plugin storage, by key, at most `DRAFTS_KEPT`. It takes no input. */
+    'chat.drafts.read': { output: ChatDraftsAnswer }
+    /** Changes one draft, where empty text removes it. Plugin storage is written after a pause. */
+    'chat.draft.write': { input: ChatDraftWrite; output: null }
+    /** Delete: deletes one conversation in Archon. Sent once, never tried again. */
+    'chat.delete': { input: ChatDeleteRequest; output: ChatDeleteAnswer }
+    /** The thread as the worker last read it, held in memory while its reads hold their `THREAD_LEASE_MS` lease, or null. */
+    'chat.last': { input: ChatLastRequest; output: ChatLastAnswer }
   }
   interface PluginPanelEvents {
     /**

@@ -3,7 +3,7 @@
 // Archon's answer, so nothing else reaches a frame. A row that fails is dropped and counted; an
 // answer that is not a list is an error.
 import { parseInstant } from './dates'
-import { isRecord, own } from './records'
+import { cappedTextRefusal, isRecord, own, refuseRequest } from './records'
 
 export const CONVERSATIONS_PATH = '/api/conversations'
 
@@ -19,6 +19,14 @@ export const CONVERSATION_ID_CAP = 200
 /** Whether `value` is a conversation id the worker accepts: at most `CONVERSATION_ID_CAP` characters matching `CONVERSATION_ID`. */
 export const isConversationId = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= CONVERSATION_ID_CAP && CONVERSATION_ID.test(value)
+
+/** A conversation id from a frame, or the refusal every chat request gives for one that is not. */
+export function parseConversationId(value: unknown): string {
+  if (!isConversationId(value)) {
+    refuseRequest(`${cappedTextRefusal('The conversation id', CONVERSATION_ID_CAP)} It may hold only letters, digits, _ and -.`)
+  }
+  return value
+}
 
 /** One conversation as the worker reads it. */
 export type Conversation = {

@@ -38,7 +38,12 @@ export function answeringChats(
   return {
     requests: {
       ...base.requests,
-      'chats.read': (request: ChatsRequest) => ({ connection, chats: chats(request) })
+      'chats.read': (request: ChatsRequest) => ({ connection, chats: chats(request) }),
+      // No drafts are kept, and a draft handed over is taken.
+      'chat.drafts.read': { drafts: {} },
+      'chat.draft.write': null,
+      // The worker holds no last answer for a thread.
+      'chat.last': { thread: null }
     }
   }
 }

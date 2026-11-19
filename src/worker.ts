@@ -4,6 +4,10 @@ import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
 import { startBuilder } from './builder'
 import { startBuilderSave } from './builder-save'
+import { startChatDelete } from './chat-delete'
+import { startChatDrafts } from './chat-drafts'
+import { conversationDraftKey } from './chat-drafts-view'
+import { startChatLast } from './chat-last'
 import { startChatList } from './chat-list'
 import { startChatSend } from './chat-send'
 import { createChatStreams } from './chat-stream'
@@ -88,9 +92,19 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   // Chat's leases on conversation streams, read through the same shared reader as the launcher's.
   const chatStreams = createChatStreams({ streams, now: ports.now, timers: ports.timers, hint: (hint) => orca.panels.post('chat.changed', hint) })
   const chatList = startChatList(orca, { client: connection.client, current: connection.current, chatStreams })
-  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current, chatStreams })
-  const chatSend = startChatSend(orca, { client: connection.client, current: connection.current })
+  const chatLast = startChatLast(orca, { now: ports.now })
+  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current, chatStreams, answered: chatLast.answered })
   const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
+  const chatDrafts = startChatDrafts(orca, { timers: ports.timers })
+  const chatSend = startChatSend(orca, { client: connection.client, current: connection.current, accepted: (key) => chatDrafts.clear(key) })
+  const chatDelete = startChatDelete(orca, {
+    client: connection.client,
+    current: connection.current,
+    removed(conversationId) {
+      chatDrafts.clear(conversationDraftKey(conversationId))
+      chatLast.forget(conversationId)
+    }
+  })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
@@ -101,6 +115,9 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     chatThread.dispose()
     chatSend.dispose()
     chatRun.dispose()
+    chatDelete.dispose()
+    chatLast.dispose()
+    chatDrafts.dispose()
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()
