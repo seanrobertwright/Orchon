@@ -87,6 +87,11 @@ export type WorkflowsSectionView =
        */
       readFrom: string | null
       list: SectionList
+      /**
+       * Why Open in builder is off, as one sentence: no local workspace is focused, or a tab file
+       * could not be written there. Left out when it is on.
+       */
+      builderOff?: string
     }
 
 export type WorkflowsAnswer = ConnectionAnswer & { workflows: WorkflowsSectionView }

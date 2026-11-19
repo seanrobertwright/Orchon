@@ -1,5 +1,6 @@
 // The Workflows section of the panel (#16): its own project select, the workflows Archon lists with
-// where each comes from, and Delete of a project or global workflow behind an inline confirmation.
+// where each comes from, Open in builder, and Delete of a project or global workflow behind an
+// inline confirmation.
 // It draws only the worker's view model and reads it under the shared per-view fetch rules.
 import { atom, Button, Callout, IconButton, Input, Link, plugin, read, Row, Select, set, shell, Spinner, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
 import type { Connected, ConnectionView } from './connection-view'
@@ -40,6 +41,11 @@ const confirming = atom<{ name: string; source: string } | null>(null)
 const deleting = atom<boolean>(false)
 /** What the last Delete did, until the next one or another project. */
 const outcome = atom<DeleteOutcome | null>(null)
+/** Why the last press of Open in builder opened nothing, or null. */
+const openRefused = atom<string | null>(null)
+
+/** What a press of Open in builder says when the worker itself does not answer. */
+export const BUILDER_UNANSWERED = "The builder tab did not open: Orchon's worker did not answer."
 
 /** How long the panel waits after the last keystroke of a search before it reads again. */
 export const SEARCH_PAUSE_MS = 500
@@ -148,6 +154,16 @@ export function clearWorkflows(): void {
   set(chosen, undefined)
   set(confirming, null)
   set(outcome, null)
+  set(openRefused, null)
+}
+
+/** Open in builder: the worker writes the tab's file and opens it. A refusal is said under the project select. */
+function openInBuilder(view: Ready, row: SectionWorkflow): void {
+  set(openRefused, null)
+  plugin.request('builder.open', { name: row.name, codebaseId: view.codebaseId }).then(
+    (answer) => set(openRefused, answer.opened ? null : answer.reason),
+    () => set(openRefused, BUILDER_UNANSWERED)
+  )
 }
 
 function choose(value: string): void {
@@ -217,11 +233,15 @@ function confirmation(view: Ready, row: SectionWorkflow, writable: boolean): Orc
 function workflowRow(view: Ready, row: SectionWorkflow, writable: boolean): OrcaNode {
   const held = read(confirming)
   const asking = held !== null && held.name === row.name && held.source === row.source
+  const openOff = view.builderOff ?? (writable ? undefined : NOT_CONNECTED_TEXT)
   return (
     <Stack key={`${row.source}:${row.name}`} gap="xs">
       <Row gap="sm" align="center" wrap>
         <Text weight="semibold">{row.name}</Text>
         <Text muted size="sm">{`Source: ${row.source}`}</Text>
+        <Button size="sm" variant="outline" disabled={openOff !== undefined} tooltip={openOff} onPress={() => openInBuilder(view, row)}>
+          {`Open ${row.name} in builder`}
+        </Button>
         {row.deletable && !asking ? (
           <Button size="sm" variant="outline" disabled={!writable} tooltip={writable ? undefined : NOT_CONNECTED_TEXT} onPress={() => set(confirming, { name: row.name, source: row.source })}>
             {`Delete ${row.name}`}
@@ -324,6 +344,8 @@ function ready(view: Ready, writable: boolean): OrcaNode {
         </Text>
       ) : null}
       {view.readFrom === null ? null : <Text muted size="sm">{`Workflows are read from ${view.readFrom}`}</Text>}
+      {view.builderOff === undefined ? null : <Text muted size="sm">{view.builderOff}</Text>}
+      {read(openRefused) === null ? null : <Text>{read(openRefused)}</Text>}
       {outcomeLine(read(outcome))}
       {listPart(view, view.list, writable)}
     </Stack>

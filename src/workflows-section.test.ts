@@ -176,6 +176,24 @@ describe('where the workflows are read from', () => {
   })
 })
 
+describe('why Open in builder is off', () => {
+  const builderOff = async (focused: string | null): Promise<unknown> => {
+    const mounted = await workflowsScene().mount(orcaWith(focused))
+    const view = ready((await read(mounted, { project: RECORDED_ID['0.12.1'], reload: true })).workflows)
+    await mounted.worker.deactivate()
+    return Object.hasOwn(view, 'builderOff') ? view.builderOff : 'left out'
+  }
+
+  test('it is left out when a local workspace is focused', async () => {
+    assert.equal(await builderOff('ws-local'), 'left out')
+  })
+
+  test('with no workspace focused, and in a remote workspace', async () => {
+    assert.equal(await builderOff(null), 'No workspace is focused in Orca. Wide tabs open in a workspace on this computer.')
+    assert.equal(await builderOff('ws-ssh'), 'This workspace is on another host. Orchon works with the Archon on this computer.')
+  })
+})
+
 /** Every write the worker sent, as method and URL. */
 const writes = (stage: Scene): { method: string; url: string }[] =>
   stage.archon.calls.filter((call) => call.method !== 'GET').map((call) => ({ method: call.method, url: call.url }))

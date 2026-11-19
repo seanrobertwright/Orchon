@@ -93,6 +93,8 @@ export type WorkflowsSectionPorts = {
   focused(): Promise<FocusedWorkspace>
   /** The launcher's kept reads, shared. */
   lists: LaunchLists
+  /** Why Open in builder is off, or null when it is on. Never off when left out. */
+  builderOff?(): Promise<string | null>
 }
 
 export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSectionPorts): Disposable {
@@ -153,13 +155,15 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
     const rows = found.slice(0, SECTION_PROJECTS_CAP).map(({ id, name }) => ({ id, name }))
     if (project !== undefined && !rows.some((row) => row.id === project.id)) rows.unshift({ id: project.id, name: project.name })
     const { result, rows: workflows } = await listFor(connection, project, reload)
+    const builderOff = ports.builderOff === undefined ? null : await ports.builderOff()
     return {
       kind: 'ready',
       projects: { rows, more: Math.max(0, found.length - SECTION_PROJECTS_CAP), unreadable: listed.unreadable },
       codebaseId: project?.id ?? null,
       folder: project?.defaultCwd ?? null,
       readFrom: readFromOf(await ports.focused(), project),
-      list: sectionList(result, workflows, request.filter ?? '')
+      list: sectionList(result, workflows, request.filter ?? ''),
+      ...(builderOff === null ? {} : { builderOff })
     }
   }
 

@@ -74,7 +74,8 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     client: connection.client,
     current: connection.current,
     focused: projectScope.focused,
-    lists: launch.lists
+    lists: launch.lists,
+    builderOff: wideTabs.builderOff
   })
   const chatList = startChatList(orca, { client: connection.client, current: connection.current })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })

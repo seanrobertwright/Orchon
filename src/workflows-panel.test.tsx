@@ -159,3 +159,42 @@ describe('the section around the list', () => {
     assert.match(view.find({ type: 'EmptyState' })?.label ?? '', /^Archon is not running\./)
   })
 })
+
+const openButton = (name: string): { type: string; text: string } => ({ type: 'Button', text: `Open ${name} in builder` })
+const NO_WORKSPACE = 'No workspace is focused in Orca. Wide tabs open in a workspace on this computer.'
+
+describe('Open in builder', () => {
+  test('is offered for every workflow, and opens it with the chosen project', async () => {
+    const view = await mountWorkflows({ workflows: () => webWorkflows })
+    for (const name of ['ship-it', 'tidy', 'deliver', 'acme/pack:review']) assert.equal(view.find(openButton(name))?.disabled, false, name)
+    await view.press(openButton('deliver'))
+    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'deliver', codebaseId: 'cb-web' }])
+    clean(view)
+  })
+
+  test('with no project, opens it with none', async () => {
+    const view = await mountWorkflows({ workflows: () => unscopedWorkflows, scope: () => unmatchedGit })
+    await view.press(openButton('tidy'))
+    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'tidy', codebaseId: null }])
+  })
+
+  test('is disabled, with the reason the worker gives, when no local workspace is focused', async () => {
+    const view = await mountWorkflows({ workflows: () => ({ ...webWorkflows, builderOff: NO_WORKSPACE }) })
+    assert.equal(view.find(openButton('ship-it'))?.disabled, true)
+    assert.ok(view.find(text(NO_WORKSPACE)))
+    assert.equal(view.findAll(text(NO_WORKSPACE)).length, 1)
+  })
+
+  test('says why when the worker could not open the tab', async () => {
+    const reason = 'Archon has no workflow named deliver here.'
+    const view = await mountWorkflows({ workflows: () => webWorkflows, open: () => ({ opened: false, reason }) })
+    await view.press(openButton('deliver'))
+    assert.ok(view.find(text(reason)))
+  })
+
+  test('is disabled under the Searching banner', async () => {
+    const view = await mountWorkflows({ workflows: () => webWorkflows })
+    await view.post('connection.changed', { ...searching, since: connected.since + 1 })
+    assert.equal(view.find(openButton('ship-it'))?.disabled, true)
+  })
+})
