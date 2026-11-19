@@ -8,6 +8,7 @@ import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
 import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
+import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 
 declare module 'orca' {
   interface PluginRequests {
@@ -57,6 +58,8 @@ declare module 'orca' {
     'forms.resolve': { input: { group: FormGroupId; choice: ConflictChoice }; output: FormsAnswer }
     /** Open graph: writes the run's pointer file into `.orchon/` and opens it in a wide tab. */
     'graph.open': { input: GraphOpenRequest; output: GraphOpenAnswer }
+    /** A run graph tab: the run on its workflow as it is now, and the connection as the tab draws it. */
+    'graph.read': { input: GraphRequest; output: GraphAnswer }
   }
   interface PluginPanelEvents {
     /** A hint that the person asked to see runs. It carries no data. */
