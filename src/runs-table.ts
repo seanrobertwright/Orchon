@@ -73,6 +73,13 @@ export type RunsTablePorts = {
   workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
 }
 
+/** The id of the first workspace row whose path is `path`, once both are normalised, if any. */
+export function workspaceIdFor(path: string, rows: readonly Pick<WorkspaceRow, 'id' | 'path'>[]): string | undefined {
+  const key = normalisePath(path)
+  if (key === null) return undefined
+  return rows.find((row) => normalisePath(row.path) === key)?.id
+}
+
 /**
  * Gives each run whose folder a workspace row names, once both are normalised, that row's id.
  * Nothing is asked of the disk: whether a worktree folder exists is not on the closed list of #32.

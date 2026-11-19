@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   EmptyState,
-  env,
   IconButton,
   KeyValue,
   Link,
@@ -31,29 +30,25 @@ import {
   type TableRow
 } from 'orca'
 import type { Connected, ConnectionView } from './connection-view'
-import { formatClock, formatDuration, now } from './dates'
+import { formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
+import { clearRunDetail, openRunDetail, openRunId, restartRunDetail, runDetailHasData, runDetailSection } from './run-detail-section'
+import { worktreeLine } from './worktree-line'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
 import { restartScope, scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
-import { warningLine } from './view-notices'
+import { problemLine, type ReadProblem } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
-
-/**
- * A read that failed: what to say, when the last good answer came, if one did, and whether it
- * offers "Try again".
- */
-type Problem = { message: string; lastGood: number | null; tryAgain: boolean }
 
 const filter = atom<StatusFilter>('all')
 /** How many rows the table asks for: rows 0 to N. */
 const requested = atom<number>(ROWS_STEP)
 const loaded = atom<Ready | null>(null)
-const problem = atom<Problem | null>(null)
+const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
 const selected = atom<string | null>(null)
 
@@ -91,7 +86,10 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
   const view = createViewFetch<RunsAnswer | null>({
     load(signal) {
       // The table waits for the scope, so it never reads one project and then another.
-      if (given.connection()?.kind !== 'connected' || !given.showing() || !scopeSettled()) return Promise.resolve(null)
+      // While a run is open its detail shows in place of the table, which is read again on the way back.
+      if (given.connection()?.kind !== 'connected' || !given.showing() || !scopeSettled() || openRunId() !== null) {
+        return Promise.resolve(null)
+      }
       const request: RunsRequest = { status: read(filter), rows: read(requested) }
       const codebaseId = scopedProjectId()
       return plugin.request('runs.read', codebaseId === undefined ? request : { ...request, codebaseId }, { signal })
@@ -120,7 +118,7 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
 
 /** Whether the table holds an answer to show, as Searching keeps it under its banner. */
 export function runsHaveData(): boolean {
-  return read(loaded) !== null
+  return openRunId() === null ? read(loaded) !== null : runDetailHasData()
 }
 
 /** A different Archon store: what the section held, chosen and loaded belongs to the old one. */
@@ -131,6 +129,7 @@ export function clearRuns(): void {
   set(problem, null)
   set(lastGood, null)
   set(selected, null)
+  clearRunDetail()
 }
 
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
@@ -156,6 +155,7 @@ export function refreshRuns(): void {
 export function restartRunsView(): void {
   restartScope()
   restartRuns()
+  restartRunDetail()
 }
 
 /** The project the table is filtered by changed: it reads from the newest run again. */
@@ -225,38 +225,6 @@ function unreadableLine(count: number): string {
   return count === 1 ? '1 run could not be read and is not shown.' : `${String(count)} runs could not be read and are not shown.`
 }
 
-/** Opens the workspace a run's folder belongs to. A failed request changes nothing. */
-function openInOrca(workspaceId: string): void {
-  plugin.request('workspace.open', { workspaceId }).then(
-    () => {},
-    () => {}
-  )
-}
-
-/**
- * Under the worktree: **Open in Orca** when Orca lists the run's folder as a workspace, and
- * otherwise the hint about Orca's Non-Orca worktrees setting. Whether the folder exists is not
- * checked: the worker's closed disk list of #32 has no such read.
- */
-function worktreeLine(run: RunRow): OrcaNode {
-  if (run.workingPath === null) return null
-  const { workspaceId } = run
-  if (workspaceId !== undefined) {
-    return (
-      <Row>
-        <Button size="sm" variant="outline" onPress={() => openInOrca(workspaceId)}>
-          Open in Orca
-        </Button>
-      </Row>
-    )
-  }
-  return (
-    <Text muted size="sm">
-      Orca does not show this worktree. To open it in Orca, show it in the project's Non-Orca worktrees setting.
-    </Text>
-  )
-}
-
 function preview(run: RunRow): OrcaNode {
   const facts: KeyValueItem[] = [{ label: 'Project', value: run.project ?? 'No project' }]
   if (run.workingPath !== null) facts.push({ label: 'Worktree', value: run.workingPath, code: true })
@@ -274,14 +242,14 @@ function preview(run: RunRow): OrcaNode {
         {run.message === '' ? null : <Text>{run.message}</Text>}
         <KeyValue label="Run facts" items={facts} />
         {worktreeLine(run)}
+        <Row>
+          <Button size="sm" onPress={() => openRunDetail(run.id)}>
+            Open run
+          </Button>
+        </Row>
       </Stack>
     </Card>
   )
-}
-
-function problemLine(held: Problem, hasData: boolean): OrcaNode {
-  const when = hasData && held.lastGood !== null ? ` Last good answer at ${formatClock(held.lastGood, env.locale)}.` : ''
-  return warningLine(`${held.message}${when}`, held.tryAgain ? () => restartRuns() : null)
 }
 
 function table(runs: Ready, status: StatusFilter): OrcaNode {
@@ -301,6 +269,7 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
         maxHeight="lg"
         emptyText={status === 'all' ? 'No runs.' : `No ${filterWord(status).toLowerCase()} runs.`}
         onSelectionChange={({ keys }) => set(selected, keys[0] ?? null)}
+        onRowAction={({ key }) => openRunDetail(key)}
         onLoadMore={loadMore}
       />
       <Text muted size="sm">
@@ -313,6 +282,7 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
 
 /** The section while connected or under the Searching banner. `writable` is false when its controls that write are off. */
 export function runsSection(state: Connected, writable: boolean): OrcaNode {
+  if (openRunId() !== null) return runDetailSection()
   const status = read(filter)
   const runs = read(loaded)
   const held = read(problem)
@@ -336,7 +306,7 @@ export function runsSection(state: Connected, writable: boolean): OrcaNode {
         <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
         <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />
       </Row>
-      {held === null ? null : problemLine(held, runs !== null)}
+      {held === null ? null : problemLine(held, runs !== null, () => restartRuns())}
       {body}
       {runs !== null && runs.unreadable > 0 ? (
         <Text muted size="sm">

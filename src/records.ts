@@ -15,6 +15,12 @@ export function own(record: Record<string, unknown>, key: string): unknown {
   return Object.hasOwn(record, key) ? record[key] : undefined
 }
 
+/** A field of its own that is a plain object, or an empty object when it is missing or is not one. */
+export function ownRecord(record: Record<string, unknown>, key: string): Record<string, unknown> {
+  const value = own(record, key)
+  return isRecord(value) ? value : {}
+}
+
 /** Whether a value is text with at least one character. */
 export function isText(value: unknown): value is string {
   return typeof value === 'string' && value !== ''

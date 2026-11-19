@@ -1,6 +1,6 @@
 // Pure logic: the one date helper. Everything about time in the shipped code goes through it.
 import { assert, describe, test } from 'orca/testing'
-import { formatClock, formatDuration, now, parseInstant } from './dates'
+import { formatClock, formatDateTime, formatDuration, now, parseInstant } from './dates'
 
 describe('the date helper', () => {
   test('now is the current time in milliseconds since the epoch', () => {
@@ -60,6 +60,18 @@ describe('the date helper', () => {
     assert.equal(formatClock(Number.POSITIVE_INFINITY, 'en-GB'), '')
     assert.equal(formatClock(8.64e15 + 1, 'en-GB'), '')
     assert.equal(formatClock(-8.64e15 - 1, 'en-GB'), '')
+  })
+
+  test('formats a date and a wall-clock time in the given locale, so a wait past today names its day', () => {
+    // Noon UTC is the same calendar day in every zone from UTC-11 to UTC+11.
+    const at = Date.UTC(2026, 10, 19, 12, 0, 0)
+    assert.match(formatDateTime(at, 'en-GB'), /^19 Nov 2026, \d{2}:\d{2}$/)
+  })
+
+  test('formats a date and time with the default locale when the given one is not a locale, and nothing for a time no date can hold', () => {
+    assert.match(formatDateTime(Date.UTC(2026, 10, 19, 12), 'not a locale'), /2026/)
+    assert.equal(formatDateTime(Number.NaN, 'en-GB'), '')
+    assert.equal(formatDateTime(8.64e15 + 1, 'en-GB'), '')
   })
 
   test('writes a duration in its two largest units, the shortest form', () => {
