@@ -4,7 +4,8 @@ import type { Connected, ConnectionAnswer, ConnectionView } from './connection-v
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
-import { clearRuns, rescopeRuns, restartRunsView, runsHaveData, runsSection, startRunsSection } from './runs-section'
+import { liveOffLine } from './live-line'
+import { clearRuns, hintRuns, refreshRuns, rescopeRuns, restartRunsView, runsHaveData, runsSection, startRunsSection } from './runs-section'
 import { startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
@@ -42,11 +43,15 @@ function keepNewest(next: ConnectionView): void {
     set(lastConnected, next)
   }
   set(connection, next)
+  if (next.kind !== 'connected') return
   // On return to Connected every view that is showing fetches again.
-  if (next.kind === 'connected' && held?.kind !== 'connected') {
+  if (held?.kind !== 'connected') {
     restartRunsView()
     // The section's own first read is sent when it shows, so only a return to Connected reads again.
     if (held !== null && parseSection(read(section)) === 'settings') readForms()
+  } else if (held.live !== next.live) {
+    // Only `live` changed: the next read sets the safety timer to the new wait.
+    refreshRuns()
   }
 }
 
@@ -145,6 +150,7 @@ export function setup(ctx: PanelContext): void {
   })
   ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
+  ctx.subscriptions.push(plugin.on('runs.changed', hintRuns))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
   startFormGroups(ctx, { keep: keepNewest })
   // The first read, then one on the safety refetch: a worker that did not answer is tried again.
@@ -153,7 +159,7 @@ export function setup(ctx: PanelContext): void {
     apply: connectionAnswered,
     fail: (_error, trouble) => connectionFailed(trouble),
     minGapMs: CONNECTION_GAP_MS,
-    safetyMs: SAFETY_REFETCH_MS,
+    safetyMs: () => SAFETY_REFETCH_MS,
     now,
     timers: frameTimers
   })
@@ -212,6 +218,11 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
   return underLine(line, screen ?? <EmptyState title={label} description="This section is not built yet." />)
 }
 
+/** A section's body, under the line saying live updates are off while they are. */
+function underLiveLine(body: OrcaNode, state: ConnectionView | null): OrcaNode {
+  return underLine(state?.kind === 'connected' ? liveOffLine(state) : null, body)
+}
+
 export default function Panel() {
   const state = read(connection)
   return (
@@ -222,7 +233,7 @@ export default function Panel() {
     >
       {SECTIONS.map(({ id, label }) => (
         <Tab key={id} value={id} label={label}>
-          {sectionBody(id, label, state)}
+          {underLiveLine(sectionBody(id, label, state), state)}
         </Tab>
       ))}
     </Tabs>

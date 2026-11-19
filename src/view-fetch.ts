@@ -22,8 +22,11 @@ export type ViewFetchOptions<T> = {
   fail(error: unknown, trouble: WorkerTrouble | null): void
   /** The least time between the starts of two fetches that were not asked for by the person. */
   minGapMs: number
-  /** The view fetches again this long after its last fetch ended, whatever else happened. */
-  safetyMs: number
+  /**
+   * How long after its last fetch ended the view fetches again, whatever else happened. It is
+   * asked each time the timer is set, so the wait can follow whether live updates are on.
+   */
+  safetyMs(): number
   now(): number
   timers: Timers
 }
@@ -41,6 +44,8 @@ export type ViewFetch = {
 export const RUNS_TABLE_GAP_MS = 2_000
 /** How often every visible view refetches by itself. */
 export const SAFETY_REFETCH_MS = 30_000
+/** How often it refetches while live updates are off. */
+export const LIVE_OFF_REFETCH_MS = 5_000
 
 /** Waited when a `rate_limited` rejection names no usable `retryAfterMs`. */
 export const RATE_LIMIT_WAIT_MS = 1_000
@@ -135,7 +140,7 @@ export function createViewFetch<T>(options: ViewFetchOptions<T>): ViewFetch {
         },
         (error: unknown) => {
           if (!current()) return
-          const rejection = rejectionOf(error, options.safetyMs)
+          const rejection = rejectionOf(error, options.safetyMs())
           if (rejection.kind === 'rate-limited' && !retried) {
             // Still in flight: a refresh meanwhile queues behind the one sent again.
             retryTimer = options.timers.set(() => {
@@ -156,7 +161,7 @@ export function createViewFetch<T>(options: ViewFetchOptions<T>): ViewFetch {
           safetyTimer = options.timers.set(() => {
             safetyTimer = undefined
             refresh()
-          }, options.safetyMs)
+          }, options.safetyMs())
         }
         if (queued) {
           queued = false

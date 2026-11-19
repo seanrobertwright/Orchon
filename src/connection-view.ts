@@ -53,6 +53,12 @@ export type Connected = Stamped & {
   version: string | null
   storeId: string | null
   features: Features
+  /**
+   * False once the worker has found Archon's dashboard stream down; true while it holds the stream
+   * open, or is still opening it. While it is false the frames refetch on a short timer, and
+   * nothing is disabled.
+   */
+  live: boolean
 }
 export type NotFound = Stamped & {
   kind: 'not-found'

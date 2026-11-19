@@ -90,7 +90,7 @@ export function startScope(ctx: PanelContext, given: ScopeHooks): void {
       }
     },
     minGapMs: 0,
-    safetyMs: SAFETY_REFETCH_MS,
+    safetyMs: () => SAFETY_REFETCH_MS,
     now,
     timers: frameTimers
   })

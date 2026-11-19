@@ -33,10 +33,11 @@ import {
 import type { Connected, ConnectionView } from './connection-view'
 import { formatClock, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
+import type { RunsHint } from './hint-view'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
 import { restartScope, scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
-import { createViewFetch, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
+import { createViewFetch, LIVE_OFF_REFETCH_MS, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { warningLine } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
 
@@ -101,7 +102,10 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
       if (trouble !== null) report(troubleText(trouble), offersTryAgain(trouble))
     },
     minGapMs: RUNS_TABLE_GAP_MS,
-    safetyMs: SAFETY_REFETCH_MS,
+    safetyMs: () => {
+      const state = given.connection()
+      return state?.kind === 'connected' && !state.live ? LIVE_OFF_REFETCH_MS : SAFETY_REFETCH_MS
+    },
     now,
     timers: frameTimers
   })
@@ -132,6 +136,20 @@ export function clearRuns(): void {
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
 export function restartRuns(): void {
   fetcher?.restart()
+}
+
+/**
+ * A hint that runs changed: on `workflow_status` the table (counts and the whole loaded range)
+ * is read again under its fetch rules, once the minimum gap allows. `dag_node` changes nothing
+ * the table shows.
+ */
+export function hintRuns(hint: RunsHint): void {
+  if (hint.types.includes('workflow_status')) fetcher?.refresh()
+}
+
+/** Reads the table again once the minimum gap allows, as a hint does. */
+export function refreshRuns(): void {
+  fetcher?.refresh()
 }
 
 /** Reads the whole Runs view again: the project scope, then the table under it. */

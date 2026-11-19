@@ -1,6 +1,7 @@
 // The client: the one module every call to Archon goes through, and the only caller of `fetch`.
 // It talks to this computer's loopback address and nowhere else, never follows a redirect,
-// bounds every call in time and in size, and takes nothing but JSON for an answer.
+// bounds every call in time and in size, and takes nothing but JSON for an answer. A stream is
+// the one exception: it is held open, bounded in time by its caller's signal, and is text.
 import { isLoopbackHost } from './loopback'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -77,9 +78,34 @@ export type ClientFailure =
 
 export type ClientResult = { ok: true; value: unknown } | { ok: false; failure: ClientFailure }
 
-export type Client = { request(call: ClientCall): Promise<ClientResult> }
+/** A stream to open. It has no timeout of its own: its caller's signal bounds it in time. */
+export type StreamCall = {
+  baseUrl: string
+  /** A path on that server, starting with `/`. */
+  path: string
+  /** Aborts the open, or ends the stream once open. */
+  signal: AbortSignal
+}
 
-const fail = (failure: ClientFailure): ClientResult => ({ ok: false, failure })
+/** The text of a held-open body as it arrives. It throws when the body breaks or is not UTF-8. */
+export type StreamText = AsyncIterable<string>
+
+/** Why a stream did not open. A stream is not JSON, so it has its own kind for a wrong content type. */
+export type StreamFailure =
+  | Extract<ClientFailure, { kind: 'not-loopback' | 'refused' | 'status' | 'cancelled' }>
+  /** No event-stream content type, or no body to read. */
+  | { kind: 'not-event-stream' }
+
+export type StreamResult = { ok: true; text: StreamText } | { ok: false; failure: StreamFailure }
+
+export type Client = {
+  request(call: ClientCall): Promise<ClientResult>
+  /** Opens a Server-Sent Events stream, such as Archon's dashboard stream. */
+  stream(call: StreamCall): Promise<StreamResult>
+}
+
+const requestFailed = (failure: ClientFailure): ClientResult => ({ ok: false, failure })
+const streamFailed = (failure: StreamFailure): StreamResult => ({ ok: false, failure })
 
 /** The URL to call, or null when the base is not loopback `http` or the path would leave it. */
 function loopbackUrl(baseUrl: string, path: string): string | null {
@@ -93,6 +119,37 @@ function loopbackUrl(baseUrl: string, path: string): string | null {
 }
 
 const JSON_CONTENT_TYPE = /^application\/(?:[\w.-]+\+)?json\s*(?:;|$)/i
+const STREAM_CONTENT_TYPE = /^text\/event-stream\s*(?:;|$)/i
+
+/** A promise that rejects once the signal aborts, so a wait on a deaf transport still ends. */
+function abortion(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    const stop = (): void => reject(new DOMException('aborted', 'AbortError'))
+    if (signal.aborted) stop()
+    else signal.addEventListener('abort', stop, { once: true })
+  })
+}
+
+/** The body's text, piece by piece, ending when the signal aborts even if the body never does. */
+async function* streamText(body: AsyncIterable<Uint8Array>, signal: AbortSignal): StreamText {
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  const chunks = body[Symbol.asyncIterator]()
+  const aborted = abortion(signal)
+  aborted.catch(() => {})
+  try {
+    for (;;) {
+      const next = await Promise.race([chunks.next(), aborted])
+      if (next.done === true) break
+      const text = decoder.decode(next.value, { stream: true })
+      if (text !== '') yield text
+    }
+    const rest = decoder.decode()
+    if (rest !== '') yield rest
+  } finally {
+    // Lets go of the body: a pending read is not awaited, and its failure is not left unhandled.
+    chunks.return?.().catch(() => {})
+  }
+}
 
 /**
  * The body as text. It stops, with a failure, once the body passes `maxBytes` or holds bytes
@@ -125,14 +182,17 @@ function parseJson(text: string): ClientResult {
   try {
     return { ok: true, value: JSON.parse(text) as unknown }
   } catch {
-    return fail({ kind: 'not-json' })
+    return requestFailed({ kind: 'not-json' })
   }
 }
 
 export type ClientPorts = {
   fetch: FetchLike
   timers: Timers
-  /** Told of every call that gave no value, apart from one its caller cancelled. */
+  /**
+   * Told of every request that gave no value, apart from one its caller cancelled. A stream is
+   * not reported: its caller decides what its failures mean.
+   */
   failed?(call: ClientCall, failure: ClientFailure): void
 }
 
@@ -147,27 +207,27 @@ export function createClient(ports: ClientPorts): Client {
     const answer = await ports.fetch(url, init)
     const json = JSON_CONTENT_TYPE.test(answer.headers.get('content-type')?.trim() ?? '')
     if (answer.status < 200 || answer.status > 299) {
-      if (call.errorBody !== true || !json) return fail({ kind: 'status', status: answer.status })
+      if (call.errorBody !== true || !json) return requestFailed({ kind: 'status', status: answer.status })
       const text = await readCapped(answer.body, call.maxBytes ?? READ_CAP_BYTES)
       const parsed = typeof text === 'string' ? parseJson(text) : null
-      return fail(parsed?.ok === true ? { kind: 'status', status: answer.status, body: parsed.value } : { kind: 'status', status: answer.status })
+      return requestFailed(parsed?.ok === true ? { kind: 'status', status: answer.status, body: parsed.value } : { kind: 'status', status: answer.status })
     }
-    if (!json) return fail({ kind: 'not-json' })
+    if (!json) return requestFailed({ kind: 'not-json' })
     const text = await readCapped(answer.body, call.maxBytes ?? READ_CAP_BYTES)
-    return typeof text === 'string' ? parseJson(text) : fail(text)
+    return typeof text === 'string' ? parseJson(text) : requestFailed(text)
   }
 
   async function send(call: ClientCall): Promise<ClientResult> {
     const url = loopbackUrl(call.baseUrl, call.path)
-    if (url === null) return fail({ kind: 'not-loopback' })
-    if (call.signal?.aborted === true) return fail({ kind: 'cancelled' })
+    if (url === null) return requestFailed({ kind: 'not-loopback' })
+    if (call.signal?.aborted === true) return requestFailed({ kind: 'cancelled' })
 
     const timeoutMs = TIMEOUT_MS[call.timeout]
     const controller = new AbortController()
     let ended: ClientFailure | undefined
     // The transport may ignore the signal, so the call itself also ends when it is aborted.
     const aborted = new Promise<ClientResult>((resolve) => {
-      controller.signal.addEventListener('abort', () => resolve(fail(ended ?? { kind: 'cancelled' })))
+      controller.signal.addEventListener('abort', () => resolve(requestFailed(ended ?? { kind: 'cancelled' })))
     })
     const end = (failure: ClientFailure): void => {
       ended ??= failure
@@ -178,7 +238,7 @@ export function createClient(ports: ClientPorts): Client {
     call.signal?.addEventListener('abort', cancel)
     try {
       return await Promise.race([
-        exchange(url, call, controller.signal).catch(() => fail(ended ?? { kind: 'refused' })),
+        exchange(url, call, controller.signal).catch(() => requestFailed(ended ?? { kind: 'refused' })),
         aborted
       ])
     } finally {
@@ -190,6 +250,24 @@ export function createClient(ports: ClientPorts): Client {
   }
 
   return {
+    async stream(call) {
+      const url = loopbackUrl(call.baseUrl, call.path)
+      if (url === null) return streamFailed({ kind: 'not-loopback' })
+      if (call.signal.aborted) return streamFailed({ kind: 'cancelled' })
+      const init: FetchInit = { method: 'GET', headers: { accept: 'text/event-stream' }, redirect: 'manual', signal: call.signal }
+      let answer: FetchAnswer
+      try {
+        answer = await Promise.race([ports.fetch(url, init), abortion(call.signal)])
+      } catch {
+        return streamFailed({ kind: call.signal.aborted ? 'cancelled' : 'refused' })
+      }
+      if (answer.status < 200 || answer.status > 299) return streamFailed({ kind: 'status', status: answer.status })
+      if (!STREAM_CONTENT_TYPE.test(answer.headers.get('content-type')?.trim() ?? '') || answer.body === null) {
+        return streamFailed({ kind: 'not-event-stream' })
+      }
+      return { ok: true, text: streamText(answer.body, call.signal) }
+    },
+
     async request(call) {
       const result = await send(call)
       if (!result.ok && result.failure.kind !== 'cancelled') ports.failed?.(call, result.failure)

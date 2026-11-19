@@ -79,17 +79,95 @@ export type Scripted =
   | { kind: 'refuse' }
   /** The server takes the connection and never answers, until the caller gives up. */
   | { kind: 'hang' }
+  /** A body held open: the test sends its text piece by piece, and ends or breaks it. */
+  | ScriptedStream
+
+/** A held-open answer, such as Archon's dashboard stream. Each one answers a single request. */
+export type ScriptedStream = {
+  kind: 'stream'
+  contentType: string | null
+  status: number
+  /** Sends one more piece of the body. */
+  send(text: string): void
+  /** The server ends the body. */
+  end(): void
+  /** The connection breaks before the body ends. */
+  break(): void
+  /** Whether a request took this answer. */
+  readonly opened: boolean
+  /** Whether the caller let go of the body: it aborted, or stopped reading. */
+  readonly closed: boolean
+  /** The body the scripted Archon answers with: it ends when the signal aborts. */
+  body(signal: AbortSignal): AsyncIterable<Uint8Array>
+}
+
+/** A held-open answer with the event-stream content type, unless told otherwise. */
+export function openStream(options: { contentType?: string | null; status?: number } = {}): ScriptedStream {
+  const queue: (string | 'end' | 'break')[] = []
+  let wake = (): void => {}
+  let opened = false
+  let closed = false
+  const push = (item: string | 'end' | 'break'): void => {
+    queue.push(item)
+    wake()
+  }
+  return {
+    kind: 'stream',
+    contentType: options.contentType === undefined ? 'text/event-stream' : options.contentType,
+    status: options.status ?? 200,
+    send: (text) => push(text),
+    end: () => push('end'),
+    break: () => push('break'),
+    get opened() {
+      return opened
+    },
+    get closed() {
+      return closed
+    },
+    body(signal) {
+      opened = true
+      return {
+        [Symbol.asyncIterator]: () => ({
+          async next(): Promise<IteratorResult<Uint8Array>> {
+            for (;;) {
+              if (signal.aborted) {
+                closed = true
+                throw new DOMException('aborted', 'AbortError')
+              }
+              const item = queue.shift()
+              if (item === 'end') return { done: true, value: undefined }
+              if (item === 'break') throw new TypeError('terminated', { cause: { code: 'ECONNRESET' } })
+              if (item !== undefined) return { done: false, value: encoder.encode(item) }
+              await new Promise<void>((resolve) => {
+                wake = resolve
+                signal.addEventListener('abort', () => resolve(), { once: true })
+              })
+            }
+          },
+          return(): Promise<IteratorResult<Uint8Array>> {
+            closed = true
+            return Promise.resolve({ done: true, value: undefined })
+          }
+        })
+      }
+    }
+  }
+}
 
 export type ScriptedCall = { url: string; method: string; redirect: string; headers: Record<string, string>; body?: string }
 
 export type ScriptedArchon = {
   fetch: FetchLike
-  /** Every request that reached the transport, in order. */
+  /** Every request that reached the transport, in order, except the opens of a stream. */
   calls: ScriptedCall[]
+  /** Every open of a stream (a path under `/api/stream/`), in order. */
+  streams: ScriptedCall[]
   /**
-   * Sets what one URL answers from now on. A URL never set refuses the connection, except a path
-   * list: an Archon is the floor release unless told otherwise, so `/api/openapi.json` answers
-   * the recorded document of 0.12.1.
+   * Sets what one URL answers from now on. A URL never set refuses the connection, with two
+   * exceptions. A path list: an Archon is the floor release unless told otherwise, so
+   * `/api/openapi.json` answers the recorded document of 0.12.1. And a stream: it takes the
+   * connection and sends nothing until told otherwise, so a test that is not about live
+   * updates sees no frame and no hint.
    */
   answer(url: string, scripted: Scripted | ((call: ScriptedCall) => Scripted)): void
   /** How many body chunks the caller took from the last answer, and whether it closed the body. */
@@ -161,6 +239,7 @@ export function scriptArchon(): ScriptedArchon {
   const answers = new Map<string, Scripted | ((call: ScriptedCall) => Scripted)>()
   const archon: ScriptedArchon = {
     calls: [],
+    streams: [],
     lastBody: { taken: 0, closed: false },
     answer(url, scripted) {
       answers.set(url, scripted)
@@ -168,8 +247,11 @@ export function scriptArchon(): ScriptedArchon {
     fetch(url: string, init: FetchInit): Promise<FetchAnswer> {
       const call: ScriptedCall = { url, method: init.method, redirect: init.redirect, headers: init.headers }
       if (init.body !== undefined) call.body = init.body
-      archon.calls.push(call)
-      const found = answers.get(url) ?? (new URL(url).pathname === OPENAPI_PATH ? floorPathListAnswer() : REFUSE)
+      const { pathname } = new URL(url)
+      const stream = pathname.startsWith('/api/stream/')
+      if (stream) archon.streams.push(call)
+      else archon.calls.push(call)
+      const found = answers.get(url) ?? (pathname === OPENAPI_PATH ? floorPathListAnswer() : stream ? HANG : REFUSE)
       const scripted = typeof found === 'function' ? found(call) : found
       if (scripted.kind === 'refuse') {
         return Promise.reject(new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }))
@@ -177,6 +259,14 @@ export function scriptArchon(): ScriptedArchon {
       if (scripted.kind === 'hang') {
         return new Promise((_, reject) => {
           init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+        })
+      }
+      if (scripted.kind === 'stream') {
+        const contentType = scripted.contentType
+        return Promise.resolve({
+          status: scripted.status,
+          headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? contentType : null) },
+          body: scripted.body(init.signal)
         })
       }
       const body = { taken: 0, closed: false }

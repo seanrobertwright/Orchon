@@ -1,0 +1,108 @@
+// Pure logic: the frame parser that reads Archon's dashboard stream by hand from the text of the
+// `fetch` body, and the reading of one frame's data. Frames are scripted the way Archon's
+// `streamSSE` writes them: a `data:` line of JSON and a blank line.
+import { assert, describe, test } from 'orca/testing'
+import { createFrameParser, FRAME_CAP_CHARS, readDashboardFrame, type StreamFrame } from './stream-frames'
+
+/** Pushes every chunk in order and returns every frame they completed, or null on an overflow. */
+function parseAll(chunks: readonly string[]): StreamFrame[] | null {
+  const parser = createFrameParser()
+  const frames: StreamFrame[] = []
+  for (const chunk of chunks) {
+    const done = parser.push(chunk)
+    if (done === null) return null
+    frames.push(...done)
+  }
+  return frames
+}
+
+describe('the frame parser', () => {
+  test('reads one frame per blank line, each with its data', () => {
+    assert.deepEqual(parseAll(['data: {"type":"heartbeat"}\n\ndata: {"type":"dag_node"}\n\n']), [
+      { event: 'message', data: '{"type":"heartbeat"}' },
+      { event: 'message', data: '{"type":"dag_node"}' }
+    ])
+  })
+
+  test('holds a frame split across chunks until its blank line arrives', () => {
+    const parser = createFrameParser()
+    assert.deepEqual(parser.push('da'), [])
+    assert.deepEqual(parser.push('ta: {"type":'), [])
+    assert.deepEqual(parser.push('"workflow_status"}\n'), [])
+    assert.deepEqual(parser.push('\n'), [{ event: 'message', data: '{"type":"workflow_status"}' }])
+  })
+
+  test('takes a CRLF split between two chunks as one line ending', () => {
+    assert.deepEqual(parseAll(['data: a\r', '\n\r', '\n']), [{ event: 'message', data: 'a' }])
+    assert.deepEqual(parseAll(['data: a\r\r']), [{ event: 'message', data: 'a' }])
+  })
+
+  test('skips comment lines, and a comment alone makes no frame', () => {
+    assert.deepEqual(parseAll([': keep-alive\n\n: another\ndata: x\n: inside\n\n']), [{ event: 'message', data: 'x' }])
+  })
+
+  test('joins the lines of multi-line data with line feeds', () => {
+    assert.deepEqual(parseAll(['data: first\ndata:second\ndata:  third\n\n']), [
+      { event: 'message', data: 'first\nsecond\n third' }
+    ])
+  })
+
+  test('keeps the event name, ignores id, retry and unknown fields, and drops a frame with no data', () => {
+    assert.deepEqual(parseAll(['event: update\nid: 7\nretry: 10\nwhat: ever\ndata: x\n\nevent: empty\n\n']), [
+      { event: 'update', data: 'x' }
+    ])
+  })
+
+  test('a field with no colon is a field with an empty value', () => {
+    assert.deepEqual(parseAll(['data\ndata\n\n']), [{ event: 'message', data: '\n' }])
+  })
+
+  test('refuses a frame that grows past its cap', () => {
+    assert.equal(parseAll([`data: ${'x'.repeat(FRAME_CAP_CHARS)}`]), null)
+    // Many short data lines that never end their frame pass the cap together.
+    const line = `data: ${'x'.repeat(1_023)}\n`
+    assert.equal(parseAll(Array.from({ length: FRAME_CAP_CHARS / 1_024 + 1 }, () => line)), null)
+    // A frame that ends in time is read, and what was held starts over.
+    assert.equal(parseAll([line.repeat(10), '\n', line.repeat(FRAME_CAP_CHARS / 1_024 - 1), '\n'])?.length, 2)
+  })
+})
+
+describe('reading a dashboard frame', () => {
+  const frame = (data: string): StreamFrame => ({ event: 'message', data })
+
+  test('reads the type and run id of the two frames that matter', () => {
+    assert.deepEqual(readDashboardFrame(frame('{"type":"workflow_status","runId":"run-1","status":"paused"}')), {
+      type: 'workflow_status',
+      runId: 'run-1'
+    })
+    assert.deepEqual(readDashboardFrame(frame('{"type":"dag_node","runId":"run-2","nodeId":"n"}')), {
+      type: 'dag_node',
+      runId: 'run-2'
+    })
+  })
+
+  test('ignores every other frame type, a heartbeat included', () => {
+    for (const type of ['heartbeat', 'workflow_tool_activity', 'container_lifecycle', 'text']) {
+      assert.equal(readDashboardFrame(frame(JSON.stringify({ type, runId: 'run-1' }))), null)
+    }
+  })
+
+  test('ignores data that is not JSON, not an object, or has no usable run id', () => {
+    const refused = [
+      'not json',
+      '[]',
+      'null',
+      '"workflow_status"',
+      '{"type":"workflow_status"}',
+      '{"type":"workflow_status","runId":""}',
+      '{"type":"workflow_status","runId":7}',
+      `{"type":"workflow_status","runId":"${'r'.repeat(201)}"}`,
+      '{"runId":"run-1"}'
+    ]
+    for (const data of refused) assert.equal(readDashboardFrame(frame(data)), null, data)
+  })
+
+  test('reads only fields of its own, never inherited ones', () => {
+    assert.equal(readDashboardFrame(frame('{"__proto__":{"type":"dag_node","runId":"run-1"}}')), null)
+  })
+})

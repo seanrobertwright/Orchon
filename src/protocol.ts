@@ -2,6 +2,7 @@
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
+import type { RunsHint } from './hint-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
@@ -58,6 +59,8 @@ declare module 'orca' {
     'scope.changed': null
     /** The connection state, posted each time it changes. */
     'connection.changed': ConnectionView
+    /** A hint that runs changed in Archon, at most one a second. It carries no run data. */
+    'runs.changed': RunsHint
     /** The System group, posted when a read that no request waits for has ended. */
     'system.changed': SystemView
     /** The editable groups, posted when a save or a read that no request waits for has ended. */

@@ -22,6 +22,7 @@ import {
 } from '../scripts/scripted-archon.ts'
 import { CODE_EXTENSIONS, hasExtension, listRepoFiles, readRepoText } from '../scripts/repo-files.ts'
 import type { SystemView } from './system-view'
+import { SILENCE_MS } from './live'
 
 const UPDATE_CHECK = `${DEFAULT}/api/update-check`
 
@@ -137,7 +138,8 @@ describe('the System group', () => {
     const mark = stage.archon.calls.length
     await stage.clock.advance(120_000)
     assert.deepEqual(callsSince(stage, mark), { health: 0, updates: 0 })
-    assert.deepEqual(stage.clock.waiting(), [])
+    // Only the dashboard stream's watchdog waits: the silent stream was reopened at 75 seconds.
+    assert.deepEqual(stage.clock.waiting(), [2 * SILENCE_MS - 120_000])
     await mounted.worker.deactivate()
   })
 

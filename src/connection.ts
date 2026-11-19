@@ -1,12 +1,14 @@
 // The connection state: the worker's one record of whether Archon is reachable, shared by every
 // frame. This file owns the state and when discovery runs; `startConnection` ties it to Orca
-// (the settings, the frames' requests, the posts and the status bar item).
+// (the settings, the frames' requests, the posts and the status bar item) and holds the
+// dashboard stream while Connected.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { createClient, type Client, type ClientFailure, type FetchLike, type Timers } from './client'
 import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings } from './connection-settings'
 import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
+import { createLive } from './live'
 import { checkPaths } from './path-check'
 import { refuseRequest } from './records'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
@@ -81,6 +83,13 @@ export type Connection = {
   retry(): Promise<ConnectionView>
   /** A setting changed: parses both again, and runs discovery at once when either one differs. */
   settingsChanged(): Promise<void>
+  /** While Connected, records whether the dashboard stream is open, or not yet found down. */
+  setLive(live: boolean): void
+  /**
+   * While Connected, the dashboard stream found nothing taking its connection: Searching with the
+   * grace, as `callFailed` does for a refused call, and discovery after one grace retry.
+   */
+  refused(): void
   stop(): void
 }
 
@@ -204,7 +213,9 @@ export function createConnection(ports: ConnectionPorts): Connection {
       if (mine !== generation) return
       if (paths.kind !== 'unreachable') graceStart = null
       if (paths.kind === 'supported') {
-        enter({ ...found, settings, features: paths.features })
+        // The stream opens once Connected is entered. It counts as live until it is found down, so
+        // the panel does not say live updates are off while the stream is still opening.
+        enter({ ...found, settings, features: paths.features, live: true })
         retryDelay = FIRST_RETRY_MS
       } else if (paths.kind === 'unsupported') {
         const { baseUrl, source, version } = found
@@ -293,6 +304,21 @@ export function createConnection(ports: ConnectionPorts): Connection {
       await look(parsed)
     },
 
+    setLive(live) {
+      if (view.kind === 'connected') enter({ ...view, live })
+    },
+
+    refused() {
+      if (view.kind !== 'connected') return
+      // The server is lost as for a refused call, with the grace, but discovery waits one grace
+      // retry first. The stream opens at once after it, so a server that answers health and
+      // refuses the stream is asked at that pace, not in a loop.
+      graceStart = ports.now()
+      enter({ kind: 'searching', settings: view.settings })
+      clearRetry()
+      lookAfter(GRACE_RETRY_MS)
+    },
+
     stop() {
       generation += 1
       inFlight.abort()
@@ -344,10 +370,25 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     timers: ports.timers,
     log: (message) => orca.log(message),
     changed(view) {
+      const before = held
+      held = view
       orca.panels.post('connection.changed', view)
       statusBar.show(statusItem(view))
       system.connectionChanged()
+      // The stream is held while Connected, and opened at once whenever discovery connects.
+      if (view.kind !== 'connected') live.close()
+      else if (before?.kind !== 'connected') live.open(view.baseUrl)
     }
+  })
+  let held: ConnectionView | undefined
+  const live = createLive({
+    client,
+    now: ports.now,
+    timers: ports.timers,
+    hint: (hint) => orca.panels.post('runs.changed', hint),
+    live: (open) => connection.setLive(open),
+    refused: () => connection.refused(),
+    log: (message) => orca.log(message)
   })
 
   const system = createSystem({
@@ -393,6 +434,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     stop() {
       for (const subscription of subscriptions) subscription.dispose()
       connection.stop()
+      live.close()
       system.close()
       statusBar.stop()
     }

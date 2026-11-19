@@ -1,8 +1,8 @@
 // The client's own seam: its transport is scripted, so every rule the client applies to a call
 // is seen from outside, in the request it sends and the answer it gives.
 import { assert, describe, test } from 'orca/testing'
-import { createClock, HANG, html, json, REFUSE, scriptArchon } from '../scripts/scripted-archon.ts'
-import { createClient, READ_CAP_BYTES, TIMEOUT_MS, type ClientCall, type FetchLike } from './client'
+import { createClock, HANG, html, json, openStream, REFUSE, scriptArchon, settle } from '../scripts/scripted-archon.ts'
+import { createClient, READ_CAP_BYTES, TIMEOUT_MS, type ClientCall, type FetchLike, type StreamText } from './client'
 
 const BASE = 'http://127.0.0.1:3090'
 const HEALTH = `${BASE}/api/health`
@@ -267,5 +267,120 @@ describe('the client', () => {
       failure: { kind: 'cancelled' }
     })
     assert.equal(archon.calls.length, before)
+  })
+})
+
+describe('a stream through the client', () => {
+  const STREAM = `${BASE}/api/stream/__dashboard__`
+  const open = (client: ReturnType<typeof scripted>['client'], signal = new AbortController().signal) =>
+    client.stream({ baseUrl: BASE, path: '/api/stream/__dashboard__', signal })
+
+  /** Collects the text of a stream as it arrives, and how it ended. */
+  function collect(text: StreamText): { pieces: string[]; end: Promise<string> } {
+    const pieces: string[] = []
+    const end = (async () => {
+      try {
+        for await (const piece of text) pieces.push(piece)
+        return 'ended'
+      } catch {
+        return 'broke'
+      }
+    })()
+    return { pieces, end }
+  }
+
+  test('opens a loopback stream with redirects off and hands over its text as it arrives', async () => {
+    const { archon, client, clock } = scripted()
+    const stream = openStream()
+    archon.answer(STREAM, stream)
+    const opened = await open(client)
+    assert.equal(opened.ok, true)
+    if (!opened.ok) return
+    assert.deepEqual(archon.streams, [
+      { url: STREAM, method: 'GET', redirect: 'manual', headers: { accept: 'text/event-stream' } }
+    ])
+    const { pieces, end } = collect(opened.text)
+    stream.send('data: {"type":')
+    await settle()
+    stream.send('"heartbeat"}\n\n')
+    await settle()
+    assert.deepEqual(pieces, ['data: {"type":', '"heartbeat"}\n\n'])
+    stream.end()
+    assert.equal(await end, 'ended')
+    // The caller's watchdog bounds a stream in time, so the client sets no timer of its own.
+    assert.deepEqual(clock.waiting(), [])
+  })
+
+  test('decodes a character split across two chunks', async () => {
+    const { archon, client } = scripted()
+    const stream = openStream()
+    archon.answer(STREAM, stream)
+    const opened = await open(client)
+    if (!opened.ok) throw new Error('not opened')
+    const { pieces, end } = collect(opened.text)
+    stream.send('caf')
+    stream.send('é')
+    stream.end()
+    assert.equal(await end, 'ended')
+    assert.equal(pieces.join(''), 'café')
+  })
+
+  test('refuses what is not a loopback stream, and reports a refused connection', async () => {
+    const { archon, client } = scripted()
+    const signal = new AbortController().signal
+    assert.deepEqual(await client.stream({ baseUrl: 'http://example.com:3090', path: '/api/stream/__dashboard__', signal }), {
+      ok: false,
+      failure: { kind: 'not-loopback' }
+    })
+    assert.deepEqual(archon.streams, [])
+    archon.answer(STREAM, REFUSE)
+    assert.deepEqual(await open(client), { ok: false, failure: { kind: 'refused' } })
+    archon.answer(STREAM, openStream({ status: 404 }))
+    assert.deepEqual(await open(client), { ok: false, failure: { kind: 'status', status: 404 } })
+    archon.answer(STREAM, openStream({ contentType: 'text/html' }))
+    assert.deepEqual(await open(client), { ok: false, failure: { kind: 'not-event-stream' } })
+  })
+
+  test('ends the stream when its caller aborts, even while nothing arrives', async () => {
+    const { archon, client } = scripted()
+    archon.answer(STREAM, HANG)
+    const caller = new AbortController()
+    const pending = open(client, caller.signal)
+    caller.abort()
+    assert.deepEqual(await pending, { ok: false, failure: { kind: 'cancelled' } })
+
+    const stream = openStream()
+    archon.answer(STREAM, stream)
+    const again = new AbortController()
+    const opened = await open(client, again.signal)
+    if (!opened.ok) throw new Error('not opened')
+    const { end } = collect(opened.text)
+    again.abort()
+    assert.equal(await end, 'broke')
+    assert.equal(stream.closed, true)
+  })
+
+  test('a stream that breaks, or holds bytes that are not UTF-8, ends with an error', async () => {
+    const { archon, client } = scripted()
+    const stream = openStream()
+    archon.answer(STREAM, stream)
+    const opened = await open(client)
+    if (!opened.ok) throw new Error('not opened')
+    const { end } = collect(opened.text)
+    stream.break()
+    assert.equal(await end, 'broke')
+
+    const bad: FetchLike = () =>
+      Promise.resolve({
+        status: 200,
+        headers: { get: () => 'text/event-stream' },
+        body: (async function* () {
+          yield Uint8Array.of(0xff, 0xfe)
+        })()
+      })
+    const strict = createClient({ fetch: bad, timers: createClock().timers })
+    const badOpen = await open(strict)
+    if (!badOpen.ok) throw new Error('not opened')
+    assert.equal(await collect(badOpen.text).end, 'broke')
   })
 })
