@@ -56,6 +56,30 @@ describe('Worker unreachable', () => {
     assert.equal(view.rowsOf(TABLE).length, 3)
   })
 
+  test('on Runs behind a state screen, a worker that stops answering is said above the screen', async () => {
+    const view = await mountWith({
+      'connection.read': () => ({ connection: notRunning }),
+      'connection.retry': () => {
+        throw hostError('unavailable')
+      }
+    })
+    assert.match(view.find({ type: 'EmptyState' })?.label ?? '', /^Archon is not running\./)
+    await view.press(TRY_AGAIN)
+    assert.match(view.find({ type: 'Callout' })?.text ?? '', new RegExp(`^${UNREACHABLE}`))
+    assert.match(view.find({ type: 'EmptyState' })?.label ?? '', /^Archon is not running\./)
+  })
+
+  test('on Runs while Searching with nothing loaded, a worker that stops answering is said above the spinner', async () => {
+    const view = await mountWith({
+      'connection.read': () => {
+        throw hostError('unavailable')
+      }
+    })
+    await view.post('connection.changed', searching)
+    assert.match(view.find({ type: 'Callout' })?.text ?? '', new RegExp(`^${UNREACHABLE}`))
+    assert.equal(view.find({ type: 'Spinner' })?.label, 'Looking for Archon…')
+  })
+
   test('consent_required says the plugin is off or needs approval, with no "Try again"', async () => {
     const view = await mountWith({
       'connection.read': () => {

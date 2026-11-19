@@ -33,8 +33,10 @@ import type { Connected, ConnectionView } from './connection-view'
 import { formatClock, formatDuration, now } from './dates'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsView, type StatusFilter } from './runs-view'
-import { createViewFetch, offersTryAgain, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, troubleText, type ViewFetch } from './view-fetch'
-import { frameTimers, warningLine } from './view-notices'
+import { frameTimers } from './frame-timers'
+import { createViewFetch, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
+import { warningLine } from './view-notices'
+import { offersTryAgain, troubleText } from './worker-words'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
 

@@ -1,5 +1,5 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
-import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
+import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
 import type { Connected, ConnectionAnswer, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
@@ -8,8 +8,9 @@ import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './secti
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
 import type { SystemView } from './system-view'
-import { createViewFetch, nextTrouble, SAFETY_REFETCH_MS, type ViewFetch, type WorkerTrouble } from './view-fetch'
-import { frameTimers, searchingBanner, troubleLine } from './view-notices'
+import { frameTimers } from './frame-timers'
+import { createViewFetch, nextTrouble, rejectionOf, SAFETY_REFETCH_MS, type ViewFetch, type WorkerTrouble } from './view-fetch'
+import { dataViewBody, troubleLine, underLine, type DataView } from './view-notices'
 
 /**
  * The section showing, kept per workspace because Orca unmounts a hidden panel. It is stored as
@@ -54,14 +55,21 @@ function readConnection(): void {
   connectionFetch?.restart()
 }
 
+/** A connection read or retry answered: the worker answers, and the state it carries is kept. */
+function connectionAnswered(answer: ConnectionAnswer): void {
+  set(connectionTrouble, null)
+  keepNewest(answer.connection)
+}
+
+/** A connection read or retry failed. A rate-limited one has no trouble to tell, and changes nothing. */
+function connectionFailed(trouble: WorkerTrouble | null): void {
+  if (trouble !== null) set(connectionTrouble, trouble)
+}
+
 /** "Try again" on a state screen. Its failure is Worker unreachable, like a failed read. */
 function retryConnection(): void {
-  plugin.request('connection.retry').then(
-    (answer) => {
-      set(connectionTrouble, null)
-      keepNewest(answer.connection)
-    },
-    (error: unknown) => update(connectionTrouble, (held) => nextTrouble(held, error))
+  plugin.request('connection.retry').then(connectionAnswered, (error: unknown) =>
+    connectionFailed(nextTrouble(read(connectionTrouble), rejectionOf(error)))
   )
 }
 
@@ -126,13 +134,8 @@ export function setup(ctx: PanelContext): void {
   // The first read, then one on the safety refetch: a worker that did not answer is tried again.
   const fetch = createViewFetch<ConnectionAnswer>({
     load: (signal) => plugin.request('connection.read', undefined, { signal }),
-    apply(answer) {
-      set(connectionTrouble, null)
-      keepNewest(answer.connection)
-    },
-    fail(_error, trouble) {
-      if (trouble !== null) set(connectionTrouble, trouble)
-    },
+    apply: connectionAnswered,
+    fail: (_error, trouble) => connectionFailed(trouble),
     minGapMs: CONNECTION_GAP_MS,
     safetyMs: SAFETY_REFETCH_MS,
     now,
@@ -156,46 +159,34 @@ export function setup(ctx: PanelContext): void {
   })
 }
 
-/** What one section shows below the section bar. */
-function sectionBody(id: SectionId, label: string, state: ConnectionView | null): OrcaNode {
-  const placeholder = <EmptyState title={label} description="This section is not built yet." />
-  if (id === 'settings') return settingsSection(state, read(system), { refresh: () => askSystem('system.refresh') })
-  // Without its paths the Metrics section says which release it needs, and asks Archon nothing.
-  if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
-    return <EmptyState title={label} description={metricsMissing(state)} />
-  }
-  // Searching keeps what a section loaded on screen, under the banner, with nothing that writes.
-  const kept = read(lastConnected)
-  if (id === 'runs' && state?.kind === 'searching' && kept !== null && runsHaveData()) {
-    return (
-      <Stack gap="sm">
-        {searchingBanner(state.since)}
-        {runsSection(kept)}
-      </Stack>
-    )
-  }
-  const screen = stateScreen(state, actions)
-  if (screen !== null || state?.kind !== 'connected') return screen
-  return id === 'runs' ? runsSection(state) : placeholder
+/**
+ * The sections that show Archon's data. Each one is drawn through an outage by the shared rules of
+ * `dataViewBody`, so a new data view only adds itself here.
+ */
+const DATA_VIEWS: Partial<Record<SectionId, DataView>> = {
+  runs: { hasData: runsHaveData, draw: runsSection }
 }
 
-/**
- * A section's body under the Worker unreachable line of the connection reads, when it has one.
- * With no state known a data section has nothing else to show, and Settings keeps its Connection
- * group. Once a state is known the Runs section says it in its own view, so it is said once.
- */
-function withTrouble(id: SectionId, body: OrcaNode, state: ConnectionView | null): OrcaNode {
+/** What one section shows below the section bar. */
+function sectionBody(id: SectionId, label: string, state: ConnectionView | null): OrcaNode {
   const trouble = read(connectionTrouble)
-  if (trouble === null) return body
-  const line = troubleLine(trouble, readConnection)
-  if (state === null && id !== 'settings') return line
-  if (state !== null && id === 'runs') return body
-  return (
-    <Stack gap="sm">
-      {line}
-      {body}
-    </Stack>
-  )
+  const view = DATA_VIEWS[id]
+  if (view !== undefined) {
+    const screen = stateScreen(state, actions)
+    return dataViewBody(view, { state, kept: read(lastConnected), screen, trouble, tryAgain: readConnection })
+  }
+  const line = trouble === null ? null : troubleLine(trouble, readConnection)
+  // Settings keeps its Connection group under the line, even with no state known.
+  if (id === 'settings') {
+    return underLine(line, settingsSection(state, read(system), { refresh: () => askSystem('system.refresh') }))
+  }
+  if (state === null && line !== null) return line
+  // Without its paths the Metrics section says which release it needs, and asks Archon nothing.
+  if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
+    return underLine(line, <EmptyState title={label} description={metricsMissing(state)} />)
+  }
+  const screen = stateScreen(state, actions)
+  return underLine(line, screen ?? <EmptyState title={label} description="This section is not built yet." />)
 }
 
 export default function Panel() {
@@ -208,7 +199,7 @@ export default function Panel() {
     >
       {SECTIONS.map(({ id, label }) => (
         <Tab key={id} value={id} label={label}>
-          {withTrouble(id, sectionBody(id, label, state), state)}
+          {sectionBody(id, label, state)}
         </Tab>
       ))}
     </Tabs>

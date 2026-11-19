@@ -4,7 +4,8 @@
 // aborts the fetch in flight and starts at once; a safety refetch; and every timer cleared when
 // the view closes. It also holds what a view does when Orca rejects its request to the worker
 // (#22, part 9): a read rejected as `rate_limited` waits `retryAfterMs` and is sent once more,
-// and `consent_required` sets no timer. It is pure logic on the clock and timers it is given.
+// and `consent_required` sets no timer. It is pure logic on the clock and timers it is given; the
+// words a view says are in `worker-words.ts`, and what it draws is in `view-notices.tsx`.
 import type { Timers } from './client'
 import type { ConnectionView } from './connection-view'
 
@@ -70,30 +71,12 @@ export function rejectionOf(error: unknown, maxWaitMs = 30_000): Rejection {
  */
 export type WorkerTrouble = { kind: 'unreachable'; inARow: number } | { kind: 'consent' }
 
-/** After this many failed tries in a row the view says how to turn the plugin off and on. */
-export const TRIES_BEFORE_TURN_OFF_AND_ON = 3
-
-/** The words of #22, part 9. */
-export const UNREACHABLE_TEXT = "Orchon's background process is not answering."
-export const TURN_OFF_AND_ON_TEXT = "Turn the Orchon plugin off and on again in Orca's Settings."
-export const CONSENT_TEXT = "Orchon is turned off or needs approval in Orca's Settings."
-
 /** The trouble after one more failed fetch. A rate-limited one has no message and changes nothing. */
-export function nextTrouble(held: WorkerTrouble | null, error: unknown): WorkerTrouble | null {
-  const rejection = rejectionOf(error)
+export function nextTrouble(held: WorkerTrouble | null, rejection: Rejection): WorkerTrouble | null {
   if (rejection.kind === 'rate-limited') return held
   if (rejection.kind === 'consent') return { kind: 'consent' }
   return { kind: 'unreachable', inARow: held?.kind === 'unreachable' ? held.inARow + 1 : 1 }
 }
-
-/** What the view says about its worker, in sentences. */
-export function troubleText(trouble: WorkerTrouble): string {
-  if (trouble.kind === 'consent') return CONSENT_TEXT
-  return trouble.inARow >= TRIES_BEFORE_TURN_OFF_AND_ON ? `${UNREACHABLE_TEXT} ${TURN_OFF_AND_ON_TEXT}` : UNREACHABLE_TEXT
-}
-
-/** Whether the view offers "Try again": never when Orca asks for consent. */
-export const offersTryAgain = (trouble: WorkerTrouble): boolean => trouble.kind !== 'consent'
 
 /**
  * Whether a view's controls that write are enabled: only while Connected and while its worker
@@ -162,7 +145,7 @@ export function createViewFetch<T>(options: ViewFetchOptions<T>): ViewFetch {
             return
           }
           consent = rejection.kind === 'consent'
-          trouble = nextTrouble(trouble, error)
+          trouble = nextTrouble(trouble, rejection)
           options.fail(error, rejection.kind === 'rate-limited' ? null : trouble)
         }
       )
