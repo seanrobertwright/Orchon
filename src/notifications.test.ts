@@ -262,3 +262,83 @@ describe('the Notifications setting', () => {
     assert.deepEqual(shown(mounted), [])
   })
 })
+
+describe('run endings', () => {
+  /** The recorded failed run of a release: its id and its reads as failed and, after Abandon, as cancelled. */
+  function recordedEnding(release: Release): { id: string; failed: Scripted; cancelled: Scripted } {
+    const failed = recorded(release, 'run-failed', 8)
+    if (failed.kind !== 'json') throw new Error('The recorded run is not JSON.')
+    const id = field(field(failed.value, 'run'), 'id')
+    if (typeof id !== 'string') throw new Error('The recorded run has no id.')
+    return { id, failed, cancelled: recorded(release, 'run-failed', 16) }
+  }
+
+  /** A scene with the dashboard stream open and the recorded projects list. */
+  function streaming(release: Release): { stage: Scene; send(runId: string, type?: string): void } {
+    const stage = connectedTo(release)
+    const stream = openStream()
+    stage.archon.answer(`${DEFAULT}${DASHBOARD_STREAM_PATH}`, stream)
+    stage.archon.answer(`${DEFAULT}/api/codebases`, recorded(release, 'codebases', 1))
+    return { stage, send: (runId, type = 'workflow_status') => stream.send(frame({ type, runId })) }
+  }
+
+  const runReads = (stage: Scene): string[] =>
+    stage.archon.calls.map((call) => call.url).filter((url) => url.startsWith(`${DEFAULT}/api/workflows/runs/`))
+
+  for (const release of RELEASES) {
+    test(`${release}: with runs that end opted in, a workflow_status frame reads the one run it names and a recorded failure notifies`, async () => {
+      const { stage, send } = streaming(release)
+      const ending = recordedEnding(release)
+      stage.archon.answer(`${DEFAULT}/api/workflows/runs/${ending.id}`, ending.failed)
+      const mounted = await stage.mount({ settings: { notifications: 'needs-you-and-ended' } })
+      await stage.clock.advance(0)
+      send(ending.id)
+      await stage.clock.advance(SNAPSHOT_SAFETY_MS / 2)
+      assert.deepEqual(runReads(stage), [`${DEFAULT}/api/workflows/runs/${ending.id}`])
+      assert.deepEqual(shown(mounted), [{ title: 'orchon-recorder-fail', body: 'Failed · orchon-recorder/throwaway-project' }])
+    })
+  }
+
+  test('each run and final status notifies once: the same ending again is quiet, a new final status notifies', async () => {
+    const { stage, send } = streaming('0.14.0')
+    const ending = recordedEnding('0.14.0')
+    stage.archon.answer(`${DEFAULT}/api/workflows/runs/${ending.id}`, ending.failed)
+    const mounted = await stage.mount({ settings: { notifications: 'needs-you-and-ended' } })
+    await stage.clock.advance(0)
+    send(ending.id)
+    await stage.clock.advance(15_000)
+    send(ending.id)
+    await stage.clock.advance(15_000)
+    assert.deepEqual(titles(mounted), ['orchon-recorder-fail'])
+    stage.archon.answer(`${DEFAULT}/api/workflows/runs/${ending.id}`, ending.cancelled)
+    send(ending.id)
+    await stage.clock.advance(15_000)
+    assert.deepEqual(shown(mounted).at(-1), { title: 'orchon-recorder-fail', body: 'Cancelled · orchon-recorder/throwaway-project' })
+  })
+
+  test('a run that has not ended notifies nothing, and a dag_node frame reads no run', async () => {
+    const { stage, send } = streaming('0.14.0')
+    stage.archon.answer(`${DEFAULT}/api/workflows/runs/run-live`, recorded('0.14.0', 'run-control-running', 36))
+    const mounted = await stage.mount({ settings: { notifications: 'needs-you-and-ended' } })
+    await stage.clock.advance(0)
+    send('run-other', 'dag_node')
+    send('run-live')
+    await stage.clock.advance(15_000)
+    assert.deepEqual(runReads(stage), [`${DEFAULT}/api/workflows/runs/run-live`])
+    assert.deepEqual(shown(mounted), [])
+  })
+
+  for (const notifications of ['needs-you', 'off']) {
+    test(`with "${notifications}", a workflow_status frame reads no run`, async () => {
+      const { stage, send } = streaming('0.14.0')
+      const ending = recordedEnding('0.14.0')
+      stage.archon.answer(`${DEFAULT}/api/workflows/runs/${ending.id}`, ending.failed)
+      const mounted = await stage.mount({ settings: { notifications } })
+      await stage.clock.advance(0)
+      send(ending.id)
+      await stage.clock.advance(15_000)
+      assert.deepEqual(runReads(stage), [])
+      assert.deepEqual(shown(mounted), [])
+    })
+  }
+})

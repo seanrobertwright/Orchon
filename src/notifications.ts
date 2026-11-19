@@ -125,6 +125,11 @@ export type Notifications = {
    * record and notifies nothing.
    */
   waiting(storeId: string | null, notices: readonly Notice[]): void
+  /**
+   * A run ended, on this store. Before the first read of the snapshot, or on a store it has not
+   * read yet, the ending is only recorded.
+   */
+  ended(storeId: string | null, notice: Notice): void
   /** Clears every timer; nothing is sent after. */
   stop(): void
 }
@@ -176,6 +181,10 @@ export function createNotifications(ports: NotificationsPorts): Notifications {
         return
       }
       for (const notice of notices) add(notice)
+    },
+    ended(storeId, notice) {
+      if (store === undefined || store.id !== storeId) seen.meet(notice.identity)
+      else add(notice)
     },
     stop() {
       if (timer !== undefined) ports.timers.clear(timer)

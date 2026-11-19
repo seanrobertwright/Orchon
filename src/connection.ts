@@ -12,6 +12,7 @@ import { createLive } from './live'
 import { createNeedsYou, type NeedsYou } from './needs-you'
 import { createNotifications, DEFAULT_LEVEL, NOTIFICATIONS_KEY, parseNotificationSetting, type NotificationSetting } from './notifications'
 import { checkPaths } from './path-check'
+import { createRunEndings } from './run-endings'
 import { isRecord, own, refuseRequest } from './records'
 import { createStatusBar, showRunsSentence, STATUS_ITEM_ID, statusItem, type SnapshotCounts } from './status-bar'
 import { createSystem } from './system'
@@ -394,9 +395,11 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       if (view.kind !== 'connected') {
         live.close()
         needsYou.disconnected()
+        endings.disconnected()
       } else if (before?.kind !== 'connected') {
         live.open(view.baseUrl)
         needsYou.connected(view)
+        endings.connected(view)
       }
       showStatus()
     }
@@ -423,6 +426,13 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     counted: (storeId, notices) => notifications.waiting(storeId, notices),
     log: (message) => orca.log(message)
   })
+  const endings = createRunEndings({
+    client,
+    now: ports.now,
+    optedIn: () => setting.level === 'needs-you-and-ended',
+    ended: (storeId, notice) => notifications.ended(storeId, notice),
+    log: (message) => orca.log(message)
+  })
   /** The snapshot's counts while Connected; in any other state the item reads without them. */
   const countsFor = (view: ConnectionView): SnapshotCounts | undefined => (view.kind === 'connected' ? needsYou.counts() : undefined)
   /** The item for the state now and, while Connected, the snapshot's counts. */
@@ -437,6 +447,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       orca.panels.post('runs.changed', hint)
       needsYou.hint(hint)
     },
+    status: (runId) => endings.status(runId),
     live: (open) => connection.setLive(open),
     refused: () => connection.refused(),
     log: (message) => orca.log(message)
@@ -496,6 +507,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       connection.stop()
       live.close()
       needsYou.stop()
+      endings.stop()
       notifications.stop()
       system.close()
       statusBar.stop()
