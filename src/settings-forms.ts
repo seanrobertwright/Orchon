@@ -7,6 +7,7 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client, ClientFailure } from './client'
 import { CONFIG_PATH, parseConfig, parseProviders, PROVIDERS_PATH, type ConfigFacts, type Providers } from './config'
 import type { ConnectionView } from './connection-view'
+import { aliasesForm } from './aliases-form'
 import { defaultsForm } from './defaults-form'
 import { clean, type GroupContext, type GroupSpec, type Loaded, type Values } from './form-group'
 import type { ConflictChoice, FormGroupId, FormNotice, FormsAnswer, FormsView, FormView } from './forms-view'
@@ -15,7 +16,7 @@ import { isRecord, own, refuseRequest } from './records'
 import { tiersForm } from './tiers-form'
 
 /** The groups, in the order the section shows them. A spec holds no state, so one list serves every worker. */
-const SPECS: readonly GroupSpec[] = [defaultsForm(), tiersForm()]
+const SPECS: readonly GroupSpec[] = [defaultsForm(), tiersForm(), aliasesForm()]
 const GROUP_IDS: readonly FormGroupId[] = SPECS.map((spec) => spec.id)
 
 /** A value from a frame longer than this is refused, not cut. The field's own limit is checked on Save. */
@@ -58,11 +59,15 @@ export type SettingsForms = {
   resolve(group: FormGroupId, choice: ConflictChoice): Promise<FormsAnswer>
 }
 
-/** A canonical text of one key's saved value: its fields' trimmed values, empty ones left out. */
+/**
+ * A canonical text of one key's value in `values`: the group's own, or its fields' trimmed values,
+ * empty ones left out.
+ */
 function keyValue(spec: GroupSpec, loaded: Loaded, key: string, values: Values = loaded.values): string {
+  if (spec.canonical !== undefined) return spec.canonical(values, loaded, key)
   const parts: string[] = []
   for (const fieldId of Object.keys(values).sort()) {
-    if (spec.keyOf(fieldId) !== key) continue
+    if (spec.keyOf(fieldId, values) !== key) continue
     if (loaded.unreadable.has(fieldId)) parts.push(`${fieldId}\u0000unreadable`)
     else if (clean(values[fieldId]) !== '') parts.push(`${fieldId}\u0000${clean(values[fieldId])}`)
   }
@@ -73,7 +78,10 @@ function keyValue(spec: GroupSpec, loaded: Loaded, key: string, values: Values =
 function changedKeys(state: GroupState): string[] {
   const { loaded, spec } = state
   if (loaded === null) return []
-  const keys = new Set([...Object.keys(loaded.values), ...Object.keys(state.current)].map((fieldId) => spec.keyOf(fieldId)))
+  const keys = new Set([
+    ...Object.keys(loaded.values).map((fieldId) => spec.keyOf(fieldId, loaded.values)),
+    ...Object.keys(state.current).map((fieldId) => spec.keyOf(fieldId, state.current))
+  ])
   return [...keys].filter((key) => keyValue(spec, loaded, key, state.current) !== keyValue(spec, loaded, key))
 }
 
@@ -129,6 +137,7 @@ export function createSettingsForms(ports: SettingsFormsPorts): SettingsForms {
     if (unreadable > 0) {
       notes.push(unreadable === 1 ? '1 provider could not be read and is not listed.' : `${String(unreadable)} providers could not be read and are not listed.`)
     }
+    if (loaded !== null && spec.notes !== undefined) notes.push(...spec.notes(loaded))
     if (loaded === null) {
       return { group: spec.id, title: spec.title, summary: '', loaded: false, fields: [], notes, dirty: false, saving: state.saving, notice: state.notice, conflict: null }
     }
@@ -154,7 +163,8 @@ export function createSettingsForms(ports: SettingsFormsPorts): SettingsForms {
       failure,
       providers: providers.shown,
       defaults: groupView(group('defaults')),
-      tiers: groupView(group('tiers'))
+      tiers: groupView(group('tiers')),
+      aliases: groupView(group('aliases'))
     }
   }
 
@@ -324,11 +334,14 @@ export function createSettingsForms(ports: SettingsFormsPorts): SettingsForms {
       for (const [fieldId, value] of Object.entries(edits)) {
         const drawn = state.spec.fields(state.current, loaded, new Map(), context())
         const target = drawn.find((field) => field.id === fieldId)
-        if (target === undefined || target.kind === 'unreadable') refuseRequest(`The ${state.spec.title} group has no field ${fieldId}.`)
+        if (target === undefined || target.kind === 'unreadable' || target.kind === 'fixed' || target.kind === 'struck') {
+          refuseRequest(`The ${state.spec.title} group has no field ${fieldId}.`)
+        }
         if (target.kind === 'select' && !target.options.some((option) => option.value === value)) {
           refuseRequest(`${value} is not a choice of ${target.label}.`)
         }
-        state.current = state.spec.edit(state.current, fieldId, value, context())
+        if (target.kind === 'button' && (target.disabled || target.value !== value)) refuseRequest(`${target.text} is not available.`)
+        state.current = state.spec.edit(state.current, fieldId, value, context(), loaded)
       }
       state.notice = null
       return answer()
@@ -356,7 +369,7 @@ export function createSettingsForms(ports: SettingsFormsPorts): SettingsForms {
       if (choice === 'overwrite') return startSave(state, true)
       if (choice === 'load') {
         // Loads the saved values, losing the edits to the keys changed elsewhere only.
-        const kept = Object.entries(state.current).filter(([fieldId]) => !conflict.keys.includes(state.spec.keyOf(fieldId)))
+        const kept = Object.entries(state.current).filter(([fieldId]) => !conflict.keys.includes(state.spec.keyOf(fieldId, state.current)))
         state.loaded = conflict.latest
         state.current = { ...conflict.latest.values, ...Object.fromEntries(kept.filter(([fieldId]) => !conflict.latest.unreadable.has(fieldId))) }
       }

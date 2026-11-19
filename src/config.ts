@@ -37,6 +37,8 @@ export type ConfigFacts = {
   tiers: Record<TierName, Saved<Preset>>
   /** What an unset tier resolves to, or null when there is no built-in default. */
   tierDefaults: Record<TierName, Preset | null>
+  /** Every saved alias, by name, as Archon keeps it: a preset, or unreadable when it is not one. */
+  aliases: Map<string, Saved<Preset>>
 }
 
 /** A field of an optional string: absent is unset, a non-empty string is set, anything else unreadable. */
@@ -79,6 +81,14 @@ export function parseConfig(value: unknown): ConfigFacts | null {
   if (!isRecord(assistants)) return null
   const tiers = own(config, 'tiers')
   if (tiers !== undefined && !isRecord(tiers)) return null
+  const aliasRecord = own(config, 'aliases')
+  if (aliasRecord !== undefined && aliasRecord !== null && !isRecord(aliasRecord)) return null
+  const aliases = new Map<string, Saved<Preset>>()
+  for (const [name, entry] of Object.entries(isRecord(aliasRecord) ? aliasRecord : {})) {
+    if (entry === undefined || entry === null) continue
+    const read = preset(entry)
+    aliases.set(name, read === null ? UNREADABLE : { kind: 'set', value: read })
+  }
   const models = new Map<string, Saved<string>>()
   for (const [id, entry] of Object.entries(assistants)) {
     if (id === '') continue
@@ -101,7 +111,8 @@ export function parseConfig(value: unknown): ConfigFacts | null {
       },
       UNSET
     ),
-    tierDefaults: tierRecord<Preset | null>(own(config, 'tierDefaults'), preset, null)
+    tierDefaults: tierRecord<Preset | null>(own(config, 'tierDefaults'), preset, null),
+    aliases
   }
 }
 

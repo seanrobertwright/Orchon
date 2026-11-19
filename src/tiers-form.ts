@@ -3,31 +3,30 @@
 // A tier is one Archon key: a change to any of its three fields sends the whole preset (#20, part 6).
 import { TIER_NAMES, type ConfigFacts, type Preset, type TierName } from './config'
 import {
+  CHOOSE_A_PROVIDER,
+  checkPreset,
   clean,
   effortLevelsOf,
   effortOptions,
   MODEL_LENGTH,
-  MODEL_TOO_LONG,
-  NOT_REGISTERED,
-  providerName,
+  presetBody,
   providerOptions,
-  registered,
+  withProvider,
   type GroupSpec,
   type Loaded,
+  type PresetFields,
   type Values
 } from './form-group'
 import type { FormField } from './forms-view'
 
 export const TIERS_PATH = '/api/config/tiers'
 
-export const ENTER_A_MODEL = 'Enter a model'
-export const CHOOSE_A_PROVIDER = 'Choose a provider'
-
 const TITLES: Record<TierName, string> = { small: 'Small', medium: 'Medium', large: 'Large' }
 
 const provider = (tier: TierName): string => `${tier}:provider`
 const model = (tier: TierName): string => `${tier}:model`
 const effort = (tier: TierName): string => `${tier}:effort`
+const presetOf = (tier: TierName): PresetFields => ({ provider: provider(tier), model: model(tier), effort: effort(tier) })
 
 const isTier = (value: string): value is TierName => TIER_NAMES.some((tier) => tier === value)
 
@@ -114,9 +113,7 @@ export function tiersForm(): GroupSpec {
       const tier = tierOf(fieldId)
       if (fieldId !== provider(tier)) return { ...current, [fieldId]: value }
       if (value === '') return { ...current, [provider(tier)]: '', [model(tier)]: '', [effort(tier)]: '' }
-      // The effort is kept when the new provider accepts it, and cleared otherwise.
-      const kept = effortLevelsOf(context, value).includes(current[effort(tier)] ?? '') ? (current[effort(tier)] ?? '') : ''
-      return { ...current, [provider(tier)]: value, [effort(tier)]: kept }
+      return withProvider(current, presetOf(tier), value, context)
     },
 
     check(current, _loaded, changed, context) {
@@ -130,25 +127,15 @@ export function tiersForm(): GroupSpec {
           if (typed !== '' || level !== '') errors.set(provider(key), CHOOSE_A_PROVIDER)
           continue
         }
-        if (!registered(context, chosen)) errors.set(provider(key), NOT_REGISTERED)
-        if (typed === '') errors.set(model(key), ENTER_A_MODEL)
-        else if (typed.length > MODEL_LENGTH) errors.set(model(key), MODEL_TOO_LONG)
-        if (level !== '' && registered(context, chosen) && !effortLevelsOf(context, chosen).includes(level)) {
-          const where = effortLevelsOf(context, chosen).length > 0 ? effort(key) : provider(key)
-          errors.set(where, `${providerName(context, chosen)} does not accept this effort.`)
-        }
+        checkPreset(errors, presetOf(key), current, context)
       }
       return errors
     },
 
     body(current, changed) {
-      const tiers: Partial<Record<TierName, Preset | { provider: string; model: string } | null>> = {}
+      const tiers: Partial<Record<TierName, ReturnType<typeof presetBody>>> = {}
       for (const key of changed) {
-        if (!isTier(key)) continue
-        const chosen = clean(current[provider(key)])
-        const level = clean(current[effort(key)])
-        const typed = clean(current[model(key)])
-        tiers[key] = chosen === '' ? null : level === '' ? { provider: chosen, model: typed } : { provider: chosen, model: typed, effort: level }
+        if (isTier(key)) tiers[key] = presetBody(presetOf(key), current)
       }
       return { tiers }
     },

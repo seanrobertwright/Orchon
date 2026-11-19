@@ -110,8 +110,23 @@ export const EMPTY_CHOICE = 'orchon-empty-choice'
 const toOption = (value: string): string => (value === '' ? EMPTY_CHOICE : value)
 const fromOption = (value: string): string => (value === EMPTY_CHOICE ? '' : value)
 
+/**
+ * Text drawn struck through. Orca's Text has no strikethrough style, so each character carries the
+ * combining long stroke overlay; the words beside it say the same, so no state rests on the look.
+ */
+export const struck = (text: string): string => [...text].map((character) => `${character}̶`).join('')
+
 function fieldNode(group: FormGroupId, field: FormField, disabled: boolean): OrcaNode {
   if (field.kind === 'unreadable') return <Text key={field.id}>{`${field.label}: Unreadable`}</Text>
+  if (field.kind === 'fixed') return <Text key={field.id}>{`${field.label}: ${field.value}`}</Text>
+  if (field.kind === 'struck') return <Text key={field.id}>{`${field.label}: ${struck(field.value)} (removed on Save)`}</Text>
+  if (field.kind === 'button') {
+    return (
+      <Button key={field.id} variant="outline" disabled={disabled || field.disabled} onPress={() => chose(group, field.id, field.value)}>
+        {field.text}
+      </Button>
+    )
+  }
   const control =
     field.kind === 'select' ? (
       <Select

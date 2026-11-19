@@ -65,12 +65,12 @@ const field = (form: FormView, id: string): FormField => {
 /** A field's value, or null for an unreadable one. */
 const valueOf = (form: FormView, id: string): string | null => {
   const found = field(form, id)
-  return found.kind === 'unreadable' ? null : found.value
+  return found.kind === 'unreadable' || found.kind === 'button' ? null : found.value
 }
 
 const errorOf =(form: FormView, id: string): string | null => {
   const found = field(form, id)
-  return found.kind === 'unreadable' ? null : found.error
+  return found.kind === 'select' || found.kind === 'text' ? found.error : null
 }
 
 /** Every forms view the worker posted, in order. */
@@ -132,7 +132,7 @@ describe('reading the editable groups', () => {
       assert.equal(forms.defaults.loaded, true)
       const tiers = forms.tiers
       assert.deepEqual(
-        tiers.fields.map((one) => [one.id, one.label, one.kind === 'unreadable' ? '' : one.value]),
+        tiers.fields.map((one) => [one.id, one.kind === 'button' ? one.text : one.label, one.kind === 'unreadable' || one.kind === 'button' ? '' : one.value]),
         [
           ['small:provider', 'Small provider', ''],
           ['small:model', 'Small model', ''],
@@ -290,7 +290,7 @@ describe('editing a group', () => {
     await mounted.worker.request('forms.read')
     await assert.rejects(mounted.worker.request('forms.edit', { group: 'defaults', edits: { 'model:codex': 'x' } }), /no field model:codex/)
     await assert.rejects(mounted.worker.request('forms.edit', { group: 'defaults', edits: { assistant: 'codex' } }), /not a choice/)
-    await assert.rejects(mounted.worker.request('forms.edit', { group: 'aliases', edits: { a: 'b' } } as never), /group must be one of/)
+    await assert.rejects(mounted.worker.request('forms.edit', { group: 'notifications', edits: { a: 'b' } } as never), /group must be one of/)
     await assert.rejects(mounted.worker.request('forms.edit', { group: 'tiers', edits: { 'small:model': 5 } } as never), /must be text/)
     await assert.rejects(mounted.worker.request('forms.read', { group: 'tiers' } as never), /takes no input/)
     await mounted.worker.deactivate()

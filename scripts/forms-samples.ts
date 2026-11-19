@@ -74,7 +74,31 @@ export const tiersRead: FormView = {
   conflict: null
 }
 
-/** Both groups loaded, with nothing unsaved. */
+const button = (id: string, text: string, value: string, disabled = false): FormField => ({ kind: 'button', id, text, value, disabled })
+
+export const aliasesRead: FormView = {
+  group: 'aliases',
+  title: 'Aliases',
+  summary: '102 aliases',
+  loaded: true,
+  fields: [
+    { kind: 'fixed', id: 'saved:@fast:name', label: 'Alias', value: '@fast' },
+    select('saved:@fast:provider', '@fast provider', 'claude', 'Choose a provider'),
+    text('saved:@fast:model', '@fast model', 'haiku', ''),
+    button('saved:@fast:remove', 'Remove @fast', 'remove'),
+    { kind: 'struck', id: 'saved:@old:name', label: 'Alias', value: '@old' },
+    button('saved:@old:remove', 'Undo removing @old', 'undo'),
+    { kind: 'unreadable', id: 'saved:@broken:provider', label: 'Alias @broken' },
+    button('add', 'Add alias', 'add', true)
+  ],
+  notes: ['2 more aliases are not shown. Edit them in config.yaml.'],
+  dirty: true,
+  saving: false,
+  notice: null,
+  conflict: null
+}
+
+/** The groups loaded, with nothing unsaved in Defaults and Model tiers. */
 export const formsRead: FormsView = {
   since: 30,
   failure: null,
@@ -83,13 +107,14 @@ export const formsRead: FormsView = {
     { id: 'claude', displayName: 'Claude (Anthropic)', effortLevels: ['low'] }
   ],
   defaults: defaultsRead,
-  tiers: tiersRead
+  tiers: tiersRead,
+  aliases: aliasesRead
 }
 
 const unloaded = (form: FormView): FormView => ({ ...form, summary: '', loaded: false, fields: [] })
 
 /** Before the config has answered. */
-export const formsUnread: FormsView = { ...formsRead, since: 5, providers: [], defaults: unloaded(defaultsRead), tiers: unloaded(tiersRead) }
+export const formsUnread: FormsView = { ...formsRead, since: 5, providers: [], defaults: unloaded(defaultsRead), tiers: unloaded(tiersRead), aliases: unloaded(aliasesRead) }
 
 /** Defaults holding an edit that emptied a saved model, and a save stopped by an outside change on tiers. */
 export const formsWithEdits: FormsView = {
