@@ -1,4 +1,4 @@
-// The editable groups of the Settings section, in the panel: Defaults and Model tiers, each a
+// The editable groups of the Settings section, in the panel: Defaults, Model tiers and Aliases, each a
 // closed group with its fields one per line, Save and Discard. It draws the worker's view model
 // only; the worker holds the unsaved form, so a typed value is sent to it, after a short pause
 // that keeps the panel inside Orca's request budget, and before any Save or Discard.
@@ -239,11 +239,11 @@ const waiting = (title: string): OrcaNode => (
 )
 
 /**
- * Defaults and Model tiers. `writable` is false in Searching: every field, Save and Discard are
- * then disabled, and what the worker holds is kept.
+ * Defaults, Model tiers and Aliases. `writable` is false in Searching: every field, button, Save
+ * and Discard are then disabled, and what the worker holds is kept.
  */
 export function formGroups(writable: boolean): OrcaNode {
   const view = read(forms)
-  if (view === null) return [waiting('Defaults'), waiting('Model tiers')]
-  return [groupNode(view.defaults, view.failure, writable), groupNode(view.tiers, view.failure, writable)]
+  if (view === null) return [waiting('Defaults'), waiting('Model tiers'), waiting('Aliases')]
+  return [groupNode(view.defaults, view.failure, writable), groupNode(view.tiers, view.failure, writable), groupNode(view.aliases, view.failure, writable)]
 }
