@@ -1,6 +1,8 @@
 // The graph drawn as the plugin's own SVG, shared by the run graph and the builder (#11): a frame
 // per loop group, an edge per routed edge with an arrowhead, dashed into a conditional step, and
-// a box per step with its name and its state as a glyph and a word. Each box is a focusable
+// a box per step with its name and its state as a glyph and a word. A step the builder cannot
+// edit is drawn read-only: its class gives a dashed border and a muted fill, and it carries a lock
+// glyph and a "read-only" line, so the state is never told by colour alone. Each box is a focusable
 // button named by its step, kind and state, and carries its step id in `data-step` so the tab
 // can tell which one was pressed. Outside text is set through
 // `textContent` only. Colours are classes; editor.css maps them to the theme, and run-graph.css
@@ -24,7 +26,13 @@ export type DrawStep = {
   note: string | null
   /** For a loop group drawn collapsed, as one step: how many steps it holds. */
   holds?: number
+  /** A node the builder cannot edit: drawn dashed and muted, with a lock glyph and a "read-only" line. */
+  readOnly?: boolean
 }
+
+/** The glyph and the line a read-only step carries. */
+export const LOCK_GLYPH = '🔒'
+export const READ_ONLY_LINE = 'read-only'
 
 export type DrawOptions = {
   /** The drawing's accessible name. */
@@ -80,10 +88,14 @@ export function drawGraph(doc: Document, laid: Layout, steps: ReadonlyMap<string
   for (const box of laid.steps) {
     const step = steps.get(box.id) ?? { name: box.id, kind: null, state: 'not-reached', stateText: '', note: null }
     const holds = step.holds === undefined ? null : holdsPhrase(step.holds)
-    const label = [step.name, step.kind, step.stateText, holds].filter((part) => part !== null && part !== '').join(', ')
+    const readOnly = step.readOnly === true
+    const stateText = readOnly ? `${LOCK_GLYPH} ${step.stateText}` : step.stateText
+    // A read-only step's state line repeats its kind, so its name says read-only in its place.
+    const said = readOnly ? (step.stateText === step.kind ? READ_ONLY_LINE : `${step.stateText}, ${READ_ONLY_LINE}`) : step.stateText
+    const label = [step.name, step.kind, said, holds].filter((part) => part !== null && part !== '').join(', ')
     const group = svg.appendChild(
       make('g', {
-        class: `step state-${step.state}`,
+        class: `step state-${step.state}${readOnly ? ' read-only' : ''}`,
         role: 'button',
         tabindex: 0,
         'aria-label': label,
@@ -97,8 +109,8 @@ export function drawGraph(doc: Document, laid: Layout, steps: ReadonlyMap<string
     group.appendChild(make('rect', { width: box.width, height: box.height, rx: 6, class: 'box' }))
     group.appendChild(make('rect', { width: 4, height: box.height, rx: 2, class: 'bar' }))
     group.appendChild(text(cut(step.name), { x: 12, y: 19, class: 'name' }))
-    group.appendChild(text(step.stateText, { x: 12, y: 37, class: 'state' }))
-    const note = [step.holds === undefined ? null : holdsPhrase(step.holds, 'upper'), step.note].filter((part) => part !== null).join(' · ')
+    group.appendChild(text(stateText, { x: 12, y: 37, class: 'state' }))
+    const note = [readOnly ? READ_ONLY_LINE : null, step.holds === undefined ? null : holdsPhrase(step.holds, 'upper'), step.note].filter((part) => part !== null).join(' · ')
     if (note !== '') group.appendChild(text(note, { x: 12, y: box.height - 8, class: 'note' }))
   }
   return svg

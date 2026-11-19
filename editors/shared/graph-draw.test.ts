@@ -121,3 +121,17 @@ describe('the graph drawing', () => {
     assert.equal(findAll(svg, (element) => element.id === 'g1-arrow').length, 1)
   })
 })
+
+describe('a read-only step', () => {
+  test('is marked by its class, a lock glyph and a "read-only" line, and is named read-only', () => {
+    const doc = fakeDocument()
+    const laid = layoutGraph([{ id: 'odd', group: null, isGroup: false, conditional: false }], [])
+    const steps = new Map<string, DrawStep>([['odd', { name: 'odd', kind: 'include', state: 'draft', stateText: 'include', note: null, readOnly: true }]])
+    const svg = drawGraph(doc as unknown as Document, laid, steps, { label: 'Nodes of x', idPrefix: 'g2' }) as unknown as FakeElement
+    const [box] = withClass(svg, 'step')
+    assert.equal(box?.getAttribute('class'), 'step state-draft read-only')
+    assert.equal(box?.getAttribute('aria-label'), 'odd, include, read-only')
+    const texts = findAll(svg, (element) => element.tagName === 'text').map((element) => element.textContent)
+    assert.deepEqual(texts, ['odd', '🔒 include', 'read-only'])
+  })
+})
