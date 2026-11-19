@@ -19,6 +19,14 @@ if (app !== null) {
             clear: (handle) => clearTimeout(handle)
         },
         openExternal: (url) => orca.shell?.openExternal(url) ?? Promise.resolve(),
+        onShown(listener) {
+            const told = () => {
+                if (document.visibilityState === 'visible')
+                    listener();
+            };
+            document.addEventListener('visibilitychange', told);
+            return { dispose: () => document.removeEventListener('visibilitychange', told) };
+        },
         observeSize(element, told) {
             const observer = new ResizeObserver(() => told(element.clientWidth, element.clientHeight));
             observer.observe(element);

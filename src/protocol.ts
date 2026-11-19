@@ -18,7 +18,16 @@ import type { SystemAnswer, SystemView } from './system-view'
 import type { BuilderOpenAnswer, BuilderOpenRequest, GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
 import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer, RerunRequest } from './launch-view'
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
-import type { BuilderAnswer, BuilderIdentity, BuilderRequest, YamlOpenAnswer } from '../editors/builder/builder-view'
+import type {
+  BuilderAnswer,
+  BuilderIdentity,
+  BuilderRequest,
+  BuilderSaveAnswer,
+  BuilderSaveRequest,
+  BuilderValidateAnswer,
+  BuilderValidateRequest,
+  YamlOpenAnswer
+} from '../editors/builder/builder-view'
 import type { DeleteAnswer, WorkflowDelete, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
 
 declare module 'orca' {
@@ -119,6 +128,14 @@ declare module 'orca' {
     'builder.read': { input: BuilderRequest; output: BuilderAnswer }
     /** Open YAML: opens the workflow's file in Orca when it sits inside a local workspace Orca lists. */
     'builder.openYaml': { input: BuilderIdentity; output: YamlOpenAnswer }
+    /**
+     * Save: the outside-change check, Archon's validation, then one PUT, in that order. A save
+     * that times out is not sent again; the worker reads the workflow to learn whether it landed.
+     * One save at a time.
+     */
+    'builder.save': { input: BuilderSaveRequest; output: BuilderSaveAnswer }
+    /** Validate: Archon's validation of a definition. Nothing is written. */
+    'builder.validate': { input: BuilderValidateRequest; output: BuilderValidateAnswer }
     /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */
     'chats.read': { input: ChatsRequest; output: ChatsAnswer }
     /** A chat thread: the conversation, its project and its newest saved messages, newest first. */

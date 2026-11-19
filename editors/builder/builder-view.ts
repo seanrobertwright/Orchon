@@ -55,3 +55,54 @@ export type BuilderAnswer = { connection: TabConnection; builder: BuilderView }
 
 /** Open YAML: whether Orca opened the file, or the one sentence that says why not. */
 export type YamlOpenAnswer = { opened: true } | { opened: false; reason: string }
+
+/**
+ * The copy a save expects Archon to serve now: where Archon reads it from and its authored form.
+ * The tab sends the copy it opened; after a save, the one it saved.
+ */
+export type BuilderBase = { source: string; authored: Record<string, unknown> }
+
+/**
+ * Save: the workflow's identity, the definition to write, and the copy Archon is expected to
+ * serve, or null when it is expected to serve none (an overwrite of a workflow removed outside).
+ */
+export type BuilderSaveRequest = BuilderRequest & { definition: Record<string, unknown>; base: BuilderBase | null }
+
+/** Validate: the definition to check, and Orca's UI language. Nothing is written. */
+export type BuilderValidateRequest = { definition: Record<string, unknown>; locale: string }
+
+/** The most of Archon's validation sentences a view lists; past it `more` says how many are not shown. */
+export const VALIDATION_ERRORS_CAP = 20
+
+/** Archon's validation: its sentences, which name no node, at most the cap of them. */
+export type ValidationErrors = { errors: string[]; more: number }
+
+export type BuilderSaveOutcome =
+  /** Archon holds the definition now, read from `source`: the copy later checks compare against. */
+  | { kind: 'saved'; source: string }
+  /** Nothing was sent, for the reason given: the worker's own rule, such as one save at a time. */
+  | { kind: 'refused'; message: string }
+  /**
+   * The workflow changed outside the builder since the copy it opened, so nothing was written.
+   * `current` is what Archon serves now, or null when it serves none; an overwrite sends it as the base.
+   */
+  | { kind: 'changed'; message: string; current: BuilderBase | null }
+  /** Archon's validation rejected the definition, so it was not saved. */
+  | ({ kind: 'invalid' } & ValidationErrors)
+  /** A request to Archon failed or Archon refused the write. One sentence for the person. */
+  | { kind: 'failed'; message: string }
+  /**
+   * The write was not answered in time and was not sent again. The worker read the workflow
+   * again: `landed` says whether Archon holds the definition, or is null when the read failed.
+   */
+  | { kind: 'timeout'; landed: boolean | null; message: string; source: string | null }
+
+export type BuilderSaveAnswer = { connection: TabConnection; save: BuilderSaveOutcome }
+
+export type BuilderValidateOutcome =
+  | { kind: 'valid' }
+  | ({ kind: 'invalid' } & ValidationErrors)
+  | { kind: 'refused'; message: string }
+  | { kind: 'failed'; message: string }
+
+export type BuilderValidateAnswer = { connection: TabConnection; validate: BuilderValidateOutcome }

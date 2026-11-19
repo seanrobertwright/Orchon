@@ -221,6 +221,46 @@
   font-weight: 600;
 }
 
+/* Save and Validate (#16). A button that cannot act is marked `aria-disabled` so it keeps the
+   focus and says why in the line it is described by, shown on focus and on hover. */
+.write-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+}
+
+.write-bar button[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.write-reason {
+  margin: 0;
+  flex-basis: 100%;
+  font-size: 0.85rem;
+}
+
+.write-reason[hidden] {
+  display: none;
+}
+
+.server-check {
+  margin-bottom: 0.5rem;
+}
+
+.server-check h3,
+.server-check p {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.server-errors {
+  margin: 0;
+  padding-left: 1rem;
+}
+
 .outside-change {
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--step-border);

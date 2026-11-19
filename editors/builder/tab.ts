@@ -5,9 +5,11 @@
 // inspector's form, nodes added from a menu and removed or duplicated from the canvas or the
 // outline, and dependencies in the "Depends on" list or in connect mode. Each edit goes through
 // the edit session, which uses the copied Archon editor state; the graph is laid out again after
-// every change, and the local rules run on the copy as it stands. Nothing is saved yet: the tab
-// never edits its file, and no edit leaves the frame. An installed workflow is only viewed. Every
-// piece of outside text is set through `textContent`.
+// every change, and the local rules run on the copy as it stands. Save (or Ctrl or Cmd+S) runs
+// the local blocking rules and sends the definition to the worker, which checks for an outside
+// change, has Archon validate it and writes it; Validate asks Archon only. Archon's sentences show
+// at the top of the issues. The tab never edits its file. An installed workflow is only viewed.
+// Every piece of outside text is set through `textContent`.
 import { createCanvas, type Canvas, type ObserveSize } from '../shared/canvas.ts'
 import { elementMaker } from '../shared/dom.ts'
 import { drawGraph, type DrawStep } from '../shared/graph-draw.ts'
@@ -16,10 +18,25 @@ import { isRecord } from '../shared/records.ts'
 import type { TabConnection, TabScreen } from '../run-graph/graph-view.ts'
 import type { TabTimers } from '../run-graph/refetch.ts'
 import { VARIANTS, VARIANT_REGISTRY } from './archon/variants/index.ts'
-import { mib, SCOPE_CAP, WORKFLOW_NAME_CAP, type BuilderAnswer, type BuilderHeader, type BuilderIdentity, type BuilderView } from './builder-view.ts'
+import {
+  DEFINITION_CAP_BYTES,
+  mib,
+  SCOPE_CAP,
+  WORKFLOW_NAME_CAP,
+  type BuilderAnswer,
+  type BuilderBase,
+  type BuilderHeader,
+  type BuilderIdentity,
+  type BuilderSaveOutcome,
+  type BuilderValidateOutcome,
+  type BuilderView,
+  type ValidationErrors
+} from './builder-view.ts'
 import { openSession, type EditSession } from './edit-session.ts'
 import { fieldControl, option } from './field-control.ts'
 import { formFields, type FormField } from './node-form.ts'
+import { sameDefinition } from './same-definition.ts'
+import { SAVE_BLOCKING_RULES } from './save-blockers.ts'
 import { workflowFactsOf, type IssueFacts, type NodeFacts, type WorkflowFacts } from './workflow-facts.ts'
 
 /** The most nodes the canvas lays out, as the run graph (#17). Past it the outline carries on. */
@@ -43,6 +60,16 @@ export const UNSAVED_LINE = 'Unsaved changes'
 export const OUTSIDE_CHANGE = 'This workflow changed outside the builder. Your unsaved changes are kept until you choose.'
 export const RELOAD_ASKED = 'Reloading replaces the copy you are editing. Your unsaved changes are kept until you choose.'
 const WORKER_UNANSWERED = "Orchon's worker did not answer."
+export const SAVED_LINE = 'Saved.'
+export const SAVE_BLOCKED = 'Fix the errors that block saving before you save: they are listed under Issues. Nothing was sent.'
+export const SAVE_UNANSWERED = "Orchon's worker did not answer, so it is not known whether the workflow was saved. Reload to see what Archon holds."
+export const SAVE_REJECTED = "Archon's validation rejected this workflow, so it was not saved. Its sentences are at the top of Issues."
+export const VALID_LINE = "Archon's validation found no problems."
+export const WRITE_NOT_CONNECTED = 'Orchon is not connected to Archon, so this workflow cannot be saved or validated now.'
+export const WRITE_SAVING = 'A save is waiting for Archon.'
+export const WRITE_VALIDATING = 'Archon is validating this workflow.'
+export const TOO_LARGE_TO_SEND = `This workflow is over ${mib(DEFINITION_CAP_BYTES)}, the most the builder sends, so nothing was sent.`
+export const SHOWN_CHANGED = 'This workflow changed outside the builder while the tab was away. The builder now shows the copy Archon serves.'
 const NOT_CONNECTED_BANNER = 'Orchon is not connected to Archon. What is shown was read before.'
 const PICK_A_NODE = 'Choose a node on the canvas or in the outline to see it here.'
 
@@ -58,12 +85,14 @@ export type BuilderTabPorts = {
   on(event: string, handler: (payload: unknown) => void): { dispose(): void }
   /** Orca's UI language. */
   locale: string
-  /** The tab sets no timer of its own today; it is given the frame's for the ones saving brings. */
+  /** The frame's timers. The tab sets none of its own: a save waits on the worker, which times Archon's answers. */
   timers: TabTimers
   /** Opens a link in the system browser, when the frame can. */
   openExternal?(url: string): Promise<unknown>
   /** Reports the canvas's size and its changes, so the graph is fitted to it. */
   observeSize?: ObserveSize
+  /** Tells the tab each time it is shown again, so it checks for an outside change. */
+  onShown?(listener: () => void): { dispose(): void }
 }
 
 export type BuilderTab = { stop(): void }
@@ -91,8 +120,31 @@ export function parseBuilderPointer(text: string | null): BuilderIdentity | null
 function isAnswer(value: unknown): value is BuilderAnswer {
   return isRecord(value) && isRecord(value.connection) && isRecord(value.builder) && typeof value.builder.kind === 'string' && typeof value.connection.kind === 'string'
 }
+/** A Save's or Validate's answer: the connection, and the outcome under `key`, or null when it is not in that shape. */
+function writeAnswer(value: unknown, key: 'save' | 'validate'): { connection: TabConnection; outcome: { kind: string } } | null {
+  if (!isRecord(value) || !isRecord(value.connection) || typeof value.connection.kind !== 'string') return null
+  const outcome = value[key]
+  return isRecord(outcome) && typeof outcome.kind === 'string' ? { connection: value.connection as TabConnection, outcome: outcome as { kind: string } } : null
+}
+
+const encoder = new TextEncoder()
+/** A definition's size as the worker measures it: its JSON text in UTF-8. */
+const bytesOf = (value: unknown): number => encoder.encode(JSON.stringify(value)).length
+
+/** Archon's last word on the copy: valid, or its sentences, for the workflow it was asked about. */
+type ServerCheck = ({ kind: 'valid' } | ({ kind: 'invalid' } & ValidationErrors)) & { checked: unknown }
+const serverCheckOf = (outcome: { kind: 'valid' } | ({ kind: 'invalid' } & ValidationErrors), checked: unknown): ServerCheck =>
+  outcome.kind === 'valid' ? { kind: 'valid', checked } : { kind: 'invalid', errors: outcome.errors, more: outcome.more, checked }
 
 type Ready = Extract<BuilderView, { kind: 'ready' }>
+
+/**
+ * Why a read was sent: on its own (`poll`, as on a connection change), because the tab was shown
+ * again, by the person's Reload, or to open what Archon serves over edits the person chose to lose.
+ */
+type ReadReason = 'poll' | 'shown' | 'person' | 'reload-discard'
+/** When two reasons wait for the same read, the later in this order wins. */
+const REASON_ORDER: readonly ReadReason[] = ['poll', 'shown', 'person', 'reload-discard']
 type TooLarge = Extract<BuilderView, { kind: 'too-large' }>
 type SidecarTab = 'inspector' | 'outline' | 'yaml'
 const SIDECAR_TABS: readonly { id: SidecarTab; name: string }[] = [
@@ -274,6 +326,34 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     addButton.setAttribute('aria-expanded', String(open))
   }
 
+  // Save and Validate, made once. A button that cannot act now stays focusable and says why, on
+  // focus and on hover, in its title and in a line it is described by.
+  const saveButton = button('Save', () => save())
+  const validateButton = button('Validate', () => validate())
+  const writeReason = el('p', '', 'write-reason')
+  writeReason.id = freshId('write-reason')
+  writeReason.hidden = true
+  const writeBar = el('div', undefined, 'write-bar')
+  writeBar.setAttribute('role', 'group')
+  writeBar.setAttribute('aria-label', 'Saving')
+  writeBar.append(saveButton, validateButton, writeReason)
+  /** Whether the pointer is over, or the focus is on, Save or Validate. */
+  let reasonAsked = false
+  for (const writeButton of [saveButton, validateButton]) {
+    writeButton.setAttribute('aria-describedby', writeReason.id)
+    for (const [event, asking] of [
+      ['focus', true],
+      ['blur', false],
+      ['mouseenter', true],
+      ['mouseleave', false]
+    ] as const) {
+      writeButton.addEventListener(event, () => {
+        reasonAsked = asking
+        writeReason.hidden = !reasonAsked || writeReason.textContent === ''
+      })
+    }
+  }
+
   // The canvas's own editing tools, for the node chosen on it.
   const canvasConnect = button('Connect', () => toggleConnect())
   const canvasDuplicate = button('Duplicate', () => {
@@ -287,11 +367,20 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   let identity: BuilderIdentity | null = null
   /** The view last drawn, or null before one. */
   let shown: Ready | TooLarge | null = null
-  /** The copy being edited, opened from `openedText`. */
+  /** The copy being edited, opened from `opened`. */
   let session: EditSession | null = null
-  let openedText = ''
+  /** The definition the copy was opened from, or last saved as: a read that brings it again changes nothing. */
+  let opened: Record<string, unknown> | null = null
+  /** What a save expects Archon to serve: the copy opened, or the one last saved, or an outside change the person chose to overwrite. */
+  let base: BuilderBase | null = null
   /** A definition the person chose to keep editing over: a read that brings it again asks nothing. */
-  let keptOver = ''
+  let keptOver: Record<string, unknown> | null = null
+  /** The write request waiting for the worker, if any: one at a time. */
+  let writing: 'save' | 'validate' | null = null
+  /** Archon's last validation, shown at the top of the issues while the copy is the one it checked. */
+  let serverCheck: ServerCheck | null = null
+  /** The lines Save and Validate last said, under the connection's. */
+  let writeLines: string[] = []
   /** The read that would replace the copy being edited, held until the person chooses. */
   let waiting: Ready | null = null
   let editable = false
@@ -319,8 +408,8 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   let counter = 0
   let inFlight = false
   let queued = false
-  /** Whether the person asked for the read now in flight, by Reload. */
-  let asked = false
+  /** Why the next read is sent; each read takes it and leaves `poll`. */
+  let nextReason: ReadReason = 'poll'
   /** Whether the last answer found Archon: a post that it is found again reads once more. */
   let connected = false
   let stopped = false
@@ -328,13 +417,18 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
 
   /** The banners: the connection's lines, then connect mode's. */
   function showBanners(): void {
-    const lines = [...connectionLines]
+    const lines = [...connectionLines, ...writeLines]
     const from = connecting === null ? undefined : facts?.nodes[connecting]
     if (from !== undefined) lines.push(`Connecting from ${nodeLabel(from)}: choose the node that runs after it. Esc cancels.`)
     banners.replaceChildren(...lines.map((line) => el('p', line, 'banner')))
   }
   function setBanners(lines: readonly string[]): void {
     connectionLines = [...lines]
+    showBanners()
+  }
+  /** What Save or Validate says, under the connection's lines. */
+  function setWrite(lines: readonly string[]): void {
+    writeLines = [...lines]
     showBanners()
   }
 
@@ -356,13 +450,10 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     const actions = el('p', undefined, 'actions')
     if (view.openYaml) actions.appendChild(button('Open YAML', openYaml))
     actions.appendChild(
-      button('Reload', () => {
-        asked = true
-        load()
-      })
+      button('Reload', () => readFor('person'))
     )
     parts.push(actions)
-    if (!view.viewOnly) parts.push(editBar)
+    if (!view.viewOnly) parts.push(writeBar, editBar)
     top.replaceChildren(...parts)
   }
 
@@ -373,6 +464,157 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     redoButton.disabled = session?.canRedo() !== true
     canvasConnect.setAttribute('aria-pressed', String(connecting !== null))
     for (const tool of canvasTools) tool.disabled = selected === null
+    const reason = whyNoWrite()
+    for (const writeButton of [saveButton, validateButton]) {
+      if (reason === null) {
+        writeButton.removeAttribute('aria-disabled')
+        writeButton.removeAttribute('title')
+      } else {
+        writeButton.setAttribute('aria-disabled', 'true')
+        writeButton.setAttribute('title', reason)
+      }
+    }
+    writeReason.textContent = reason ?? ''
+    writeReason.hidden = !reasonAsked || reason === null
+  }
+
+  /** Why Save and Validate cannot act now, or null when they can. */
+  function whyNoWrite(): string | null {
+    if (!connected) return WRITE_NOT_CONNECTED
+    if (writing === 'save') return WRITE_SAVING
+    if (writing === 'validate') return WRITE_VALIDATING
+    if (session === null) return UNREADABLE_DEFINITION
+    return null
+  }
+
+  /** The definition as it stands, as a save would write it. */
+  const definitionNow = (): Record<string, unknown> | null => (session === null ? null : (session.definition() as unknown as Record<string, unknown>))
+
+  /**
+   * Sends Save's or Validate's request while no other waits, and gives `settle` the worker's
+   * outcome. A copy over the open limit is not sent, and the tab says so; no answer says `unanswered`.
+   */
+  function sendWrite<O>(kind: 'save' | 'validate', input: { definition: Record<string, unknown>; [key: string]: unknown }, settle: (outcome: O) => void, unanswered: string): void {
+    if (bytesOf(input.definition) > DEFINITION_CAP_BYTES) {
+      setWrite([TOO_LARGE_TO_SEND])
+      return
+    }
+    writing = kind
+    drawEditState()
+    void ports
+      .request(`builder.${kind}`, input)
+      .then(
+        (value) => {
+          if (stopped) return
+          const answer = writeAnswer(value, kind)
+          if (answer === null) {
+            setWrite([unanswered])
+            return
+          }
+          connected = answer.connection.kind === 'connected'
+          settle(answer.outcome as O)
+        },
+        () => {
+          if (!stopped) setWrite([unanswered])
+        }
+      )
+      .finally(() => {
+        writing = null
+        if (!stopped) drawEditState()
+      })
+  }
+
+  /** Save: the local blocking rules here, then the worker's outside-change check, Archon's validation and the write. */
+  function save(): void {
+    const definition = definitionNow()
+    if (definition === null || identity === null || !editable || whyNoWrite() !== null) return
+    if ((facts?.issues ?? []).some((issue) => SAVE_BLOCKING_RULES.includes(issue.rule))) {
+      setWrite([SAVE_BLOCKED])
+      return
+    }
+    const checked = session?.workflow()
+    setWrite([])
+    sendWrite<BuilderSaveOutcome>('save', { ...identity, locale: ports.locale, definition, base }, (outcome) => settleSave(outcome, definition, checked), SAVE_UNANSWERED)
+  }
+
+  /** What a save's outcome changes: the copy later checks compare against, Archon's sentences, or the three choices. */
+  function settleSave(outcome: BuilderSaveOutcome, definition: Record<string, unknown>, checked: unknown): void {
+    switch (outcome.kind) {
+      case 'saved':
+        savedAs(definition, outcome.source)
+        serverCheck = { kind: 'valid', checked }
+        setWrite([SAVED_LINE])
+        break
+      case 'timeout':
+        if (outcome.landed === true) savedAs(definition, outcome.source ?? base?.source ?? '')
+        setWrite([outcome.message])
+        break
+      case 'invalid':
+        serverCheck = serverCheckOf(outcome, checked)
+        setWrite([SAVE_REJECTED])
+        break
+      case 'changed':
+        setWrite([])
+        askAfterChange(outcome.message, outcome.current)
+        break
+      case 'refused':
+      case 'failed':
+        setWrite([outcome.message])
+    }
+    if (facts !== null) drawIssues(facts)
+  }
+
+  /**
+   * The definition is what Archon holds now, read from `source`: later checks compare with it and
+   * Unsaved changes clears. A bundled workflow saved as the project's own copy is the project's
+   * from now on, in this tab; its pointer file is never changed.
+   */
+  function savedAs(definition: Record<string, unknown>, source: string): void {
+    base = { source, authored: definition }
+    opened = definition
+    keptOver = null
+    session?.markSaved()
+    drawEditState()
+    if (identity !== null && source !== '' && source !== identity.scope) {
+      identity = { ...identity, scope: source }
+      load()
+    }
+  }
+
+  /** The three choices after a save stopped for an outside change. Nothing was written. */
+  function askAfterChange(sentence: string, current: BuilderBase | null): void {
+    waiting = null
+    const reload = button('Reload and lose my edits', () => {
+      closePrompt()
+      readFor('reload-discard')
+    })
+    const overwrite = button('Overwrite the outside change', () => {
+      closePrompt()
+      base = current
+      save()
+    })
+    const keep = button('Keep editing', () => closePrompt())
+    changePrompt.replaceChildren(el('p', sentence), reload, overwrite, keep)
+    changePrompt.hidden = false
+  }
+
+  /** Validate: Archon's validation of the copy as it stands. Nothing is written. */
+  function validate(): void {
+    const definition = definitionNow()
+    if (definition === null || !editable || whyNoWrite() !== null) return
+    const checked = session?.workflow()
+    sendWrite<BuilderValidateOutcome>(
+      'validate',
+      { definition, locale: ports.locale },
+      (outcome) => {
+        if (outcome.kind === 'valid' || outcome.kind === 'invalid') {
+          serverCheck = serverCheckOf(outcome, checked)
+          setWrite([])
+        } else setWrite([outcome.message])
+        if (facts !== null) drawIssues(facts)
+      },
+      WORKER_UNANSWERED
+    )
   }
 
   function openYaml(): void {
@@ -865,17 +1107,36 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
         )
       list.appendChild(row)
     }
-    const parts: HTMLElement[] = [el('h2', `Issues (${String(count)})`)]
+    const parts: HTMLElement[] = [el('h2', `Issues (${String(count)})`), ...serverParts()]
     parts.push(count === 0 ? el('p', 'No issues found.', 'muted') : list)
     if (count > ISSUES_CAP) parts.push(el('p', `${String(count - ISSUES_CAP)} more issues are not shown.`, 'muted'))
     issuesStrip.replaceChildren(...parts)
   }
 
+  /** Archon's validation sentences, at the top of the issues, while the copy is the one it checked. They name no node. */
+  function serverParts(): HTMLElement[] {
+    if (serverCheck === null || session === null || serverCheck.checked !== session.workflow()) return []
+    const group = el('section', undefined, 'server-check')
+    group.setAttribute('aria-label', "Archon's validation")
+    if (serverCheck.kind === 'valid') {
+      group.appendChild(el('p', VALID_LINE, 'server-valid'))
+      return [group]
+    }
+    const list = el('ul', undefined, 'server-errors')
+    for (const sentence of serverCheck.errors) list.appendChild(el('li', `✖ Archon: ${sentence}`, 'issue issue-error'))
+    group.append(el('h3', "Archon's validation"), list)
+    if (serverCheck.more > 0) group.appendChild(el('p', `${String(serverCheck.more)} more ${serverCheck.more === 1 ? 'sentence is' : 'sentences are'} not shown.`, 'muted'))
+    return [group]
+  }
+
   /** Opens a read workflow for editing, in place of whatever copy was held. */
   function openView(view: Ready): void {
     shown = view
-    openedText = JSON.stringify(view.definition)
-    keptOver = ''
+    opened = view.definition
+    base = { source: view.header.source, authored: view.definition }
+    keptOver = null
+    serverCheck = null
+    writeLines = []
     closePrompt()
     editable = !view.header.viewOnly
     session = openSession(view.definition)
@@ -905,7 +1166,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
       if (next !== null) openView(next)
     })
     const keep = button('Keep editing', () => {
-      if (waiting !== null) keptOver = JSON.stringify(waiting.definition)
+      if (waiting !== null) keptOver = waiting.definition
       closePrompt()
     })
     changePrompt.replaceChildren(el('p', sentence), take, keep)
@@ -922,19 +1183,23 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   const editing = (): boolean => session !== null && editable && session.dirty()
 
   /** Draws a read workflow. A copy with unsaved changes is never replaced without asking. */
-  function drawReady(view: Ready, lines: string[], byPerson: boolean): void {
+  function drawReady(view: Ready, lines: string[], reason: ReadReason): void {
     drawHeader(view.header)
     setBanners(lines)
     drawEditState()
-    const text = JSON.stringify(view.definition)
-    if (editing()) {
-      if (byPerson) ask(view, RELOAD_ASKED)
-      else if (text !== openedText && text !== keptOver) ask(view, OUTSIDE_CHANGE)
+    const same = opened !== null && sameDefinition(view.definition, opened)
+    const forced = reason === 'reload-discard'
+    if (editing() && !forced) {
+      if (reason === 'person') ask(view, RELOAD_ASKED)
+      else if (!same && (keptOver === null || !sameDefinition(view.definition, keptOver))) ask(view, OUTSIDE_CHANGE)
       if (content.children[0] !== layout) content.replaceChildren(layout)
       return
     }
-    if (session === null || text !== openedText || shown?.kind !== 'ready') {
+    if (session === null || !same || shown?.kind !== 'ready' || forced) {
+      // Shown again over a copy with no unsaved changes, an outside change replaces it, with a notice.
+      const notice = reason === 'shown' && session !== null && shown?.kind === 'ready' && !same
       openView(view)
+      if (notice) setWrite([SHOWN_CHANGED])
       return
     }
     shown = view
@@ -945,7 +1210,8 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     shown = view
     session = null
     facts = null
-    openedText = ''
+    opened = null
+    base = null
     closePrompt()
     dropCanvas()
     drawHeader(view.header)
@@ -964,7 +1230,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     } else drawTooLarge(shown, lines)
   }
 
-  function apply(answer: BuilderAnswer, byPerson: boolean): void {
+  function apply(answer: BuilderAnswer, reason: ReadReason): void {
     const tabConnection: TabConnection = answer.connection
     const { builder } = answer
     connected = tabConnection.kind === 'connected'
@@ -1011,8 +1277,14 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
         drawTooLarge(builder, [])
         return
       case 'ready':
-        drawReady(builder, [], byPerson)
+        drawReady(builder, [], reason)
     }
+  }
+
+  /** Reads the workflow for `reason`, kept for the next read sent if one is in flight now. */
+  function readFor(reason: ReadReason): void {
+    if (REASON_ORDER.indexOf(reason) > REASON_ORDER.indexOf(nextReason)) nextReason = reason
+    load()
   }
 
   /** Reads the workflow: one read in flight, and at most one more queued. */
@@ -1025,14 +1297,14 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     inFlight = true
     counter += 1
     const mine = counter
-    const byPerson = asked
-    asked = false
+    const reason = nextReason
+    nextReason = 'poll'
     const request = { ...identity, locale: ports.locale }
     void ports
       .request('builder.read', request)
       .then(
         (answer) => {
-          if (!stopped && mine === counter && isAnswer(answer)) apply(answer, byPerson)
+          if (!stopped && mine === counter && isAnswer(answer)) apply(answer, reason)
         },
         () => {
           if (stopped || mine !== counter) return
@@ -1064,8 +1336,14 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
       }
       return
     }
-    if (!editable || session === null || typedIntoField(event.target)) return
     const command = event.ctrlKey || event.metaKey
+    // Ctrl or Cmd+S saves, from a field too, and never reaches Orca as its own Save.
+    if (command && !event.altKey && (event.key === 's' || event.key === 'S')) {
+      event.preventDefault()
+      save()
+      return
+    }
+    if (!editable || session === null || typedIntoField(event.target)) return
     if (command && !event.altKey && (event.key === 'z' || event.key === 'Z')) {
       event.preventDefault()
       if (event.shiftKey) edit(() => session?.redo() ?? false, { keepSelection: true })
@@ -1101,6 +1379,9 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
       load()
     })
   )
+  // Shown again: the same comparison as a save's, with a notice when the workflow changed outside.
+  const onShown = ports.onShown?.(() => readFor('shown'))
+  if (onShown !== undefined) subscriptions.push(onShown)
 
   void ports.readPointer().then((text) => {
     if (stopped) return

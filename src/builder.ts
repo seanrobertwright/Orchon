@@ -27,7 +27,7 @@ import { cappedTextRefusal, errorText, isCappedText, isRecord, isText, own, refu
 import { PROJECT_ID_CAP } from './scope-view'
 import { WORKFLOWS_PATH } from './workflows-list'
 
-const PROJECT_GONE = 'Archon no longer lists that project.'
+export const PROJECT_GONE = 'Archon no longer lists that project.'
 const goneText = (name: string): string => `Archon has no workflow named ${name} here.`
 const shadowedText = (name: string, served: string, scope: string): string =>
   `Archon serves the ${served} workflow named ${name} here in place of the ${scope} one, so the builder cannot open the ${scope} one.`
@@ -83,7 +83,7 @@ export function parseWorkflowFile(value: unknown): WorkflowFile | null {
 }
 
 /** The folder Archon reads a project's workflows from, or why there is none. */
-async function projectFolder(
+export async function projectFolder(
   client: Client,
   server: Connected,
   codebaseId: string,
@@ -98,7 +98,7 @@ async function projectFolder(
 }
 
 /** Reads one workflow, for a project's folder or with none. */
-async function readWorkflowFile(client: Client, server: Connected, name: string, cwd: string | null, signal?: AbortSignal): Promise<WorkflowRead> {
+export async function readWorkflowFile(client: Client, server: Connected, name: string, cwd: string | null, signal?: AbortSignal): Promise<WorkflowRead> {
   const query = cwd === null ? '' : `?cwd=${encodeURIComponent(cwd)}`
   const answer = await client.request({
     baseUrl: server.baseUrl,
@@ -147,7 +147,7 @@ export async function resolveWorkflow(
   if (identity.scope !== undefined && source !== identity.scope) return { kind: 'gone', message: shadowedText(identity.name, source, identity.scope) }
   return { kind: 'found', file: read.file, cwd }
 }
-const NOT_CONNECTED = 'Orchon is not connected to Archon.'
+export const NOT_CONNECTED = 'Orchon is not connected to Archon.'
 
 /** A workflow identity: a name, a project id or null, and a scope, with the keys `extra` names too. */
 export function parseBuilderIdentity(input: unknown, what: string, extra: readonly string[] = []): BuilderIdentity {
@@ -166,7 +166,7 @@ export function parseBuilderRequest(input: unknown): BuilderRequest {
 }
 
 /** Whether a definition is one the builder reads: a record whose `nodes` is a list of records. */
-function isDefinition(value: Record<string, unknown>): boolean {
+export function isDefinition(value: Record<string, unknown>): boolean {
   const nodes = own(value, 'nodes')
   return Array.isArray(nodes) && (nodes as unknown[]).every(isRecord)
 }
