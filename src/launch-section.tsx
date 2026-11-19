@@ -85,6 +85,43 @@ const notices = atom<LaunchNotice[]>([])
 const pending = atom<unknown>('launch-pending', false, { persist: 'workspace' })
 /** The callouts dismissed in this panel run, so an answer sent before the dismiss cannot bring one back. */
 const dismissed = atom<readonly string[]>([])
+/** Why the last press of the Edit link opened nothing, with the workflow it was for, or null. */
+const editRefused = atom<{ workflow: string; reason: string } | null>(null)
+
+/** What a press of the Edit link says when the worker itself does not answer. */
+export const EDIT_UNANSWERED = "The builder tab did not open: Orchon's worker did not answer."
+
+/** The Edit link: opens the chosen workflow in the builder. A refusal is said under the select. */
+function editInBuilder(view: Ready, workflow: string): void {
+  set(editRefused, null)
+  plugin.request('builder.open', { name: workflow, codebaseId: view.codebaseId }).then(
+    (answer) => set(editRefused, answer.opened ? null : { workflow, reason: answer.reason }),
+    () => set(editRefused, { workflow, reason: EDIT_UNANSWERED })
+  )
+}
+
+/** The Edit link beside the chosen workflow, off with the worker's reason; and why its last press opened nothing. */
+function editPart(view: Ready, writable: boolean): OrcaNode {
+  const workflow = view.workflow
+  if (workflow === null) return null
+  const off = view.builderOff ?? (writable ? undefined : NOT_CONNECTED_TEXT)
+  const refused = read(editRefused)
+  return (
+    <Stack gap="xs">
+      <Row gap="sm" align="center">
+        <Button size="sm" variant="ghost" disabled={off !== undefined} tooltip={off} onPress={() => editInBuilder(view, workflow)}>
+          {`Edit ${workflow}`}
+        </Button>
+      </Row>
+      {view.builderOff === undefined ? null : (
+        <Text muted size="sm">
+          {view.builderOff}
+        </Text>
+      )}
+      {refused === null || refused.workflow !== workflow || off !== undefined ? null : <Text size="sm">{refused.reason}</Text>}
+    </Stack>
+  )
+}
 
 /** How long the panel waits after the last keystroke before it gives the worker the draft. */
 export const DRAFT_PAUSE_MS = 500
@@ -476,7 +513,7 @@ function notShown(count: number, one: string, many: string): string {
   return `${plural(count, one, many)} ${count === 1 ? 'is' : 'are'} not shown.`
 }
 
-function workflowPart(view: Ready): OrcaNode {
+function workflowPart(view: Ready, writable: boolean): OrcaNode {
   const workflows: WorkflowsView = view.workflows
   if (workflows.kind === 'none') {
     return <Select label="Workflow" placeholder="Choose a project first" options={[]} disabled />
@@ -506,6 +543,7 @@ function workflowPart(view: Ready): OrcaNode {
         options={options}
         onChange={(value) => choose({ workflow: value })}
       />
+      {editPart(view, writable)}
       {view.description === '' ? null : (
         <Text muted size="sm">
           {view.description}
@@ -568,7 +606,7 @@ function form(view: Ready, writable: boolean): OrcaNode {
           {notShown(projects.unreadable, 'Archon project could not be read and', 'Archon projects could not be read and')}
         </Text>
       ) : null}
-      {workflowPart(view)}
+      {workflowPart(view, writable)}
       <Textarea label="Message" rows={6} maxLength={MESSAGE_CAP} value={message} onChange={typeMessage} />
       {inputsPart(view)}
       {bindingsPart()}

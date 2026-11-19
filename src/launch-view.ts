@@ -171,6 +171,12 @@ export type LaunchView =
       notes?: string[]
       /** The Starting view, which replaces the form. */
       starting?: StartingView
+      /**
+       * Why the chosen workflow's Edit link, which opens it in the builder, is off, as one
+       * sentence: no local workspace is focused, or a tab file could not be written there. Left
+       * out when it is on.
+       */
+      builderOff?: string
     }
 
 export type LaunchAnswer = ConnectionAnswer & {

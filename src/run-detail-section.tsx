@@ -61,6 +61,12 @@ const graphOff = atom<string | null>(null)
 const rerunOffered = atom(false)
 /** Why the last press of Open graph opened nothing, or null. */
 const graphRefused = atom<string | null>(null)
+/** Why Open workflow in builder is off, as the worker last said, or null when it is on. */
+const builderOff = atom<string | null>(null)
+/** The open run's Archon project id, which Open workflow in builder names, or null for none. */
+const builderProject = atom<string | null>(null)
+/** Why the last press of Open workflow in builder opened nothing, or null. */
+const builderRefused = atom<string | null>(null)
 
 const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
@@ -100,6 +106,8 @@ function apply(answer: RunDetailAnswer | null): void {
   if (run.kind === 'ready' && run.detail.id === openRunId()) {
     set(loaded, run.detail)
     set(graphOff, answer.graphOff ?? null)
+    set(builderOff, answer.builderOff ?? null)
+    set(builderProject, answer.codebaseId ?? null)
     set(rerunOffered, answer.rerun === true)
     runActionsRead(run.detail)
     answerBlockRead(run.detail)
@@ -297,6 +305,9 @@ function resetView(): void {
   set(graphOff, null)
   set(rerunOffered, false)
   set(graphRefused, null)
+  set(builderOff, null)
+  set(builderProject, null)
+  set(builderRefused, null)
   set(problem, null)
   set(lastGood, null)
   set(factsOpen, false)
@@ -519,28 +530,50 @@ async function openGraph(runId: string): Promise<void> {
   }
 }
 
+/** What a press of Open workflow in builder says when the worker itself does not answer. */
+export const BUILDER_UNANSWERED = "The builder tab did not open: Orchon's worker did not answer."
+
+async function openBuilder(detail: RunDetail): Promise<void> {
+  set(builderRefused, null)
+  try {
+    const answer = await plugin.request('builder.open', { name: detail.workflow, codebaseId: read(builderProject) })
+    if (!answer.opened && openRunId() === detail.id) set(builderRefused, answer.reason)
+  } catch {
+    if (openRunId() === detail.id) set(builderRefused, BUILDER_UNANSWERED)
+  }
+}
+
 /**
- * Open graph, under the folds. It is off, with the worker's reason beside it, when no local
+ * Open graph and Open workflow in builder, under the folds. It is off, with the worker's reason beside it, when no local
  * workspace is focused, in a remote one, for a run with no project and after a failed write;
- * and off while Orchon is not connected, which the Searching banner says.
+ * and off while Orchon is not connected, which the Searching banner says. Open workflow in
+ * builder is off for the same reasons but a run with no project, whose workflow is read with none.
+ * A reason both share is said once.
  */
 function graphRow(detail: RunDetail): OrcaNode {
   const off = read(graphOff)
   const refused = read(graphRefused)
+  const flowOff = read(builderOff)
+  const flowRefused = read(builderRefused)
   const connected = hooks?.connection()?.kind === 'connected'
+  const reasons = [...new Set([off, flowOff].filter((reason) => reason !== null))]
   return (
     <Stack gap="xs">
       <Row gap="sm" wrap>
         <Button size="sm" variant="outline" disabled={off !== null || !connected} onPress={() => void openGraph(detail.id)}>
           Open graph
         </Button>
+        <Button size="sm" variant="outline" disabled={flowOff !== null || !connected} onPress={() => void openBuilder(detail)}>
+          Open workflow in builder
+        </Button>
       </Row>
-      {off === null ? null : (
-        <Text muted size="sm">
-          {off}
+      {reasons.map((reason) => (
+        <Text key={reason} muted size="sm">
+          {reason}
         </Text>
-      )}
+      ))}
       {refused === null || off !== null ? null : <Text size="sm">{refused}</Text>}
+      {flowRefused === null || flowOff !== null ? null : <Text size="sm">{flowRefused}</Text>}
     </Stack>
   )
 }
@@ -548,8 +581,8 @@ function graphRow(detail: RunDetail): OrcaNode {
 function body(detail: RunDetail, writable: boolean): OrcaNode {
   const showing = read(shown)
   // The answer block, which takes the waiting callout's place for a question (a run waiting on a
-  // question has no waiting state), goes above the action row; the row of small buttons goes under the folds: Open graph, and with their own
-  // tickets Open workflow in builder and Open conversation.
+  // question has no waiting state), goes above the action row; the row of small buttons goes under the folds: Open graph, Open workflow
+  // in builder and, with its own ticket, Open conversation.
   return (
     <>
       {answerBlock(detail, writable, actionHooks)}

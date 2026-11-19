@@ -2,6 +2,7 @@
 // of the focused local workspace so Orca opens a wide tab on them. This module is pure logic:
 // their names, their content and which of the folder's files a sweep deletes. The writes go
 // through the disk module, in `wide-tabs.ts`; only its entry type is imported here.
+import { SCOPE_CAP } from '../editors/builder/builder-view'
 import type { DiskEntry } from './disk'
 
 /** The folder at the workspace root that holds the pointer files and nothing else of the plugin's. */
@@ -40,6 +41,27 @@ export function runPointerName(workflow: string, runId: string): string {
 /** A run graph pointer file's content: the run's identity, since the tab never learns its file's name. */
 export function runPointerText(runId: string): string {
   return `${JSON.stringify({ orchon: 'run-graph', runId })}\n`
+}
+
+/**
+ * `<scope>-<workflow>.orchonflow`, each part cleaned first, so a project and a global workflow
+ * that share a name have a file each. Two projects' workflows of one name and scope share a file:
+ * the last one opened writes its project into the content, but a tab already open on the file
+ * read it once, when it opened, and keeps showing the workflow it read.
+ */
+export function builderPointerName(scope: string, workflow: string): string {
+  const part = clean(scope, 'scope').slice(0, SCOPE_CAP).replace(/-+$/, '')
+  const name = clean(workflow, 'workflow').slice(0, NAME_PART_CAP).replace(/-+$/, '')
+  return `${part}-${name}${FLOW_SUFFIX}`
+}
+
+/** A workflow's identity as a builder tab reads it: its name, its Archon project or null, and its scope. */
+export type BuilderIdentity = { name: string; codebaseId: string | null; scope: string }
+
+/** A builder pointer file's content: the workflow's identity, since the tab never learns its file's name. */
+export function builderPointerText(identity: BuilderIdentity): string {
+  return `${JSON.stringify({ orchon: 'builder', name: identity.name, codebaseId: identity.codebaseId, scope: identity.scope })}
+`
 }
 
 /** A name the plugin writes: safe characters and one of its two suffixes. */

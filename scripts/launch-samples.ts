@@ -5,6 +5,7 @@ import type { MockHostOptions } from 'orca/testing'
 import type { ConnectionView } from '../src/connection-view.ts'
 import type { LaunchAnswer, LaunchEdit, LaunchNotice, LaunchStart, LaunchView, LaunchWorkflow, NoticesAnswer } from '../src/launch-view.ts'
 import type { ScopeView } from '../src/scope-view.ts'
+import type { BuilderOpenAnswer, BuilderOpenRequest } from '../src/wide-tabs-view.ts'
 import { connected } from './connection-samples.ts'
 import { answeringScope, choices, matchedWeb } from './scope-samples.ts'
 import { busyRuns } from './runs-samples.ts'
@@ -45,6 +46,7 @@ export type LaunchScript = {
   looking?: () => number
   scope?: () => ScopeView
   connection?: ConnectionView
+  open?: (input: BuilderOpenRequest) => BuilderOpenAnswer
 }
 
 /**
@@ -67,7 +69,8 @@ export function answeringLaunch(script: LaunchScript): MockHostOptions {
       'launch.retry': () => answer(script.launch()),
       'launch.hide': () => null,
       'launch.notices': notices,
-      'launch.dismiss': notices
+      'launch.dismiss': notices,
+      'builder.open': (input: BuilderOpenRequest): BuilderOpenAnswer => script.open?.(input) ?? { opened: true }
     }
   }
 }

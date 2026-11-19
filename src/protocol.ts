@@ -13,9 +13,10 @@ import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
-import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
+import type { BuilderOpenAnswer, BuilderOpenRequest, GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
 import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer, RerunRequest } from './launch-view'
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
+import type { BuilderAnswer, BuilderIdentity, BuilderRequest, YamlOpenAnswer } from '../editors/builder/builder-view'
 import type { DeleteAnswer, WorkflowDelete, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
 
 declare module 'orca' {
@@ -110,6 +111,12 @@ declare module 'orca' {
     'workflows.read': { input: WorkflowsRequest; output: WorkflowsAnswer }
     /** Deletes one project or global workflow, once, then reads the list again. */
     'workflows.delete': { input: WorkflowDelete; output: DeleteAnswer }
+    /** Open in builder: writes the workflow's pointer file into `.orchon/` and opens it in a wide tab. */
+    'builder.open': { input: BuilderOpenRequest; output: BuilderOpenAnswer }
+    /** A builder tab: the workflow's authored form, which file it is, and the connection as the tab draws it. */
+    'builder.read': { input: BuilderRequest; output: BuilderAnswer }
+    /** Open YAML: opens the workflow's file in Orca when it sits inside a local workspace Orca lists. */
+    'builder.openYaml': { input: BuilderIdentity; output: YamlOpenAnswer }
     /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */
     'chats.read': { input: ChatsRequest; output: ChatsAnswer }
     /** A chat thread: the conversation, its project and its newest saved messages, newest first. */

@@ -333,6 +333,8 @@ export type RunDetailPorts = {
   workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
   /** Why Open graph is off for a run with or without a project, or null when it is on. Never off when left out. */
   graphOff?(hasProject: boolean): Promise<string | null>
+  /** Why Open workflow in builder is off, or null when it is on. Never off when left out. */
+  builderOff?(): Promise<string | null>
   /** Whether the focused workspace is remote, where Re-run is not offered. Never remote when left out. */
   remote?(): Promise<boolean>
   /** Told the question of each run read, or null when it waits on none or is gone, so an answer can be checked against it. */
@@ -408,6 +410,7 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
       if (workspaceId !== undefined) detail.workspaceId = workspaceId
     }
     const graphOff = ports.graphOff === undefined ? null : await ports.graphOff(codebaseId !== null)
+    const builderOff = ports.builderOff === undefined ? null : await ports.builderOff()
     // `project` is null for a run with none and for one Archon no longer lists (or that could not be read).
     const rerun =
       rerunRefusal({
@@ -415,7 +418,13 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
         project: rerunProject(codebaseId, project !== null),
         remote: (await ports.remote?.()) ?? false
       }) === null
-    return { run: { kind: 'ready', detail }, ...(graphOff === null ? {} : { graphOff }), ...(rerun ? { rerun: true as const } : {}) }
+    return {
+      run: { kind: 'ready', detail },
+      ...(graphOff === null ? {} : { graphOff }),
+      ...(builderOff === null ? {} : { builderOff }),
+      ...(codebaseId === null ? {} : { codebaseId }),
+      ...(rerun ? { rerun: true as const } : {})
+    }
   }
 
   return orca.panels.handle('run.read', async (input, context): Promise<RunDetailAnswer> => {

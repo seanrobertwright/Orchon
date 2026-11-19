@@ -9,15 +9,17 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import type { ConnectionView } from './connection-view'
 import type { Disk } from './disk'
-import { GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan } from './pointer-files'
+import { SCOPE_CAP } from '../editors/builder/builder-view'
+import { parseWorkflowIdentity, resolveWorkflow } from './builder'
+import { builderPointerName, builderPointerText, GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan } from './pointer-files'
 import type { FocusedWorkspace } from './project-scope'
-import { errorText, parseOneText } from './records'
+import { cappedTextRefusal, errorText, isCappedText, own, parseOneText, refuseRequest } from './records'
 import { readRun } from './run-detail'
 import { RUN_ID_CAP } from './run-detail-view'
 import { REMOTE_WORKSPACE } from './scope-view'
-import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
+import type { BuilderOpenAnswer, BuilderOpenRequest, GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
 
-export type { GraphOpenAnswer } from './wide-tabs-view'
+export type { BuilderOpenAnswer, GraphOpenAnswer } from './wide-tabs-view'
 
 export const NO_WORKSPACE_TAB = 'No workspace is focused in Orca. Wide tabs open in a workspace on this computer.'
 export const NO_PROJECT_GRAPH = 'This run has no Archon project, so it has no graph.'
@@ -49,6 +51,17 @@ export type WideTabsPorts = {
 export type WideTabs = Disposable & {
   /** Why Open graph is off for a run with or without a project, or null when it is on. */
   graphOff(hasProject: boolean): Promise<string | null>
+  /** Why Open in builder is off, or null when it is on: no local workspace is focused, or a write failed there. */
+  builderOff(): Promise<string | null>
+}
+
+/** Open in builder's input, or a refusal: a workflow name, a project id or null, an optional source, and nothing else. */
+export function parseBuilderOpenRequest(input: unknown): BuilderOpenRequest {
+  const identity = parseWorkflowIdentity(input, 'Open in builder', ['source'])
+  if (!Object.hasOwn(input as Record<string, unknown>, 'source')) return identity
+  const source = own(input as Record<string, unknown>, 'source')
+  if (!isCappedText(source, SCOPE_CAP)) refuseRequest(cappedTextRefusal('The source', SCOPE_CAP))
+  return { ...identity, source }
 }
 
 export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTabs {
@@ -114,32 +127,54 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     if (fetched.kind !== 'run') return refused(fetched.kind === 'gone' ? RUN_GONE : fetched.message)
     const { run } = fetched
     if (run.codebaseId === null) return refused(NO_PROJECT_GRAPH)
+    return openPointer(focused, runPointerName(run.workflow, run.id), runPointerText(run.id))
+  }
+
+  /** Writes a pointer file into the focused workspace's `.orchon/`, sweeps the folder and opens the file. */
+  async function openPointer(focused: Extract<FocusedWorkspace, { kind: 'local' }>, name: string, text: string): Promise<GraphOpenAnswer> {
     const folder = folderOf(focused.root)
-    const name = runPointerName(run.workflow, run.id)
     const disk = ports.openDisk([folder])
-    if (!(await writePointer(disk, folder, name, runPointerText(run.id)))) {
+    if (!(await writePointer(disk, folder, name, text))) {
       off.set(focused.workspaceId, WRITE_FAILED)
-      return refused(WRITE_FAILED)
+      return { opened: false, reason: WRITE_FAILED }
     }
     await sweep(disk, folder, name)
     try {
       await orca.host.call('editor.open', { workspaceId: focused.workspaceId, path: `${POINTER_FOLDER}/${name}` })
     } catch (error) {
-      return refused(`Orca could not open the tab: ${errorText(error)}`)
+      return { opened: false, reason: `Orca could not open the tab: ${errorText(error)}` }
     }
     return { opened: true }
+  }
+
+  /** Open in builder: Archon is asked for the workflow, so its scope names the file. A row's own source must be the one Archon serves. */
+  async function openBuilder(request: BuilderOpenRequest, signal: AbortSignal): Promise<BuilderOpenAnswer> {
+    const refused = (reason: string): BuilderOpenAnswer => ({ opened: false, reason })
+    const connection = await ports.current()
+    if (connection.kind !== 'connected') return refused(NOT_CONNECTED)
+    const focused = await ports.focused()
+    if (focused.kind !== 'local') return refused(focused.kind === 'none' ? NO_WORKSPACE_TAB : REMOTE_WORKSPACE)
+    const held = off.get(focused.workspaceId)
+    if (held !== undefined) return refused(held)
+    const { source, ...identity } = request
+    const resolved = await resolveWorkflow(ports.client, connection, source === undefined ? identity : { ...identity, scope: source }, signal)
+    if (resolved.kind !== 'found') return refused(resolved.message)
+    const scope = resolved.file.source
+    return openPointer(focused, builderPointerName(scope, request.name), builderPointerText({ name: request.name, codebaseId: request.codebaseId, scope }))
   }
 
   void sweepLogged()
 
   const subscriptions = [
     orca.panels.handle('graph.open', (input, context) => openGraph(parseGraphOpenRequest(input), context.signal)),
+    orca.panels.handle('builder.open', (input, context) => openBuilder(parseBuilderOpenRequest(input), context.signal)),
     orca.events.on('workspace.changed', sweepLogged)
   ]
   return {
     async graphOff(hasProject) {
       return (await offReason()) ?? (hasProject ? null : NO_PROJECT_GRAPH)
     },
+    builderOff: offReason,
     dispose() {
       for (const subscription of subscriptions) subscription.dispose()
     }

@@ -2,6 +2,7 @@
 // status bar item beside `main`, and loads this file as written: there is no build step.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
+import { startBuilder } from './builder'
 import { startChatList } from './chat-list'
 import { startChatThread } from './chat-thread'
 import { startConnection, type WorkerPorts } from './connection'
@@ -50,6 +51,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     ...connection,
     workspaces: projectScope.workspaces,
     graphOff: wideTabs.graphOff,
+    builderOff: wideTabs.builderOff,
     remote: async () => (await projectScope.focused()).kind === 'remote',
     questionRead: questions.read,
     now: ports.now
@@ -57,6 +59,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
+  const builder = startBuilder(orca, { client: connection.client, current: connection.current, workspaces: projectScope.workspaces, platform: ports.platform })
   // One reader per conversation stream, shared by the launch tracker and chat.
   const streams = createConversationStreams({ client: connection.client, log: (message) => orca.log(message) })
   const launch = startLaunch(orca, {
@@ -67,13 +70,15 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     focused: projectScope.focused,
     onHint: (listener) => connection.onHint((hint) => listener(hint.types)),
     now: ports.now,
-    timers: ports.timers
+    timers: ports.timers,
+    builderOff: wideTabs.builderOff
   })
   const workflows = startWorkflowsSection(orca, {
     client: connection.client,
     current: connection.current,
     focused: projectScope.focused,
-    lists: launch.lists
+    lists: launch.lists,
+    builderOff: wideTabs.builderOff
   })
   const chatList = startChatList(orca, { client: connection.client, current: connection.current })
   const chatThread = startChatThread(orca, { client: connection.client, current: connection.current })
@@ -87,6 +92,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()
+    builder.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()

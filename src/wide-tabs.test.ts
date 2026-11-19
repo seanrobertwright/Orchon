@@ -204,6 +204,20 @@ describe('run detail says why Open graph is off', () => {
     assert.equal(await graphOff(runScene(changedRun({ codebase_id: null })), 'ws-web'), 'This run has no Archon project, so it has no graph.')
   })
 
+  test("Open workflow in builder is off with the same reasons, a run with no project aside, and the answer names the run's project", async () => {
+    const builderOff = async (stage: Scene, focused: string | null): Promise<[unknown, unknown]> => {
+      const { worker } = await stage.mount(orcaWith(focused))
+      const answer = (await worker.request('run.read', { runId: RUN_ID })) as RunDetailAnswer
+      await worker.deactivate()
+      return [Object.hasOwn(answer, 'builderOff') ? answer.builderOff : 'left out', Object.hasOwn(answer, 'codebaseId') ? answer.codebaseId : 'left out']
+    }
+    const recordedProject = 'cd8c6f17a56a08ff6e8c24143751f5c4'
+    assert.deepEqual(await builderOff(runScene(), 'ws-web'), ['left out', recordedProject])
+    assert.deepEqual(await builderOff(runScene(), null), ['No workspace is focused in Orca. Wide tabs open in a workspace on this computer.', recordedProject])
+    assert.deepEqual(await builderOff(runScene(), 'ws-ssh'), ['This workspace is on another host. Orchon works with the Archon on this computer.', recordedProject])
+    assert.deepEqual(await builderOff(runScene(changedRun({ codebase_id: null })), 'ws-web'), ['left out', 'left out'])
+  })
+
   test('after a failed write in that workspace', async () => {
     const stage = runScene()
     stage.disk.failWrites = true
