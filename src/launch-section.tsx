@@ -7,6 +7,8 @@ import {
   atom,
   Button,
   Callout,
+  Collapsible,
+  Field,
   IconButton,
   Input,
   plugin,
@@ -24,8 +26,12 @@ import {
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
+import { BINDING_TEXT_CAP, BINDINGS_CAP, bindingsProblem, missingRequired, missingRequiredText, valueOf, type Binding } from './launch-form'
 import {
+  COULD_NOT_START_TEXT,
   FILTER_FROM,
+  INPUT_VALUE_CAP,
+  isNotStarted,
   LOOKING_TEXT,
   MESSAGE_CAP,
   MESSAGE_TOO_LONG,
@@ -33,11 +39,14 @@ import {
   QUEUED_TEXT,
   RECORDS_CAP,
   SEARCH_CAP,
+  tooManyInputsText,
   WORKFLOWS_CAP,
   type LaunchAnswer,
   type LaunchEdit,
+  type LaunchInput,
   type LaunchNotice,
   type LaunchRequest,
+  type LaunchStart,
   type LaunchView,
   type NoticesAnswer,
   type StartingView,
@@ -55,6 +64,14 @@ const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
 /** The message as typed, or null to show the worker's draft. */
 const typed = atom<string | null>(null)
+/** The input values as typed, or null to show the worker's draft. */
+const typedValues = atom<Record<string, string> | null>(null)
+/** A row of model bindings with a key of its own, so a removed row takes no other row's place. */
+type BindingRow = Binding & { key: string }
+/** The binding rows as drawn: the worker's draft until one is changed here. */
+const bindingRows = atom<BindingRow[]>([])
+/** Whether the rows were changed here since the worker's draft was last taken. */
+const bindingsTyped = atom<boolean>(false)
 const search = atom<string>('')
 const filter = atom<string>('')
 /** A Start sent and not answered: a second press is ignored. */
@@ -95,6 +112,25 @@ let hooks: LaunchSectionHooks | undefined
 let reload = true
 let draftTimer: unknown
 let searchTimer: unknown
+/** The draft's changes waiting for the pause in typing. */
+let pendingEdit: LaunchEdit = {}
+let nextBindingKey = 1
+
+const keyed = (bindings: readonly Binding[]): BindingRow[] =>
+  bindings.map((binding) => {
+    nextBindingKey += 1
+    return { ...binding, key: `binding-${String(nextBindingKey)}` }
+  })
+
+const sameBindings = (rows: readonly Binding[], bindings: readonly Binding[]): boolean =>
+  rows.length === bindings.length && rows.every((row, index) => row.name === bindings[index]?.name && row.model === bindings[index]?.model)
+
+/** What was typed goes: the worker's draft is shown again, as after a changed workflow or "Edit and try again". */
+function forgetTyped(): void {
+  set(typed, null)
+  set(typedValues, null)
+  set(bindingsTyped, false)
+}
 
 /** A search or filter typed: the section is read again after a pause, so a keystroke is not a request. */
 function searchAfterPause(): void {
@@ -121,6 +157,9 @@ function openFound(view: LaunchView): void {
 function apply(answer: LaunchAnswer | null): void {
   if (answer === null) return
   hooks?.keep(answer.connection)
+  const launch = answer.launch
+  // The worker's rows are taken while none was changed here, with keys only when they differ.
+  if (launch.kind === 'ready' && !read(bindingsTyped) && !sameBindings(read(bindingRows), launch.bindings)) set(bindingRows, keyed(launch.bindings))
   set(loaded, answer.launch)
   set(notices, answer.notices)
   set(problem, null)
@@ -180,11 +219,12 @@ export function startLaunchSection(ctx: PanelContext, given: LaunchSectionHooks)
   ctx.subscriptions.push({
     dispose() {
       view.stop()
-      if (draftTimer !== undefined) frameTimers.clear(draftTimer)
+      dropPendingEdit()
       if (searchTimer !== undefined) frameTimers.clear(searchTimer)
-      draftTimer = undefined
       searchTimer = undefined
       if (fetcher === view) fetcher = undefined
+      // A panel that closes on the Launch section tells the worker; one Orca closed with no word runs out its lease.
+      if (given.showing()) hideLaunch()
     }
   })
   if (read(pending) === true) readNotices()
@@ -194,6 +234,14 @@ export function startLaunchSection(ctx: PanelContext, given: LaunchSectionHooks)
 export function openLaunch(): void {
   reload = true
   fetcher?.restart()
+}
+
+/** The section stopped showing: a launch that fails now raises a desktop notification. */
+export function hideLaunch(): void {
+  plugin.request('launch.hide').then(
+    () => {},
+    () => {}
+  )
 }
 
 /** Reads the section again at once, as when the project scope changed. */
@@ -208,14 +256,14 @@ export function launchHasData(): boolean {
 
 /**
  * Re-run: asks the worker to fill the draft from the run, which it reads itself, and keeps the
- * answer, so the section shows the filled form. It rejects with the worker's refusal. A message
- * being typed is dropped: the run's message replaces it.
+ * answer, so the section shows the filled form. It rejects with the worker's refusal. What was
+ * typed is dropped, an edit waiting out its pause included: the run's message, inputs and
+ * bindings replace it.
  */
 export async function rerunLaunch(runId: string): Promise<void> {
   const answer = await plugin.request('launch.rerun', { runId })
-  if (draftTimer !== undefined) frameTimers.clear(draftTimer)
-  draftTimer = undefined
-  set(typed, null)
+  dropPendingEdit()
+  forgetTyped()
   apply(answer)
 }
 
@@ -224,42 +272,89 @@ export function clearLaunch(): void {
   set(loaded, null)
   set(problem, null)
   set(notices, [])
-  set(typed, null)
+  forgetTyped()
+  set(bindingRows, [])
 }
 
 function edit(change: LaunchEdit): void {
   plugin.request('launch.edit', change).then(apply, () => {})
 }
 
-/** The message as typed goes to the worker's draft after a pause, so a keystroke is not a request. */
-function typeMessage(text: string): void {
-  set(typed, text)
+/** A change typed goes to the worker's draft after a pause, so a keystroke is not a request. */
+function editAfterPause(change: LaunchEdit): void {
+  pendingEdit = { ...pendingEdit, ...change }
   if (draftTimer !== undefined) frameTimers.clear(draftTimer)
   draftTimer = frameTimers.set(() => {
     draftTimer = undefined
-    edit({ message: text })
+    const sending = pendingEdit
+    pendingEdit = {}
+    edit(sending)
   }, DRAFT_PAUSE_MS)
+}
+
+/** Cancels the edit waiting out its pause, and gives back what it held. */
+function dropPendingEdit(): LaunchEdit {
+  if (draftTimer !== undefined) frameTimers.clear(draftTimer)
+  draftTimer = undefined
+  const dropped = pendingEdit
+  pendingEdit = {}
+  return dropped
+}
+
+/** A choice of project or workflow: what was waiting goes with it, and another workflow's inputs and bindings are cleared. */
+function choose(change: LaunchEdit): void {
+  const { message } = dropPendingEdit()
+  set(typedValues, null)
+  set(bindingsTyped, false)
+  edit(message === undefined ? change : { ...change, message })
+}
+
+function typeMessage(text: string): void {
+  set(typed, text)
+  editAfterPause({ message: text })
 }
 
 function messageOf(view: Ready): string {
   return read(typed) ?? view.message
 }
 
+function valuesOf(view: Ready): Record<string, string> {
+  return read(typedValues) ?? view.values
+}
+
+function typeValue(view: Ready, name: string, text: string): void {
+  const values = { ...valuesOf(view), [name]: text }
+  set(typedValues, values)
+  editAfterPause({ inputs: values })
+}
+
+const bindingsOf = (rows: readonly BindingRow[]): Binding[] => rows.map(({ name, model }) => ({ name, model }))
+
+function changeBindings(rows: BindingRow[]): void {
+  set(bindingRows, rows)
+  set(bindingsTyped, true)
+  editAfterPause({ bindings: bindingsOf(rows) })
+}
+
 /** Start: sent once. A press while one is posted is ignored. */
 function start(view: Ready, message: string): void {
   if (read(posting) || view.codebaseId === null || view.workflow === null) return
-  if (draftTimer !== undefined) frameTimers.clear(draftTimer)
-  draftTimer = undefined
+  dropPendingEdit()
   set(posting, true)
+  const input: LaunchStart = { codebaseId: view.codebaseId, workflow: view.workflow, message }
+  const values = valuesOf(view)
+  if (Object.keys(values).length > 0) input.inputs = values
+  const bindings = bindingsOf(read(bindingRows))
+  if (bindings.length > 0) input.bindings = bindings
   plugin
-    .request('launch.start', { codebaseId: view.codebaseId, workflow: view.workflow, message })
+    .request('launch.start', input)
     .then(
       (answer) => {
-        apply(answer)
         if (answer.launch.kind === 'ready' && answer.launch.starting !== undefined) {
-          set(typed, null)
+          forgetTyped()
           set(pending, true)
         }
+        apply(answer)
       },
       () => report("Orchon's background process did not answer, so it is not known whether the run started. Check the Runs section.", false)
     )
@@ -268,6 +363,14 @@ function start(view: Ready, message: string): void {
 
 function another(): void {
   plugin.request('launch.another').then(apply, () => {})
+}
+
+/** "Edit and try again": the form comes back filled in from the launch record. */
+function retry(launchId: string): void {
+  plugin.request('launch.retry', { launchId }).then((answer) => {
+    forgetTyped()
+    apply(answer)
+  }, () => {})
 }
 
 function keepWaiting(launchId: string): void {
@@ -281,8 +384,87 @@ function startReason(view: Ready, message: string, writable: boolean): string | 
   if (view.workflow === null) return 'Choose a workflow.'
   if (message.trim() === '') return NO_MESSAGE
   if (message.length > MESSAGE_CAP) return MESSAGE_TOO_LONG
+  if (view.fields.kind === 'too-many') return tooManyInputsText(view.fields.declared)
+  const missing = missingRequired(view.fields.rows, valuesOf(view))
+  if (missing.length > 0) return missingRequiredText(missing)
+  const bindings = bindingsProblem(read(bindingRows))
+  if (bindings !== null) return bindings
   if (read(posting) || view.posting) return 'Starting…'
   return null
+}
+
+function inputField(view: Ready, input: LaunchInput): OrcaNode {
+  const values = valuesOf(view)
+  const value = valueOf(values, input.name)
+  return (
+    <Field key={input.name} label={input.name} required={input.required} description={input.description === '' ? undefined : input.description}>
+      <Input
+        label={input.name}
+        labelHidden
+        value={value}
+        placeholder={input.placeholder === '' ? undefined : input.placeholder}
+        maxLength={INPUT_VALUE_CAP}
+        onChange={(text) => typeValue(view, input.name, text)}
+      />
+    </Field>
+  )
+}
+
+/** The chosen workflow's inputs: the required ones, then the optional ones in a collapsed group. */
+function inputsPart(view: Ready): OrcaNode {
+  if (view.fields.kind === 'too-many') {
+    return (
+      <Text muted size="sm">
+        {tooManyInputsText(view.fields.declared)}
+      </Text>
+    )
+  }
+  const required = view.fields.rows.filter((input) => input.required)
+  const optional = view.fields.rows.filter((input) => !input.required)
+  return (
+    <Stack gap="xs">
+      {required.map((input) => inputField(view, input))}
+      {optional.length === 0 ? null : (
+        <Collapsible title={`Optional inputs (${String(optional.length)})`} defaultOpen={false}>
+          <Stack gap="xs">{optional.map((input) => inputField(view, input))}</Stack>
+        </Collapsible>
+      )}
+    </Stack>
+  )
+}
+
+/** The "Model bindings" group: up to `BINDINGS_CAP` rows of a name and a model. */
+function bindingsPart(): OrcaNode {
+  const rows = read(bindingRows)
+  const update = (key: string, change: Partial<Binding>): void => changeBindings(read(bindingRows).map((row) => (row.key === key ? { ...row, ...change } : row)))
+  return (
+    <Collapsible title="Model bindings" description={rows.length === 0 ? 'As authored' : plural(rows.length, 'binding', 'bindings')} defaultOpen={false}>
+      <Stack gap="xs">
+        {rows.map((row, index) => {
+          const number = String(index + 1)
+          return (
+            <Row key={row.key} gap="xs" align="end">
+              <Input label={`Binding ${number} name`} placeholder="small, medium, large or @alias" value={row.name} maxLength={BINDING_TEXT_CAP} onChange={(name) => update(row.key, { name })} />
+              <Input label={`Binding ${number} model`} value={row.model} maxLength={BINDING_TEXT_CAP} onChange={(model) => update(row.key, { model })} />
+              <IconButton
+                icon="close"
+                label={row.name.trim() === '' ? `Remove binding ${number}` : `Remove binding ${number}: ${row.name.trim()}`}
+                onPress={() => changeBindings(read(bindingRows).filter((entry) => entry.key !== row.key))}
+              />
+            </Row>
+          )
+        })}
+        <Row gap="sm" align="center" wrap>
+          <Button size="sm" variant="outline" disabled={rows.length >= BINDINGS_CAP} onPress={() => changeBindings([...read(bindingRows), ...keyed([{ name: '', model: '' }])])}>
+            Add binding
+          </Button>
+          {rows.length >= BINDINGS_CAP ? (
+            <Text muted size="sm">{`At most ${String(BINDINGS_CAP)} bindings.`}</Text>
+          ) : null}
+        </Row>
+      </Stack>
+    </Collapsible>
+  )
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -322,7 +504,7 @@ function workflowPart(view: Ready): OrcaNode {
         placeholder="Choose a workflow"
         value={view.workflow ?? undefined}
         options={options}
-        onChange={(value) => edit({ workflow: value })}
+        onChange={(value) => choose({ workflow: value })}
       />
       {view.description === '' ? null : (
         <Text muted size="sm">
@@ -374,7 +556,7 @@ function form(view: Ready, writable: boolean): OrcaNode {
         placeholder="Choose a project"
         value={view.codebaseId ?? undefined}
         options={projects.rows.map((project) => ({ value: project.id, label: project.name }))}
-        onChange={(value) => edit({ codebaseId: value })}
+        onChange={(value) => choose({ codebaseId: value })}
       />
       {projects.more > 0 ? (
         <Text muted size="sm">
@@ -388,6 +570,8 @@ function form(view: Ready, writable: boolean): OrcaNode {
       ) : null}
       {workflowPart(view)}
       <Textarea label="Message" rows={6} maxLength={MESSAGE_CAP} value={message} onChange={typeMessage} />
+      {inputsPart(view)}
+      {bindingsPart()}
       <Text muted size="sm">
         To attach a file, save it in the project and name its path in the message.
       </Text>
@@ -410,7 +594,29 @@ function form(view: Ready, writable: boolean): OrcaNode {
   )
 }
 
+/** A launch Archon did not start: its reason, "Edit and try again" and "Launch another". */
+function notStartedView(starting: StartingView): OrcaNode {
+  return (
+    <Stack gap="sm">
+      <Text weight="semibold">{starting.workflow}</Text>
+      <Text muted>{starting.project}</Text>
+      <Callout tone="danger" title={starting.state === 'failed' ? COULD_NOT_START_TEXT : 'The run did not start'}>
+        <Text>{starting.reason ?? ''}</Text>
+      </Callout>
+      <Row gap="sm" wrap>
+        <Button size="sm" onPress={() => retry(starting.launchId)}>
+          Edit and try again
+        </Button>
+        <Button size="sm" variant="outline" onPress={another}>
+          Launch another
+        </Button>
+      </Row>
+    </Stack>
+  )
+}
+
 function startingView(starting: StartingView): OrcaNode {
+  if (isNotStarted(starting.state)) return notStartedView(starting)
   let line: OrcaNode
   if (starting.state === 'found') line = <Text>The run has started.</Text>
   else if (starting.late) line = <Text>Archon has not shown the run after a minute.</Text>

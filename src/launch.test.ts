@@ -274,7 +274,7 @@ describe('Start', () => {
     const stage = launchScene(release)
     const mounted = await stage.mount(orcaWith('ws-local'))
     await assert.rejects(press(mounted, { message: 'x'.repeat(16_001) }))
-    await assert.rejects(press(mounted, { inputs: { a: 'b' } }))
+    await assert.rejects(press(mounted, { config: { a: 'b' } }))
     assert.deepEqual(writes(stage), [])
     await mounted.worker.deactivate()
   })
@@ -465,6 +465,478 @@ describe('the workflow list', () => {
       ['p-240', 'p-241', 'p-242', 'p-243', 'p-244', 'p-245', 'p-246', 'p-247', 'p-248', 'p-249']
     )
     assert.equal(searched.projects.more, 0)
+    await mounted.worker.deactivate()
+  })
+})
+
+describe('declared inputs', () => {
+  const release: Release = '0.12.1'
+  const id = RECORDED_ID[release]
+  const INPUTS = 'orchon-recorder-inputs'
+
+  async function choose(mounted: MountedScene, workflow: string): Promise<Extract<LaunchView, { kind: 'ready' }>> {
+    await read(mounted, { project: id, reload: true })
+    return ready(((await mounted.worker.request('launch.edit', { workflow })) as LaunchAnswer).launch)
+  }
+
+  test('the chosen workflow brings its declared inputs in declared order, with the default as placeholder', async () => {
+    const stage = launchScene(release)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    assert.deepEqual((await choose(mounted, INPUTS)).fields, { kind: 'ready', rows: [{ name: 'item', required: true, description: 'Any text.', placeholder: '' }] })
+    const queue = (await choose(mounted, 'archon-build-queue')).fields
+    if (queue.kind !== 'ready') throw new Error(queue.kind)
+    // Declared order, read off the recorded workflow by hand.
+    assert.deepEqual(queue.rows.map((row) => row.name), ['repo_host', 'repo_path', 'order', 'round_limit', 'mode', 'number', 'replay', 'as_of'])
+    assert.deepEqual(queue.rows[2], {
+      name: 'order',
+      required: false,
+      description: 'Pickup order, intake\'s format: a JSON array of "<key> <asc|desc>" with keys urgency, importance, size, complexity and created.',
+      placeholder: '["urgency desc","importance desc","size asc","created asc"]'
+    })
+    assert.equal(ready((await read(mounted)).launch).fields.kind, 'ready')
+    await mounted.worker.deactivate()
+  })
+
+  test('a default that is not a string shows as its JSON text, and a workflow declaring more than 50 inputs cannot be launched', async () => {
+    const stage = launchScene(release)
+    const page = recorded(release, 'workflows')
+    if (page.kind !== 'json') throw new Error('The recorded workflows are not JSON.')
+    const many = Object.fromEntries(Array.from({ length: 51 }, (_, index) => [`in_${String(index)}`, { default: index }]))
+    const rows = (field(page.value, 'workflows') as Record<string, unknown>[]).map((row) => {
+      const workflow = field(row, 'workflow') as Record<string, unknown>
+      return workflow['name'] === INPUTS ? { ...row, workflow: { ...workflow, inputs: { item: { default: { a: [1] } } } } } : workflow['name'] === ECHO ? { ...row, workflow: { ...workflow, inputs: many } } : row
+    })
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), json({ ...(page.value as Record<string, unknown>), workflows: rows }))
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    assert.deepEqual((await choose(mounted, INPUTS)).fields, { kind: 'ready', rows: [{ name: 'item', required: false, description: '', placeholder: '{"a":[1]}' }] })
+    assert.deepEqual((await choose(mounted, ECHO)).fields, { kind: 'too-many', declared: 51 })
+    const refused = ready(((await mounted.worker.request('launch.start', { codebaseId: id, workflow: ECHO, message: 'Go.' })) as LaunchAnswer).launch)
+    assert.equal(refused.error, 'This workflow declares 51 inputs, more than the 50 Orchon can fill in. Launch it from Archon.')
+    assert.deepEqual(writes(stage), [])
+    await mounted.worker.deactivate()
+  })
+})
+
+describe('input values and model bindings', () => {
+  const release: Release = '0.12.1'
+  const id = RECORDED_ID[release]
+  const PLAN = 'archon-plan'
+  const press = (mounted: MountedScene, fields: Record<string, unknown>): Promise<LaunchAnswer> =>
+    mounted.worker.request('launch.start', { codebaseId: id, workflow: PLAN, message: 'Plan it.', ...fields }) as Promise<LaunchAnswer>
+  const edit = async (mounted: MountedScene, change: Record<string, unknown>): Promise<Extract<LaunchView, { kind: 'ready' }>> =>
+    ready(((await mounted.worker.request('launch.edit', change)) as LaunchAnswer).launch)
+
+  /** A scene whose launch of archon-plan Archon accepts, as it accepted the recorded launch. */
+  function planScene(): Scene {
+    const stage = launchScene(release)
+    replayAccepted(stage, release)
+    stage.archon.answer(`${DEFAULT}/api/workflows/${PLAN}/run`, recorded(release, 'launch-accepted', exchange(release, 'launch-accepted', 'POST', `/api/workflows/${ECHO}/run`)))
+    stage.archon.answer(runsUrl(id), recorded(release, 'dashboard-runs-empty', 0))
+    return stage
+  }
+
+  test('the draft keeps the values and bindings typed, and changing the workflow clears both', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: id, reload: true })
+    await edit(mounted, { workflow: PLAN })
+    const typed = await edit(mounted, { inputs: { work: 'Ship it' }, bindings: [{ name: 'small', model: 'haiku' }] })
+    assert.deepEqual([typed.values, typed.bindings], [{ work: 'Ship it' }, [{ name: 'small', model: 'haiku' }]])
+    const changed = await edit(mounted, { workflow: ECHO })
+    assert.deepEqual([changed.values, changed.bindings], [{}, []])
+    await mounted.worker.deactivate()
+  })
+
+  test('Start sends only the filled inputs, as typed, and the bindings as tiers and aliases', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: id, reload: true })
+    const answer = await press(mounted, {
+      inputs: { work: '  Ship it  ', report: '   ' },
+      bindings: [
+        { name: 'large', model: 'opus' },
+        { name: '@fast', model: 'haiku' }
+      ]
+    })
+    assert.equal(ready(answer.launch).error, undefined)
+    const posted = writes(stage).find((call) => call.path === `/api/workflows/${PLAN}/run`)
+    assert.deepEqual(posted?.body, {
+      conversationId: String(field(recordedRequest(release, 'launch-accepted', exchange(release, 'launch-accepted', 'POST', `/api/workflows/${ECHO}/run`)), 'conversationId')),
+      message: 'Plan it.',
+      inputs: { work: '  Ship it  ' },
+      tiers: { large: 'opus' },
+      aliases: { '@fast': 'haiku' }
+    })
+    await mounted.worker.deactivate()
+  })
+
+  test('Start is refused, with nothing sent, for an empty required input, an undeclared input or a binding Archon would refuse', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: id, reload: true })
+    const refusal = async (fields: Record<string, unknown>): Promise<string | undefined> => ready((await press(mounted, fields)).launch).error
+    assert.equal(
+      await refusal({ workflow: 'orchon-recorder-inputs', inputs: { item: '  ' } }),
+      'Fill in the required input: item.'
+    )
+    assert.equal(await refusal({ inputs: { work: 'x', nope: 'y' } }), 'archon-plan does not declare the input nope. Refresh the launcher and try again.')
+    assert.equal(await refusal({ bindings: [{ name: 'tiny', model: 'haiku' }] }), 'A binding names a tier (small, medium or large) or an alias starting with @: tiny is neither.')
+    assert.equal(await refusal({ bindings: [{ name: 'small', model: '  ' }] }), 'Give the binding small a model.')
+    assert.equal(
+      await refusal({ bindings: [{ name: 'small', model: 'a' }, { name: 'small', model: 'b' }] }),
+      'Each binding names a different tier or alias: small is named twice.'
+    )
+    assert.deepEqual(writes(stage), [])
+    await mounted.worker.deactivate()
+  })
+
+  test('refuses an input value past 16,000 characters or not text, and more than 10 bindings', async () => {
+    const stage = planScene()
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await assert.rejects(press(mounted, { inputs: { work: 'x'.repeat(16_001) } }))
+    await assert.rejects(press(mounted, { inputs: { work: 3 } }))
+    await assert.rejects(press(mounted, { bindings: Array.from({ length: 11 }, (_, index) => ({ name: `@a${String(index)}`, model: 'm' })) }))
+    await assert.rejects(mounted.worker.request('launch.edit', { inputs: { work: 'x'.repeat(16_001) } }))
+    assert.deepEqual(writes(stage), [])
+    await mounted.worker.deactivate()
+  })
+})
+
+/** The raw frames a recorded launch's conversation stream carried under one reader's label, in order. */
+function framesOf(release: Release, scenario: string, label: string): string[] {
+  return logOf(release, scenario)
+    .filter((entry) => entry['kind'] === 'frame' && entry['label'] === label)
+    .map((entry) => `${String(entry['raw'])}\n\n`)
+}
+
+/** The recorded run row a launch's search found, as a page of the project's runs. */
+function foundPage(release: Release, scenario: string): ReturnType<typeof json> {
+  const row = logOf(release, scenario).find((entry) => entry['kind'] === 'run-found')?.['run']
+  const page = recorded(release, 'dashboard-runs', 2)
+  if (row === undefined || page.kind !== 'json') throw new Error(`fixtures/${release}/${scenario}.json found no run.`)
+  return json({ ...(page.value as Record<string, unknown>), runs: [row] })
+}
+
+/** The recorded workflow list with some declared inputs changed, as a list read before the workflow changed. */
+function staleList(release: Release, inputs: Record<string, Record<string, unknown>>): ReturnType<typeof json> {
+  const page = recorded(release, 'workflows')
+  if (page.kind !== 'json') throw new Error('The recorded workflows are not JSON.')
+  const rows = (field(page.value, 'workflows') as Record<string, unknown>[]).map((row) => {
+    const workflow = field(row, 'workflow') as Record<string, unknown>
+    const name = String(workflow['name'])
+    return Object.hasOwn(inputs, name) ? { ...row, workflow: { ...workflow, inputs: inputs[name] } } : row
+  })
+  return json({ ...(page.value as Record<string, unknown>), workflows: rows })
+}
+
+/** Scripts one recorded launch: its conversation, its run post, a held-open conversation stream and an empty runs list. */
+function replayLaunch(stage: Scene, release: Release, scenario: string, workflow: string) {
+  const created = exchange(release, scenario, 'POST', '/api/conversations')
+  const run = exchange(release, scenario, 'POST', `/api/workflows/${workflow}/run`)
+  const body = recordedRequest(release, scenario, run) as Record<string, unknown>
+  const conversationId = String(body['conversationId'])
+  const stream = openStream()
+  let streamBeforePost: boolean | undefined
+  stage.archon.answer(CONVERSATIONS, recorded(release, scenario, created))
+  stage.archon.answer(`${DEFAULT}/api/stream/${conversationId}`, stream)
+  stage.archon.answer(`${DEFAULT}/api/workflows/${workflow}/run`, () => {
+    streamBeforePost = stage.archon.streams.some((call) => call.url === `${DEFAULT}/api/stream/${conversationId}`)
+    return recorded(release, scenario, run)
+  })
+  stage.archon.answer(runsUrl(RECORDED_ID[release]), recorded(release, 'dashboard-runs-empty', 0))
+  return {
+    body,
+    conversationId,
+    stream,
+    streamBeforePost: () => streamBeforePost,
+    messagesUrl: `${CONVERSATIONS}/${conversationId}/messages?limit=10`,
+    /** The recorded saved messages of the conversation. */
+    messages: () => recorded(release, scenario, exchange(release, scenario, 'GET', new RegExp(`^/api/conversations/${conversationId}/messages`)))
+  }
+}
+
+const pressWith = (mounted: MountedScene, release: Release, body: Record<string, unknown>, workflow: string): Promise<LaunchAnswer> =>
+  mounted.worker.request('launch.start', {
+    codebaseId: RECORDED_ID[release],
+    workflow,
+    message: String(body['message']),
+    ...(body['inputs'] === undefined ? {} : { inputs: body['inputs'] as Record<string, string> })
+  }) as Promise<LaunchAnswer>
+
+describe("the launch conversation's stream, replayed from the recordings", () => {
+  const INPUTS = 'orchon-recorder-inputs'
+  const lookCount = (stage: Scene, release: Release): number => stage.archon.calls.filter((call) => call.url === runsUrl(RECORDED_ID[release])).length
+
+  for (const release of RELEASES) {
+    test(`${release}: refused after a 200, the reason is the last text frame before the unlock`, async () => {
+      const stage = launchScene(release)
+      // The list was read while the workflow still declared the input Archon now refuses.
+      stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+      const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      const answer = await pressWith(mounted, release, launch.body, INPUTS)
+      assert.equal(launch.streamBeforePost(), true)
+      assert.deepEqual(writes(stage)[1]?.body, launch.body)
+      assert.equal(ready(answer.launch).starting?.state, 'started')
+      for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+      await stage.clock.advance(100)
+      const starting = ready((await read(mounted)).launch).starting
+      assert.equal(starting?.state, 'refused')
+      assert.equal(starting?.reason, "Cannot run workflow 'orchon-recorder-inputs': it does not declare input 'not_declared'. Declared inputs: item.")
+      // Given up: it looks no more and lets go of the stream.
+      const looks = lookCount(stage, release)
+      await stage.clock.advance(60_000)
+      assert.equal(lookCount(stage, release), looks)
+      assert.equal(launch.stream.closed, true)
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: accepted, a workflow_dispatch frame starts the search at once, and the stream is let go once the run is found`, async () => {
+      const stage = launchScene(release)
+      const launch = replayLaunch(stage, release, 'launch-accepted', ECHO)
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, ECHO)
+      assert.equal(launch.streamBeforePost(), true)
+      const frames = framesOf(release, 'launch-accepted', 'first')
+      const dispatch = frames.findIndex((frame) => frame.includes('"type":"workflow_dispatch"'))
+      for (const frame of frames.slice(0, dispatch)) launch.stream.send(frame)
+      await stage.clock.advance(100)
+      assert.equal(lookCount(stage, release), 0)
+      stage.archon.answer(runsUrl(RECORDED_ID[release]), foundPage(release, 'launch-accepted'))
+      launch.stream.send(frames[dispatch] ?? '')
+      await stage.clock.advance(100)
+      assert.equal(lookCount(stage, release), 1)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'found')
+      assert.equal(launch.stream.closed, true)
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: accepted with an input name the workflow does not declare, an unlock after the dispatch is a start`, async () => {
+      const stage = launchScene(release)
+      stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [ECHO]: { not_declared: {} } }))
+      const launch = replayLaunch(stage, release, 'launch-undeclared-no-inputs-block', ECHO)
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, ECHO)
+      assert.deepEqual(writes(stage)[1]?.body, launch.body)
+      const frames = framesOf(release, 'launch-undeclared-no-inputs-block', 'first')
+      const unlock = frames.findIndex((frame) => frame.includes('"locked":false'))
+      for (const frame of frames.slice(0, unlock + 1)) launch.stream.send(frame)
+      await stage.clock.advance(100)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'started')
+      stage.archon.answer(runsUrl(RECORDED_ID[release]), foundPage(release, 'launch-undeclared-no-inputs-block'))
+      await stage.clock.advance(2_000)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'found')
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: the lost stream is never opened again, and the saved messages tell a start on each miss`, async () => {
+      const stage = launchScene(release)
+      const launch = replayLaunch(stage, release, 'launch-accepted', ECHO)
+      stage.archon.answer(launch.messagesUrl, launch.messages())
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, ECHO)
+      // Archon's console took the stream: the worker's ends with no frame, as recorded.
+      launch.stream.send(framesOf(release, 'launch-accepted', 'first')[0] ?? '')
+      launch.stream.end()
+      await stage.clock.advance(6_000)
+      const reads = stage.archon.calls.filter((call) => call.url === launch.messagesUrl).length
+      assert.equal(reads, lookCount(stage, release))
+      assert.ok(reads >= 3)
+      assert.equal(stage.archon.streams.filter((call) => call.url.endsWith(launch.conversationId)).length, 1)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'started')
+      stage.archon.answer(runsUrl(RECORDED_ID[release]), foundPage(release, 'launch-accepted'))
+      await stage.clock.advance(2_000)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'found')
+      await mounted.worker.deactivate()
+    })
+
+    test(`${release}: with the stream lost, an assistant message seen on two reads in a row is the refusal, its "Starting workflow" line dropped`, async () => {
+      const stage = launchScene(release)
+      stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: {} } }))
+      const launch = replayLaunch(stage, release, 'launch-missing-required', INPUTS)
+      stage.archon.answer(launch.messagesUrl, launch.messages())
+      const mounted = await stage.mount(orcaWith('ws-local'))
+      await read(mounted, { project: RECORDED_ID[release], reload: true })
+      await pressWith(mounted, release, launch.body, INPUTS)
+      launch.stream.end()
+      await stage.clock.advance(2_000)
+      assert.equal(ready((await read(mounted)).launch).starting?.state, 'started')
+      await stage.clock.advance(2_000)
+      const starting = ready((await read(mounted)).launch).starting
+      assert.equal(starting?.state, 'refused')
+      assert.ok(starting?.reason?.startsWith("This workflow requires input 'item', and none was supplied."), starting?.reason)
+      await mounted.worker.deactivate()
+    })
+  }
+
+  test('an error frame fails the launch with its text, cut at 2,000 characters', async () => {
+    const release: Release = '0.14.0'
+    const stage = launchScene(release)
+    const launch = replayLaunch(stage, release, 'launch-accepted', ECHO)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    await pressWith(mounted, release, launch.body, ECHO)
+    const text = `Failed to process message: ${'x'.repeat(2_500)}`
+    launch.stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: true })}\n\n`)
+    launch.stream.send(`data: ${JSON.stringify({ type: 'error', message: text, classification: 'transient' })}\n\n`)
+    launch.stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: false })}\n\n`)
+    await stage.clock.advance(100)
+    const starting = ready((await read(mounted)).launch).starting
+    assert.equal(starting?.state, 'failed')
+    assert.equal(starting?.reason, text.slice(0, 2_000))
+    await mounted.worker.deactivate()
+  })
+
+  test('holds at most 20 launch streams open, and none once the worker stops', async () => {
+    const release: Release = '0.12.1'
+    const stage = launchScene(release)
+    replayAccepted(stage, release)
+    let made = 0
+    stage.archon.answer(CONVERSATIONS, () => {
+      made += 1
+      return json({ conversationId: `web-launch-${String(made)}`, id: `db-${String(made)}` })
+    })
+    const streams: ReturnType<typeof openStream>[] = []
+    for (let index = 1; index <= 22; index += 1) {
+      const stream = openStream()
+      streams.push(stream)
+      stage.archon.answer(`${DEFAULT}/api/stream/web-launch-${String(index)}`, stream)
+    }
+    stage.archon.answer(runsUrl(RECORDED_ID[release]), recorded(release, 'dashboard-runs-empty', 0))
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    for (let count = 0; count < 22; count += 1) {
+      await mounted.worker.request('launch.another')
+      await mounted.worker.request('launch.start', { codebaseId: RECORDED_ID[release], workflow: ECHO, message: `Run ${String(count)}.` })
+      await stage.clock.advance(10)
+    }
+    assert.equal(streams.filter((stream) => stream.opened && !stream.closed).length, 20)
+    await mounted.worker.deactivate()
+    await stage.clock.advance(10)
+    assert.equal(streams.filter((stream) => stream.opened && !stream.closed).length, 0)
+  })
+})
+
+describe('Edit and try again', () => {
+  test('brings the form back filled in from the launch record, bindings included', async () => {
+    const release: Release = '0.13.2'
+    const INPUTS = 'orchon-recorder-inputs'
+    const stage = launchScene(release)
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+    const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    const bindings = [{ name: 'small', model: 'haiku' }]
+    const started = ready(
+      ((await mounted.worker.request('launch.start', {
+        codebaseId: RECORDED_ID[release],
+        workflow: INPUTS,
+        message: String(launch.body['message']),
+        inputs: launch.body['inputs'] as Record<string, string>,
+        bindings
+      })) as LaunchAnswer).launch
+    )
+    // The form was emptied for the next launch.
+    assert.deepEqual([started.message, started.values, started.bindings], ['', {}, []])
+    for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+    await stage.clock.advance(100)
+    const refused = ready((await read(mounted)).launch).starting
+    assert.equal(refused?.state, 'refused')
+    const form = ready(((await mounted.worker.request('launch.retry', { launchId: refused?.launchId ?? '' })) as LaunchAnswer).launch)
+    assert.equal(form.starting, undefined)
+    assert.deepEqual(
+      [form.codebaseId, form.workflow, form.message, form.values, form.bindings],
+      [RECORDED_ID[release], INPUTS, launch.body['message'], launch.body['inputs'], bindings]
+    )
+    // Nothing is sent again by itself.
+    assert.equal(writes(stage).length, 2)
+    await assert.rejects(mounted.worker.request('launch.retry', { launchId: 'x'.repeat(65) }))
+    await mounted.worker.deactivate()
+  })
+})
+
+describe('a failed launch while the Launch section is not showing', () => {
+  const release: Release = '0.14.0'
+  const INPUTS = 'orchon-recorder-inputs'
+
+  /** A launch refused after a 200, with the section hidden (`hide`) or showing when Archon refuses it. */
+  async function refuseLaunch(hide: boolean, settings: MockHostOptions['settings'] = {}): Promise<{ stage: Scene; mounted: MountedScene }> {
+    const stage = launchScene(release)
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+    const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+    const mounted = await stage.mount({ ...orcaWith('ws-local'), settings })
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    await pressWith(mounted, release, launch.body, INPUTS)
+    if (hide) await mounted.worker.request('launch.hide')
+    for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+    await stage.clock.advance(10_000)
+    return { stage, mounted }
+  }
+
+  test('raises a desktop notification: the workflow name as title, "Could not start" and the project as body, never Archon\'s text', async () => {
+    const { mounted } = await refuseLaunch(true)
+    assert.deepEqual(mounted.host.callsOf('notifications.show'), [{ title: INPUTS, body: `Could not start · ${RECORDED_NAME}` }])
+    await mounted.worker.deactivate()
+  })
+
+  test('raises none while the section shows, or with the setting off', async () => {
+    const showing = await refuseLaunch(false)
+    assert.deepEqual(showing.mounted.host.callsOf('notifications.show'), [])
+    await showing.mounted.worker.deactivate()
+    const off = await refuseLaunch(true, { notifications: 'off' })
+    assert.deepEqual(off.mounted.host.callsOf('notifications.show'), [])
+    await off.mounted.worker.deactivate()
+  })
+
+  test('a section that stopped reading for a minute counts as not showing', async () => {
+    const stage = launchScene(release)
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+    const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    await pressWith(mounted, release, launch.body, INPUTS)
+    // The panel was closed with no word to the worker: its reads stop.
+    await stage.clock.advance(60_000)
+    for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+    await stage.clock.advance(10_000)
+    assert.equal(mounted.host.callsOf('notifications.show').length, 1)
+    await mounted.worker.deactivate()
+  })
+})
+
+describe('a burst of failed launches', () => {
+  test('folds into one notification with the count, as other bursts do', async () => {
+    const release: Release = '0.12.1'
+    const stage = launchScene(release)
+    replayAccepted(stage, release)
+    let made = 0
+    stage.archon.answer(CONVERSATIONS, () => {
+      made += 1
+      return json({ conversationId: `web-burst-${String(made)}`, id: `db-${String(made)}` })
+    })
+    const streams = Array.from({ length: 4 }, (_, index) => {
+      const stream = openStream()
+      stage.archon.answer(`${DEFAULT}/api/stream/web-burst-${String(index + 1)}`, stream)
+      return stream
+    })
+    stage.archon.answer(runsUrl(RECORDED_ID[release]), recorded(release, 'dashboard-runs-empty', 0))
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    for (let count = 0; count < 4; count += 1) {
+      await mounted.worker.request('launch.another')
+      await mounted.worker.request('launch.start', { codebaseId: RECORDED_ID[release], workflow: ECHO, message: `Run ${String(count)}.` })
+    }
+    await mounted.worker.request('launch.hide')
+    for (const stream of streams) {
+      stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: true })}\n\n`)
+      stream.send(`data: ${JSON.stringify({ type: 'conversation_lock', locked: false })}\n\n`)
+    }
+    await stage.clock.advance(10_000)
+    assert.deepEqual(mounted.host.callsOf('notifications.show'), [{ title: '4 launches could not start' }])
     await mounted.worker.deactivate()
   })
 })

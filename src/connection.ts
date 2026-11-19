@@ -16,7 +16,8 @@ import {
   DEFAULT_LEVEL,
   NOTIFICATIONS_KEY,
   parseNotificationSetting,
-  TEST_NOTIFICATION
+  TEST_NOTIFICATION,
+  type Notice
 } from './notifications'
 import type { NotificationsTestAnswer, NotificationsView } from './notifications-view'
 import { checkPaths } from './path-check'
@@ -357,6 +358,8 @@ export type StartedConnection = {
   showRunsSentence(): string
   /** The Notifications setting as last read. */
   notificationSetting(): NotificationsView
+  /** A launch Archon did not start: notified, in the batches and under the setting, like any other event. */
+  launchFailed(notice: Notice): void
   stop(): void
 }
 
@@ -548,6 +551,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       return showRunsSentence(view, countsFor(view))
     },
     notificationSetting: () => setting,
+    launchFailed: (notice) => notifications.launchFailed(notice),
     stop() {
       for (const subscription of subscriptions) subscription.dispose()
       connection.stop()

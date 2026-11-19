@@ -111,6 +111,39 @@ export default defineCheck({
     }),
     ...onLaunch
   },
+  'launcher, declared inputs': {
+    ...answeringLaunch({
+      launch: () => ({
+        ...webForm,
+        fields: {
+          kind: 'ready',
+          rows: [
+            { name: 'target', required: true, description: 'What to deliver.', placeholder: '' },
+            { name: 'branch', required: false, description: 'The branch to open from.', placeholder: 'main' }
+          ]
+        },
+        values: { target: 'the fix' },
+        bindings: [{ name: 'small', model: 'haiku' }]
+      })
+    }),
+    ...onLaunch
+  },
+  'launcher, refused after a 200': {
+    ...answeringLaunch({
+      launch: () => ({
+        ...webForm,
+        starting: {
+          launchId: 'launch-1',
+          workflow: 'deliver',
+          project: 'acme/web',
+          state: 'refused',
+          late: false,
+          reason: "This workflow requires input 'target', and none was supplied."
+        }
+      })
+    }),
+    ...onLaunch
+  },
   'launcher, unmatched project': { ...answeringLaunch({ launch: () => ({ ...webForm, codebaseId: null, workflows: { kind: 'none' }, workflow: null, description: '' }), scope: () => unmatchedGit }), ...onLaunch },
   workflows: { ...answeringWorkflows({ workflows: () => ({ ...webWorkflows, readFrom: 'C:/Projects/web' }) }), ...onWorkflows },
   chat: { ...answeringChats((request) => sampleChats(8, request)), ...onChat },

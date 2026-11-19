@@ -5,7 +5,7 @@ import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
-import { clearLaunch, launchHasData, launchNotices, launchSection, openLaunch, rerunLaunch, restartLaunch, startLaunchSection } from './launch-section'
+import { clearLaunch, hideLaunch, launchHasData, launchNotices, launchSection, openLaunch, rerunLaunch, restartLaunch, startLaunchSection } from './launch-section'
 import { liveOffLine } from './live-line'
 import { startNotificationsGroup } from './notifications-group'
 import { hintRunDetail, openRunDetail, startRunDetail } from './run-detail-section'
@@ -170,6 +170,7 @@ function show(next: SectionId): void {
   if (before === next) return
   // Opening the Launch section reads Archon's projects and the workflow list again.
   if (next === 'launch') openLaunch()
+  if (before === 'launch') hideLaunch()
   if (next === 'workflows') openWorkflows()
   if (next === 'settings') {
     readForms()

@@ -20,7 +20,10 @@ export const webForm: Extract<LaunchView, { kind: 'ready' }> = {
   workflows: { kind: 'ready', rows: [deliver, review], total: 2, matching: 2, unreadable: 0 },
   workflow: 'deliver',
   description: deliver.description,
+  fields: { kind: 'ready', rows: [] },
   message: '',
+  values: {},
+  bindings: [],
   posting: false
 }
 
@@ -61,6 +64,8 @@ export function answeringLaunch(script: LaunchScript): MockHostOptions {
       'launch.start': (input: LaunchStart) => answer(script.start?.(input) ?? script.launch()),
       'launch.another': () => answer(script.launch()),
       'launch.wait': () => answer(script.launch()),
+      'launch.retry': () => answer(script.launch()),
+      'launch.hide': () => null,
       'launch.notices': notices,
       'launch.dismiss': notices
     }

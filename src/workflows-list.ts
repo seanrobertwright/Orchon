@@ -12,8 +12,22 @@ export const WORKFLOWS_CAP_BYTES = 32 * 1024 * 1024
 /** At most this many declared inputs are kept per workflow (#15). */
 export const DECLARED_INPUTS_CAP = 50
 
-/** One declared input: its name, whether it is required, and its description. */
-export type DeclaredInput = { name: string; required: boolean; description: string }
+/**
+ * One declared input: its name, whether it is required, its description, and its default as text:
+ * a string as it is, any other value as its JSON text, and empty when it declares none.
+ */
+export type DeclaredInput = { name: string; required: boolean; description: string; defaultText: string }
+
+/** A declared default as the form shows it. */
+function asDefaultText(value: unknown): string {
+  if (value === undefined) return ''
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value) ?? ''
+  } catch {
+    return ''
+  }
+}
 
 /** A workflow trimmed for launching. */
 export type ListedWorkflow = {
@@ -37,7 +51,12 @@ function parseInputs(value: unknown): { inputs: DeclaredInput[]; count: number }
     const input = own(value, name)
     const fields = isRecord(input) ? input : {}
     const description = own(fields, 'description')
-    inputs.push({ name, required: own(fields, 'required') === true, description: typeof description === 'string' ? description : '' })
+    inputs.push({
+      name,
+      required: own(fields, 'required') === true,
+      description: typeof description === 'string' ? description : '',
+      defaultText: asDefaultText(own(fields, 'default'))
+    })
   }
   return { inputs, count: names.length }
 }

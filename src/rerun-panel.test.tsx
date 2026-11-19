@@ -78,6 +78,39 @@ describe('Re-run in run detail', () => {
     assert.deepEqual(view.refusals, [])
   })
 
+  test('values and bindings typed in Launch before a press give way to the ones Re-run filled, in the fields and in what Start sends', async () => {
+    const item = { kind: 'ready' as const, rows: [{ name: 'item', required: true, description: '', placeholder: '' }] }
+    const typedForm: LaunchView = { ...webForm, message: 'Go.', fields: item }
+    const rerunForm: LaunchView = { ...webForm, message: 'Ship the change again.', fields: item, values: { item: 'the item' }, inputs: [{ name: 'item', value: 'the item' }] }
+    let afterRerun = false
+    const base = answeringLaunch({ launch: () => (afterRerun ? rerunForm : typedForm) })
+    const requests = {
+      ...base.requests,
+      'run.read': (): RunDetailAnswer => ({ connection: connected, run: { kind: 'ready', detail: sampleDetail(1, { id: 'run-1', status: 'completed' }) }, rerun: true }),
+      'launch.rerun': (): LaunchAnswer => {
+        afterRerun = true
+        return { connection: connected, launch: rerunForm, notices: [] }
+      }
+    }
+    panel = await mount(panelModule, { host: mockHost({ requests }), persisted: { workspace: { section: 'launch', openRun: 'run-1' } } })
+    const view = panel
+    await view.type({ type: 'Input', label: 'item' }, 'typed before')
+    const group = view.findAll({ type: 'Collapsible' }).find((element) => element.props.title === 'Model bindings')
+    if (group === undefined) throw new Error('No group of model bindings.')
+    await view.toggle(group)
+    await view.press({ type: 'Button', text: 'Add binding' })
+    await view.type({ type: 'Input', label: 'Binding 1 name' }, 'small')
+    await view.type({ type: 'Input', label: 'Binding 1 model' }, 'haiku')
+    await view.select(SECTION_BAR, 'runs')
+    await view.press(RERUN)
+    assert.equal(view.valueOf(SECTION_BAR), 'launch')
+    assert.equal(view.valueOf({ type: 'Input', label: 'item' }), 'the item')
+    await view.press({ type: 'Button', text: 'Start' })
+    assert.deepEqual(sent(view, 'launch.start'), [{ codebaseId: 'cb-web', workflow: 'deliver', message: 'Ship the change again.', inputs: { item: 'the item' } }])
+    assert.deepEqual(view.errors, [])
+    assert.deepEqual(view.refusals, [])
+  })
+
   test("a refused Re-run stays in run detail and says the worker's reason", async () => {
     const view = await openOn({ status: 'completed' }, true, () => {
       throw Object.assign(new Error('Archon no longer lists that project. Choose another.'), { code: 'invalid_params' })

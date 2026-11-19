@@ -97,13 +97,17 @@ describe('Re-run', () => {
     const view = ready(answer.launch)
     assert.equal(view.workflow, 'orchon-recorder-inputs')
     assert.deepEqual(view.inputs, [{ name: 'item', value: 'the item' }])
+    // The kept inputs are the form's values too, so their fields show them and Start sends them.
+    assert.deepEqual(view.values, { item: 'the item' })
+    assert.deepEqual(view.bindings, [])
     assert.deepEqual(view.notes, ['Not filled, because the workflow no longer declares them: not_declared, gone_too.'])
     // The recorded run has model bindings in its metadata; none reach the launcher.
     assert.ok(!JSON.stringify(answer).includes('model_bindings'))
-    assert.deepEqual(Object.keys(view).sort(), ['codebaseId', 'description', 'inputs', 'kind', 'message', 'notes', 'posting', 'projects', 'workflow', 'workflows'])
+    assert.deepEqual(Object.keys(view).sort(), ['bindings', 'codebaseId', 'description', 'fields', 'inputs', 'kind', 'message', 'notes', 'posting', 'projects', 'values', 'workflow', 'workflows'])
     // Choosing another workflow drops the inputs filled for this one.
     const edited = ready(((await mounted.worker.request('launch.edit', { workflow: 'orchon-recorder-echo' })) as LaunchAnswer).launch)
     assert.equal(edited.inputs, undefined)
+    assert.deepEqual(edited.values, {})
     await mounted.worker.deactivate()
   })
 

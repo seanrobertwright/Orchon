@@ -2,7 +2,8 @@
 // `fetch` body, and the reading of one frame's data. Frames are scripted the way Archon's
 // `streamSSE` writes them: a `data:` line of JSON and a blank line.
 import { assert, describe, test } from 'orca/testing'
-import { createFrameParser, FRAME_CAP_CHARS, readDashboardFrame, type StreamFrame } from './stream-frames'
+import { readRepoText } from '../scripts/repo-files.ts'
+import { createFrameParser, FRAME_CAP_CHARS, readConversationFrame, readDashboardFrame, type StreamFrame } from './stream-frames'
 
 /** Pushes every chunk in order and returns every frame they completed, or null on an overflow. */
 function parseAll(chunks: readonly string[]): StreamFrame[] | null {
@@ -104,5 +105,35 @@ describe('reading a dashboard frame', () => {
 
   test('reads only fields of its own, never inherited ones', () => {
     assert.equal(readDashboardFrame(frame('{"__proto__":{"type":"dag_node","runId":"run-1"}}')), null)
+  })
+})
+
+describe('reading a conversation frame', () => {
+  /** Each recorded frame of the launch conversation in the 0.12.1 recording of an accepted launch, as Archon wrote it. */
+  const recordedFrames = (): string[] => {
+    const log = JSON.parse(readRepoText('fixtures/0.12.1/launch-accepted.json')) as { log: { kind: string; label?: string; raw?: string }[] }
+    return log.log.filter((entry) => entry.kind === 'frame' && entry.label === 'first').map((entry) => entry.raw ?? '')
+  }
+  const read = (raw: string): ReturnType<typeof readConversationFrame> => readConversationFrame({ event: 'message', data: raw.replace(/^data: /, '') })
+
+  test('reads the lock, the text and the dispatch frames of a recorded launch, in order', () => {
+    assert.deepEqual(recordedFrames().map(read).slice(0, 6), [
+      null,
+      { type: 'lock', locked: true },
+      { type: 'text', content: 'Starting workflow: `orchon-recorder-echo`', category: null },
+      { type: 'text', content: '\u{1F680} Dispatching workflow: **orchon-recorder-echo** (background)', category: 'workflow_dispatch_status' },
+      { type: 'workflow_dispatch' },
+      { type: 'lock', locked: false }
+    ])
+  })
+
+  test("reads an error frame's message, and ignores anything it does not expect", () => {
+    assert.deepEqual(read(JSON.stringify({ type: 'error', message: 'Failed to process message: boom.', classification: 'transient' })), { type: 'error', message: 'Failed to process message: boom.' })
+    assert.deepEqual(read(JSON.stringify({ type: 'error' })), { type: 'error', message: '' })
+    for (const data of ['not json', '[]', '{"type":"text","content":3}', '{"type":"conversation_lock","locked":"yes"}', '{"type":"tool_call"}']) {
+      assert.equal(read(data), null, data)
+    }
+    // A type only inherited is no type.
+    assert.equal(read('{"__proto__":{"type":"workflow_dispatch"}}'), null)
   })
 })

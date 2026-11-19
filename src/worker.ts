@@ -4,6 +4,7 @@ import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
 import { startChatList } from './chat-list'
 import { startConnection, type WorkerPorts } from './connection'
+import { createConversationStreams } from './conversation-streams'
 import { startLaunch } from './launch'
 import { realPorts } from './ports'
 import { startProjectScope } from './project-scope'
@@ -55,8 +56,12 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
+  // One reader per conversation stream, shared by the launch tracker and chat.
+  const streams = createConversationStreams({ client: connection.client, log: (message) => orca.log(message) })
   const launch = startLaunch(orca, {
     client: connection.client,
+    streams,
+    failed: (notice) => connection.launchFailed(notice),
     current: connection.current,
     focused: projectScope.focused,
     onHint: (listener) => connection.onHint((hint) => listener(hint.types)),
@@ -73,6 +78,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
+    streams.stop()
     workflows.dispose()
     chatList.dispose()
     forms.dispose()

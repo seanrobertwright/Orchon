@@ -4,7 +4,9 @@
 // definitions stay in Archon's answer: a workflow reaches the panel as its name, description and
 // source.
 import type { ConnectionAnswer } from './connection-view'
+import type { Binding } from './launch-form'
 import type { ProjectRef } from './scope-view'
+import { DECLARED_INPUTS_CAP } from './workflows-list'
 
 /** The most characters a launch message may have. It is sent as typed. */
 export const MESSAGE_CAP = 16_000
@@ -63,6 +65,29 @@ export type WorkflowsView =
   | { kind: 'too-large' }
   | { kind: 'failed'; message: string }
 
+/** The most declared inputs the form draws. A workflow that declares more cannot be launched here. */
+export const INPUTS_CAP = DECLARED_INPUTS_CAP
+
+/** One declared input as the form draws it: a text field. */
+export type LaunchInput = {
+  name: string
+  required: boolean
+  /** Cut to `DESCRIPTION_CAP`, or empty. */
+  description: string
+  /** The declared default as text, cut to `DESCRIPTION_CAP`, or empty. */
+  placeholder: string
+}
+
+export type InputsView =
+  /** The chosen workflow's inputs in declared order; none when no workflow is chosen. */
+  | { kind: 'ready'; rows: LaunchInput[] }
+  /** The workflow declares more than `INPUTS_CAP` inputs: none is drawn and Start is refused. */
+  | { kind: 'too-many'; declared: number }
+
+/** Why Start refuses a workflow with more than `INPUTS_CAP` inputs, said by the panel and the worker alike. */
+export const tooManyInputsText = (declared: number): string =>
+  `This workflow declares ${declared.toLocaleString('en-US')} inputs, more than the ${String(INPUTS_CAP)} Orchon can fill in. Launch it from Archon.`
+
 /** Where a launch stands while the Starting view shows it. */
 export type StartingState =
   /** Archon took the launch and starts it. */
@@ -73,6 +98,13 @@ export type StartingState =
   | 'looking'
   /** The run was found. */
   | 'found'
+  /** Archon took the launch, then let the conversation go with no run: `reason` is its text. */
+  | 'refused'
+  /** Archon sent an `error` frame: `reason` is its text. */
+  | 'failed'
+
+/** Whether a launch ended with no run: Archon refused it or failed it. */
+export const isNotStarted = (state: StartingState): boolean => state === 'refused' || state === 'failed'
 
 export type StartingView = {
   launchId: string
@@ -84,7 +116,18 @@ export type StartingView = {
   late: boolean
   /** The run, once found. */
   runId?: string
+  /** Archon's words when the state is `refused` or `failed`, cut to `REASON_CAP`. Text, never markup. */
+  reason?: string
 }
+
+/** How much of Archon's reason for a launch that did not start is shown. */
+export const REASON_CAP = 2_000
+
+/** The Starting view's title for an `error` frame. */
+export const COULD_NOT_START_TEXT = 'Archon could not start this run'
+
+/** The reason shown when Archon refused a launch and sent no text with it. */
+export const NO_REASON_TEXT = 'Archon did not start the run and gave no reason.'
 
 /** A run a launch started, found after its Starting view stopped showing. */
 export type LaunchNotice = { launchId: string; workflow: string; runId: string }
@@ -105,15 +148,22 @@ export type LaunchView =
       workflow: string | null
       /** The chosen workflow's description, cut, or empty. */
       description: string
+      /** The chosen workflow's declared inputs, as the form's fields. */
+      fields: InputsView
       /** The draft's message. */
       message: string
+      /** The draft's input values by name, as typed, filled or not. */
+      values: Record<string, string>
+      /** The draft's rows of model bindings, as typed. */
+      bindings: Binding[]
       /** Why the last Start did not launch: Archon's words, or the worker's. */
       error?: string
       /** A launch from this workspace is being posted. */
       posting: boolean
       /**
        * The inputs the draft holds, by name in the workflow's order: filled by Re-run from the
-       * run's `metadata.inputs`, kept only for names the chosen workflow declares. Left out when
+       * run's `metadata.inputs`, kept only for names the chosen workflow declares. Re-run puts the
+       * same values in `values`, so the fields show them and Start sends them. Left out when
        * there are none.
        */
       inputs?: DraftInput[]
@@ -150,6 +200,10 @@ export type LaunchEdit = {
   codebaseId?: string | null
   workflow?: string | null
   message?: string
+  /** Every input value as typed, in place of the draft's. */
+  inputs?: Record<string, string>
+  /** Every row of model bindings, in place of the draft's. */
+  bindings?: Binding[]
 }
 
 /** One input a draft holds: a name the workflow declares and its value as text. */
@@ -161,8 +215,14 @@ export type RerunRequest = { runId: string }
 /** How many names a Re-run notice lists before "and N more". */
 export const NOTE_NAMES_CAP = 10
 
-/** What Start sends. */
-export type LaunchStart = { codebaseId: string; workflow: string; message: string }
+/** What Start sends. Inputs and bindings are left out when there are none. */
+export type LaunchStart = { codebaseId: string; workflow: string; message: string; inputs?: Record<string, string>; bindings?: Binding[] }
+
+/** The most characters of an input value, the same as a message. */
+export const INPUT_VALUE_CAP = MESSAGE_CAP
+
+/** The most characters of an input name in a frame's request. */
+export const INPUT_NAME_CAP = 200
 
 /** Why Start does not launch a message, said by the panel and the worker alike. */
 export const NO_MESSAGE = 'Type a message.'

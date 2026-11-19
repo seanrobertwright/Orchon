@@ -174,7 +174,10 @@ export const noProjectsLaunch: LaunchView = {
   workflows: { kind: 'none' },
   workflow: null,
   description: '',
+  fields: { kind: 'ready', rows: [] },
   message: '',
+  values: {},
+  bindings: [],
   posting: false
 }
 

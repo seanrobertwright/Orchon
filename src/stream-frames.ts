@@ -85,3 +85,42 @@ export function readDashboardFrame(frame: StreamFrame): { type: HintType; runId:
   if (type === undefined || typeof runId !== 'string' || runId === '' || runId.length > RUN_ID_CAP) return null
   return { type, runId }
 }
+
+/** What one frame of a conversation's stream says, as the launch tracker and chat read it. */
+export type ConversationFrame =
+  /** `conversation_lock`: Archon took the conversation (true) or let it go (false). */
+  | { type: 'lock'; locked: boolean }
+  /** Text Archon sent, with its `category` when it has one, such as `workflow_dispatch_status`. */
+  | { type: 'text'; content: string; category: string | null }
+  /** Archon started a run from the conversation. */
+  | { type: 'workflow_dispatch' }
+  /** Archon failed the message. Its text is not saved anywhere else. */
+  | { type: 'error'; message: string }
+
+/** What one conversation frame says, or null for a frame the plugin does not read, a heartbeat included. */
+export function readConversationFrame(frame: StreamFrame): ConversationFrame | null {
+  let value: unknown
+  try {
+    value = JSON.parse(frame.data)
+  } catch {
+    return null
+  }
+  if (!isRecord(value)) return null
+  const type = own(value, 'type')
+  if (type === 'conversation_lock') {
+    const locked = own(value, 'locked')
+    return typeof locked === 'boolean' ? { type: 'lock', locked } : null
+  }
+  if (type === 'text') {
+    const content = own(value, 'content')
+    const category = own(value, 'category')
+    if (typeof content !== 'string') return null
+    return { type: 'text', content, category: typeof category === 'string' ? category : null }
+  }
+  if (type === 'workflow_dispatch') return { type: 'workflow_dispatch' }
+  if (type === 'error') {
+    const message = own(value, 'message')
+    return { type: 'error', message: typeof message === 'string' ? message : '' }
+  }
+  return null
+}
