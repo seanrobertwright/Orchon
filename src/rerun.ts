@@ -3,12 +3,36 @@
 // pure logic: no host, no network. Model bindings are never filled.
 import { cutAt } from './cutter'
 import { MESSAGE_CAP, NOTE_NAMES_CAP, type DraftInput } from './launch-view'
+import { NOT_LISTED } from './project-scope'
 import { isRecord, isText, own, ownRecord } from './records'
 import type { RunStatus } from './runs-view'
+import { REMOTE_WORKSPACE } from './scope-view'
 import type { DeclaredInput } from './workflows-list'
 
 /** The states that offer Re-run. */
-export const RERUN_STATUSES: readonly RunStatus[] = ['completed', 'cancelled']
+const RERUN_STATUSES: readonly RunStatus[] = ['completed', 'cancelled']
+export const RERUN_NOT_FINISHED = 'Re-run is offered on completed and cancelled runs only.'
+export const RERUN_NO_PROJECT = 'This run has no Archon project, so it cannot be run again here.'
+
+/** What decides whether Re-run is offered: the run's state, its project as Archon lists it now, and the focused workspace. */
+export type RerunFacts = {
+  status: RunStatus
+  /** `none` for a run with no project, `unlisted` for a project Archon no longer lists. */
+  project: 'none' | 'unlisted' | 'listed'
+  remote: boolean
+}
+
+/**
+ * Why Re-run is not offered, or null when it is: the one rule both run detail (which draws Re-run
+ * on null) and `launch.rerun` (which refuses with the text) follow.
+ */
+export function rerunRefusal(facts: RerunFacts): string | null {
+  if (facts.remote) return REMOTE_WORKSPACE
+  if (!RERUN_STATUSES.includes(facts.status)) return RERUN_NOT_FINISHED
+  if (facts.project === 'none') return RERUN_NO_PROJECT
+  if (facts.project === 'unlisted') return NOT_LISTED
+  return null
+}
 
 /** What Re-run reads off the run: the whole launch message and the recorded inputs, if any. */
 export type RerunSource = {

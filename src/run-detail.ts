@@ -33,7 +33,7 @@ import {
   type StepState,
   type Waiting
 } from './run-detail-view'
-import { RERUN_STATUSES } from './rerun'
+import { rerunRefusal } from './rerun'
 import { workspaceIdFor } from './runs-table'
 import { RUN_STATUSES, type RunStatus } from './runs-view'
 
@@ -408,8 +408,13 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
       if (workspaceId !== undefined) detail.workspaceId = workspaceId
     }
     const graphOff = ports.graphOff === undefined ? null : await ports.graphOff(codebaseId !== null)
-    // Re-run needs a project Archon still lists: `project` is null for a run with none and for one Archon no longer lists.
-    const rerun = RERUN_STATUSES.includes(detail.status) && project !== null && !((await ports.remote?.()) ?? false)
+    // `project` is null for a run with none and for one Archon no longer lists (or that could not be read).
+    const rerun =
+      rerunRefusal({
+        status: detail.status,
+        project: codebaseId === null ? 'none' : project === null ? 'unlisted' : 'listed',
+        remote: (await ports.remote?.()) ?? false
+      }) === null
     return { run: { kind: 'ready', detail }, ...(graphOff === null ? {} : { graphOff }), ...(rerun ? { rerun: true as const } : {}) }
   }
 

@@ -43,7 +43,7 @@ import { SERVER_TEXT_CAP } from './run-control-view'
 import { RUN_ID_CAP } from './run-detail-view'
 import { PROJECT_ID_CAP, REMOTE_WORKSPACE } from './scope-view'
 import { readRun } from './run-detail'
-import { RERUN_STATUSES, rerunDraft, rerunSourceOf } from './rerun'
+import { rerunDraft, rerunRefusal, rerunSourceOf } from './rerun'
 import { NOT_CONNECTED_TEXT } from './worker-words'
 import { parseWorkflowList, WORKFLOWS_CAP_BYTES, WORKFLOWS_PATH, type WorkflowList } from './workflows-list'
 
@@ -68,9 +68,7 @@ const LAST_WORKFLOWS_KEPT = 500
 export const NO_LOCAL_WORKSPACE = 'Focus a local workspace in Orca to launch a run.'
 export const WORKFLOW_NOT_LISTED = 'Archon does not list that workflow for this project. Refresh and choose another.'
 export const NOT_ACCEPTED = 'Archon did not accept the launch.'
-/** Re-run's refusals. */
-export const RERUN_NOT_FINISHED = 'Re-run is offered on completed and cancelled runs only.'
-export const RERUN_NO_PROJECT = 'This run has no Archon project, so it cannot be run again here.'
+/** Re-run's refusal for a run Archon no longer has; the others are `rerunRefusal`'s. */
 export const RERUN_GONE = 'This run no longer exists.'
 /** The notice when the run's workflow is gone from the project's list. */
 export const workflowGoneNote = (workflow: string): string =>
@@ -640,17 +638,23 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     const connection = await ports.current()
     if (connection.kind !== 'connected') return answer({})
     const focused = await ports.focused()
-    if (focused.kind === 'remote') refuseRequest(REMOTE_WORKSPACE)
     const fetched = await readRun(ports.client, connection, input.runId, signal)
     if (fetched.kind === 'gone') refuseRequest(RERUN_GONE)
     if (fetched.kind === 'failed') refuseRequest(fetched.message)
     const { run } = fetched
-    if (!RERUN_STATUSES.includes(run.status)) refuseRequest(RERUN_NOT_FINISHED)
-    if (run.codebaseId === null) refuseRequest(RERUN_NO_PROJECT)
-    const read = await readProjects(connection, true)
-    if (read.kind === 'failed') refuseRequest(read.message)
-    const project = read.listed.projects.find((entry) => entry.id === run.codebaseId)
-    if (project === undefined) refuseRequest(NOT_LISTED)
+    let project: ArchonProject | undefined
+    if (run.codebaseId !== null) {
+      const read = await readProjects(connection, true)
+      if (read.kind === 'failed') refuseRequest(read.message)
+      project = read.listed.projects.find((entry) => entry.id === run.codebaseId)
+    }
+    const refusal = rerunRefusal({
+      status: run.status,
+      project: run.codebaseId === null ? 'none' : project === undefined ? 'unlisted' : 'listed',
+      remote: focused.kind === 'remote'
+    })
+    // `rerunRefusal` refuses a project that is not listed; the second test only narrows the type.
+    if (refusal !== null || project === undefined) refuseRequest(refusal ?? NOT_LISTED)
     const list = await readList(connection, project, true)
     const listed = list.kind === 'ready' ? list.list.workflows.find((entry) => entry.name === run.workflow) : undefined
     const draft = draftOf(workspaceKey(focused))
