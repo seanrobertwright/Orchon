@@ -3,7 +3,7 @@
 // never sent again; the typed text stays until Archon accepts it. Drafts are kept per
 // conversation, and per project for a new chat, in memory while the panel is open. Nothing here
 // moves focus.
-import { atom, Button, plugin, read, Row, set, Spinner, Stack, Text, Textarea, type OrcaNode } from 'orca'
+import { atom, type Atom, Button, plugin, read, Row, set, Spinner, Stack, Text, Textarea, type OrcaNode } from 'orca'
 import { CHAT_MESSAGE_CAP, COMPOSER_CHARACTER_CAP, messageBytes, type ChatSendAnswer, type ChatSendOutcome, type ChatSendRequest } from './chat-send-view'
 import type { Thread, ThreadMessage } from './chat-thread-view'
 import type { ConnectionView } from './connection-view'
@@ -30,7 +30,7 @@ export const DONE_AFTER_MS = 6_000
 export const GIVE_UP_MS = 5 * 60_000
 
 /** The note when the composer unlocked with no reply. */
-export const GAVE_UP_NOTE = 'No reply came within 5 minutes, so you can write again. Archon may still be working on it.'
+export const GAVE_UP_NOTE = `No reply came within ${String(GIVE_UP_MS / 60_000)} minutes, so you can write again. Archon may still be working on it.`
 
 /**
  * A turn the panel infers from the saved messages, with no stream (#18, part 3): a trailing
@@ -56,19 +56,17 @@ const gaveUp = atom<Record<string, string | null>>({})
 const messageKey = (message: ThreadMessage | undefined): string | null =>
   message === undefined ? null : `${message.id}\n${String(message.notShown)}\n${message.blocks.join('')}`
 
-function putTurn(conversationId: string, turn: Turn | null): void {
-  const next = { ...read(turns) }
-  if (turn === null) delete next[conversationId]
-  else next[conversationId] = turn
-  set(turns, next)
+/** Sets one key of a record atom, or removes the key when the value is undefined. */
+function putKey<T>(store: Atom<Record<string, T>>, key: string, value: T | undefined): void {
+  const next = { ...read(store) }
+  if (value === undefined) delete next[key]
+  else next[key] = value
+  set(store, next)
 }
 
-function putGaveUp(conversationId: string, key: string | null | undefined): void {
-  const next = { ...read(gaveUp) }
-  if (key === undefined) delete next[conversationId]
-  else next[conversationId] = key
-  set(gaveUp, next)
-}
+const putTurn = (conversationId: string, turn: Turn | null): void => putKey(turns, conversationId, turn ?? undefined)
+
+const putGaveUp = (conversationId: string, key: string | null | undefined): void => putKey(gaveUp, conversationId, key)
 
 const ownTurn = (conversationId: string): Turn | undefined => {
   const all = read(turns)
@@ -129,12 +127,9 @@ const notes = atom<Record<string, string>>({})
 
 const draftKeyOf = (target: ComposerTarget): string => (target.kind === 'thread' ? `conversation:${target.conversationId}` : target.draftKey)
 
-function setIn(store: typeof drafts, key: string, value: string | null): void {
-  const next = { ...read(store) }
-  if (value === null || value === '') delete next[key]
-  else next[key] = value
-  set(store, next)
-}
+/** Sets a draft or a note, removing it when there is none. */
+const setIn = (store: Atom<Record<string, string>>, key: string, value: string | null): void =>
+  putKey(store, key, value === null || value === '' ? undefined : value)
 
 const draftOf = (key: string): string => {
   const all = read(drafts)
@@ -145,9 +140,6 @@ const noteOf = (key: string): string | null => {
   const all = read(notes)
   return Object.hasOwn(all, key) ? (all[key] ?? null) : null
 }
-
-/** Whether a message holds anything but blanks. It is still sent exactly as typed. */
-const hasWords = (message: string): boolean => message.trim() !== ''
 
 /** The note after an answer that did not take the message. */
 function outcomeNote(outcome: ChatSendOutcome): string | null {
@@ -167,7 +159,7 @@ function outcomeNote(outcome: ChatSendOutcome): string | null {
 
 async function send(target: ComposerTarget, message: string, hooks: ComposerHooks): Promise<void> {
   const key = draftKeyOf(target)
-  if (read(sending) !== null || !hasWords(message) || messageBytes(message) > CHAT_MESSAGE_CAP) return
+  if (read(sending) !== null || message === '' || messageBytes(message) > CHAT_MESSAGE_CAP) return
   let request: ChatSendRequest
   if (target.kind === 'thread') request = { conversationId: target.conversationId, message }
   else if (target.codebaseId !== null) request = { codebaseId: target.codebaseId, message }
@@ -212,7 +204,7 @@ export function composer(target: ComposerTarget, options: { writable: boolean; h
   // Counted only past the point where the text could pass the cap: a character is at most 3 bytes of UTF-8 per UTF-16 unit.
   const bytes = text.length * 3 > CHAT_MESSAGE_CAP ? messageBytes(text) : text.length
   const tooLong = bytes > CHAT_MESSAGE_CAP
-  const canSend = options.writable && !inFlight && !busy && hasWords(text) && !tooLong && (target.kind === 'thread' || target.codebaseId !== null)
+  const canSend = options.writable && !inFlight && !busy && text !== '' && !tooLong && (target.kind === 'thread' || target.codebaseId !== null)
   const note = noteOf(key)
   const press = (value: string): void => {
     if (!canSend) return

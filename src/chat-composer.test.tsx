@@ -127,10 +127,8 @@ describe('the composer', () => {
 })
 
 describe('what the composer will not send', () => {
-  test('Send is off for an empty message or blanks, and for text past 32 KiB of UTF-8, which a line says', async () => {
+  test('Send is off for an empty message and for text past 32 KiB of UTF-8, which a line says', async () => {
     const view = await openFirst()
-    assert.equal(view.find(SEND)?.props.disabled, true)
-    await view.type(MESSAGE, '   \n ')
     assert.equal(view.find(SEND)?.props.disabled, true)
     await view.submit(MESSAGE)
     // 11,000 characters of three bytes each: 33,000 bytes.
@@ -141,6 +139,17 @@ describe('what the composer will not send', () => {
     await view.type(MESSAGE, 'Hello', { replace: true })
     assert.equal(view.find(SEND)?.props.disabled, false)
     assert.deepEqual(sent(view, 'chat.send'), [])
+    clean(view)
+  })
+})
+
+describe('what the composer sends', () => {
+  test('a message of blanks only is 1 character or more, so Send is on and it goes as typed', async () => {
+    const view = await openFirst()
+    await view.type(MESSAGE, '   \n ')
+    assert.equal(view.find(SEND)?.props.disabled, false)
+    await view.press(SEND)
+    assert.deepEqual(sent(view, 'chat.send'), [{ conversationId: 'web-chat-0', message: '   \n ' }])
     clean(view)
   })
 })
