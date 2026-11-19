@@ -113,7 +113,8 @@ describe('the editor output check', () => {
       [...compiled.outputs.keys()].sort(),
       sources.map((path) => path.replace(/\.ts$/, '.js')).sort()
     )
-    assert.match(compiled.outputs.get('editors/run-graph/main.js') ?? '', /from "\.\.\/shared\/placeholder\.js"/)
+    assert.match(compiled.outputs.get('editors/run-graph/main.js') ?? '', /from "\.\/tab\.js"/)
+    assert.match(compiled.outputs.get('editors/shared/graph-layout.js') ?? '', /from '\.\/dagre\.esm\.js'/)
 
     assert.deepEqual(compareEditorOutput(compiled.outputs, readCommittedEditorJavaScript()), [])
   })
