@@ -1,0 +1,183 @@
+{
+  "release": "0.13.2",
+  "scenario": "launch-missing-required",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "6feec5b110ac5147f1d58ffa49d2790c"
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795050235141-w0fxn4",
+        "id": "ec81cc321340a1b18d45076f5f044015"
+      }
+    },
+    {
+      "atMs": 6,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-inputs"
+    },
+    {
+      "atMs": 9,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-inputs/run",
+      "requestBody": {
+        "conversationId": "web-1795050235141-w0fxn4",
+        "message": "Recording a refused launch for Orchon: a required input left out."
+      },
+      "startedMs": 6,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 9,
+      "kind": "launch-answered",
+      "status": 200
+    },
+    {
+      "atMs": 3018,
+      "kind": "stream-open",
+      "label": "late",
+      "path": "/api/stream/web-1795050235141-w0fxn4",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 3019,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795050238157}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795050238157
+      }
+    },
+    {
+      "atMs": 3019,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795050235141-w0fxn4\",\"locked\":true,\"timestamp\":1795050235148}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795050235141-w0fxn4",
+        "locked": true,
+        "timestamp": 1795050235148
+      }
+    },
+    {
+      "atMs": 3019,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Starting workflow: `orchon-recorder-inputs`\",\"isComplete\":true,\"timestamp\":1795050235457}",
+      "data": {
+        "type": "text",
+        "content": "Starting workflow: `orchon-recorder-inputs`",
+        "isComplete": true,
+        "timestamp": 1795050235457
+      }
+    },
+    {
+      "atMs": 3019,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"text\",\"content\":\"This workflow requires input 'item', and none was supplied. Supply it with `--input item=<value>` on the CLI (repeat the flag per input), or fill the run form in the web console. When composing this workflow from another, pass the same values via `with:` on the `include:`/`workflow:` node. In chat, an assistant with the `invoke_workflow` tool supplies them when it starts the workflow. No worktree was created and no AI cost was incurred.\",\"isComplete\":true,\"timestamp\":1795050236491}",
+      "data": {
+        "type": "text",
+        "content": "This workflow requires input 'item', and none was supplied. Supply it with `--input item=<value>` on the CLI (repeat the flag per input), or fill the run form in the web console. When composing this workflow from another, pass the same values via `with:` on the `include:`/`workflow:` node. In chat, an assistant with the `invoke_workflow` tool supplies them when it starts the workflow. No worktree was created and no AI cost was incurred.",
+        "isComplete": true,
+        "timestamp": 1795050236491
+      }
+    },
+    {
+      "atMs": 3019,
+      "kind": "frame",
+      "label": "late",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795050235141-w0fxn4\",\"locked\":false,\"timestamp\":1795050236522}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795050235141-w0fxn4",
+        "locked": false,
+        "timestamp": 1795050236522
+      }
+    },
+    {
+      "atMs": 10231,
+      "kind": "run-not-found",
+      "polls": 34,
+      "waitedMs": 7000
+    },
+    {
+      "atMs": 12257,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050235141-w0fxn4",
+      "requestBody": null,
+      "startedMs": 12244,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "ec81cc321340a1b18d45076f5f044015",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795050235141-w0fxn4",
+        "ai_assistant_type": "claude",
+        "codebase_id": "6feec5b110ac5147f1d58ffa49d2790c",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Recording refused Orchon launch input",
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-19 01:03:55",
+        "updated_at": "2026-11-19 01:04:05",
+        "last_activity_at": "2026-11-19 01:03:55"
+      }
+    },
+    {
+      "atMs": 12265,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050235141-w0fxn4/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 12257,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "cdc7dbfe07f3ca51770e3b88dd92fc6c",
+          "conversation_id": "ec81cc321340a1b18d45076f5f044015",
+          "role": "user",
+          "content": "Recording a refused launch for Orchon: a required input left out.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:55"
+        },
+        {
+          "id": "a7fe5d159bd742b2bb884b30b2802e3e",
+          "conversation_id": "ec81cc321340a1b18d45076f5f044015",
+          "role": "assistant",
+          "content": "Starting workflow: `orchon-recorder-inputs`This workflow requires input 'item', and none was supplied. Supply it with `--input item=<value>` on the CLI (repeat the flag per input), or fill the run form in the web console. When composing this workflow from another, pass the same values via `with:` on the `include:`/`workflow:` node. In chat, an assistant with the `invoke_workflow` tool supplies them when it starts the workflow. No worktree was created and no AI cost was incurred.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:03:56"
+        }
+      ]
+    },
+    {
+      "atMs": 12265,
+      "kind": "stream-end",
+      "label": "late",
+      "by": "recorder"
+    }
+  ]
+}

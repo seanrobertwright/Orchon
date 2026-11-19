@@ -1,0 +1,61 @@
+{
+  "release": "0.12.1",
+  "scenario": "workflows/archon-worktree-cleanup",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-worktree-cleanup?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-worktree-cleanup",
+          "description": "Remove the worktrees, and the branches Archon created for them, whose pull\nrequest has merged, across every project registered on this install. It runs\nthe host CLI's `archon isolation cleanup --merged`, so a worktree with\nuncommitted changes, a run that can still claim it, or commits its pull\nrequest did not carry stays. With include_closed true, worktrees whose pull\nrequest was closed without merging go too.\n\nUse when: a schedule binding the operator installed starts it (see the SDLC\npack README, \"Worktree cleanup\"), or an operator runs it by hand. The pack\ninstalls no binding.\nNOT for: worktrees that never opened a pull request (a completed run releases\nits own clean checkout; the age sweep and `archon complete` handle the rest).\n",
+          "nodes": [
+            {
+              "id": "merged",
+              "kind": "exec",
+              "script": "merged",
+              "runtime": "bun"
+            }
+          ],
+          "worktree": {
+            "enabled": false
+          },
+          "inputs": {
+            "include_closed": {
+              "default": "false",
+              "description": "true or false. True also removes worktrees whose pull request was closed without merging. Any other value refuses the run."
+            }
+          }
+        },
+        "authored": {
+          "name": "archon-worktree-cleanup",
+          "description": "Remove the worktrees, and the branches Archon created for them, whose pull\nrequest has merged, across every project registered on this install. It runs\nthe host CLI's `archon isolation cleanup --merged`, so a worktree with\nuncommitted changes, a run that can still claim it, or commits its pull\nrequest did not carry stays. With include_closed true, worktrees whose pull\nrequest was closed without merging go too.\n\nUse when: a schedule binding the operator installed starts it (see the SDLC\npack README, \"Worktree cleanup\"), or an operator runs it by hand. The pack\ninstalls no binding.\nNOT for: worktrees that never opened a pull request (a completed run releases\nits own clean checkout; the age sweep and `archon complete` handle the rest).\n",
+          "inputs": {
+            "include_closed": {
+              "default": "false",
+              "description": "true or false. True also removes worktrees whose pull request was closed without merging. Any other value refuses the run."
+            }
+          },
+          "worktree": {
+            "enabled": false
+          },
+          "nodes": [
+            {
+              "id": "merged",
+              "script": "merged",
+              "runtime": "bun"
+            }
+          ]
+        },
+        "filename": "archon-worktree-cleanup.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

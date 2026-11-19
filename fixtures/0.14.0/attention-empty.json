@@ -1,0 +1,20 @@
+{
+  "release": "0.14.0",
+  "scenario": "attention-empty",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/runs/attention",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "runs": [],
+        "items": []
+      }
+    }
+  ]
+}

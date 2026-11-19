@@ -1,0 +1,938 @@
+{
+  "release": "0.14.0",
+  "scenario": "launch-accepted",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "4fb57f7e8043f7efd57270977e68c598"
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795050310074-i0mt96",
+        "id": "7776b6781a0acec543fc99e702706255"
+      }
+    },
+    {
+      "atMs": 5,
+      "kind": "stream-open",
+      "label": "dashboard",
+      "path": "/api/stream/__dashboard__",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 6,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795050310077}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795050310077
+      }
+    },
+    {
+      "atMs": 6,
+      "kind": "stream-open",
+      "label": "first",
+      "path": "/api/stream/web-1795050310074-i0mt96",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 6,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795050310079}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795050310079
+      }
+    },
+    {
+      "atMs": 520,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-echo"
+    },
+    {
+      "atMs": 533,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-echo/run",
+      "requestBody": {
+        "conversationId": "web-1795050310074-i0mt96",
+        "message": "Recording a launch for Orchon: one shell step."
+      },
+      "startedMs": 520,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 533,
+      "kind": "launch-answered",
+      "status": 200
+    },
+    {
+      "atMs": 534,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795050310074-i0mt96\",\"locked\":true,\"timestamp\":1795050310603}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795050310074-i0mt96",
+        "locked": true,
+        "timestamp": 1795050310603
+      }
+    },
+    {
+      "atMs": 930,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Starting workflow: `orchon-recorder-echo`\",\"isComplete\":true,\"timestamp\":1795050310967}",
+      "data": {
+        "type": "text",
+        "content": "Starting workflow: `orchon-recorder-echo`",
+        "isComplete": true,
+        "timestamp": 1795050310967
+      }
+    },
+    {
+      "atMs": 3282,
+      "kind": "run-found",
+      "pollSentMs": 3280,
+      "polls": 13,
+      "run": {
+        "id": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "conversation_id": "1431575c1bec5d0fce92ef39d6fed5f2",
+        "codebase_id": "4fb57f7e8043f7efd57270977e68c598",
+        "workflow_name": "orchon-recorder-echo",
+        "user_message": "Recording a launch for Orchon: one shell step.",
+        "status": "pending",
+        "outcome": null,
+        "current_step_index": null,
+        "metadata": {
+          "ai_configuration": {
+            "version": 1,
+            "assistant": "claude",
+            "assistants": {
+              "opencode": {},
+              "copilot": {},
+              "claude": {}
+            },
+            "baseAiProfile": {
+              "defaultProvider": "claude",
+              "aliases": {
+                "small": {
+                  "provider": "claude",
+                  "model": "haiku"
+                },
+                "medium": {
+                  "provider": "claude",
+                  "model": "sonnet"
+                },
+                "large": {
+                  "provider": "claude",
+                  "model": "opus"
+                }
+              }
+            },
+            "modelOverrides": {}
+          }
+        },
+        "parent_conversation_id": "7776b6781a0acec543fc99e702706255",
+        "user_id": null,
+        "parent_run_id": null,
+        "adopted_from_run_id": null,
+        "started_at": "2026-11-19T01:05:13.000Z",
+        "completed_at": null,
+        "last_activity_at": "2026-11-19T01:05:13.000Z",
+        "working_path": null,
+        "output_root": null,
+        "checkout_baseline": null,
+        "origin": {
+          "conversationId": "1431575c1bec5d0fce92ef39d6fed5f2",
+          "parentConversationId": "7776b6781a0acec543fc99e702706255"
+        },
+        "platform_type": "web",
+        "worker_platform_id": "web-worker-1795050313338-bvgrg9",
+        "parent_platform_id": "web-1795050310074-i0mt96",
+        "codebase_name": "orchon-recorder/throwaway-project",
+        "agents_completed": 0,
+        "agents_failed": 0,
+        "agents_total": null,
+        "active_nodes": [],
+        "current_step_name": null,
+        "current_step_status": null,
+        "total_steps": null,
+        "owner_observation": null,
+        "attention": null
+      }
+    },
+    {
+      "atMs": 3286,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"🚀 Dispatching workflow: **orchon-recorder-echo** (background)\",\"isComplete\":true,\"timestamp\":1795050313357,\"category\":\"workflow_dispatch_status\"}",
+      "data": {
+        "type": "text",
+        "content": "🚀 Dispatching workflow: **orchon-recorder-echo** (background)",
+        "isComplete": true,
+        "timestamp": 1795050313357,
+        "category": "workflow_dispatch_status"
+      }
+    },
+    {
+      "atMs": 3286,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_dispatch\",\"workerConversationId\":\"web-worker-1795050313338-bvgrg9\",\"workflowName\":\"orchon-recorder-echo\",\"timestamp\":1795050313357}",
+      "data": {
+        "type": "workflow_dispatch",
+        "workerConversationId": "web-worker-1795050313338-bvgrg9",
+        "workflowName": "orchon-recorder-echo",
+        "timestamp": 1795050313357
+      }
+    },
+    {
+      "atMs": 3287,
+      "kind": "run-status",
+      "status": "pending",
+      "was": null
+    },
+    {
+      "atMs": 3453,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795050310074-i0mt96\",\"locked\":false,\"timestamp\":1795050313486}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795050310074-i0mt96",
+        "locked": false,
+        "timestamp": 1795050313486
+      }
+    },
+    {
+      "atMs": 5406,
+      "kind": "run-status",
+      "status": "running",
+      "was": "pending"
+    },
+    {
+      "atMs": 5664,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"workflowName\":\"orchon-recorder-echo\",\"status\":\"running\",\"timestamp\":1795050315626}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "workflowName": "orchon-recorder-echo",
+        "status": "running",
+        "timestamp": 1795050315626
+      }
+    },
+    {
+      "atMs": 5664,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"workflowName\":\"orchon-recorder-echo\",\"status\":\"running\",\"timestamp\":1795050315626}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "workflowName": "orchon-recorder-echo",
+        "status": "running",
+        "timestamp": 1795050315626
+      }
+    },
+    {
+      "atMs": 5801,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"nodeId\":\"write\",\"name\":\"write\",\"status\":\"running\",\"execution\":{\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"path\":\"write\",\"node\":{\"id\":\"write\",\"kind\":\"exec\",\"runtime\":\"sh\"},\"invocation\":{\"id\":\"92d16bad-3aae-42ac-a4b8-f9ed4f051dd2\",\"startedAt\":\"2026-11-19T01:05:15.635Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"eb84df64-3056-408c-b486-5fdd82c5c612\",\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-19T01:05:15.866Z\"},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"started\"}},\"timestamp\":1795050315873}",
+      "data": {
+        "type": "dag_node",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "nodeId": "write",
+        "name": "write",
+        "status": "running",
+        "execution": {
+          "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+          "path": "write",
+          "node": {
+            "id": "write",
+            "kind": "exec",
+            "runtime": "sh"
+          },
+          "invocation": {
+            "id": "92d16bad-3aae-42ac-a4b8-f9ed4f051dd2",
+            "startedAt": "2026-11-19T01:05:15.635Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "eb84df64-3056-408c-b486-5fdd82c5c612",
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-19T01:05:15.866Z"
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "started"
+          }
+        },
+        "timestamp": 1795050315873
+      }
+    },
+    {
+      "atMs": 5801,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"nodeId\":\"write\",\"name\":\"write\",\"status\":\"running\",\"execution\":{\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"path\":\"write\",\"node\":{\"id\":\"write\",\"kind\":\"exec\",\"runtime\":\"sh\"},\"invocation\":{\"id\":\"92d16bad-3aae-42ac-a4b8-f9ed4f051dd2\",\"startedAt\":\"2026-11-19T01:05:15.635Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"eb84df64-3056-408c-b486-5fdd82c5c612\",\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-19T01:05:15.866Z\"},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"started\"}},\"timestamp\":1795050315873}",
+      "data": {
+        "type": "dag_node",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "nodeId": "write",
+        "name": "write",
+        "status": "running",
+        "execution": {
+          "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+          "path": "write",
+          "node": {
+            "id": "write",
+            "kind": "exec",
+            "runtime": "sh"
+          },
+          "invocation": {
+            "id": "92d16bad-3aae-42ac-a4b8-f9ed4f051dd2",
+            "startedAt": "2026-11-19T01:05:15.635Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "eb84df64-3056-408c-b486-5fdd82c5c612",
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-19T01:05:15.866Z"
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "started"
+          }
+        },
+        "timestamp": 1795050315873
+      }
+    },
+    {
+      "atMs": 6080,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"nodeId\":\"write\",\"name\":\"write\",\"status\":\"completed\",\"duration\":507,\"execution\":{\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"path\":\"write\",\"node\":{\"id\":\"write\",\"kind\":\"exec\",\"runtime\":\"sh\"},\"invocation\":{\"id\":\"92d16bad-3aae-42ac-a4b8-f9ed4f051dd2\",\"startedAt\":\"2026-11-19T01:05:15.635Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"eb84df64-3056-408c-b486-5fdd82c5c612\",\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"durationMs\":507},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"completed\"}},\"timestamp\":1795050316149}",
+      "data": {
+        "type": "dag_node",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "nodeId": "write",
+        "name": "write",
+        "status": "completed",
+        "duration": 507,
+        "execution": {
+          "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+          "path": "write",
+          "node": {
+            "id": "write",
+            "kind": "exec",
+            "runtime": "sh"
+          },
+          "invocation": {
+            "id": "92d16bad-3aae-42ac-a4b8-f9ed4f051dd2",
+            "startedAt": "2026-11-19T01:05:15.635Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "eb84df64-3056-408c-b486-5fdd82c5c612",
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "durationMs": 507
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "completed"
+          }
+        },
+        "timestamp": 1795050316149
+      }
+    },
+    {
+      "atMs": 6080,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"nodeId\":\"write\",\"name\":\"write\",\"status\":\"completed\",\"duration\":507,\"execution\":{\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"path\":\"write\",\"node\":{\"id\":\"write\",\"kind\":\"exec\",\"runtime\":\"sh\"},\"invocation\":{\"id\":\"92d16bad-3aae-42ac-a4b8-f9ed4f051dd2\",\"startedAt\":\"2026-11-19T01:05:15.635Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"eb84df64-3056-408c-b486-5fdd82c5c612\",\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"durationMs\":507},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"completed\"}},\"timestamp\":1795050316149}",
+      "data": {
+        "type": "dag_node",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "nodeId": "write",
+        "name": "write",
+        "status": "completed",
+        "duration": 507,
+        "execution": {
+          "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+          "path": "write",
+          "node": {
+            "id": "write",
+            "kind": "exec",
+            "runtime": "sh"
+          },
+          "invocation": {
+            "id": "92d16bad-3aae-42ac-a4b8-f9ed4f051dd2",
+            "startedAt": "2026-11-19T01:05:15.635Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "eb84df64-3056-408c-b486-5fdd82c5c612",
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "durationMs": 507
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "completed"
+          }
+        },
+        "timestamp": 1795050316149
+      }
+    },
+    {
+      "atMs": 6082,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"workflowName\":\"orchon-recorder-echo\",\"status\":\"completed\",\"timestamp\":1795050316153}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "workflowName": "orchon-recorder-echo",
+        "status": "completed",
+        "timestamp": 1795050316153
+      }
+    },
+    {
+      "atMs": 6082,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"workflowName\":\"orchon-recorder-echo\",\"status\":\"completed\",\"timestamp\":1795050316153}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "workflowName": "orchon-recorder-echo",
+        "status": "completed",
+        "timestamp": 1795050316153
+      }
+    },
+    {
+      "atMs": 6195,
+      "kind": "run-status",
+      "status": "completed",
+      "was": "running"
+    },
+    {
+      "atMs": 6195,
+      "kind": "lock-released-seen",
+      "seen": true
+    },
+    {
+      "atMs": 6744,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"workflowName\":\"orchon-recorder-echo\",\"status\":\"running\",\"timestamp\":1795050316814}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "workflowName": "orchon-recorder-echo",
+        "status": "running",
+        "timestamp": 1795050316814
+      }
+    },
+    {
+      "atMs": 6744,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"nodeId\":\"write\",\"name\":\"write\",\"status\":\"running\",\"execution\":{\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"path\":\"write\",\"node\":{\"id\":\"write\",\"kind\":\"exec\",\"runtime\":\"sh\"},\"invocation\":{\"id\":\"92d16bad-3aae-42ac-a4b8-f9ed4f051dd2\",\"startedAt\":\"2026-11-19T01:05:15.635Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"eb84df64-3056-408c-b486-5fdd82c5c612\",\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-19T01:05:15.866Z\"},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"started\"}},\"timestamp\":1795050316815}",
+      "data": {
+        "type": "dag_node",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "nodeId": "write",
+        "name": "write",
+        "status": "running",
+        "execution": {
+          "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+          "path": "write",
+          "node": {
+            "id": "write",
+            "kind": "exec",
+            "runtime": "sh"
+          },
+          "invocation": {
+            "id": "92d16bad-3aae-42ac-a4b8-f9ed4f051dd2",
+            "startedAt": "2026-11-19T01:05:15.635Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "eb84df64-3056-408c-b486-5fdd82c5c612",
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-19T01:05:15.866Z"
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "started"
+          }
+        },
+        "timestamp": 1795050316815
+      }
+    },
+    {
+      "atMs": 6744,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"nodeId\":\"write\",\"name\":\"write\",\"status\":\"completed\",\"execution\":{\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"path\":\"write\",\"node\":{\"id\":\"write\",\"kind\":\"exec\",\"runtime\":\"sh\"},\"invocation\":{\"id\":\"92d16bad-3aae-42ac-a4b8-f9ed4f051dd2\",\"startedAt\":\"2026-11-19T01:05:15.635Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"eb84df64-3056-408c-b486-5fdd82c5c612\",\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-19T01:05:15.638Z\",\"commit\":\"470d71f00db543fc76a9a1541a57772c9bfd411b\",\"tree\":\"a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{},\"timing\":{\"startedAt\":\"2026-11-19T01:05:15.866Z\",\"durationMs\":507},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_applicable\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"completed\"}},\"timestamp\":1795050316815}",
+      "data": {
+        "type": "dag_node",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "nodeId": "write",
+        "name": "write",
+        "status": "completed",
+        "execution": {
+          "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+          "path": "write",
+          "node": {
+            "id": "write",
+            "kind": "exec",
+            "runtime": "sh"
+          },
+          "invocation": {
+            "id": "92d16bad-3aae-42ac-a4b8-f9ed4f051dd2",
+            "startedAt": "2026-11-19T01:05:15.635Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "eb84df64-3056-408c-b486-5fdd82c5c612",
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:05:15.638Z",
+              "commit": "470d71f00db543fc76a9a1541a57772c9bfd411b",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {},
+          "timing": {
+            "startedAt": "2026-11-19T01:05:15.866Z",
+            "durationMs": 507
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_applicable"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "completed"
+          }
+        },
+        "timestamp": 1795050316815
+      }
+    },
+    {
+      "atMs": 6744,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\",\"workflowName\":\"\",\"status\":\"completed\",\"timestamp\":1795050316815}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6",
+        "workflowName": "",
+        "status": "completed",
+        "timestamp": 1795050316815
+      }
+    },
+    {
+      "atMs": 7211,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"recorded\",\"isComplete\":true,\"timestamp\":1795050317282,\"category\":\"workflow_result\",\"workflowResult\":{\"workflowName\":\"orchon-recorder-echo\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\"}}",
+      "data": {
+        "type": "text",
+        "content": "recorded",
+        "isComplete": true,
+        "timestamp": 1795050317282,
+        "category": "workflow_result",
+        "workflowResult": {
+          "workflowName": "orchon-recorder-echo",
+          "runId": "68b479b2-217a-4e84-b86d-ecb9faf394e6"
+        }
+      }
+    },
+    {
+      "atMs": 9212,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050310074-i0mt96",
+      "requestBody": null,
+      "startedMs": 9210,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "7776b6781a0acec543fc99e702706255",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795050310074-i0mt96",
+        "ai_assistant_type": "claude",
+        "codebase_id": "4fb57f7e8043f7efd57270977e68c598",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": null,
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-19 01:05:10",
+        "updated_at": "2026-11-19 01:05:12",
+        "last_activity_at": "2026-11-19 01:05:10"
+      }
+    },
+    {
+      "atMs": 9214,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050310074-i0mt96/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 9212,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "a4df0322074c4750e409f699004fab4f",
+          "conversation_id": "7776b6781a0acec543fc99e702706255",
+          "role": "user",
+          "content": "Recording a launch for Orchon: one shell step.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:05:10"
+        },
+        {
+          "id": "267336a1fff315610d29e477c4dcdf04",
+          "conversation_id": "7776b6781a0acec543fc99e702706255",
+          "role": "assistant",
+          "content": "🚀 Dispatching workflow: **orchon-recorder-echo** (background)",
+          "metadata": "{\"category\":\"workflow_dispatch_status\",\"workflowDispatch\":{\"workerConversationId\":\"web-worker-1795050313338-bvgrg9\",\"workflowName\":\"orchon-recorder-echo\"}}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:05:13"
+        },
+        {
+          "id": "a93711901d7f5b4edbbcb52979852ccb",
+          "conversation_id": "7776b6781a0acec543fc99e702706255",
+          "role": "assistant",
+          "content": "Starting workflow: `orchon-recorder-echo`",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:05:13"
+        },
+        {
+          "id": "fc922d89dfb6ba812420731f18ce4b76",
+          "conversation_id": "7776b6781a0acec543fc99e702706255",
+          "role": "assistant",
+          "content": "recorded",
+          "metadata": "{\"category\":\"workflow_result\",\"workflowResult\":{\"workflowName\":\"orchon-recorder-echo\",\"runId\":\"68b479b2-217a-4e84-b86d-ecb9faf394e6\"}}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:05:17"
+        }
+      ]
+    },
+    {
+      "atMs": 9215,
+      "kind": "stream-end",
+      "label": "first",
+      "by": "server"
+    },
+    {
+      "atMs": 9215,
+      "kind": "stream-open",
+      "label": "second",
+      "path": "/api/stream/web-1795050310074-i0mt96",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 9215,
+      "kind": "frame",
+      "label": "second",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795050319287}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795050319287
+      }
+    },
+    {
+      "atMs": 9215,
+      "kind": "first-reader-ended-after-second-opened",
+      "ended": true
+    },
+    {
+      "atMs": 10217,
+      "kind": "stream-end",
+      "label": "second",
+      "by": "recorder"
+    },
+    {
+      "atMs": 10217,
+      "kind": "stream-end",
+      "label": "dashboard",
+      "by": "recorder"
+    },
+    {
+      "atMs": 25222,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050310074-i0mt96",
+      "requestBody": null,
+      "startedMs": 25220,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "7776b6781a0acec543fc99e702706255",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795050310074-i0mt96",
+        "ai_assistant_type": "claude",
+        "codebase_id": "4fb57f7e8043f7efd57270977e68c598",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Orchon launch shell step",
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-19 01:05:10",
+        "updated_at": "2026-11-19 01:05:21",
+        "last_activity_at": "2026-11-19 01:05:10"
+      }
+    }
+  ]
+}

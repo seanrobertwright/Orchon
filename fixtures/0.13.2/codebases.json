@@ -1,0 +1,76 @@
+{
+  "release": "0.13.2",
+  "scenario": "codebases",
+  "log": [
+    {
+      "atMs": 395,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/codebases",
+      "requestBody": {
+        "path": "<project-path>"
+      },
+      "startedMs": 0,
+      "status": 201,
+      "contentType": "application/json",
+      "body": {
+        "id": "6feec5b110ac5147f1d58ffa49d2790c",
+        "name": "orchon-recorder/throwaway-project",
+        "repository_url": "https://github.com/orchon-recorder/throwaway-project.git",
+        "default_cwd": "<project-path>",
+        "default_branch": null,
+        "ai_assistant_type": null,
+        "kind": "repo",
+        "commands": {},
+        "created_at": "2026-11-19 01:03:10",
+        "updated_at": "2026-11-19 01:03:10"
+      }
+    },
+    {
+      "atMs": 396,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/codebases",
+      "requestBody": null,
+      "startedMs": 395,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "6feec5b110ac5147f1d58ffa49d2790c",
+          "name": "orchon-recorder/throwaway-project",
+          "repository_url": "https://github.com/orchon-recorder/throwaway-project.git",
+          "default_cwd": "<project-path>",
+          "default_branch": null,
+          "ai_assistant_type": null,
+          "kind": "repo",
+          "commands": {},
+          "created_at": "2026-11-19 01:03:10",
+          "updated_at": "2026-11-19 01:03:10"
+        }
+      ]
+    },
+    {
+      "atMs": 397,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/codebases/6feec5b110ac5147f1d58ffa49d2790c",
+      "requestBody": null,
+      "startedMs": 396,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "6feec5b110ac5147f1d58ffa49d2790c",
+        "name": "orchon-recorder/throwaway-project",
+        "repository_url": "https://github.com/orchon-recorder/throwaway-project.git",
+        "default_cwd": "<project-path>",
+        "default_branch": null,
+        "ai_assistant_type": null,
+        "kind": "repo",
+        "commands": {},
+        "created_at": "2026-11-19 01:03:10",
+        "updated_at": "2026-11-19 01:03:10"
+      }
+    }
+  ]
+}

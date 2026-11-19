@@ -1,0 +1,136 @@
+{
+  "release": "0.12.1",
+  "scenario": "run-by-worker",
+  "log": [
+    {
+      "atMs": 1,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/by-worker/web-worker-1795050075790-mrmpg0",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "7c28e1a1-6432-4c9d-89d6-874cfaf81f89",
+          "conversation_id": "40c36978f1fd69b6e1745c59e5eef419",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "workflow_name": "orchon-recorder-echo",
+          "user_message": "Recording a launch for Orchon: one shell step.",
+          "status": "completed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\7c28e1a1-6432-4c9d-89d6-874cfaf81f89",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-19T01:01:14.806Z",
+              "digest": "29cee7fe2f80100f9e8bc6567b5de1deb0d56d7b8d6abb0a92911d2b70b28176",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 139,
+              "byte_count": 949762
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": ""
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 8112
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "write"
+              ]
+            },
+            "node_counts": {
+              "completed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "total": 1
+            }
+          },
+          "parent_conversation_id": "9ff2eac0dce45239ea7aa4068077cb6a",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-19T01:01:15.000Z",
+          "completed_at": "2026-11-19T01:01:18.000Z",
+          "last_activity_at": "2026-11-19T01:01:18.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-19T01:01:18.040Z",
+            "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+            "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "40c36978f1fd69b6e1745c59e5eef419",
+            "parentConversationId": "9ff2eac0dce45239ea7aa4068077cb6a"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "7c28e1a1-6432-4c9d-89d6-874cfaf81f89",
+            "status": "completed",
+            "at": "2026-11-19T01:01:18.000Z"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,473 @@
+{
+  "about": "Rows of workspace.list, one or more for each row shape in the table of decision #25 (What hostId does Orca report for SSH and WSL workspaces?), with Windows paths in both slash directions. They are written from that table and are not recordings: no SSH or WSL workspace was available to record.",
+  "fields": {
+    "shape": "the row of the table this row stands for",
+    "platform": "'win32' when the answer holds for a worker on Windows only, 'any' when it holds on every platform",
+    "localAndWritable": "what the local-and-writable test of #25 answers for the row",
+    "row": "the row as workspace.list gives it"
+  },
+  "shapes": [
+    {
+      "shape": "local",
+      "table": "On this machine"
+    },
+    {
+      "shape": "ssh",
+      "table": "On an SSH host"
+    },
+    {
+      "shape": "wsl-share",
+      "table": "WSL, project opened through the WSL share"
+    },
+    {
+      "shape": "wsl-runtime-on-drive",
+      "table": "WSL, project on a Windows drive with its runtime set to WSL"
+    },
+    {
+      "shape": "wsl-host",
+      "table": "WSL host (experimental setting, off by default)"
+    },
+    {
+      "shape": "paired-server",
+      "table": "Any paired Orca server"
+    },
+    {
+      "shape": "group-folder-no-host",
+      "table": "A folder of a project group with no host stamp"
+    }
+  ],
+  "rows": [
+    {
+      "name": "local-worktree-backslash",
+      "shape": "local",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-01",
+        "kind": "worktree",
+        "name": "local worktree backslash",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "C:\\Projects\\app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "local-worktree-forward",
+      "shape": "local",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-02",
+        "kind": "worktree",
+        "name": "local worktree forward",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "C:/Projects/app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "local-folder-backslash",
+      "shape": "local",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-03",
+        "kind": "folder",
+        "name": "local folder backslash",
+        "project": null,
+        "projectId": null,
+        "path": "D:\\Notes\\plans",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "local-folder-forward",
+      "shape": "local",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-04",
+        "kind": "folder",
+        "name": "local folder forward",
+        "project": null,
+        "projectId": null,
+        "path": "D:/Notes/plans",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "local-posix-worktree",
+      "shape": "local",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-05",
+        "kind": "worktree",
+        "name": "local posix worktree",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "/home/dev/projects/app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "ssh-posix-worktree",
+      "shape": "ssh",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-06",
+        "kind": "worktree",
+        "name": "ssh posix worktree",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "/home/dev/projects/app",
+        "branch": "main",
+        "hostId": "ssh:devbox"
+      }
+    },
+    {
+      "name": "ssh-encoded-target-folder",
+      "shape": "ssh",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-07",
+        "kind": "folder",
+        "name": "ssh encoded target folder",
+        "project": null,
+        "projectId": null,
+        "path": "/srv/notes",
+        "branch": null,
+        "hostId": "ssh:dev%40build.example.com%3A2222"
+      }
+    },
+    {
+      "name": "ssh-windows-host-worktree-backslash",
+      "shape": "ssh",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-08",
+        "kind": "worktree",
+        "name": "ssh windows host worktree backslash",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "C:\\Projects\\app",
+        "branch": "main",
+        "hostId": "ssh:winbox"
+      }
+    },
+    {
+      "name": "ssh-windows-host-worktree-forward",
+      "shape": "ssh",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-09",
+        "kind": "worktree",
+        "name": "ssh windows host worktree forward",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "C:/Projects/app",
+        "branch": "main",
+        "hostId": "ssh:winbox"
+      }
+    },
+    {
+      "name": "wsl-localhost-share-worktree-backslash",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-10",
+        "kind": "worktree",
+        "name": "wsl localhost share worktree backslash",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "\\\\wsl.localhost\\Ubuntu\\home\\dev\\projects\\app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-localhost-share-worktree-forward",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-11",
+        "kind": "worktree",
+        "name": "wsl localhost share worktree forward",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "//wsl.localhost/Ubuntu/home/dev/projects/app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-dollar-share-worktree-backslash",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-12",
+        "kind": "worktree",
+        "name": "wsl dollar share worktree backslash",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "\\\\wsl$\\Ubuntu\\home\\dev\\projects\\app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-dollar-share-worktree-forward",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-13",
+        "kind": "worktree",
+        "name": "wsl dollar share worktree forward",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "//wsl$/Ubuntu/home/dev/projects/app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-localhost-share-folder-backslash",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-14",
+        "kind": "folder",
+        "name": "wsl localhost share folder backslash",
+        "project": null,
+        "projectId": null,
+        "path": "\\\\wsl.localhost\\Debian\\home\\dev\\notes",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-localhost-share-folder-forward",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-15",
+        "kind": "folder",
+        "name": "wsl localhost share folder forward",
+        "project": null,
+        "projectId": null,
+        "path": "//wsl.localhost/Debian/home/dev/notes",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-runtime-drive-worktree-backslash",
+      "shape": "wsl-runtime-on-drive",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-16",
+        "kind": "worktree",
+        "name": "wsl runtime drive worktree backslash",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "C:\\Projects\\app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-runtime-drive-worktree-forward",
+      "shape": "wsl-runtime-on-drive",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-17",
+        "kind": "worktree",
+        "name": "wsl runtime drive worktree forward",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "C:/Projects/app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-runtime-drive-folder-backslash",
+      "shape": "wsl-runtime-on-drive",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-18",
+        "kind": "folder",
+        "name": "wsl runtime drive folder backslash",
+        "project": null,
+        "projectId": null,
+        "path": "D:\\Notes\\plans",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-runtime-drive-folder-forward",
+      "shape": "wsl-runtime-on-drive",
+      "platform": "any",
+      "localAndWritable": true,
+      "row": {
+        "id": "ws-19",
+        "kind": "folder",
+        "name": "wsl runtime drive folder forward",
+        "project": null,
+        "projectId": null,
+        "path": "D:/Notes/plans",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-host-worktree",
+      "shape": "wsl-host",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-20",
+        "kind": "worktree",
+        "name": "wsl host worktree",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "/home/dev/projects/app",
+        "branch": "main",
+        "hostId": "runtime:wsl-ubuntu"
+      }
+    },
+    {
+      "name": "wsl-host-folder",
+      "shape": "wsl-host",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-21",
+        "kind": "folder",
+        "name": "wsl host folder",
+        "project": null,
+        "projectId": null,
+        "path": "/home/dev/notes",
+        "branch": null,
+        "hostId": "runtime:wsl-ubuntu"
+      }
+    },
+    {
+      "name": "paired-server-posix-worktree",
+      "shape": "paired-server",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-22",
+        "kind": "worktree",
+        "name": "paired server posix worktree",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "/srv/projects/app",
+        "branch": "main",
+        "hostId": "runtime:env-7f3a9c"
+      }
+    },
+    {
+      "name": "paired-server-windows-worktree-backslash",
+      "shape": "paired-server",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-23",
+        "kind": "worktree",
+        "name": "paired server windows worktree backslash",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "D:\\Work\\app",
+        "branch": "main",
+        "hostId": "runtime:env-2b81d0"
+      }
+    },
+    {
+      "name": "paired-server-windows-worktree-forward",
+      "shape": "paired-server",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-24",
+        "kind": "worktree",
+        "name": "paired server windows worktree forward",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "D:/Work/app",
+        "branch": "main",
+        "hostId": "runtime:env-2b81d0"
+      }
+    },
+    {
+      "name": "group-folder-windows-backslash",
+      "shape": "group-folder-no-host",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-25",
+        "kind": "folder",
+        "name": "group folder windows backslash",
+        "project": null,
+        "projectId": null,
+        "path": "C:\\Notes\\plans",
+        "branch": null,
+        "hostId": null
+      }
+    },
+    {
+      "name": "group-folder-windows-forward",
+      "shape": "group-folder-no-host",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-26",
+        "kind": "folder",
+        "name": "group folder windows forward",
+        "project": null,
+        "projectId": null,
+        "path": "C:/Notes/plans",
+        "branch": null,
+        "hostId": null
+      }
+    },
+    {
+      "name": "group-folder-posix",
+      "shape": "group-folder-no-host",
+      "platform": "any",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-27",
+        "kind": "folder",
+        "name": "group folder posix",
+        "project": null,
+        "projectId": null,
+        "path": "/home/dev/notes",
+        "branch": null,
+        "hostId": null
+      }
+    }
+  ]
+}

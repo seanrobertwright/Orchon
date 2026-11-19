@@ -1,0 +1,46 @@
+{
+  "release": "0.13.2",
+  "scenario": "health",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/health",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "status": "ok",
+        "adapter": "web",
+        "concurrency": {
+          "active": 0,
+          "queuedTotal": 0,
+          "maxConcurrent": 10,
+          "oldestActiveAgeMs": null,
+          "oldestQueuedAgeMs": null
+        },
+        "runningWorkflows": 0,
+        "version": "0.13.2",
+        "is_docker": false,
+        "is_wsl": false,
+        "storeId": "<store-id>",
+        "activePlatforms": [
+          "Web"
+        ],
+        "attentionDestinations": [
+          {
+            "id": "web-push",
+            "state": "no_subscribers"
+          }
+        ],
+        "schema": {
+          "createdAppVersion": "0.13.2",
+          "appVersion": "0.13.2",
+          "appliedAt": "2026-11-19 01:03:09"
+        }
+      }
+    }
+  ]
+}

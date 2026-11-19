@@ -1,0 +1,366 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-validate",
+  "log": [
+    {
+      "atMs": 6,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-validate?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-validate",
+          "description": "Discover and run the project's own checks — types, lint, tests, build,\nwhatever the repository itself defines — and report a structured verdict.\nJudges nothing and fixes nothing: it runs what the project declares and\ntells the truth about the result.\n\nUse when: the current state of the checkout needs a validation verdict —\n\"run the checks\", \"is this green\", \"validate this\".\nNOT for: fixing failures (implement) or reviewing code (review).\n",
+          "model": "medium",
+          "nodes": [
+            {
+              "id": "discover",
+              "always_run": true,
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "checks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "argv": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "minItems": 1
+                        },
+                        "group": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "argv",
+                        "group"
+                      ]
+                    }
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "checks",
+                  "notes"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "discover-checks"
+              }
+            },
+            {
+              "id": "run",
+              "depends_on": [
+                "discover"
+              ],
+              "always_run": true,
+              "kind": "exec",
+              "script": "run-checks",
+              "runtime": "bun",
+              "timeout": 7200000,
+              "on_timeout": "skip",
+              "with": {
+                "discovery": "$discover.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "green",
+                      "red",
+                      "incomplete"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "classify",
+              "depends_on": [
+                "run"
+              ],
+              "when": "$run.output.status == 'red'",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "red_cause",
+                  "summary"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "classify-red"
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "discover",
+                "run",
+                "classify"
+              ],
+              "trigger_rule": "none_failed_min_one_success",
+              "output_type": "validation",
+              "kind": "exec",
+              "script": "result",
+              "runtime": "bun",
+              "with": {
+                "run": {
+                  "from": "$run.output",
+                  "if_skipped": null
+                },
+                "classification": {
+                  "from": "$classify.output",
+                  "if_skipped": null
+                }
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "green",
+                  "red_cause",
+                  "summary"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "scope": {
+              "default": "",
+              "description": "Optional narrowing — a package, directory, or named check to focus on. Empty means the project's full applicable gate."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "green"
+        },
+        "authored": {
+          "name": "archon-validate",
+          "description": "Discover and run the project's own checks — types, lint, tests, build,\nwhatever the repository itself defines — and report a structured verdict.\nJudges nothing and fixes nothing: it runs what the project declares and\ntells the truth about the result.\n\nUse when: the current state of the checkout needs a validation verdict —\n\"run the checks\", \"is this green\", \"validate this\".\nNOT for: fixing failures (implement) or reviewing code (review).\n",
+          "model": "medium",
+          "inputs": {
+            "scope": {
+              "default": "",
+              "description": "Optional narrowing — a package, directory, or named check to focus on. Empty means the project's full applicable gate."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "green",
+          "nodes": [
+            {
+              "id": "discover",
+              "command": "discover-checks",
+              "always_run": true,
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "checks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "argv": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "minItems": 1
+                        },
+                        "group": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "argv",
+                        "group"
+                      ]
+                    }
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "checks",
+                  "notes"
+                ]
+              }
+            },
+            {
+              "id": "run",
+              "script": "run-checks",
+              "runtime": "bun",
+              "depends_on": [
+                "discover"
+              ],
+              "always_run": true,
+              "timeout": 7200000,
+              "on_timeout": "skip",
+              "with": {
+                "discovery": "$discover.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "green",
+                      "red",
+                      "incomplete"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "classify",
+              "command": "classify-red",
+              "depends_on": [
+                "run"
+              ],
+              "when": "$run.output.status == 'red'",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "red_cause",
+                  "summary"
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "script": "result",
+              "runtime": "bun",
+              "depends_on": [
+                "discover",
+                "run",
+                "classify"
+              ],
+              "trigger_rule": "none_failed_min_one_success",
+              "with": {
+                "run": {
+                  "from": "$run.output",
+                  "if_skipped": null
+                },
+                "classification": {
+                  "from": "$classify.output",
+                  "if_skipped": null
+                }
+              },
+              "output_type": "validation",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "green": {
+                    "type": "boolean"
+                  },
+                  "red_cause": {
+                    "type": "string",
+                    "enum": [
+                      "introduced",
+                      "inherited",
+                      "environment",
+                      "incomplete",
+                      ""
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "green",
+                  "red_cause",
+                  "summary"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-validate.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

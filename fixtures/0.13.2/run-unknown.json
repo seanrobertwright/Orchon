@@ -1,0 +1,101 @@
+{
+  "release": "0.13.2",
+  "scenario": "run-unknown",
+  "log": [
+    {
+      "atMs": 1,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/orchon-recorder-no-such-run",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    },
+    {
+      "atMs": 1,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/orchon-recorder-no-such-run/cancel",
+      "requestBody": null,
+      "startedMs": 1,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    },
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/orchon-recorder-no-such-run/resume",
+      "requestBody": null,
+      "startedMs": 1,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    },
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/orchon-recorder-no-such-run/abandon",
+      "requestBody": null,
+      "startedMs": 2,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    },
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/orchon-recorder-no-such-run/respond",
+      "requestBody": {
+        "decision": "approve"
+      },
+      "startedMs": 3,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    },
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/orchon-recorder-no-such-run/answer",
+      "requestBody": {
+        "occurrence": "x"
+      },
+      "startedMs": 3,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    },
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/runs/orchon-recorder-no-such-run/artifacts",
+      "requestBody": null,
+      "startedMs": 4,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run not found"
+      }
+    }
+  ]
+}

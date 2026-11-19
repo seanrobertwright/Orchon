@@ -1,0 +1,1702 @@
+{
+  "release": "0.12.1",
+  "scenario": "workflows/archon-triage-block",
+  "log": [
+    {
+      "atMs": 17,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-triage-block?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-triage-block",
+          "description": "Ground one work item against the current repository before deciding what kind\nof work it needs. Reconciles tracker history, current code, moved branches,\nstale assumptions, and explicit direction; judges whether the item is a\ncontract a run can start from; then routes to investigate, plan, deliver,\ncontinue an open PR that already carries the outcome, or no action.\nAdvisory: it leaves the checkout unchanged, and writes labels only when asked\nto publish.\n\nThe graph of archon-triage, as a building block for a workflow that composes the\nstage and owns what follows its ending. It never pauses for a person: run\narchon-triage, which adds that pause, by hand.\n",
+          "model": "medium",
+          "nodes": [
+            {
+              "id": "policy",
+              "kind": "exec",
+              "script": "policy",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "defaults": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "defaults"
+                ]
+              }
+            },
+            {
+              "id": "triage",
+              "depends_on": [
+                "policy"
+              ],
+              "mutates_checkout": false,
+              "output_type": "work-triage",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "READY"
+                            ]
+                          },
+                          "route": {
+                            "type": "string",
+                            "enum": [
+                              "investigate",
+                              "plan",
+                              "deliver"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "route"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "READY"
+                            ]
+                          },
+                          "route": {
+                            "type": "string",
+                            "enum": [
+                              "continue"
+                            ]
+                          },
+                          "pull_request": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "route",
+                          "pull_request"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "NEEDS_CONTRACT_WORK"
+                            ]
+                          },
+                          "proposed_edits": {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              },
+                              "body": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              }
+                            },
+                            "required": [
+                              "title",
+                              "body"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "proposed_edits"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "BLOCKED"
+                            ]
+                          },
+                          "blocked_reason": {
+                            "type": "string",
+                            "pattern": "\\S"
+                          },
+                          "blocked_by": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "blocked_reason",
+                          "blocked_by"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "NO_ACTION"
+                            ]
+                          },
+                          "closure": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "duplicate"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  },
+                                  "original": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "repo": {
+                                        "type": "object",
+                                        "properties": {
+                                          "host": {
+                                            "type": "string",
+                                            "pattern": "\\S"
+                                          },
+                                          "path": {
+                                            "type": "string",
+                                            "pattern": "\\S"
+                                          }
+                                        },
+                                        "required": [
+                                          "host",
+                                          "path"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "number": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "repo",
+                                      "number"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "url",
+                                  "original"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "delivered"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "url"
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "closure"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "bug",
+                          "feature",
+                          "refactor",
+                          "maintenance",
+                          "docs",
+                          "question"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "size": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "s",
+                          "m",
+                          "l"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "complexity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "importance": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "urgency": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "soon",
+                          "now"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "item": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "repo": {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              },
+                              "path": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              }
+                            },
+                            "required": [
+                              "host",
+                              "path"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "number": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "repo",
+                          "number"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "repo": {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "enum": [
+                                  ""
+                                ]
+                              },
+                              "path": {
+                                "type": "string",
+                                "enum": [
+                                  ""
+                                ]
+                              }
+                            },
+                            "required": [
+                              "host",
+                              "path"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "number": {
+                            "type": "integer",
+                            "enum": [
+                              0
+                            ]
+                          }
+                        },
+                        "required": [
+                          "repo",
+                          "number"
+                        ]
+                      }
+                    ]
+                  },
+                  "area_labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "triage.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "decision",
+                  "type",
+                  "size",
+                  "complexity",
+                  "importance",
+                  "urgency",
+                  "item",
+                  "area_labels",
+                  "summary",
+                  "report"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "triage",
+                "with": {
+                  "policy_defaults": "$policy.output.defaults"
+                }
+              }
+            },
+            {
+              "id": "verdict",
+              "depends_on": [
+                "triage"
+              ],
+              "kind": "exec",
+              "script": "verdict",
+              "runtime": "bun",
+              "with": {
+                "decision": {
+                  "from": "$triage.output.decision"
+                },
+                "type": {
+                  "from": "$triage.output.type"
+                },
+                "size": {
+                  "from": "$triage.output.size"
+                },
+                "complexity": {
+                  "from": "$triage.output.complexity"
+                },
+                "importance": {
+                  "from": "$triage.output.importance"
+                },
+                "urgency": {
+                  "from": "$triage.output.urgency"
+                },
+                "item": {
+                  "from": "$triage.output.item"
+                },
+                "area_labels": {
+                  "from": "$triage.output.area_labels"
+                },
+                "summary": "$triage.output.summary",
+                "report": {
+                  "from": "$triage.output.report"
+                },
+                "publish": "$INPUTS.publish"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "contract": {
+                    "type": "string",
+                    "enum": [
+                      "READY",
+                      "NEEDS_CONTRACT_WORK",
+                      "BLOCKED",
+                      "NO_ACTION"
+                    ]
+                  },
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "investigate",
+                      "plan",
+                      "deliver",
+                      "continue",
+                      "no_action"
+                    ]
+                  },
+                  "pull_request": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "ready": {
+                    "type": "boolean"
+                  },
+                  "type": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "bug",
+                          "feature",
+                          "refactor",
+                          "maintenance",
+                          "docs",
+                          "question"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "size": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "s",
+                          "m",
+                          "l"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "complexity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "importance": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "urgency": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "soon",
+                          "now"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "published": {
+                    "type": "boolean"
+                  },
+                  "proposed_edits": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "body": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "body"
+                    ]
+                  },
+                  "blocked_reason": {
+                    "type": "string"
+                  },
+                  "blocked_by": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "closure": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "duplicate"
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "pattern": "\\S"
+                          },
+                          "original": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "repo": {
+                                "type": "object",
+                                "properties": {
+                                  "host": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  }
+                                },
+                                "required": [
+                                  "host",
+                                  "path"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "number": {
+                                "type": "integer",
+                                "minimum": 1
+                              }
+                            },
+                            "required": [
+                              "repo",
+                              "number"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "url",
+                          "original"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "delivered"
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "pattern": "\\S"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "url"
+                        ]
+                      }
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "triage.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "contract",
+                  "route",
+                  "pull_request",
+                  "ready",
+                  "type",
+                  "size",
+                  "complexity",
+                  "importance",
+                  "urgency",
+                  "labels",
+                  "published",
+                  "proposed_edits",
+                  "blocked_reason",
+                  "blocked_by",
+                  "closure",
+                  "summary",
+                  "report"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to triage — an issue, document, plan, report, or free-form request. When empty, the run's trigger message is the target. One item per run."
+            },
+            "publish": {
+              "default": "false",
+              "description": "Write the derived labels to the tracker item — true or false. Off by default; the run then records the labels it would apply."
+            }
+          },
+          "returns": "verdict",
+          "outcome_field": "ready"
+        },
+        "authored": {
+          "name": "archon-triage-block",
+          "description": "Ground one work item against the current repository before deciding what kind\nof work it needs. Reconciles tracker history, current code, moved branches,\nstale assumptions, and explicit direction; judges whether the item is a\ncontract a run can start from; then routes to investigate, plan, deliver,\ncontinue an open PR that already carries the outcome, or no action.\nAdvisory: it leaves the checkout unchanged, and writes labels only when asked\nto publish.\n\nThe graph of archon-triage, as a building block for a workflow that composes the\nstage and owns what follows its ending. It never pauses for a person: run\narchon-triage, which adds that pause, by hand.\n",
+          "model": "medium",
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to triage — an issue, document, plan, report, or free-form request. When empty, the run's trigger message is the target. One item per run."
+            },
+            "publish": {
+              "default": "false",
+              "description": "Write the derived labels to the tracker item — true or false. Off by default; the run then records the labels it would apply."
+            }
+          },
+          "returns": "verdict",
+          "outcome_field": "ready",
+          "nodes": [
+            {
+              "id": "policy",
+              "script": "policy",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "defaults": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "defaults"
+                ]
+              }
+            },
+            {
+              "id": "triage",
+              "command": "triage",
+              "depends_on": [
+                "policy"
+              ],
+              "with": {
+                "policy_defaults": "$policy.output.defaults"
+              },
+              "mutates_checkout": false,
+              "output_type": "work-triage",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "READY"
+                            ]
+                          },
+                          "route": {
+                            "type": "string",
+                            "enum": [
+                              "investigate",
+                              "plan",
+                              "deliver"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "route"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "READY"
+                            ]
+                          },
+                          "route": {
+                            "type": "string",
+                            "enum": [
+                              "continue"
+                            ]
+                          },
+                          "pull_request": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "route",
+                          "pull_request"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "NEEDS_CONTRACT_WORK"
+                            ]
+                          },
+                          "proposed_edits": {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              },
+                              "body": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              }
+                            },
+                            "required": [
+                              "title",
+                              "body"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "proposed_edits"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "BLOCKED"
+                            ]
+                          },
+                          "blocked_reason": {
+                            "type": "string",
+                            "pattern": "\\S"
+                          },
+                          "blocked_by": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "blocked_reason",
+                          "blocked_by"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "contract": {
+                            "type": "string",
+                            "enum": [
+                              "NO_ACTION"
+                            ]
+                          },
+                          "closure": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "duplicate"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  },
+                                  "original": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "repo": {
+                                        "type": "object",
+                                        "properties": {
+                                          "host": {
+                                            "type": "string",
+                                            "pattern": "\\S"
+                                          },
+                                          "path": {
+                                            "type": "string",
+                                            "pattern": "\\S"
+                                          }
+                                        },
+                                        "required": [
+                                          "host",
+                                          "path"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "number": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "repo",
+                                      "number"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "url",
+                                  "original"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "delivered"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "url"
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "contract",
+                          "closure"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "bug",
+                          "feature",
+                          "refactor",
+                          "maintenance",
+                          "docs",
+                          "question"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "size": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "s",
+                          "m",
+                          "l"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "complexity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "importance": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "urgency": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "soon",
+                          "now"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "item": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "repo": {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              },
+                              "path": {
+                                "type": "string",
+                                "pattern": "\\S"
+                              }
+                            },
+                            "required": [
+                              "host",
+                              "path"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "number": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "repo",
+                          "number"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "repo": {
+                            "type": "object",
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "enum": [
+                                  ""
+                                ]
+                              },
+                              "path": {
+                                "type": "string",
+                                "enum": [
+                                  ""
+                                ]
+                              }
+                            },
+                            "required": [
+                              "host",
+                              "path"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "number": {
+                            "type": "integer",
+                            "enum": [
+                              0
+                            ]
+                          }
+                        },
+                        "required": [
+                          "repo",
+                          "number"
+                        ]
+                      }
+                    ]
+                  },
+                  "area_labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "triage.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "decision",
+                  "type",
+                  "size",
+                  "complexity",
+                  "importance",
+                  "urgency",
+                  "item",
+                  "area_labels",
+                  "summary",
+                  "report"
+                ]
+              }
+            },
+            {
+              "id": "verdict",
+              "script": "verdict",
+              "runtime": "bun",
+              "depends_on": [
+                "triage"
+              ],
+              "with": {
+                "decision": {
+                  "from": "$triage.output.decision"
+                },
+                "type": {
+                  "from": "$triage.output.type"
+                },
+                "size": {
+                  "from": "$triage.output.size"
+                },
+                "complexity": {
+                  "from": "$triage.output.complexity"
+                },
+                "importance": {
+                  "from": "$triage.output.importance"
+                },
+                "urgency": {
+                  "from": "$triage.output.urgency"
+                },
+                "item": {
+                  "from": "$triage.output.item"
+                },
+                "area_labels": {
+                  "from": "$triage.output.area_labels"
+                },
+                "summary": "$triage.output.summary",
+                "report": {
+                  "from": "$triage.output.report"
+                },
+                "publish": "$INPUTS.publish"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "contract": {
+                    "type": "string",
+                    "enum": [
+                      "READY",
+                      "NEEDS_CONTRACT_WORK",
+                      "BLOCKED",
+                      "NO_ACTION"
+                    ]
+                  },
+                  "route": {
+                    "type": "string",
+                    "enum": [
+                      "investigate",
+                      "plan",
+                      "deliver",
+                      "continue",
+                      "no_action"
+                    ]
+                  },
+                  "pull_request": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "ready": {
+                    "type": "boolean"
+                  },
+                  "type": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "bug",
+                          "feature",
+                          "refactor",
+                          "maintenance",
+                          "docs",
+                          "question"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "size": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "s",
+                          "m",
+                          "l"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "complexity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "importance": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "urgency": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "soon",
+                          "now"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "pattern": "\\S"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "reason"
+                    ]
+                  },
+                  "labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "published": {
+                    "type": "boolean"
+                  },
+                  "proposed_edits": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "body": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "body"
+                    ]
+                  },
+                  "blocked_reason": {
+                    "type": "string"
+                  },
+                  "blocked_by": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "closure": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "duplicate"
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "pattern": "\\S"
+                          },
+                          "original": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "repo": {
+                                "type": "object",
+                                "properties": {
+                                  "host": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "\\S"
+                                  }
+                                },
+                                "required": [
+                                  "host",
+                                  "path"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "number": {
+                                "type": "integer",
+                                "minimum": 1
+                              }
+                            },
+                            "required": [
+                              "repo",
+                              "number"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "url",
+                          "original"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "delivered"
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "pattern": "\\S"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "url"
+                        ]
+                      }
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "triage.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "contract",
+                  "route",
+                  "pull_request",
+                  "ready",
+                  "type",
+                  "size",
+                  "complexity",
+                  "importance",
+                  "urgency",
+                  "labels",
+                  "published",
+                  "proposed_edits",
+                  "blocked_reason",
+                  "blocked_by",
+                  "closure",
+                  "summary",
+                  "report"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-triage-block.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "release": "0.12.1",
+  "scenario": "conversations-empty",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?platform=web",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": []
+    }
+  ]
+}

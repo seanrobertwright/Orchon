@@ -1,0 +1,192 @@
+{
+  "release": "0.14.0",
+  "scenario": "launch-undeclared",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "4fb57f7e8043f7efd57270977e68c598"
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795050341904-vmbpim",
+        "id": "b4b9f0f891b628c2fad2e4c5d3d230f0"
+      }
+    },
+    {
+      "atMs": 5,
+      "kind": "stream-open",
+      "label": "first",
+      "path": "/api/stream/web-1795050341904-vmbpim",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 5,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795050341908}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795050341908
+      }
+    },
+    {
+      "atMs": 514,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-inputs"
+    },
+    {
+      "atMs": 523,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-inputs/run",
+      "requestBody": {
+        "conversationId": "web-1795050341904-vmbpim",
+        "message": "Recording a launch for Orchon: an input the workflow may not declare.",
+        "inputs": {
+          "not_declared": "x",
+          "item": "recorded"
+        }
+      },
+      "startedMs": 514,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 523,
+      "kind": "launch-answered",
+      "status": 200
+    },
+    {
+      "atMs": 647,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795050341904-vmbpim\",\"locked\":true,\"timestamp\":1795050342425}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795050341904-vmbpim",
+        "locked": true,
+        "timestamp": 1795050342425
+      }
+    },
+    {
+      "atMs": 931,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Starting workflow: `orchon-recorder-inputs`\",\"isComplete\":true,\"timestamp\":1795050342811}",
+      "data": {
+        "type": "text",
+        "content": "Starting workflow: `orchon-recorder-inputs`",
+        "isComplete": true,
+        "timestamp": 1795050342811
+      }
+    },
+    {
+      "atMs": 1980,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Cannot run workflow 'orchon-recorder-inputs': it does not declare input 'not_declared'. Declared inputs: item.\",\"isComplete\":true,\"timestamp\":1795050343883}",
+      "data": {
+        "type": "text",
+        "content": "Cannot run workflow 'orchon-recorder-inputs': it does not declare input 'not_declared'. Declared inputs: item.",
+        "isComplete": true,
+        "timestamp": 1795050343883
+      }
+    },
+    {
+      "atMs": 2029,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795050341904-vmbpim\",\"locked\":false,\"timestamp\":1795050343932}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795050341904-vmbpim",
+        "locked": false,
+        "timestamp": 1795050343932
+      }
+    },
+    {
+      "atMs": 10527,
+      "kind": "run-not-found",
+      "polls": 46,
+      "waitedMs": 10000
+    },
+    {
+      "atMs": 10527,
+      "kind": "lock-released-seen",
+      "seen": true
+    },
+    {
+      "atMs": 11539,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050341904-vmbpim",
+      "requestBody": null,
+      "startedMs": 11537,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "b4b9f0f891b628c2fad2e4c5d3d230f0",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795050341904-vmbpim",
+        "ai_assistant_type": "claude",
+        "codebase_id": "4fb57f7e8043f7efd57270977e68c598",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": null,
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-19 01:05:41",
+        "updated_at": "2026-11-19 01:05:41",
+        "last_activity_at": "2026-11-19 01:05:41"
+      }
+    },
+    {
+      "atMs": 11540,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050341904-vmbpim/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 11539,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "8081177f7df28b2b2ca5840c5a9b6b68",
+          "conversation_id": "b4b9f0f891b628c2fad2e4c5d3d230f0",
+          "role": "user",
+          "content": "Recording a launch for Orchon: an input the workflow may not declare.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:05:42"
+        },
+        {
+          "id": "785342f7487a4b5d2fc27f4a0c0f1e2b",
+          "conversation_id": "b4b9f0f891b628c2fad2e4c5d3d230f0",
+          "role": "assistant",
+          "content": "Starting workflow: `orchon-recorder-inputs`Cannot run workflow 'orchon-recorder-inputs': it does not declare input 'not_declared'. Declared inputs: item.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-19 01:05:43"
+        }
+      ]
+    },
+    {
+      "atMs": 11540,
+      "kind": "stream-end",
+      "label": "first",
+      "by": "recorder"
+    }
+  ]
+}

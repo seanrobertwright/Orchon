@@ -16,6 +16,14 @@ const CLIENT_MODULE = 'src/client.ts'
 const DATE_MODULE = 'src/dates.ts'
 /** The one file that may load `node:module`, to hand the gates their development dependencies. */
 const LOADER_MODULE = 'scripts/tooling.ts'
+/**
+ * The fixture recorder's two gateways. The recorder is a developer-run script that boots an
+ * Archon release and records its answers: one file starts that release, the release's own setup
+ * commands and `git` for a scratch repository, and one file calls the release over HTTP. Orca
+ * never loads either.
+ */
+const RECORDER_PROCESS_MODULE = 'scripts/recorder/process.ts'
+const RECORDER_HTTP_MODULE = 'scripts/recorder/http.ts'
 
 /** Development tooling Orca never loads: the gates' scripts, the tests and this file. */
 const TOOLING = ['scripts/**', '**/*.test.*', '**/*.check.*', CONFIG_FILE]
@@ -23,8 +31,12 @@ const TOOLING = ['scripts/**', '**/*.test.*', '**/*.check.*', CONFIG_FILE]
 /** Every file of code. The list of extensions is shared with the other gates. */
 const CODE = [...extensions.typescript, ...extensions.javascript].map((extension) => `**/*.${extension}`)
 
-/** No file may load these: the worker starts no process and opens no socket of its own. */
-const BANNED_MODULES = ['child_process', 'net', 'http', 'https', 'tls', 'dgram', 'worker_threads']
+/**
+ * No file may load these: the worker starts no process and opens no socket of its own. The one
+ * exception is the recorder's process module, which may load the first.
+ */
+const PROCESS_MODULE = 'child_process'
+const BANNED_MODULES = [PROCESS_MODULE, 'net', 'http', 'https', 'tls', 'dgram', 'worker_threads']
 const DISK_MODULES = ['fs']
 const LOADER_MODULES = ['module']
 
@@ -60,12 +72,13 @@ const NON_LITERAL_LOADS = [
 }))
 
 /**
- * The module bans for one group of files. The process and network modules are banned in every
- * group; `disk` and `loader` say whether the group may also load `node:fs` and `node:module`.
+ * The module bans for one group of files. The network modules are banned in every group;
+ * `disk`, `loader` and `startsProcess` say whether the group may load `node:fs`, `node:module`
+ * and `node:child_process`.
  */
-const moduleBans = ({ disk, loader }) => {
+const moduleBans = ({ disk, loader, startsProcess = false }) => {
   const banned = [
-    [BANNED_MODULES, BANNED_MESSAGE],
+    [BANNED_MODULES.filter((name) => !(startsProcess && name === PROCESS_MODULE)), BANNED_MESSAGE],
     ...(disk ? [] : [[DISK_MODULES, DISK_MESSAGE]]),
     ...(loader ? [] : [[LOADER_MODULES, LOADER_MESSAGE]])
   ]
@@ -167,6 +180,18 @@ module.exports = tseslint.config(
 
   // The loader may also load node:module.
   { files: [LOADER_MODULE], rules: moduleBans({ disk: true, loader: true }) },
+
+  // The recorder's process module may also load node:child_process, to start the release it records.
+  { files: [RECORDER_PROCESS_MODULE], rules: moduleBans({ disk: true, loader: false, startsProcess: true }) },
+
+  // The recorder's HTTP module may use fetch, to call that release.
+  {
+    files: [RECORDER_HTTP_MODULE],
+    rules: {
+      'no-restricted-globals': 'off',
+      'no-restricted-properties': ['error', BUILTIN_MODULE_PROPERTY]
+    }
+  },
 
   // A CommonJS file is parsed as one. The module bans still read its require() calls.
   {

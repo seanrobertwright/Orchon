@@ -1,0 +1,295 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-investigate",
+  "log": [
+    {
+      "atMs": 5,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-investigate?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-investigate",
+          "description": "Establish the proven causal chain for a bug, unexplained behavior, or open\nquestion — to the root cause whose fix prevents the symptom, never the first\nplausible explanation — and write an evidence-backed report a fixer or\nplanner can act on without repeating the work. Advisory: it reads,\nreproduces, and reports — the repository is left exactly as it was found.\n\nUse when: the cause is not yet known — \"investigate this issue\", \"why does\nthis fail\", \"root-cause this before we fix it\".\nNOT for: deciding how to build the fix (plan), or building it (implement).\n",
+          "model": [
+            "@investigator",
+            "medium"
+          ],
+          "nodes": [
+            {
+              "id": "investigate",
+              "mutates_checkout": false,
+              "output_type": "investigation-report",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "verdict": {
+                    "type": "string",
+                    "enum": [
+                      "rooted",
+                      "refuted",
+                      "inconclusive"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "investigation.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "verdict",
+                  "summary",
+                  "report"
+                ]
+              },
+              "kind": "agent",
+              "source": {
+                "kind": "command",
+                "name": "investigate"
+              }
+            },
+            {
+              "id": "verdict",
+              "depends_on": [
+                "investigate"
+              ],
+              "kind": "exec",
+              "script": "verdict",
+              "runtime": "bun",
+              "with": {
+                "verdict": "$investigate.output.verdict",
+                "summary": "$investigate.output.summary",
+                "report": {
+                  "from": "$investigate.output.report"
+                }
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "verdict": {
+                    "type": "string",
+                    "enum": [
+                      "rooted",
+                      "refuted",
+                      "inconclusive"
+                    ]
+                  },
+                  "rooted": {
+                    "type": "boolean"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "investigation.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "verdict",
+                  "rooted",
+                  "summary",
+                  "report"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to investigate — an issue reference, a symptom, a failing command, or a question. When empty, the run's trigger message is the target."
+            }
+          },
+          "returns": "verdict",
+          "outcome_field": "rooted"
+        },
+        "authored": {
+          "name": "archon-investigate",
+          "description": "Establish the proven causal chain for a bug, unexplained behavior, or open\nquestion — to the root cause whose fix prevents the symptom, never the first\nplausible explanation — and write an evidence-backed report a fixer or\nplanner can act on without repeating the work. Advisory: it reads,\nreproduces, and reports — the repository is left exactly as it was found.\n\nUse when: the cause is not yet known — \"investigate this issue\", \"why does\nthis fail\", \"root-cause this before we fix it\".\nNOT for: deciding how to build the fix (plan), or building it (implement).\n",
+          "model": [
+            "@investigator",
+            "medium"
+          ],
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to investigate — an issue reference, a symptom, a failing command, or a question. When empty, the run's trigger message is the target."
+            }
+          },
+          "returns": "verdict",
+          "outcome_field": "rooted",
+          "nodes": [
+            {
+              "id": "investigate",
+              "command": "investigate",
+              "mutates_checkout": false,
+              "output_type": "investigation-report",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "verdict": {
+                    "type": "string",
+                    "enum": [
+                      "rooted",
+                      "refuted",
+                      "inconclusive"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "investigation.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "verdict",
+                  "summary",
+                  "report"
+                ]
+              }
+            },
+            {
+              "id": "verdict",
+              "script": "verdict",
+              "runtime": "bun",
+              "depends_on": [
+                "investigate"
+              ],
+              "with": {
+                "verdict": "$investigate.output.verdict",
+                "summary": "$investigate.output.summary",
+                "report": {
+                  "from": "$investigate.output.report"
+                }
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "verdict": {
+                    "type": "string",
+                    "enum": [
+                      "rooted",
+                      "refuted",
+                      "inconclusive"
+                    ]
+                  },
+                  "rooted": {
+                    "type": "boolean"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "report": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "archon_artifact"
+                        ]
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "investigation.md"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "run_id",
+                      "path"
+                    ]
+                  }
+                },
+                "required": [
+                  "verdict",
+                  "rooted",
+                  "summary",
+                  "report"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-investigate.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

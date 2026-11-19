@@ -1,0 +1,19 @@
+{
+  "release": "0.13.2",
+  "scenario": "run-provider-events",
+  "log": [
+    {
+      "atMs": 1,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/542b1888-311b-4b65-b005-8b78e33a7c79/provider-events?step=write",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "events": []
+      }
+    }
+  ]
+}

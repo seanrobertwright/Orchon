@@ -1,0 +1,1530 @@
+{
+  "release": "0.12.1",
+  "scenario": "run-failed",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "cd8c6f17a56a08ff6e8c24143751f5c4"
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795050157280-nwy7he",
+        "id": "0d102c75d5b11e7e5ebcecf3d5891237"
+      }
+    },
+    {
+      "atMs": 6,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-fail"
+    },
+    {
+      "atMs": 8,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-fail/run",
+      "requestBody": {
+        "conversationId": "web-1795050157280-nwy7he",
+        "message": "Recording a failed run for Orchon."
+      },
+      "startedMs": 6,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 8,
+      "kind": "launch-answered",
+      "status": 200
+    },
+    {
+      "atMs": 2613,
+      "kind": "run-found",
+      "pollSentMs": 2610,
+      "polls": 12,
+      "run": {
+        "id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+        "conversation_id": "0eded409fb5753cb9282dce1810d5ea3",
+        "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+        "workflow_name": "orchon-recorder-fail",
+        "user_message": "Recording a failed run for Orchon.",
+        "status": "pending",
+        "outcome": null,
+        "current_step_index": null,
+        "metadata": {
+          "ai_configuration": {
+            "version": 1,
+            "assistant": "claude",
+            "assistants": {
+              "opencode": {},
+              "copilot": {},
+              "claude": {}
+            },
+            "baseAiProfile": {
+              "defaultProvider": "claude",
+              "aliases": {
+                "small": {
+                  "provider": "claude",
+                  "model": "haiku"
+                },
+                "medium": {
+                  "provider": "claude",
+                  "model": "sonnet"
+                },
+                "large": {
+                  "provider": "claude",
+                  "model": "opus"
+                }
+              }
+            },
+            "modelOverrides": {}
+          },
+          "workflow_source": {
+            "version": 1,
+            "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "origin": "<project-path>",
+            "captured_at": "2026-11-19T01:02:38.912Z",
+            "digest": "29cee7fe2f80100f9e8bc6567b5de1deb0d56d7b8d6abb0a92911d2b70b28176",
+            "source_config": {
+              "load_default_workflows": true,
+              "load_default_commands": true
+            },
+            "file_count": 139,
+            "byte_count": 949762
+          }
+        },
+        "parent_conversation_id": "0d102c75d5b11e7e5ebcecf3d5891237",
+        "user_id": null,
+        "parent_run_id": null,
+        "adopted_from_run_id": null,
+        "started_at": "2026-11-19T01:02:39.000Z",
+        "completed_at": null,
+        "last_activity_at": "2026-11-19T01:02:39.000Z",
+        "working_path": null,
+        "output_root": null,
+        "checkout_baseline": null,
+        "origin": {
+          "conversationId": "0eded409fb5753cb9282dce1810d5ea3",
+          "parentConversationId": "0d102c75d5b11e7e5ebcecf3d5891237"
+        },
+        "platform_type": "web",
+        "worker_platform_id": "web-worker-1795050159860-p9bup2",
+        "parent_platform_id": "web-1795050157280-nwy7he",
+        "codebase_name": "orchon-recorder/throwaway-project",
+        "agents_completed": 0,
+        "agents_failed": 0,
+        "agents_total": null,
+        "active_nodes": [],
+        "current_step_name": null,
+        "current_step_status": null,
+        "total_steps": null,
+        "attention": null
+      }
+    },
+    {
+      "atMs": 2614,
+      "kind": "run-status",
+      "status": "pending",
+      "was": null
+    },
+    {
+      "atMs": 4304,
+      "kind": "run-status",
+      "status": "running",
+      "was": "pending"
+    },
+    {
+      "atMs": 4822,
+      "kind": "run-status",
+      "status": "failed",
+      "was": "running"
+    },
+    {
+      "atMs": 4823,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+      "requestBody": null,
+      "startedMs": 4822,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+          "conversation_id": "0eded409fb5753cb9282dce1810d5ea3",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "workflow_name": "orchon-recorder-fail",
+          "user_message": "Recording a failed run for Orchon.",
+          "status": "failed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-19T01:02:38.912Z",
+              "digest": "29cee7fe2f80100f9e8bc6567b5de1deb0d56d7b8d6abb0a92911d2b70b28176",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 139,
+              "byte_count": 949762
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": ""
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 8112
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "fail"
+              ]
+            },
+            "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+            "stop_reason": {
+              "reason": "node_error"
+            }
+          },
+          "parent_conversation_id": "0d102c75d5b11e7e5ebcecf3d5891237",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-19T01:02:39.000Z",
+          "completed_at": "2026-11-19T01:02:41.000Z",
+          "last_activity_at": "2026-11-19T01:02:41.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-19T01:02:41.171Z",
+            "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+            "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "0eded409fb5753cb9282dce1810d5ea3",
+            "parentConversationId": "0d102c75d5b11e7e5ebcecf3d5891237"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "status": "failed",
+            "at": "2026-11-19T01:02:41.000Z"
+          },
+          "worker_platform_id": "web-worker-1795050159860-p9bup2",
+          "parent_platform_id": "web-1795050157280-nwy7he",
+          "conversation_platform_id": null,
+          "terminal_record": {
+            "run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "status": "failed",
+            "outcome": null,
+            "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+            "first_failed_node": "fail",
+            "nodes": [
+              {
+                "node_id": "fail",
+                "state": "failed",
+                "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+              }
+            ],
+            "returns": {
+              "availability": "unavailable",
+              "node_id": null,
+              "reason": "not_declared"
+            },
+            "artifacts": {
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+              "files": [
+                {
+                  "path": ".archon/typed-artifacts/c65e9a44-7106-4422-976b-d9bcc536035e.json",
+                  "size": 94
+                }
+              ],
+              "limitations": []
+            }
+          },
+          "nodes": [
+            {
+              "node_id": "fail",
+              "state": "failed",
+              "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "54c7d835-ed07-42b8-a536-58c5c984c4bf",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 41,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-fail",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": null,
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording a failed run for Orchon.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649.jsonl"
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "79d5defa-4957-4eaa-acf1-51f7d86a57ec",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 42,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "fail",
+            "data": {
+              "node": {
+                "id": "fail",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "43e72a80-c8c0-48e0-919d-179ce260ede3",
+                "startedAt": "2026-11-19T01:02:41.787Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "94fdbd73-7e13-43e0-a4e1-9437fc14c0e2",
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:02:41.906Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash"
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "89e11497-1a6f-429c-91a0-674aec120075",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 43,
+            "event_type": "node_failed",
+            "step_index": null,
+            "step_name": "fail",
+            "data": {
+              "node": {
+                "id": "fail",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "43e72a80-c8c0-48e0-919d-179ce260ede3",
+                "startedAt": "2026-11-19T01:02:41.787Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "94fdbd73-7e13-43e0-a4e1-9437fc14c0e2",
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "durationMs": 72
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash",
+              "duration_ms": 72,
+              "error": "Bash node 'fail' failed [exit 1]: recorded failure",
+              "failure_kind": "exec_failed",
+              "node_output": ""
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "a3776061-dd4b-4d9c-814e-0a353d120032",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 44,
+            "event_type": "workflow_failed",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+              "exit_reason": "node_error",
+              "terminal_record": {
+                "run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                "status": "failed",
+                "outcome": null,
+                "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+                "first_failed_node": "fail",
+                "nodes": [
+                  {
+                    "node_id": "fail",
+                    "state": "failed",
+                    "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                  "files": [
+                    {
+                      "path": ".archon/typed-artifacts/c65e9a44-7106-4422-976b-d9bcc536035e.json",
+                      "size": 94
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-19 01:02:41"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 4823,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/runs/attention",
+      "requestBody": null,
+      "startedMs": 4823,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "runs": [],
+        "items": []
+      }
+    },
+    {
+      "atMs": 4824,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/dashboard/runs?status=failed&limit=50&offset=0",
+      "requestBody": null,
+      "startedMs": 4823,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "runs": [
+          {
+            "id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "conversation_id": "0eded409fb5753cb9282dce1810d5ea3",
+            "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+            "workflow_name": "orchon-recorder-fail",
+            "user_message": "Recording a failed run for Orchon.",
+            "status": "failed",
+            "outcome": null,
+            "current_step_index": null,
+            "metadata": {
+              "ai_configuration": {
+                "version": 1,
+                "assistant": "claude",
+                "assistants": {
+                  "opencode": {},
+                  "copilot": {},
+                  "claude": {}
+                },
+                "baseAiProfile": {
+                  "defaultProvider": "claude",
+                  "aliases": {
+                    "small": {
+                      "provider": "claude",
+                      "model": "haiku"
+                    },
+                    "medium": {
+                      "provider": "claude",
+                      "model": "sonnet"
+                    },
+                    "large": {
+                      "provider": "claude",
+                      "model": "opus"
+                    }
+                  }
+                },
+                "modelOverrides": {}
+              },
+              "workflow_source": {
+                "version": 1,
+                "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                "origin": "<project-path>",
+                "captured_at": "2026-11-19T01:02:38.912Z",
+                "digest": "29cee7fe2f80100f9e8bc6567b5de1deb0d56d7b8d6abb0a92911d2b70b28176",
+                "source_config": {
+                  "load_default_workflows": true,
+                  "load_default_commands": true
+                },
+                "file_count": 139,
+                "byte_count": 949762
+              },
+              "model_bindings": {
+                "overrides": {},
+                "effective": {
+                  "defaultProvider": "claude",
+                  "aliases": {
+                    "small": {
+                      "provider": "claude",
+                      "model": "haiku"
+                    },
+                    "medium": {
+                      "provider": "claude",
+                      "model": "sonnet"
+                    },
+                    "large": {
+                      "provider": "claude",
+                      "model": "opus"
+                    }
+                  }
+                }
+              },
+              "dispatch": {
+                "base_branch": ""
+              },
+              "execution_owner": {
+                "host": "<host>",
+                "pid": 8112
+              },
+              "terminal_graph": {
+                "node_ids": [
+                  "fail"
+                ]
+              },
+              "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+              "stop_reason": {
+                "reason": "node_error"
+              }
+            },
+            "parent_conversation_id": "0d102c75d5b11e7e5ebcecf3d5891237",
+            "user_id": null,
+            "parent_run_id": null,
+            "adopted_from_run_id": null,
+            "started_at": "2026-11-19T01:02:39.000Z",
+            "completed_at": "2026-11-19T01:02:41.000Z",
+            "last_activity_at": "2026-11-19T01:02:41.000Z",
+            "working_path": "<project-path>",
+            "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+            "checkout_baseline": {
+              "kind": "git",
+              "sampledAt": "2026-11-19T01:02:41.171Z",
+              "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+              "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+              "worktree": {
+                "status": "clean"
+              }
+            },
+            "origin": {
+              "conversationId": "0eded409fb5753cb9282dce1810d5ea3",
+              "parentConversationId": "0d102c75d5b11e7e5ebcecf3d5891237"
+            },
+            "platform_type": "web",
+            "worker_platform_id": "web-worker-1795050159860-p9bup2",
+            "parent_platform_id": "web-1795050157280-nwy7he",
+            "codebase_name": "orchon-recorder/throwaway-project",
+            "agents_completed": 0,
+            "agents_failed": 0,
+            "agents_total": null,
+            "active_nodes": [],
+            "current_step_name": null,
+            "current_step_status": null,
+            "total_steps": null,
+            "attention": {
+              "kind": "terminal",
+              "runId": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+              "status": "failed",
+              "at": "2026-11-19T01:02:41.000Z"
+            }
+          }
+        ],
+        "total": 1,
+        "counts": {
+          "all": 6,
+          "running": 0,
+          "completed": 3,
+          "failed": 1,
+          "cancelled": 2,
+          "pending": 0,
+          "paused": 0
+        }
+      }
+    },
+    {
+      "atMs": 4825,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649/cancel",
+      "requestBody": null,
+      "startedMs": 4824,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "Cannot cancel run with status 'failed'. Only a running run has live work to stop; abandon a paused or failed run instead."
+      }
+    },
+    {
+      "atMs": 4827,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649/resume",
+      "requestBody": null,
+      "startedMs": 4825,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true,
+        "message": "Resuming workflow: orchon-recorder-fail"
+      }
+    },
+    {
+      "atMs": 9840,
+      "kind": "run-status",
+      "status": "failed",
+      "was": null
+    },
+    {
+      "atMs": 9842,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+      "requestBody": null,
+      "startedMs": 9840,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+          "conversation_id": "0eded409fb5753cb9282dce1810d5ea3",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "workflow_name": "orchon-recorder-fail",
+          "user_message": "Recording a failed run for Orchon.",
+          "status": "failed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-19T01:02:38.912Z",
+              "digest": "29cee7fe2f80100f9e8bc6567b5de1deb0d56d7b8d6abb0a92911d2b70b28176",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 139,
+              "byte_count": 949762
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": ""
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 8112
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "fail"
+              ]
+            },
+            "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+            "stop_reason": {
+              "reason": "node_error"
+            }
+          },
+          "parent_conversation_id": "0d102c75d5b11e7e5ebcecf3d5891237",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-19T01:02:39.000Z",
+          "completed_at": "2026-11-19T01:02:41.000Z",
+          "last_activity_at": "2026-11-19T01:02:41.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-19T01:02:41.171Z",
+            "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+            "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "0eded409fb5753cb9282dce1810d5ea3",
+            "parentConversationId": "0d102c75d5b11e7e5ebcecf3d5891237"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "status": "failed",
+            "at": "2026-11-19T01:02:41.000Z"
+          },
+          "worker_platform_id": "web-worker-1795050159860-p9bup2",
+          "parent_platform_id": "web-1795050157280-nwy7he",
+          "conversation_platform_id": null,
+          "terminal_record": {
+            "run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "status": "failed",
+            "outcome": null,
+            "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+            "first_failed_node": "fail",
+            "nodes": [
+              {
+                "node_id": "fail",
+                "state": "failed",
+                "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+              }
+            ],
+            "returns": {
+              "availability": "unavailable",
+              "node_id": null,
+              "reason": "not_declared"
+            },
+            "artifacts": {
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+              "files": [
+                {
+                  "path": ".archon/typed-artifacts/c65e9a44-7106-4422-976b-d9bcc536035e.json",
+                  "size": 94
+                }
+              ],
+              "limitations": []
+            }
+          },
+          "nodes": [
+            {
+              "node_id": "fail",
+              "state": "failed",
+              "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "54c7d835-ed07-42b8-a536-58c5c984c4bf",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 41,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-fail",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": null,
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording a failed run for Orchon.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649.jsonl"
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "79d5defa-4957-4eaa-acf1-51f7d86a57ec",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 42,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "fail",
+            "data": {
+              "node": {
+                "id": "fail",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "43e72a80-c8c0-48e0-919d-179ce260ede3",
+                "startedAt": "2026-11-19T01:02:41.787Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "94fdbd73-7e13-43e0-a4e1-9437fc14c0e2",
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:02:41.906Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash"
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "89e11497-1a6f-429c-91a0-674aec120075",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 43,
+            "event_type": "node_failed",
+            "step_index": null,
+            "step_name": "fail",
+            "data": {
+              "node": {
+                "id": "fail",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "43e72a80-c8c0-48e0-919d-179ce260ede3",
+                "startedAt": "2026-11-19T01:02:41.787Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "94fdbd73-7e13-43e0-a4e1-9437fc14c0e2",
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "durationMs": 72
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash",
+              "duration_ms": 72,
+              "error": "Bash node 'fail' failed [exit 1]: recorded failure",
+              "failure_kind": "exec_failed",
+              "node_output": ""
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "a3776061-dd4b-4d9c-814e-0a353d120032",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 44,
+            "event_type": "workflow_failed",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+              "exit_reason": "node_error",
+              "terminal_record": {
+                "run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                "status": "failed",
+                "outcome": null,
+                "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+                "first_failed_node": "fail",
+                "nodes": [
+                  {
+                    "node_id": "fail",
+                    "state": "failed",
+                    "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                  "files": [
+                    {
+                      "path": ".archon/typed-artifacts/c65e9a44-7106-4422-976b-d9bcc536035e.json",
+                      "size": 94
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-19 01:02:41"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 9847,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649/abandon",
+      "requestBody": null,
+      "startedMs": 9842,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true,
+        "message": "No live owner answered for this run on this host (<host>; ENOENT). Recorded owner: host <host>, pid 8112. Last activity: 2026-11-19T01:02:41.000Z. Abandoned workflow: orchon-recorder-fail — warning: Retained checkout <project-path> for run 7aa79fd0-82a8-4f02-96a1-3bcaf1944649: no valid proof this run created it. Inspect it and use explicit isolation cleanup if appropriate."
+      }
+    },
+    {
+      "atMs": 9848,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+      "requestBody": null,
+      "startedMs": 9847,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+          "conversation_id": "0eded409fb5753cb9282dce1810d5ea3",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "workflow_name": "orchon-recorder-fail",
+          "user_message": "Recording a failed run for Orchon.",
+          "status": "cancelled",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-19T01:02:38.912Z",
+              "digest": "29cee7fe2f80100f9e8bc6567b5de1deb0d56d7b8d6abb0a92911d2b70b28176",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 139,
+              "byte_count": 949762
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": ""
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 8112
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "fail"
+              ]
+            },
+            "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+            "stop_reason": {
+              "reason": "node_error"
+            }
+          },
+          "parent_conversation_id": "0d102c75d5b11e7e5ebcecf3d5891237",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-19T01:02:39.000Z",
+          "completed_at": "2026-11-19T01:02:47.000Z",
+          "last_activity_at": "2026-11-19T01:02:41.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-19T01:02:41.171Z",
+            "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+            "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "0eded409fb5753cb9282dce1810d5ea3",
+            "parentConversationId": "0d102c75d5b11e7e5ebcecf3d5891237"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "status": "cancelled",
+            "at": "2026-11-19T01:02:47.000Z"
+          },
+          "worker_platform_id": "web-worker-1795050159860-p9bup2",
+          "parent_platform_id": "web-1795050157280-nwy7he",
+          "conversation_platform_id": null,
+          "terminal_record": {
+            "run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "status": "cancelled",
+            "outcome": null,
+            "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+            "first_failed_node": "fail",
+            "nodes": [
+              {
+                "node_id": "fail",
+                "state": "failed",
+                "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+              }
+            ],
+            "returns": {
+              "availability": "unavailable",
+              "node_id": null,
+              "reason": "not_declared"
+            },
+            "artifacts": {
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+              "files": [
+                {
+                  "path": ".archon/typed-artifacts/c65e9a44-7106-4422-976b-d9bcc536035e.json",
+                  "size": 94
+                }
+              ],
+              "limitations": []
+            }
+          },
+          "nodes": [
+            {
+              "node_id": "fail",
+              "state": "failed",
+              "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "54c7d835-ed07-42b8-a536-58c5c984c4bf",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 41,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-fail",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": null,
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording a failed run for Orchon.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649.jsonl"
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "79d5defa-4957-4eaa-acf1-51f7d86a57ec",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 42,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "fail",
+            "data": {
+              "node": {
+                "id": "fail",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "43e72a80-c8c0-48e0-919d-179ce260ede3",
+                "startedAt": "2026-11-19T01:02:41.787Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "94fdbd73-7e13-43e0-a4e1-9437fc14c0e2",
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:02:41.906Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash"
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "89e11497-1a6f-429c-91a0-674aec120075",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 43,
+            "event_type": "node_failed",
+            "step_index": null,
+            "step_name": "fail",
+            "data": {
+              "node": {
+                "id": "fail",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "43e72a80-c8c0-48e0-919d-179ce260ede3",
+                "startedAt": "2026-11-19T01:02:41.787Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "94fdbd73-7e13-43e0-a4e1-9437fc14c0e2",
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-19T01:02:41.787Z",
+                  "commit": "600757a83f2ec584e51bb3f6000f29b3e0012ebc",
+                  "tree": "a1c2f5db4f7ddbcc2d6f41701e09e588af68fef9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-19T01:02:41.906Z",
+                "durationMs": 72
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash",
+              "duration_ms": 72,
+              "error": "Bash node 'fail' failed [exit 1]: recorded failure",
+              "failure_kind": "exec_failed",
+              "node_output": ""
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "a3776061-dd4b-4d9c-814e-0a353d120032",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 44,
+            "event_type": "workflow_failed",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+              "exit_reason": "node_error",
+              "terminal_record": {
+                "run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                "status": "failed",
+                "outcome": null,
+                "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+                "first_failed_node": "fail",
+                "nodes": [
+                  {
+                    "node_id": "fail",
+                    "state": "failed",
+                    "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                  "files": [
+                    {
+                      "path": ".archon/typed-artifacts/c65e9a44-7106-4422-976b-d9bcc536035e.json",
+                      "size": 94
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-19 01:02:41"
+          },
+          {
+            "id": "51353262-f890-4c78-9f4b-19753678f1ab",
+            "workflow_run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+            "event_order": 49,
+            "event_type": "workflow_cancelled",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "cancel_reason": "operator",
+              "terminal_record": {
+                "run_id": "7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                "status": "cancelled",
+                "outcome": null,
+                "error": "DAG workflow 'orchon-recorder-fail' failed: node fail failed. 0 downstream nodes were skipped.",
+                "first_failed_node": "fail",
+                "nodes": [
+                  {
+                    "node_id": "fail",
+                    "state": "failed",
+                    "error": "Bash node 'fail' failed [exit 1]: recorded failure"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\7aa79fd0-82a8-4f02-96a1-3bcaf1944649",
+                  "files": [
+                    {
+                      "path": ".archon/typed-artifacts/c65e9a44-7106-4422-976b-d9bcc536035e.json",
+                      "size": 94
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-19 01:02:47"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 9849,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/7aa79fd0-82a8-4f02-96a1-3bcaf1944649/abandon",
+      "requestBody": null,
+      "startedMs": 9848,
+      "status": 409,
+      "contentType": "application/json",
+      "body": {
+        "error": "Cannot abandon run with status 'cancelled'. Only running, paused, or failed runs can be abandoned."
+      }
+    }
+  ]
+}

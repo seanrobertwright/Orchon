@@ -1,0 +1,82 @@
+{
+  "release": "0.12.1",
+  "scenario": "workflows/archon-review-eval",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-review-eval?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-review-eval",
+          "description": "One review-lens eval sample: the shipped review, then the simplify pass over the\nsame change whatever the review decided, so every lens is measured on its own.\n`scripts/bench.ts` launches it once per sample against a sealed checkout and\ncollects what each lens wrote; it is not meant to be run by hand.\n\nNeeds a git checkout of a branch with a base branch to diff against. The trigger\ndeclares a working diff, so the review publishes nothing.\n\nUse when: the review-lens bench runs a sample.\nNOT for: reviewing a change (review), judging its structure (simplify).\n",
+          "nodes": [
+            {
+              "id": "review",
+              "kind": "include",
+              "include": "archon-review-block",
+              "with": {
+                "work_order": "$INPUTS.work_order"
+              }
+            },
+            {
+              "id": "simplify",
+              "depends_on": [
+                "review"
+              ],
+              "trigger_rule": "all_done",
+              "kind": "include",
+              "include": "archon-simplify",
+              "with": {
+                "work_order": "$INPUTS.work_order"
+              }
+            }
+          ],
+          "inputs": {
+            "work_order": {
+              "default": "",
+              "description": "The accepted outcome and scope boundaries of the change under review."
+            }
+          }
+        },
+        "authored": {
+          "name": "archon-review-eval",
+          "description": "One review-lens eval sample: the shipped review, then the simplify pass over the\nsame change whatever the review decided, so every lens is measured on its own.\n`scripts/bench.ts` launches it once per sample against a sealed checkout and\ncollects what each lens wrote; it is not meant to be run by hand.\n\nNeeds a git checkout of a branch with a base branch to diff against. The trigger\ndeclares a working diff, so the review publishes nothing.\n\nUse when: the review-lens bench runs a sample.\nNOT for: reviewing a change (review), judging its structure (simplify).\n",
+          "inputs": {
+            "work_order": {
+              "default": "",
+              "description": "The accepted outcome and scope boundaries of the change under review."
+            }
+          },
+          "nodes": [
+            {
+              "id": "review",
+              "include": "archon-review-block",
+              "with": {
+                "work_order": "$INPUTS.work_order"
+              }
+            },
+            {
+              "id": "simplify",
+              "include": "archon-simplify",
+              "depends_on": [
+                "review"
+              ],
+              "trigger_rule": "all_done",
+              "with": {
+                "work_order": "$INPUTS.work_order"
+              }
+            }
+          ]
+        },
+        "filename": "archon-review-eval.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

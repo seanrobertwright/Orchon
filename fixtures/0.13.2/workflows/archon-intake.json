@@ -1,0 +1,651 @@
+{
+  "release": "0.13.2",
+  "scenario": "workflows/archon-intake",
+  "log": [
+    {
+      "atMs": 8,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-intake?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-intake",
+          "description": "The standing front of the label-driven pack. Every issue event records a\nrequest on the issue's work item; the run then claims the best waiting item\nand decides, with a script and before any model reads the text, whether its\nauthor is a listed maintainer. A maintainer's issue is triaged, and the\nverdict becomes the item's stage and a route label; a duplicate or an\nalready delivered item the triage policy lets close is closed with a link to\nwhat resolved it. An outside issue gets\narchon-needs-maintainer and starts no agent until a listed maintainer\npromotes it by adding archon-triage or a route label.\n\nUse when: trigger bindings start it on issue lifecycle and label events (see\nthe SDLC pack README, \"Intake\").\nNOT for: triaging one item by hand (archon-triage), or delivering work.\n",
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "facts",
+              "kind": "exec",
+              "script": "facts",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "enum": [
+                      "idle",
+                      "quiet",
+                      "closed",
+                      "outside",
+                      "triage"
+                    ]
+                  },
+                  "item": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "repo": {
+                        "type": "object",
+                        "properties": {
+                          "host": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "host",
+                          "path"
+                        ]
+                      },
+                      "number": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "repo",
+                      "number"
+                    ]
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "decision": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "quiet",
+                          "closed",
+                          "outside",
+                          "triage"
+                        ]
+                      },
+                      "trust": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "maintainer",
+                          "outside",
+                          null
+                        ]
+                      },
+                      "promoted": {
+                        "type": [
+                          "object",
+                          "null"
+                        ]
+                      },
+                      "stage": {
+                        "type": "string"
+                      },
+                      "body_digest": {
+                        "type": "string"
+                      },
+                      "labels": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "waiting": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "notes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "trust",
+                      "promoted",
+                      "stage",
+                      "body_digest",
+                      "labels",
+                      "waiting",
+                      "notes"
+                    ]
+                  }
+                },
+                "required": [
+                  "path",
+                  "item",
+                  "target",
+                  "decision"
+                ]
+              }
+            },
+            {
+              "id": "triage",
+              "depends_on": [
+                "facts"
+              ],
+              "when": "$facts.output.path == 'triage'",
+              "kind": "include",
+              "include": "archon-triage-block",
+              "with": {
+                "target": "$facts.output.target",
+                "publish": "false"
+              }
+            },
+            {
+              "id": "outcome",
+              "depends_on": [
+                "facts",
+                "triage"
+              ],
+              "trigger_rule": "none_failed_min_one_success",
+              "kind": "exec",
+              "script": "outcome",
+              "runtime": "bun",
+              "with": {
+                "path": "$facts.output.path",
+                "item": {
+                  "from": "$facts.output.item"
+                },
+                "decision": {
+                  "from": "$facts.output.decision"
+                },
+                "contract": {
+                  "from": "$triage.output.contract",
+                  "if_skipped": null
+                },
+                "route": {
+                  "from": "$triage.output.route",
+                  "if_skipped": null
+                },
+                "pull_request": {
+                  "from": "$triage.output.pull_request",
+                  "if_skipped": null
+                },
+                "type": {
+                  "from": "$triage.output.type",
+                  "if_skipped": null
+                },
+                "size": {
+                  "from": "$triage.output.size",
+                  "if_skipped": null
+                },
+                "complexity": {
+                  "from": "$triage.output.complexity",
+                  "if_skipped": null
+                },
+                "importance": {
+                  "from": "$triage.output.importance",
+                  "if_skipped": null
+                },
+                "urgency": {
+                  "from": "$triage.output.urgency",
+                  "if_skipped": null
+                },
+                "labels": {
+                  "from": "$triage.output.labels",
+                  "if_skipped": null
+                },
+                "summary": {
+                  "from": "$triage.output.summary",
+                  "if_skipped": null
+                },
+                "report": {
+                  "from": "$triage.output.report",
+                  "if_skipped": null
+                },
+                "proposed_edits": {
+                  "from": "$triage.output.proposed_edits",
+                  "if_skipped": null
+                },
+                "blocked_reason": {
+                  "from": "$triage.output.blocked_reason",
+                  "if_skipped": null
+                },
+                "blocked_by": {
+                  "from": "$triage.output.blocked_by",
+                  "if_skipped": null
+                },
+                "closure": {
+                  "from": "$triage.output.closure",
+                  "if_skipped": null
+                },
+                "related": {
+                  "from": "$triage.output.related",
+                  "if_skipped": null
+                }
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "enum": [
+                      "idle",
+                      "quiet",
+                      "closed",
+                      "outside",
+                      "triage"
+                    ]
+                  },
+                  "item": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "stage": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "trust": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "promoted": {
+                    "type": "boolean"
+                  },
+                  "labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "item",
+                  "stage",
+                  "trust",
+                  "promoted",
+                  "labels",
+                  "summary"
+                ]
+              }
+            }
+          ],
+          "worktree": {
+            "enabled": false
+          },
+          "inputs": {
+            "repo_host": {
+              "description": "The forge host of the issue's repository (binding field repository.host)."
+            },
+            "repo_path": {
+              "description": "The owner/name path of the issue's repository (binding field repository.path)."
+            },
+            "number": {
+              "description": "The issue number (binding field subject.number)."
+            },
+            "kind": {
+              "default": "issue",
+              "description": "The event's subject kind (binding field subject.kind). Only an issue records a request; a pull request's event only runs a pickup."
+            },
+            "action": {
+              "default": "opened",
+              "description": "The event's action (binding field event.action): opened, edited, reopened, or added for a label."
+            },
+            "label": {
+              "default": "",
+              "description": "The label a label event added (binding field label.name)."
+            },
+            "label_actor": {
+              "default": "",
+              "description": "Who added the label, as the forge reported it (binding field label.actor.login). A label promotes only when this login is on the maintainer list."
+            }
+          },
+          "returns": "outcome"
+        },
+        "authored": {
+          "name": "archon-intake",
+          "description": "The standing front of the label-driven pack. Every issue event records a\nrequest on the issue's work item; the run then claims the best waiting item\nand decides, with a script and before any model reads the text, whether its\nauthor is a listed maintainer. A maintainer's issue is triaged, and the\nverdict becomes the item's stage and a route label; a duplicate or an\nalready delivered item the triage policy lets close is closed with a link to\nwhat resolved it. An outside issue gets\narchon-needs-maintainer and starts no agent until a listed maintainer\npromotes it by adding archon-triage or a route label.\n\nUse when: trigger bindings start it on issue lifecycle and label events (see\nthe SDLC pack README, \"Intake\").\nNOT for: triaging one item by hand (archon-triage), or delivering work.\n",
+          "inputs": {
+            "repo_host": {
+              "description": "The forge host of the issue's repository (binding field repository.host)."
+            },
+            "repo_path": {
+              "description": "The owner/name path of the issue's repository (binding field repository.path)."
+            },
+            "number": {
+              "description": "The issue number (binding field subject.number)."
+            },
+            "kind": {
+              "default": "issue",
+              "description": "The event's subject kind (binding field subject.kind). Only an issue records a request; a pull request's event only runs a pickup."
+            },
+            "action": {
+              "default": "opened",
+              "description": "The event's action (binding field event.action): opened, edited, reopened, or added for a label."
+            },
+            "label": {
+              "default": "",
+              "description": "The label a label event added (binding field label.name)."
+            },
+            "label_actor": {
+              "default": "",
+              "description": "Who added the label, as the forge reported it (binding field label.actor.login). A label promotes only when this login is on the maintainer list."
+            }
+          },
+          "returns": "outcome",
+          "worktree": {
+            "enabled": false
+          },
+          "mutates_checkout": false,
+          "nodes": [
+            {
+              "id": "facts",
+              "script": "facts",
+              "runtime": "bun",
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "enum": [
+                      "idle",
+                      "quiet",
+                      "closed",
+                      "outside",
+                      "triage"
+                    ]
+                  },
+                  "item": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "repo": {
+                        "type": "object",
+                        "properties": {
+                          "host": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "host",
+                          "path"
+                        ]
+                      },
+                      "number": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "repo",
+                      "number"
+                    ]
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "decision": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "enum": [
+                          "quiet",
+                          "closed",
+                          "outside",
+                          "triage"
+                        ]
+                      },
+                      "trust": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "maintainer",
+                          "outside",
+                          null
+                        ]
+                      },
+                      "promoted": {
+                        "type": [
+                          "object",
+                          "null"
+                        ]
+                      },
+                      "stage": {
+                        "type": "string"
+                      },
+                      "body_digest": {
+                        "type": "string"
+                      },
+                      "labels": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "waiting": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "notes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "trust",
+                      "promoted",
+                      "stage",
+                      "body_digest",
+                      "labels",
+                      "waiting",
+                      "notes"
+                    ]
+                  }
+                },
+                "required": [
+                  "path",
+                  "item",
+                  "target",
+                  "decision"
+                ]
+              }
+            },
+            {
+              "id": "triage",
+              "include": "archon-triage-block",
+              "depends_on": [
+                "facts"
+              ],
+              "when": "$facts.output.path == 'triage'",
+              "with": {
+                "target": "$facts.output.target",
+                "publish": "false"
+              }
+            },
+            {
+              "id": "outcome",
+              "script": "outcome",
+              "runtime": "bun",
+              "depends_on": [
+                "facts",
+                "triage"
+              ],
+              "trigger_rule": "none_failed_min_one_success",
+              "with": {
+                "path": "$facts.output.path",
+                "item": {
+                  "from": "$facts.output.item"
+                },
+                "decision": {
+                  "from": "$facts.output.decision"
+                },
+                "contract": {
+                  "from": "$triage.output.contract",
+                  "if_skipped": null
+                },
+                "route": {
+                  "from": "$triage.output.route",
+                  "if_skipped": null
+                },
+                "pull_request": {
+                  "from": "$triage.output.pull_request",
+                  "if_skipped": null
+                },
+                "type": {
+                  "from": "$triage.output.type",
+                  "if_skipped": null
+                },
+                "size": {
+                  "from": "$triage.output.size",
+                  "if_skipped": null
+                },
+                "complexity": {
+                  "from": "$triage.output.complexity",
+                  "if_skipped": null
+                },
+                "importance": {
+                  "from": "$triage.output.importance",
+                  "if_skipped": null
+                },
+                "urgency": {
+                  "from": "$triage.output.urgency",
+                  "if_skipped": null
+                },
+                "labels": {
+                  "from": "$triage.output.labels",
+                  "if_skipped": null
+                },
+                "summary": {
+                  "from": "$triage.output.summary",
+                  "if_skipped": null
+                },
+                "report": {
+                  "from": "$triage.output.report",
+                  "if_skipped": null
+                },
+                "proposed_edits": {
+                  "from": "$triage.output.proposed_edits",
+                  "if_skipped": null
+                },
+                "blocked_reason": {
+                  "from": "$triage.output.blocked_reason",
+                  "if_skipped": null
+                },
+                "blocked_by": {
+                  "from": "$triage.output.blocked_by",
+                  "if_skipped": null
+                },
+                "closure": {
+                  "from": "$triage.output.closure",
+                  "if_skipped": null
+                },
+                "related": {
+                  "from": "$triage.output.related",
+                  "if_skipped": null
+                }
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "enum": [
+                      "idle",
+                      "quiet",
+                      "closed",
+                      "outside",
+                      "triage"
+                    ]
+                  },
+                  "item": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "stage": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "trust": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "promoted": {
+                    "type": "boolean"
+                  },
+                  "labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "item",
+                  "stage",
+                  "trust",
+                  "promoted",
+                  "labels",
+                  "summary"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-intake.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}

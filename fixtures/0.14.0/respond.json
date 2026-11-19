@@ -1,0 +1,287 @@
+{
+  "release": "0.14.0",
+  "scenario": "respond",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "4fb57f7e8043f7efd57270977e68c598"
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795050369110-n5pvl0",
+        "id": "9f641085c4ccbfa66b2956c2995e0506"
+      }
+    },
+    {
+      "atMs": 6,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-gate"
+    },
+    {
+      "atMs": 13,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-gate/run",
+      "requestBody": {
+        "conversationId": "web-1795050369110-n5pvl0",
+        "message": "Recording a gate for Orchon: answered, then the wait answered."
+      },
+      "startedMs": 6,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 13,
+      "kind": "launch-answered",
+      "status": 200
+    },
+    {
+      "atMs": 9724,
+      "kind": "run-found",
+      "pollSentMs": 9542,
+      "polls": 38,
+      "run": {
+        "id": "092f196c-66fc-4beb-9d61-256cb682234e",
+        "conversation_id": "aaff57361fcd53e426d863ef9f2e1fdc",
+        "codebase_id": "4fb57f7e8043f7efd57270977e68c598",
+        "workflow_name": "orchon-recorder-gate",
+        "user_message": "Recording a gate for Orchon: answered, then the wait answered.",
+        "status": "pending",
+        "outcome": null,
+        "current_step_index": null,
+        "metadata": {
+          "ai_configuration": {
+            "version": 1,
+            "assistant": "claude",
+            "assistants": {
+              "opencode": {},
+              "copilot": {},
+              "claude": {}
+            },
+            "baseAiProfile": {
+              "defaultProvider": "claude",
+              "aliases": {
+                "small": {
+                  "provider": "claude",
+                  "model": "haiku"
+                },
+                "medium": {
+                  "provider": "claude",
+                  "model": "sonnet"
+                },
+                "large": {
+                  "provider": "claude",
+                  "model": "opus"
+                }
+              }
+            },
+            "modelOverrides": {}
+          },
+          "workflow_source": {
+            "version": 1,
+            "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\092f196c-66fc-4beb-9d61-256cb682234e",
+            "origin": "<project-path>",
+            "captured_at": "2026-11-19T01:06:12.799Z",
+            "digest": "389d49b2622f5dd70e9ac616744b034f646e142c562945bd24553b6f01eb10e1",
+            "source_config": {
+              "load_default_workflows": true,
+              "load_default_commands": true
+            },
+            "file_count": 160,
+            "byte_count": 915460
+          }
+        },
+        "parent_conversation_id": "9f641085c4ccbfa66b2956c2995e0506",
+        "user_id": null,
+        "parent_run_id": null,
+        "adopted_from_run_id": null,
+        "started_at": "2026-11-19T01:06:18.000Z",
+        "completed_at": null,
+        "last_activity_at": "2026-11-19T01:06:18.000Z",
+        "working_path": null,
+        "output_root": null,
+        "checkout_baseline": null,
+        "origin": {
+          "conversationId": "aaff57361fcd53e426d863ef9f2e1fdc",
+          "parentConversationId": "9f641085c4ccbfa66b2956c2995e0506"
+        },
+        "platform_type": "web",
+        "worker_platform_id": "web-worker-1795050378491-xjru7d",
+        "parent_platform_id": "web-1795050369110-n5pvl0",
+        "codebase_name": "orchon-recorder/throwaway-project",
+        "agents_completed": 0,
+        "agents_failed": 0,
+        "agents_total": null,
+        "active_nodes": [],
+        "current_step_name": null,
+        "current_step_status": null,
+        "total_steps": null,
+        "owner_observation": null,
+        "attention": null
+      }
+    },
+    {
+      "atMs": 12413,
+      "kind": "gate-seen",
+      "nodeId": "gate",
+      "pauseId": "9ef832a6-3792-41eb-986b-cda1d50dfcbc"
+    },
+    {
+      "atMs": 12415,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "decision": "approve",
+        "expectedGate": {
+          "nodeId": "orchon-recorder-other-step",
+          "pauseId": "9ef832a6-3792-41eb-986b-cda1d50dfcbc"
+        }
+      },
+      "startedMs": 12413,
+      "status": 409,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run 092f196c-66fc-4beb-9d61-256cb682234e was already resolved or is no longer paused at the expected gate. It is now awaiting occurrence '9ef832a6-3792-41eb-986b-cda1d50dfcbc'."
+      }
+    },
+    {
+      "atMs": 12416,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "decision": "approve",
+        "expectedGate": {
+          "nodeId": "gate",
+          "pauseId": "orchon-recorder-other-pause"
+        }
+      },
+      "startedMs": 12415,
+      "status": 409,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run 092f196c-66fc-4beb-9d61-256cb682234e was already resolved or is no longer paused at the expected gate. It is now awaiting occurrence '9ef832a6-3792-41eb-986b-cda1d50dfcbc'."
+      }
+    },
+    {
+      "atMs": 12417,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "decision": "approve",
+        "expectedGate": "orchon-recorder-other-step"
+      },
+      "startedMs": 12416,
+      "status": 409,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run 092f196c-66fc-4beb-9d61-256cb682234e was already resolved or is no longer paused at the expected gate. It is now awaiting occurrence '9ef832a6-3792-41eb-986b-cda1d50dfcbc'."
+      }
+    },
+    {
+      "atMs": 12417,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "decision": "approve",
+        "expectedGate": "gate"
+      },
+      "startedMs": 12417,
+      "status": 409,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run 092f196c-66fc-4beb-9d61-256cb682234e was already resolved or is no longer paused at the expected gate. It is now awaiting occurrence '9ef832a6-3792-41eb-986b-cda1d50dfcbc'."
+      }
+    },
+    {
+      "atMs": 12418,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "decision": "orchon-recorder-no-such-decision",
+        "expectedGate": {
+          "nodeId": "gate",
+          "pauseId": "9ef832a6-3792-41eb-986b-cda1d50dfcbc"
+        }
+      },
+      "startedMs": 12417,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "Run 092f196c-66fc-4beb-9d61-256cb682234e's gate only accepts 'approve' or 'reject' — 'orchon-recorder-no-such-decision' is not one of its declared decisions. Declare `approval.decisions:` on the gate node to author a broader vocabulary."
+      }
+    },
+    {
+      "atMs": 12419,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "expectedGate": {
+          "nodeId": "gate",
+          "pauseId": "9ef832a6-3792-41eb-986b-cda1d50dfcbc"
+        }
+      },
+      "startedMs": 12418,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "decision: Invalid input: expected string, received undefined"
+      }
+    },
+    {
+      "atMs": 12424,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "decision": "approve",
+        "text": "Recorded approval.",
+        "expectedGate": {
+          "nodeId": "gate",
+          "pauseId": "9ef832a6-3792-41eb-986b-cda1d50dfcbc"
+        }
+      },
+      "startedMs": 12419,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true,
+        "message": "Workflow responded 'approve': orchon-recorder-gate. The run continues on its own."
+      }
+    },
+    {
+      "atMs": 12426,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/runs/092f196c-66fc-4beb-9d61-256cb682234e/respond",
+      "requestBody": {
+        "decision": "approve",
+        "expectedGate": {
+          "nodeId": "gate",
+          "pauseId": "9ef832a6-3792-41eb-986b-cda1d50dfcbc"
+        }
+      },
+      "startedMs": 12424,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "Workflow run was already approved — resume in progress"
+      }
+    }
+  ]
+}

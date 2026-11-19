@@ -1,0 +1,17 @@
+{
+  "release": "0.14.0",
+  "scenario": "missing-path",
+  "log": [
+    {
+      "atMs": 11,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/orchon-recorder-missing",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "body": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <link rel=\"icon\" type=\"image/png\" href=\"/favicon.png\" />\n    <title>Archon</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />\n    <link\n      href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap\"\n      rel=\"stylesheet\"\n    />\n    <style>\n      body {\n        background-color: #0f1117;\n      }\n    </style>\n    <script type=\"module\" crossorigin src=\"/assets/index-FmrFrm6p.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-Bf6ZrMcC.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  </body>\n</html>\n"
+    }
+  ]
+}

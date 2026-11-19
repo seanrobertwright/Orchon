@@ -51,6 +51,9 @@ const DISK = 'src/disk.ts'
 const CLIENT = 'src/client.ts'
 const DATES = 'src/dates.ts'
 const LOADER = 'scripts/tooling.ts'
+/** The fixture recorder's two gateways: the one file that starts a process and its HTTP caller. */
+const RECORDER_PROCESS = 'scripts/recorder/process.ts'
+const RECORDER_HTTP = 'scripts/recorder/http.ts'
 
 /** Files Orca loads or the editors ship, with one of every code extension. */
 const SHIPPED = [
@@ -70,6 +73,9 @@ const SHIPPED = [
 ]
 const TOOLING = [
   'scripts/record-fixtures.ts',
+  'scripts/recorder/scenarios.ts',
+  RECORDER_PROCESS,
+  RECORDER_HTTP,
   LOADER,
   'src/worker.test.ts',
   'src/panel.test.tsx',
@@ -122,16 +128,30 @@ describe('the lint config', () => {
     }
   })
 
-  test('bans the process and network modules in every file, however they are loaded', async (t) => {
+  test('bans the process and network modules, however they are loaded', async (t) => {
     const eslint = await linterOrSkip(t)
     if (eslint === undefined) return
     for (const path of EVERY_FILE) {
       for (const name of BANNED_EVERYWHERE) {
+        if (path === RECORDER_PROCESS && name === 'child_process') continue
         for (const specifier of [`node:${name}`, name]) {
           for (const [code, rule] of waysToLoad(path, specifier)) await refused(eslint, path, code, rule)
         }
       }
     }
+  })
+
+  test("lets only the recorder's process module load node:child_process", async (t) => {
+    const eslint = await linterOrSkip(t)
+    if (eslint === undefined) return
+    for (const specifier of ['node:child_process', 'child_process']) {
+      await allowed(eslint, RECORDER_PROCESS, `import { spawn } from '${specifier}'
+${keep(RECORDER_PROCESS, 'spawn')}`)
+    }
+    // It is still tooling like the rest: it may read files and may not use fetch.
+    await allowed(eslint, RECORDER_PROCESS, `import * as disk from 'node:fs'
+${keep(RECORDER_PROCESS, 'disk')}`)
+    await refused(eslint, RECORDER_PROCESS, keep(RECORDER_PROCESS, "fetch('http://127.0.0.1:3090/')"), 'no-restricted-globals')
   })
 
   test('lets only the disk module, the gates and the tests load node:fs', async (t) => {
@@ -190,7 +210,7 @@ describe('the lint config', () => {
     )
   })
 
-  test('lets only the client module use fetch', async (t) => {
+  test("lets only the client module and the recorder's HTTP module use fetch", async (t) => {
     const eslint = await linterOrSkip(t)
     if (eslint === undefined) return
     const uses: [expression: string, rule: string][] = [
@@ -200,10 +220,11 @@ describe('the lint config', () => {
       ['fetch', 'no-restricted-globals']
     ]
     for (const [expression, rule] of uses) {
-      for (const path of EVERY_FILE.filter((file) => file !== CLIENT)) {
+      for (const path of EVERY_FILE.filter((file) => file !== CLIENT && file !== RECORDER_HTTP)) {
         await refused(eslint, path, keep(path, expression), rule)
       }
       await allowed(eslint, CLIENT, keep(CLIENT, expression))
+      await allowed(eslint, RECORDER_HTTP, keep(RECORDER_HTTP, expression))
     }
   })
 

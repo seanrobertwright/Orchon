@@ -1,0 +1,268 @@
+{
+  "release": "0.12.1",
+  "scenario": "launch-empty-message",
+  "log": [
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "cd8c6f17a56a08ff6e8c24143751f5c4"
+      },
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795050128153-sb2yom",
+        "id": "a49653c2cdb5f479362f861dbb165b80"
+      }
+    },
+    {
+      "atMs": 4,
+      "kind": "stream-open",
+      "label": "first",
+      "path": "/api/stream/web-1795050128153-sb2yom",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 4,
+      "kind": "frame",
+      "label": "first",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795050128156}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795050128156
+      }
+    },
+    {
+      "atMs": 514,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-echo"
+    },
+    {
+      "atMs": 514,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-echo/run",
+      "requestBody": {
+        "conversationId": "web-1795050128153-sb2yom",
+        "message": ""
+      },
+      "startedMs": 514,
+      "status": 400,
+      "contentType": "application/json",
+      "body": {
+        "error": "message must be a non-empty string"
+      }
+    },
+    {
+      "atMs": 514,
+      "kind": "launch-answered",
+      "status": 400
+    },
+    {
+      "atMs": 1520,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?platform=web&codebaseId=cd8c6f17a56a08ff6e8c24143751f5c4",
+      "requestBody": null,
+      "startedMs": 1519,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "e8dc07a68730746e20b9ce6b721e594e",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050116092-kj1jvg",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Recording refused Orchon launch input",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:56",
+          "updated_at": "2026-11-19 01:02:05",
+          "last_activity_at": "2026-11-19 01:01:56"
+        },
+        {
+          "id": "a4add13bb8bee9b310967afc0de9b0c8",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050104456-yrpjbf",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Recording Orchon launch: undeclared workflow input",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:44",
+          "updated_at": "2026-11-19 01:01:55",
+          "last_activity_at": "2026-11-19 01:01:44"
+        },
+        {
+          "id": "43ff06ffd02e2ec5b340701c3196ce1f",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050097674-qrh859",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch undeclared input check",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:37",
+          "updated_at": "2026-11-19 01:01:50",
+          "last_activity_at": "2026-11-19 01:01:37"
+        },
+        {
+          "id": "9ff2eac0dce45239ea7aa4068077cb6a",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050072354-vqr978",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon recorder launch shell step",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:12",
+          "updated_at": "2026-11-19 01:01:23",
+          "last_activity_at": "2026-11-19 01:01:12"
+        }
+      ]
+    },
+    {
+      "atMs": 1523,
+      "kind": "http",
+      "method": "DELETE",
+      "path": "/api/conversations/web-1795050128153-sb2yom",
+      "requestBody": null,
+      "startedMs": 1520,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "success": true
+      }
+    },
+    {
+      "atMs": 1524,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations?platform=web&codebaseId=cd8c6f17a56a08ff6e8c24143751f5c4",
+      "requestBody": null,
+      "startedMs": 1523,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "e8dc07a68730746e20b9ce6b721e594e",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050116092-kj1jvg",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Recording refused Orchon launch input",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:56",
+          "updated_at": "2026-11-19 01:02:05",
+          "last_activity_at": "2026-11-19 01:01:56"
+        },
+        {
+          "id": "a4add13bb8bee9b310967afc0de9b0c8",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050104456-yrpjbf",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Recording Orchon launch: undeclared workflow input",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:44",
+          "updated_at": "2026-11-19 01:01:55",
+          "last_activity_at": "2026-11-19 01:01:44"
+        },
+        {
+          "id": "43ff06ffd02e2ec5b340701c3196ce1f",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050097674-qrh859",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon launch undeclared input check",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:37",
+          "updated_at": "2026-11-19 01:01:50",
+          "last_activity_at": "2026-11-19 01:01:37"
+        },
+        {
+          "id": "9ff2eac0dce45239ea7aa4068077cb6a",
+          "platform_type": "web",
+          "platform_conversation_id": "web-1795050072354-vqr978",
+          "ai_assistant_type": "claude",
+          "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+          "cwd": null,
+          "isolation_env_id": null,
+          "title": "Orchon recorder launch shell step",
+          "deleted_at": null,
+          "hidden": 0,
+          "user_id": null,
+          "created_at": "2026-11-19 01:01:12",
+          "updated_at": "2026-11-19 01:01:23",
+          "last_activity_at": "2026-11-19 01:01:12"
+        }
+      ]
+    },
+    {
+      "atMs": 1524,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795050128153-sb2yom",
+      "requestBody": null,
+      "startedMs": 1524,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "a49653c2cdb5f479362f861dbb165b80",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795050128153-sb2yom",
+        "ai_assistant_type": "claude",
+        "codebase_id": "cd8c6f17a56a08ff6e8c24143751f5c4",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": null,
+        "deleted_at": "2026-11-19 01:02:09",
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-19 01:02:08",
+        "updated_at": "2026-11-19 01:02:09",
+        "last_activity_at": "2026-11-19 01:02:08"
+      }
+    },
+    {
+      "atMs": 3561,
+      "kind": "stream-after-delete",
+      "ended": false
+    },
+    {
+      "atMs": 3561,
+      "kind": "stream-end",
+      "label": "first",
+      "by": "recorder"
+    }
+  ]
+}

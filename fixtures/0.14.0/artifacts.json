@@ -1,0 +1,49 @@
+{
+  "release": "0.14.0",
+  "scenario": "artifacts",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/runs/68b479b2-217a-4e84-b86d-ecb9faf394e6/artifacts",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "files": [
+          {
+            "path": "notes/recorded.md",
+            "size": 52,
+            "modifiedAt": "2026-11-19T01:05:16.136Z"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 3,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/artifacts/68b479b2-217a-4e84-b86d-ecb9faf394e6/notes/recorded.md",
+      "requestBody": null,
+      "startedMs": 2,
+      "status": 200,
+      "contentType": "text/markdown; charset=utf-8",
+      "body": "# Recorded\n\nWritten by the Orchon fixture recorder.\n"
+    },
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/artifacts/68b479b2-217a-4e84-b86d-ecb9faf394e6/orchon-recorder-missing.md",
+      "requestBody": null,
+      "startedMs": 3,
+      "status": 404,
+      "contentType": "application/json",
+      "body": {
+        "error": "Artifact file not found"
+      }
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "release": "0.14.0",
+  "scenario": "workflows/archon-ship",
+  "log": [
+    {
+      "atMs": 4,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/archon-ship?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "archon-ship",
+          "description": "Ground an issue or request against the current repository before spending on\nit, then take the least speculative path: investigate an unknown cause, plan\nan undecided shape, deliver an implementation-ready work order, or stop when\nno work remains (archon-ship-block). Actionable paths converge on the reviewed\ndelivery tail. When the run stops where only a person can take it forward, on a\ntriage or planning question, an unrooted cause or a delivery that ended not\nready, it pauses as one attention item. The answer runs the pipeline again with\nthe person's note, or ends the run with the outcome as it stands.\n\nUse when: an issue or request should be taken from current-truth check\nthrough to a reviewed PR — \"fix this issue\", \"implement issue #123\", \"take\nthis work item to a PR\".\nNOT for: bypassing triage with already-prepared work (deliver directly),\nreviewing an existing PR, or merging.\n",
+          "nodes": [
+            {
+              "id": "cycle",
+              "kind": "loop_group",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'",
+                    "kind": "exec",
+                    "script": "true",
+                    "runtime": "sh"
+                  },
+                  {
+                    "id": "stage",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "kind": "include",
+                    "include": "archon-ship-block",
+                    "with": {
+                      "errors": "$INPUTS.errors",
+                      "part": "$INPUTS.part",
+                      "publish": "$INPUTS.publish",
+                      "pull_request": "$INPUTS.pull_request",
+                      "branch": "$INPUTS.branch",
+                      "target": "$INPUTS.target\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "kind": "include",
+                    "include": "archon-attention",
+                    "with": {
+                      "stage": "archon-ship",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "kind": "exec",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "runtime": "bun",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "delivered": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "delivered"
+                ]
+              }
+            }
+          ],
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to take through the pipeline — an issue, document, plan, report, or free-form request. When empty, the run's trigger message is the target."
+            },
+            "errors": {
+              "default": "auto",
+              "description": "Silent-failure lens — auto, true, or false."
+            },
+            "part": {
+              "default": "",
+              "description": "The part of an approved multi-part plan this run delivers, forwarded unchanged to delivery's reviews. archon-review's `part` input owns its shape. Empty delivers the whole contract."
+            },
+            "publish": {
+              "default": "false",
+              "description": "Let triage write its derived labels to the tracker item — true or false. Off by default. Forwarded unchanged to triage; a scheduled ship run is the only place an unattended intake can turn it on."
+            },
+            "pull_request": {
+              "default": "",
+              "description": "The number of an open pull request this run continues, as the caller resolved it; `none` when the caller decided the run continues none; empty or `null` when it names none and leaves it to triage. Delivery finishes a named one whichever route triage takes; triage naming a different one, or naming one after `none`, refuses the run."
+            },
+            "branch": {
+              "default": "",
+              "description": "The branch a new pull request opens from, as the caller resolved it, forwarded unchanged to delivery. When an open pull request already has that head, the push updates it instead of opening another. Empty opens it from the checkout's branch."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "delivered"
+        },
+        "authored": {
+          "name": "archon-ship",
+          "description": "Ground an issue or request against the current repository before spending on\nit, then take the least speculative path: investigate an unknown cause, plan\nan undecided shape, deliver an implementation-ready work order, or stop when\nno work remains (archon-ship-block). Actionable paths converge on the reviewed\ndelivery tail. When the run stops where only a person can take it forward, on a\ntriage or planning question, an unrooted cause or a delivery that ended not\nready, it pauses as one attention item. The answer runs the pipeline again with\nthe person's note, or ends the run with the outcome as it stands.\n\nUse when: an issue or request should be taken from current-truth check\nthrough to a reviewed PR — \"fix this issue\", \"implement issue #123\", \"take\nthis work item to a PR\".\nNOT for: bypassing triage with already-prepared work (deliver directly),\nreviewing an existing PR, or merging.\n",
+          "inputs": {
+            "target": {
+              "default": "",
+              "description": "What to take through the pipeline — an issue, document, plan, report, or free-form request. When empty, the run's trigger message is the target."
+            },
+            "errors": {
+              "default": "auto",
+              "description": "Silent-failure lens — auto, true, or false."
+            },
+            "part": {
+              "default": "",
+              "description": "The part of an approved multi-part plan this run delivers, forwarded unchanged to delivery's reviews. archon-review's `part` input owns its shape. Empty delivers the whole contract."
+            },
+            "publish": {
+              "default": "false",
+              "description": "Let triage write its derived labels to the tracker item — true or false. Off by default. Forwarded unchanged to triage; a scheduled ship run is the only place an unattended intake can turn it on."
+            },
+            "pull_request": {
+              "default": "",
+              "description": "The number of an open pull request this run continues, as the caller resolved it; `none` when the caller decided the run continues none; empty or `null` when it names none and leaves it to triage. Delivery finishes a named one whichever route triage takes; triage naming a different one, or naming one after `none`, refuses the run."
+            },
+            "branch": {
+              "default": "",
+              "description": "The branch a new pull request opens from, as the caller resolved it, forwarded unchanged to delivery. When an open pull request already has that head, the push updates it instead of opening another. Empty opens it from the checkout's branch."
+            }
+          },
+          "returns": "result",
+          "outcome_field": "delivered",
+          "nodes": [
+            {
+              "id": "cycle",
+              "loop_group": {
+                "max_iterations": 1,
+                "fresh_context": true,
+                "until_bash": "done=$attend.output.done; test \"$done\" = true",
+                "nodes": [
+                  {
+                    "id": "go",
+                    "bash": "true",
+                    "when": "$LOOP_PREV.attend__ask.output.decision == '' || $LOOP_PREV.attend__ask.output.decision == 'rerun'"
+                  },
+                  {
+                    "id": "stage",
+                    "include": "archon-ship-block",
+                    "depends_on": [
+                      "go"
+                    ],
+                    "with": {
+                      "errors": "$INPUTS.errors",
+                      "part": "$INPUTS.part",
+                      "publish": "$INPUTS.publish",
+                      "pull_request": "$INPUTS.pull_request",
+                      "branch": "$INPUTS.branch",
+                      "target": "$INPUTS.target\n$LOOP_PREV.attend__settle.output.brief\n$LOOP_PREV.attend__ask.output.text"
+                    }
+                  },
+                  {
+                    "id": "attend",
+                    "include": "archon-attention",
+                    "depends_on": [
+                      "stage"
+                    ],
+                    "trigger_rule": "all_done",
+                    "with": {
+                      "stage": "archon-ship",
+                      "outcome": "$stage.output"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "result",
+              "depends_on": [
+                "cycle"
+              ],
+              "runtime": "bun",
+              "script": "console.log(JSON.stringify(JSON.parse(process.env.INPUTS_CYCLE).outcome))",
+              "with": {
+                "cycle": "$cycle.output"
+              },
+              "output_format": {
+                "type": "object",
+                "properties": {
+                  "delivered": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "delivered"
+                ]
+              }
+            }
+          ]
+        },
+        "filename": "archon-ship.yaml",
+        "source": "bundled"
+      }
+    }
+  ]
+}
