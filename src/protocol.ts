@@ -2,6 +2,7 @@
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
+import type { ThreadAnswer, ThreadRequest } from './chat-thread-view'
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
 import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
@@ -111,6 +112,8 @@ declare module 'orca' {
     'workflows.delete': { input: WorkflowDelete; output: DeleteAnswer }
     /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */
     'chats.read': { input: ChatsRequest; output: ChatsAnswer }
+    /** A chat thread: the conversation, its project and its newest saved messages, newest first. */
+    'chat.read': { input: ThreadRequest; output: ThreadAnswer }
   }
   interface PluginPanelEvents {
     /**
