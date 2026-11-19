@@ -7,7 +7,8 @@
 // sent it, so content the builder does not understand is written back unchanged. A save that
 // times out is never sent again: the worker reads the workflow to learn whether it landed. One
 // save runs at a time. Between the re-read and the PUT lie a few milliseconds in which an outside
-// change is not seen; that is an accepted limit, stated in the README.
+// change is not seen; that is an accepted limit, stated in the README. A save Archon holds
+// deletes the workflow's builder draft, and a draft made on another Archon is never saved.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { BuilderDrafts } from './builder-drafts'
 import { isDefinition, NOT_CONNECTED, parseBuilderIdentity, PROJECT_GONE, projectFolder, readWorkflowFile } from './builder'

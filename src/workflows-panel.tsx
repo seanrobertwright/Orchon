@@ -1,6 +1,7 @@
 // The Workflows section of the panel (#16): its own project select, the workflows Archon lists with
 // where each comes from, Open in builder, and Delete of a project or global workflow behind an
-// inline confirmation.
+// inline confirmation, New workflow, and the builder drafts: a mark on each workflow that has one
+// and the new workflows never saved, each with Open and Discard.
 // It draws only the worker's view model and reads it under the shared per-view fetch rules.
 import { atom, Button, Callout, IconButton, Input, Link, plugin, RadioGroup, read, Row, Select, set, shell, Spinner, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
 import { WORKFLOW_NAME_CAP, type NewWorkflowPlace } from '../editors/builder/builder-view'

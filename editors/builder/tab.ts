@@ -9,6 +9,9 @@
 // the local blocking rules and sends the definition to the worker, which checks for an outside
 // change, has Archon validate it and writes it; Validate asks Archon only. Archon's sentences show
 // at the top of the issues. The tab never edits its file. An installed workflow is only viewed.
+// Each edit goes to the worker as a draft after a pause, and the worker keeps it in plugin
+// storage; a read gives the draft back, and the tab opens it before it draws anything, under a
+// notice with Discard. While Archon is away the copy stays editable under the state's banner.
 // Every piece of outside text is set through `textContent`.
 import { createCanvas, type Canvas, type ObserveSize } from '../shared/canvas.ts'
 import { elementMaker } from '../shared/dom.ts'
@@ -21,6 +24,7 @@ import { VARIANTS, VARIANT_REGISTRY } from './archon/variants/index.ts'
 import {
   BUILDER_DRAFT_SEND_PAUSE_MS,
   DEFINITION_CAP_BYTES,
+  DRAFT_FILE_CAP,
   mib,
   SCOPE_CAP,
   WORKFLOW_NAME_CAP,
@@ -80,6 +84,7 @@ export const DRAFT_BASE_CHANGED = 'This workflow changed outside the builder sin
 export const DRAFT_BASE_REMOVED =
   'Archon no longer serves this workflow here: it was removed or replaced outside the builder since your draft was made. Your draft is kept until you choose.'
 export const NEW_TAKEN = 'Archon now holds a workflow of this name here, made outside the builder since your draft was. Your draft is kept until you choose.'
+export const DRAFT_UNANSWERED = "Orchon's worker did not answer, so your latest changes may not be kept as a draft."
 export const NEW_DISCARDED = 'This new workflow was discarded. Nothing was written to Archon.'
 const NOT_CONNECTED_BANNER = 'Orchon is not connected to Archon. What is shown was read before.'
 const PICK_A_NODE = 'Choose a node on the canvas or in the outline to see it here.'
@@ -96,7 +101,10 @@ export type BuilderTabPorts = {
   on(event: string, handler: (payload: unknown) => void): { dispose(): void }
   /** Orca's UI language. */
   locale: string
-  /** The frame's timers. The tab sets none of its own: a save waits on the worker, which times Archon's answers. */
+  /**
+   * The frame's timers. The tab sets one: the pause before an edit goes to the worker as a draft,
+   * cleared when the tab stops. A save waits on the worker, which times Archon's answers.
+   */
   timers: TabTimers
   /** Opens a link in the system browser, when the frame can. */
   openExternal?(url: string): Promise<unknown>
@@ -501,7 +509,7 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     const definition = definitionNow()
     if (definition === null) return
     draftKept = true
-    void ports.request('builder.draft.write', { ...identity, definition, base, file: shown.header.file }).then(
+    void ports.request('builder.draft.write', { ...identity, definition, base, file: shown.header.file.slice(0, DRAFT_FILE_CAP) }).then(
       (answer) => {
         if (stopped) return
         const refused = isRecord(answer) && answer.kept === false && typeof answer.reason === 'string' ? answer.reason : null
@@ -511,7 +519,12 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
           showBanners()
         }
       },
-      () => {}
+      () => {
+        if (stopped) return
+        draftKept = false
+        draftRefused = DRAFT_UNANSWERED
+        showBanners()
+      }
     )
   }
 

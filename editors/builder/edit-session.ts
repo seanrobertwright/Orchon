@@ -23,7 +23,7 @@ export type EditSession = {
   definition(): BuilderWorkflowDefinition
   /** What opening the definition found: read-only nodes and kept fields. */
   readonly openingIssues: readonly Issue[]
-  /** Whether the definition differs from the one opened, or from the one last saved. */
+  /** Whether the definition differs from the one opened (or the copy `openSession` was given to compare with), or from the one last saved. */
   dirty(): boolean
   /** The copy as it stands was saved: from now on `dirty` tells edits apart from it. The undo history is kept. */
   markSaved(): void

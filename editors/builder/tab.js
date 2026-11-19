@@ -9,6 +9,9 @@
 // the local blocking rules and sends the definition to the worker, which checks for an outside
 // change, has Archon validate it and writes it; Validate asks Archon only. Archon's sentences show
 // at the top of the issues. The tab never edits its file. An installed workflow is only viewed.
+// Each edit goes to the worker as a draft after a pause, and the worker keeps it in plugin
+// storage; a read gives the draft back, and the tab opens it before it draws anything, under a
+// notice with Discard. While Archon is away the copy stays editable under the state's banner.
 // Every piece of outside text is set through `textContent`.
 import { createCanvas } from "../shared/canvas.js";
 import { elementMaker } from "../shared/dom.js";
@@ -16,7 +19,7 @@ import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph } from "../shared/graph-layout.js";
 import { isRecord } from "../shared/records.js";
 import { VARIANTS, VARIANT_REGISTRY } from "./archon/variants/index.js";
-import { BUILDER_DRAFT_SEND_PAUSE_MS, DEFINITION_CAP_BYTES, mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
+import { BUILDER_DRAFT_SEND_PAUSE_MS, DEFINITION_CAP_BYTES, DRAFT_FILE_CAP, mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
 import { openSession } from "./edit-session.js";
 import { fieldControl, option } from "./field-control.js";
 import { formFields } from "./node-form.js";
@@ -59,6 +62,7 @@ export const OTHER_ARCHON_LINE = 'This draft was made on a different Archon.';
 export const DRAFT_BASE_CHANGED = 'This workflow changed outside the builder since your draft was made. Your draft is kept until you choose.';
 export const DRAFT_BASE_REMOVED = 'Archon no longer serves this workflow here: it was removed or replaced outside the builder since your draft was made. Your draft is kept until you choose.';
 export const NEW_TAKEN = 'Archon now holds a workflow of this name here, made outside the builder since your draft was. Your draft is kept until you choose.';
+export const DRAFT_UNANSWERED = "Orchon's worker did not answer, so your latest changes may not be kept as a draft.";
 export const NEW_DISCARDED = 'This new workflow was discarded. Nothing was written to Archon.';
 const NOT_CONNECTED_BANNER = 'Orchon is not connected to Archon. What is shown was read before.';
 const PICK_A_NODE = 'Choose a node on the canvas or in the outline to see it here.';
@@ -436,7 +440,7 @@ export function startBuilderTab(ports) {
         if (definition === null)
             return;
         draftKept = true;
-        void ports.request('builder.draft.write', { ...identity, definition, base, file: shown.header.file }).then((answer) => {
+        void ports.request('builder.draft.write', { ...identity, definition, base, file: shown.header.file.slice(0, DRAFT_FILE_CAP) }).then((answer) => {
             if (stopped)
                 return;
             const refused = isRecord(answer) && answer.kept === false && typeof answer.reason === 'string' ? answer.reason : null;
@@ -446,7 +450,13 @@ export function startBuilderTab(ports) {
                 draftRefused = refused;
                 showBanners();
             }
-        }, () => { });
+        }, () => {
+            if (stopped)
+                return;
+            draftKept = false;
+            draftRefused = DRAFT_UNANSWERED;
+            showBanners();
+        });
     }
     /** Tells the worker to delete the draft. */
     function dropDraft() {

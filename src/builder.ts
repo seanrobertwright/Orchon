@@ -2,7 +2,8 @@
 // answers it, with the project's folder as `cwd`, checked here before anything reaches a frame.
 // Open in builder reads it to learn the workflow's scope; a builder tab reads it to draw it, with
 // which file it shows and whether Open YAML can open that file in Orca. The worker serves the tab
-// from the moment it starts, so a tab Orca restores is answered before any panel opens.
+// from the moment it starts, so a tab Orca restores is answered before any panel opens. A read
+// also gives back the workflow's builder draft, when one is kept, in every connection state.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import { workflowFileIn, yamlTarget, type YamlTarget, type YamlWorkspace } from './builder-file'
 import type { BuilderDrafts } from './builder-drafts'

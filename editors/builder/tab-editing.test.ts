@@ -4,7 +4,7 @@
 // save would write, the canvas, the issues and the header. Nothing is written to the file.
 import { afterEach, assert, describe, mockEditorHost, test, type MockEditorHost } from 'orca/testing'
 import { fakeDocument, find, findAll, withClass, type FakeDocument, type FakeElement } from '../../scripts/fake-dom.ts'
-import { createClock, settle } from '../../scripts/scripted-archon.ts'
+import { createClock, settle, type Clock } from '../../scripts/scripted-archon.ts'
 import type { TabConnection } from '../run-graph/graph-view.ts'
 import { readPointer } from '../run-graph/tab.ts'
 import type { BuilderAnswer, BuilderHeader } from './builder-view.ts'
@@ -36,7 +36,7 @@ afterEach(() => {
 })
 
 type Sent = { name: string; input: unknown }
-type Stage = { doc: FakeDocument; app: FakeElement; sent: Sent[]; answer: { value: BuilderAnswer }; post(event: string, payload: unknown): Promise<void> }
+type Stage = { doc: FakeDocument; app: FakeElement; sent: Sent[]; answer: { value: BuilderAnswer }; clock: Clock; post(event: string, payload: unknown): Promise<void> }
 
 async function open(first: BuilderAnswer): Promise<Stage> {
   host = mockEditorHost({ text: POINTER })
@@ -51,6 +51,7 @@ async function open(first: BuilderAnswer): Promise<Stage> {
     app,
     sent,
     answer: { value: first },
+    clock,
     async post(event, payload) {
       for (const handler of handlers.get(event) ?? []) handler(payload)
       await settle()
@@ -357,7 +358,7 @@ describe('validation as the person edits', () => {
 })
 
 describe('what editing never does', () => {
-  test('writes the file or sends anything but reads', async () => {
+  test('writes the file or sends anything but reads and, after a pause, the draft', async () => {
     const stage = await open(answerFor(SMALL))
     await choose(stage, 0)
     await type(control(panelOf(stage, 'Inspector'), 'Prompt'), 'Changed')
@@ -367,6 +368,11 @@ describe('what editing never does', () => {
     assert.deepEqual(
       [...new Set(stage.sent.map((call) => call.name))],
       ['builder.read']
+    )
+    await stage.clock.advance(500)
+    assert.deepEqual(
+      [...new Set(stage.sent.map((call) => call.name))],
+      ['builder.read', 'builder.draft.write']
     )
   })
 

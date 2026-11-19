@@ -2,7 +2,8 @@
 // chosen project with where each comes from, and Delete of a project or global workflow. A
 // project's list is the launcher's kept list, so Archon is not read twice for it. The worker is
 // the boundary: it checks every request itself, sends a Delete once with the write timeout, and
-// never sends one again.
+// never sends one again. It also marks the workflows that have a builder draft, lists the new
+// workflows never saved, and starts a new workflow (#61), which writes nothing to Archon.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import { isArchonWorkflowName, newWorkflowDefinition, newWorkflowFile, WORKFLOW_NAME_CAP, type BuilderIdentity } from '../editors/builder/builder-view'
 import { PROJECT_GONE } from './builder'

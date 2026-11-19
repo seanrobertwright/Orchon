@@ -47,8 +47,8 @@ type Stage = {
   sent: Sent[]
   read: { value: BuilderAnswer }
   saves: BuilderSaveOutcome[]
-  /** What `builder.draft.write` answers, in turn; kept when none is scripted. */
-  writes: BuilderDraftWriteAnswer[]
+  /** What `builder.draft.write` answers, in turn, or an error it fails with; kept when none is scripted. */
+  writes: (BuilderDraftWriteAnswer | Error)[]
 }
 
 async function open(first: BuilderAnswer, text = POINTER): Promise<Stage> {
@@ -72,7 +72,11 @@ async function open(first: BuilderAnswer, text = POINTER): Promise<Stage> {
         if (next === undefined) throw new Error('No save was scripted.')
         return { connection: stage.read.value.connection, save: next }
       }
-      if (name === 'builder.draft.write') return stage.writes.shift() ?? { kept: true }
+      if (name === 'builder.draft.write') {
+        const next = stage.writes.shift() ?? { kept: true }
+        if (next instanceof Error) throw next
+        return next
+      }
       if (name === 'builder.draft.discard' || name === 'connection.retry') return null
       return stage.read.value
     },
@@ -197,6 +201,17 @@ describe('edits and the draft', () => {
     await stage.clock.advance(500)
     assert.ok(banners(stage).includes(reason))
     assert.equal(description(stage), 'Twenty-first')
+  })
+
+  test('a draft the worker does not answer is said in the banner', async () => {
+    const stage = await open(answerOf(null))
+    stage.writes.push(new Error('The worker stopped.'))
+    await describeAs(stage, 'Lost?')
+    await stage.clock.advance(500)
+    assert.ok(banners(stage).includes("Orchon's worker did not answer, so your latest changes may not be kept as a draft."))
+    await describeAs(stage, 'Kept')
+    await stage.clock.advance(500)
+    assert.ok(!banners(stage).includes("Orchon's worker did not answer, so your latest changes may not be kept as a draft."))
   })
 
   test('Discard deletes the draft at once and shows the copy Archon serves', async () => {
