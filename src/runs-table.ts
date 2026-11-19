@@ -5,10 +5,12 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage } from './dashboard-runs'
+import type { WorkspaceRow } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { isRecord, refuseRequest } from './records'
-import { normalisePath } from './workspaces'
+import { cappedTextRefusal, isCappedText, isRecord, refuseRequest } from './records'
 import { ROWS_CAP, STATUS_FILTERS, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
+import { PROJECT_ID_CAP } from './scope-view'
+import { normalisePath } from './workspaces'
 
 /** How many runs the worker asks Archon for at a time. */
 export const PAGE_SIZE = 50
@@ -26,9 +28,7 @@ export function parseRunsRequest(input: unknown): RunsRequest {
   }
   if (Object.hasOwn(input, 'codebaseId')) {
     const codebaseId = input['codebaseId']
-    if (typeof codebaseId !== 'string' || codebaseId === '' || codebaseId.length > 200) {
-      refuseRequest('The project id must be text of 1 to 200 characters.')
-    }
+    if (!isCappedText(codebaseId, PROJECT_ID_CAP)) refuseRequest(cappedTextRefusal('The project id', PROJECT_ID_CAP))
   }
   for (const key of Object.keys(input)) {
     if (key !== 'status' && key !== 'rows' && key !== 'codebaseId') refuseRequest(`The runs request does not take ${key}.`)
@@ -70,14 +70,14 @@ export type RunsTablePorts = {
   /** The connection state now, once the settings were first read. */
   current(): Promise<ConnectionView>
   /** Orca's workspaces, so a run whose folder Orca lists can be opened there. None when left out. */
-  workspaces?(): Promise<readonly { id: string; path: string }[]>
+  workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
 }
 
 /**
  * Gives each run whose folder a workspace row names, once both are normalised, that row's id.
  * Nothing is asked of the disk: whether a worktree folder exists is not on the closed list of #32.
  */
-function withWorkspaces(runs: RunsView, rows: readonly { id: string; path: string }[]): RunsView {
+function withWorkspaces(runs: RunsView, rows: readonly Pick<WorkspaceRow, 'id' | 'path'>[]): RunsView {
   if (runs.kind !== 'ready' || rows.length === 0) return runs
   const byPath = new Map<string, string>()
   for (const row of rows) {

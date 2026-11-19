@@ -2,11 +2,9 @@
 // project matcher and the panel read, all present at the floor (Archon 0.12.1). A row that fails
 // is dropped and counted; an answer that is not a list is an error.
 import type { ArchonProject } from './project-match'
-import { isRecord, own } from './records'
+import { isRecord, isText, own } from './records'
 
 export const CODEBASES_PATH = '/api/codebases'
-
-const isText = (value: unknown): value is string => typeof value === 'string' && value !== ''
 
 /** One project, or null when it has no id, name or folder, or a remote that is not text. */
 export function parseCodebase(value: unknown): ArchonProject | null {

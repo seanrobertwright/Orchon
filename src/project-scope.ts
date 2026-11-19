@@ -9,8 +9,8 @@ import type { Connected, ConnectionView } from './connection-view'
 import type { Disk } from './disk'
 import { matchProject, type ArchonProject } from './project-match'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { isRecord, own, refuseRequest } from './records'
-import { CHOICES_CAP, REMOTE_WORKSPACE, type LinkChoices, type LinkRequest, type OpenRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
+import { isRecord, isText, own, parseOneText, refuseRequest } from './records'
+import { CHOICES_CAP, PROJECT_ID_CAP, REMOTE_WORKSPACE, type LinkChoices, type LinkRequest, type OpenRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
 import { localAndWritable, normalisePath, originUrl } from './workspaces'
 
 /** The longest Git config file the worker reads. */
@@ -35,29 +35,26 @@ type Focus =
       repository: string | null
     }
 
-const isText = (value: unknown): value is string => typeof value === 'string' && value !== ''
+/** The fields a `workspace.list` row and a `project.list` row share, or null when one is unreadable. */
+function parsePlaced<K extends string>(value: Record<string, unknown>, kinds: readonly K[]): { id: string; kind: K; path: string; hostId: string | null } | null {
+  const id = own(value, 'id')
+  const kind = kinds.find((known) => known === own(value, 'kind'))
+  const path = own(value, 'path')
+  const hostId = own(value, 'hostId')
+  if (!isText(id) || !isText(path) || kind === undefined) return null
+  if (hostId !== null && typeof hostId !== 'string') return null
+  return { id, kind, path, hostId }
+}
 
 function parseRow(value: unknown): WorkspaceRow | null {
   if (!isRecord(value)) return null
-  const id = own(value, 'id')
-  const kind = own(value, 'kind')
-  const path = own(value, 'path')
+  const placed = parsePlaced(value, ['worktree', 'folder'] as const)
   const projectId = own(value, 'projectId')
-  const hostId = own(value, 'hostId')
-  if (!isText(id) || !isText(path) || (kind !== 'worktree' && kind !== 'folder')) return null
-  if (hostId !== null && typeof hostId !== 'string') return null
-  return { id, kind, path, projectId: isText(projectId) ? projectId : null, hostId }
+  return placed === null ? null : { ...placed, projectId: isText(projectId) ? projectId : null }
 }
 
 function parseProject(value: unknown): OrcaProject | null {
-  if (!isRecord(value)) return null
-  const id = own(value, 'id')
-  const kind = own(value, 'kind')
-  const path = own(value, 'path')
-  const hostId = own(value, 'hostId')
-  if (!isText(id) || !isText(path) || (kind !== 'git' && kind !== 'folder')) return null
-  if (hostId !== null && typeof hostId !== 'string') return null
-  return { id, kind, path, hostId }
+  return isRecord(value) ? parsePlaced(value, ['git', 'folder'] as const) : null
 }
 
 /** The rows of a host list answer that parse. Anything else is an empty list. */
@@ -121,29 +118,20 @@ function refuseInput(input: unknown): void {
 
 /** Link's input, or a refusal: the id of an Archon project and nothing else. */
 export function parseLinkRequest(input: unknown): LinkRequest {
-  if (!isRecord(input)) refuseRequest('Link takes the id of an Archon project.')
-  const projectId = own(input, 'projectId')
-  if (!isText(projectId) || projectId.length > 200) refuseRequest('The project id must be text of 1 to 200 characters.')
-  for (const key of Object.keys(input)) if (key !== 'projectId') refuseRequest(`Link does not take ${key}.`)
-  return { projectId }
+  const shape = 'Link takes the id of an Archon project.'
+  return { projectId: parseOneText(input, { name: 'Link', shape, key: 'projectId', field: 'The project id', cap: PROJECT_ID_CAP }) }
 }
 
 /** Register's input, or a refusal: the folder the person confirmed and nothing else. */
 export function parseRegisterRequest(input: unknown): RegisterRequest {
-  if (!isRecord(input)) refuseRequest('Register takes the folder that was confirmed.')
-  const folder = own(input, 'folder')
-  if (!isText(folder) || folder.length > 4096) refuseRequest('The folder must be text of 1 to 4096 characters.')
-  for (const key of Object.keys(input)) if (key !== 'folder') refuseRequest(`Register does not take ${key}.`)
-  return { folder }
+  const shape = 'Register takes the folder that was confirmed.'
+  return { folder: parseOneText(input, { name: 'Register', shape, key: 'folder', field: 'The folder', cap: 4096 }) }
 }
 
 /** Open in Orca's input, or a refusal: a workspace id and nothing else. */
 export function parseOpenRequest(input: unknown): OpenRequest {
-  if (!isRecord(input)) refuseRequest('Open in Orca takes a workspace id.')
-  const workspaceId = own(input, 'workspaceId')
-  if (!isText(workspaceId) || workspaceId.length > 1024) refuseRequest('The workspace id must be text of 1 to 1024 characters.')
-  for (const key of Object.keys(input)) if (key !== 'workspaceId') refuseRequest(`Open in Orca does not take ${key}.`)
-  return { workspaceId }
+  const shape = 'Open in Orca takes a workspace id.'
+  return { workspaceId: parseOneText(input, { name: 'Open in Orca', shape, key: 'workspaceId', field: 'The workspace id', cap: 1024 }) }
 }
 
 export type ProjectScopePorts = {

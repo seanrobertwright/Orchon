@@ -12,6 +12,9 @@ export type ProjectRef = { id: string; name: string }
 /** How many Archon projects the link chooser lists, by name. */
 export const CHOICES_CAP = 100
 
+/** The most characters an Archon project id may have in a frame's request: Link's and the runs table's. */
+export const PROJECT_ID_CAP = 200
+
 /** The Archon projects a link may name: the first by name, and how many are not shown. */
 export type LinkChoices = {
   projects: ProjectRef[]
