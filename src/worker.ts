@@ -6,6 +6,7 @@ import { startBuilder } from './builder'
 import { startChatDelete } from './chat-delete'
 import { startChatDrafts } from './chat-drafts'
 import { conversationDraftKey } from './chat-drafts-view'
+import { startChatLast } from './chat-last'
 import { startChatList } from './chat-list'
 import { startChatSend } from './chat-send'
 import { startChatRun } from './chat-run'
@@ -86,14 +87,18 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     builderOff: wideTabs.builderOff
   })
   const chatList = startChatList(orca, { client: connection.client, current: connection.current })
-  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current })
+  const chatLast = startChatLast(orca, { now: ports.now })
+  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current, answered: chatLast.answered })
   const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
   const chatDrafts = startChatDrafts(orca, { timers: ports.timers })
   const chatSend = startChatSend(orca, { client: connection.client, current: connection.current, accepted: (key) => chatDrafts.clear(key) })
   const chatDelete = startChatDelete(orca, {
     client: connection.client,
     current: connection.current,
-    removed: (conversationId) => chatDrafts.clear(conversationDraftKey(conversationId))
+    removed(conversationId) {
+      chatDrafts.clear(conversationDraftKey(conversationId))
+      chatLast.forget(conversationId)
+    }
   })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
@@ -105,6 +110,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     chatSend.dispose()
     chatRun.dispose()
     chatDelete.dispose()
+    chatLast.dispose()
     chatDrafts.dispose()
     forms.dispose()
     wideTabs.dispose()

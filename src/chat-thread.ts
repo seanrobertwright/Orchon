@@ -349,6 +349,8 @@ export type ChatThreadPorts = {
   client: Client
   /** The connection state now, once the settings were first read. */
   current(): Promise<ConnectionView>
+  /** A read of the thread was answered from Archon. */
+  answered?(conversationId: string, view: ThreadView): void
 }
 
 /** Answers the frames' `chat.read`. */
@@ -358,6 +360,7 @@ export function startChatThread(orca: OrcaWorkerApi, ports: ChatThreadPorts): Di
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, thread: { kind: 'not-connected' } }
     const thread = await readThread(ports.client, connection, request, context.signal)
+    ports.answered?.(request.conversationId, thread)
     return { connection: await ports.current(), thread }
   })
 }

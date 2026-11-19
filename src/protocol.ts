@@ -3,6 +3,7 @@
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
 import type { ChatDeleteAnswer, ChatDeleteRequest } from './chat-delete-view'
 import type { ChatDraftsAnswer, ChatDraftWrite } from './chat-drafts-view'
+import type { ChatLastAnswer, ChatLastRequest } from './chat-last-view'
 import type { ChatRunAnswer, ChatRunRequest } from './chat-run-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
 import type { ThreadAnswer, ThreadRequest } from './chat-thread-view'
@@ -140,6 +141,8 @@ declare module 'orca' {
     'chat.draft.write': { input: ChatDraftWrite; output: null }
     /** Delete: deletes one conversation in Archon. Sent once, never tried again. */
     'chat.delete': { input: ChatDeleteRequest; output: ChatDeleteAnswer }
+    /** The thread as the worker last read it, held in memory while its reads hold their 60 second lease, or null. */
+    'chat.last': { input: ChatLastRequest; output: ChatLastAnswer }
   }
   interface PluginPanelEvents {
     /**
