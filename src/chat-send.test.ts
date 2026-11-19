@@ -78,6 +78,8 @@ describe('what the worker refuses before anything is sent', () => {
     ['an empty message', { conversationId: id, message: '' }],
     ['a message of blanks only', { conversationId: id, message: ' \n\t ' }],
     ['a message over 32 KiB', { conversationId: id, message: 'a'.repeat(32 * 1024 + 1) }],
+    // 11,000 characters of three bytes each: 33,000 bytes of UTF-8.
+    ['a message under 32 Ki characters but over 32 KiB of UTF-8', { conversationId: id, message: '€'.repeat(11_000) }],
     ['a message that is not text', { conversationId: id, message: 42 }],
     ['no message', { conversationId: id }],
     ['a conversation id outside the rule', { conversationId: 'web/../x', message: 'Hi' }],

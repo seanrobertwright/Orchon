@@ -157,7 +157,7 @@ function chatRow(chat: ChatRow, allProjects: boolean): OrcaNode {
 
 /** The section while connected or under the Searching banner. `writable` is false when its controls that write are off. */
 export function chatSection(state: Connected, writable: boolean): OrcaNode {
-  if (openChatId() !== null) return chatThreadSection()
+  if (openChatId() !== null) return chatThreadSection(writable)
   const chats = read(loaded)
   const held = read(problem)
   const allProjects = scopeChoice() === 'all'

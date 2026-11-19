@@ -6,6 +6,7 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import {
   CHAT_MESSAGE_CAP,
   CHAT_PROJECTS_CAP,
+  messageBytes,
   type ChatProject,
   type ChatProjectsAnswer,
   type ChatProjectsRequest,
@@ -32,8 +33,8 @@ export function parseChatSendRequest(input: unknown): ChatSendRequest {
   if (!isRecord(input)) refuseRequest('Send takes a message and a conversation id or a project id.')
   refuseOtherKeys(input, ['conversationId', 'codebaseId', 'message'], 'Send')
   const message = own(input, 'message')
-  if (typeof message !== 'string' || message.length === 0 || message.length > CHAT_MESSAGE_CAP) {
-    refuseRequest(cappedTextRefusal('The message', CHAT_MESSAGE_CAP))
+  if (typeof message !== 'string' || message.length === 0 || messageBytes(message) > CHAT_MESSAGE_CAP) {
+    refuseRequest(`The message must be text of 1 character to ${String(CHAT_MESSAGE_CAP)} bytes.`)
   }
   if (!hasWords(message)) refuseRequest('The message holds only blanks.')
   const conversationId = own(input, 'conversationId')
