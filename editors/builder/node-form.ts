@@ -3,6 +3,7 @@
 // the key a save writes, a field inside `loop`, `approval` or `wait` by its path, such as
 // `loop.prompt`. Setting a field changes that field alone: every other field of the node, the
 // ones the builder does not recognise included, is carried over as it was. It is pure.
+import { isRecord } from '../shared/records.ts'
 import { WIRE_KEY_ROLES, type BuilderNode } from './archon/types/index.ts'
 
 /** How a field is edited: one line, several lines, a whole number, a box to tick, a choice, or one item per line. */
@@ -140,12 +141,10 @@ function locate(node: BuilderNode, key: string): { where: 'base' | 'data'; path:
   return { where: 'data', path: [key] }
 }
 
-const isPlain = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
-
 function read(record: Record<string, unknown>, path: readonly string[]): unknown {
   let at: unknown = record
   for (const part of path) {
-    if (!isPlain(at) || !Object.hasOwn(at, part)) return undefined
+    if (!isRecord(at) || !Object.hasOwn(at, part)) return undefined
     at = at[part]
   }
   return at
@@ -163,25 +162,67 @@ function written(record: Record<string, unknown>, path: readonly string[], value
   if (rest.length === 0) {
     return value === undefined ? without(record, head) : { ...record, [head]: value }
   }
-  const inner = isPlain(record[head]) ? record[head] : {}
+  const inner = isRecord(record[head]) ? record[head] : {}
   const next = written(inner, rest, value)
   return Object.keys(next).length === 0 ? without(record, head) : { ...record, [head]: next }
+}
+
+type Parsed = { ok: true; value: unknown } | { ok: false; error: string }
+
+/**
+ * How each kind of input shows the value a node holds, and reads what is typed back into the
+ * value the node holds; a parsed undefined removes the field. A new kind of input is added here.
+ */
+const INPUTS: Record<FieldInput, { show(value: unknown): string | boolean; parse(field: FormField, raw: string | boolean): Parsed }> = {
+  text: { show: asText, parse: parseText },
+  textarea: { show: asText, parse: parseText },
+  checkbox: {
+    show: (value) => value === true,
+    parse: (_field, raw) => ({ ok: true, value: raw === true ? true : undefined })
+  },
+  number: {
+    show: (value) => (typeof value === 'number' ? String(value) : ''),
+    parse(field, raw) {
+      const trimmed = asText(raw).trim()
+      if (trimmed === '') return field.required ? { ok: false, error: WHOLE_NUMBER } : { ok: true, value: undefined }
+      if (!/^\d+$/.test(trimmed)) return { ok: false, error: WHOLE_NUMBER }
+      const value = Number(trimmed)
+      return Number.isSafeInteger(value) ? { ok: true, value } : { ok: false, error: WHOLE_NUMBER }
+    }
+  },
+  lines: {
+    show: (value) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').join('\n') : ''),
+    parse(_field, raw) {
+      const items = asText(raw)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line !== '')
+      return { ok: true, value: items.length === 0 ? undefined : items }
+    }
+  },
+  select: {
+    show: asText,
+    parse(field, raw) {
+      const typed = asText(raw)
+      if (typed === '' && !field.required) return { ok: true, value: undefined }
+      return field.options?.some((option) => option.value === typed) === true ? { ok: true, value: typed } : { ok: false, error: NOT_A_CHOICE }
+    }
+  }
+}
+
+function asText(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function parseText(field: FormField, raw: string | boolean): Parsed {
+  const typed = asText(raw)
+  return { ok: true, value: typed === '' && !field.required ? undefined : typed }
 }
 
 function shown(node: BuilderNode, spec: Spec): string | boolean {
   if (spec.key === 'wait.mode') return waitMode(node.data as Record<string, unknown>)
   const { where, path } = locate(node, spec.key)
-  const value = read((where === 'base' ? node.base : node.data) as Record<string, unknown>, path)
-  switch (spec.input) {
-    case 'checkbox':
-      return value === true
-    case 'number':
-      return typeof value === 'number' ? String(value) : ''
-    case 'lines':
-      return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').join('\n') : ''
-    default:
-      return typeof value === 'string' ? value : ''
-  }
+  return INPUTS[spec.input].show(read((where === 'base' ? node.base : node.data) as Record<string, unknown>, path))
 }
 
 /** The fields the inspector shows for a node, with the values it holds. A read-only node has the shared fields alone. */
@@ -189,40 +230,12 @@ export function formFields(node: BuilderNode): FormField[] {
   return [...kindFields(node), ...SHARED].map((spec) => ({ ...spec, value: shown(node, spec) }))
 }
 
-/** The value a field's input holds, read as the node holds it; undefined removes the field. */
-function parsed(field: FormField, raw: string | boolean): { ok: true; value: unknown } | { ok: false; error: string } {
-  if (field.input === 'checkbox') return { ok: true, value: raw === true ? true : undefined }
-  const typed = typeof raw === 'string' ? raw : ''
-  switch (field.input) {
-    case 'number': {
-      const trimmed = typed.trim()
-      if (trimmed === '') return field.required ? { ok: false, error: WHOLE_NUMBER } : { ok: true, value: undefined }
-      if (!/^\d+$/.test(trimmed)) return { ok: false, error: WHOLE_NUMBER }
-      const value = Number(trimmed)
-      return Number.isSafeInteger(value) ? { ok: true, value } : { ok: false, error: WHOLE_NUMBER }
-    }
-    case 'lines': {
-      const items = typed
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line !== '')
-      return { ok: true, value: items.length === 0 ? undefined : items }
-    }
-    case 'select': {
-      if (typed === '' && !field.required) return { ok: true, value: undefined }
-      return field.options?.some((option) => option.value === typed) === true ? { ok: true, value: typed } : { ok: false, error: NOT_A_CHOICE }
-    }
-    default:
-      return { ok: true, value: typed === '' && !field.required ? undefined : typed }
-  }
-}
-
 /**
  * The node with one field set from what its input holds, every other field as it was. A value the
  * field cannot hold, such as a number field holding letters, is refused with a sentence that says why.
  */
 export function applyField(node: BuilderNode, field: FormField, raw: string | boolean): Applied {
-  const value = parsed(field, raw)
+  const value = INPUTS[field.input].parse(field, raw)
   if (!value.ok) return value
   if (field.key === 'wait.mode') {
     const mode = WAIT_MODES.find((candidate) => candidate.value === value.value)

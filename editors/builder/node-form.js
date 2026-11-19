@@ -3,6 +3,7 @@
 // the key a save writes, a field inside `loop`, `approval` or `wait` by its path, such as
 // `loop.prompt`. Setting a field changes that field alone: every other field of the node, the
 // ones the builder does not recognise included, is carried over as it was. It is pure.
+import { isRecord } from "../shared/records.js";
 import { WIRE_KEY_ROLES } from "./archon/types/index.js";
 /** Says a whole number is wanted, for a number field that does not hold one. */
 export const WHOLE_NUMBER = 'Enter a whole number, 0 or more.';
@@ -111,11 +112,10 @@ function locate(node, key) {
         return { where: 'data', path: inner };
     return { where: 'data', path: [key] };
 }
-const isPlain = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 function read(record, path) {
     let at = record;
     for (const part of path) {
-        if (!isPlain(at) || !Object.hasOwn(at, part))
+        if (!isRecord(at) || !Object.hasOwn(at, part))
             return undefined;
         at = at[part];
     }
@@ -133,38 +133,25 @@ function written(record, path, value) {
     if (rest.length === 0) {
         return value === undefined ? without(record, head) : { ...record, [head]: value };
     }
-    const inner = isPlain(record[head]) ? record[head] : {};
+    const inner = isRecord(record[head]) ? record[head] : {};
     const next = written(inner, rest, value);
     return Object.keys(next).length === 0 ? without(record, head) : { ...record, [head]: next };
 }
-function shown(node, spec) {
-    if (spec.key === 'wait.mode')
-        return waitMode(node.data);
-    const { where, path } = locate(node, spec.key);
-    const value = read((where === 'base' ? node.base : node.data), path);
-    switch (spec.input) {
-        case 'checkbox':
-            return value === true;
-        case 'number':
-            return typeof value === 'number' ? String(value) : '';
-        case 'lines':
-            return Array.isArray(value) ? value.filter((item) => typeof item === 'string').join('\n') : '';
-        default:
-            return typeof value === 'string' ? value : '';
-    }
-}
-/** The fields the inspector shows for a node, with the values it holds. A read-only node has the shared fields alone. */
-export function formFields(node) {
-    return [...kindFields(node), ...SHARED].map((spec) => ({ ...spec, value: shown(node, spec) }));
-}
-/** The value a field's input holds, read as the node holds it; undefined removes the field. */
-function parsed(field, raw) {
-    if (field.input === 'checkbox')
-        return { ok: true, value: raw === true ? true : undefined };
-    const typed = typeof raw === 'string' ? raw : '';
-    switch (field.input) {
-        case 'number': {
-            const trimmed = typed.trim();
+/**
+ * How each kind of input shows the value a node holds, and reads what is typed back into the
+ * value the node holds; a parsed undefined removes the field. A new kind of input is added here.
+ */
+const INPUTS = {
+    text: { show: asText, parse: parseText },
+    textarea: { show: asText, parse: parseText },
+    checkbox: {
+        show: (value) => value === true,
+        parse: (_field, raw) => ({ ok: true, value: raw === true ? true : undefined })
+    },
+    number: {
+        show: (value) => (typeof value === 'number' ? String(value) : ''),
+        parse(field, raw) {
+            const trimmed = asText(raw).trim();
             if (trimmed === '')
                 return field.required ? { ok: false, error: WHOLE_NUMBER } : { ok: true, value: undefined };
             if (!/^\d+$/.test(trimmed))
@@ -172,28 +159,50 @@ function parsed(field, raw) {
             const value = Number(trimmed);
             return Number.isSafeInteger(value) ? { ok: true, value } : { ok: false, error: WHOLE_NUMBER };
         }
-        case 'lines': {
-            const items = typed
+    },
+    lines: {
+        show: (value) => (Array.isArray(value) ? value.filter((item) => typeof item === 'string').join('\n') : ''),
+        parse(_field, raw) {
+            const items = asText(raw)
                 .split('\n')
                 .map((line) => line.trim())
                 .filter((line) => line !== '');
             return { ok: true, value: items.length === 0 ? undefined : items };
         }
-        case 'select': {
+    },
+    select: {
+        show: asText,
+        parse(field, raw) {
+            const typed = asText(raw);
             if (typed === '' && !field.required)
                 return { ok: true, value: undefined };
             return field.options?.some((option) => option.value === typed) === true ? { ok: true, value: typed } : { ok: false, error: NOT_A_CHOICE };
         }
-        default:
-            return { ok: true, value: typed === '' && !field.required ? undefined : typed };
     }
+};
+function asText(value) {
+    return typeof value === 'string' ? value : '';
+}
+function parseText(field, raw) {
+    const typed = asText(raw);
+    return { ok: true, value: typed === '' && !field.required ? undefined : typed };
+}
+function shown(node, spec) {
+    if (spec.key === 'wait.mode')
+        return waitMode(node.data);
+    const { where, path } = locate(node, spec.key);
+    return INPUTS[spec.input].show(read((where === 'base' ? node.base : node.data), path));
+}
+/** The fields the inspector shows for a node, with the values it holds. A read-only node has the shared fields alone. */
+export function formFields(node) {
+    return [...kindFields(node), ...SHARED].map((spec) => ({ ...spec, value: shown(node, spec) }));
 }
 /**
  * The node with one field set from what its input holds, every other field as it was. A value the
  * field cannot hold, such as a number field holding letters, is refused with a sentence that says why.
  */
 export function applyField(node, field, raw) {
-    const value = parsed(field, raw);
+    const value = INPUTS[field.input].parse(field, raw);
     if (!value.ok)
         return value;
     if (field.key === 'wait.mode') {

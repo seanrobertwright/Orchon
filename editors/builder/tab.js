@@ -16,7 +16,8 @@ import { isRecord } from "../shared/records.js";
 import { VARIANTS, VARIANT_REGISTRY } from "./archon/variants/index.js";
 import { mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
 import { openSession } from "./edit-session.js";
-import { applyField, formFields } from "./node-form.js";
+import { fieldControl, option } from "./field-control.js";
+import { formFields } from "./node-form.js";
 import { workflowFactsOf } from "./workflow-facts.js";
 /** The most nodes the canvas lays out, as the run graph (#17). Past it the outline carries on. */
 export const CANVAS_CAP = 300;
@@ -690,7 +691,7 @@ export function startBuilderTab(ports) {
             if (held !== undefined) {
                 const form = el('div', undefined, 'node-form');
                 for (const field of formFields(held))
-                    form.appendChild(fieldControl(index, field));
+                    form.appendChild(formField(index, field));
                 parts.push(form);
             }
         }
@@ -771,9 +772,9 @@ export function startBuilderTab(ports) {
         label.setAttribute('for', id);
         const select = focusable(el('select', undefined, 'field-input'), 'dep-select');
         select.id = id;
-        select.appendChild(option('', 'Choose a node'));
+        select.appendChild(option(el, '', 'Choose a node'));
         for (const choice of choices.slice(0, CHOICES_CAP))
-            select.appendChild(option(choice, choice));
+            select.appendChild(option(el, choice, choice));
         select.value = '';
         const add = focusable(button('Add', () => {
             const chosen = select.value;
@@ -787,82 +788,26 @@ export function startBuilderTab(ports) {
             parts.push(el('p', `${String(choices.length - CHOICES_CAP)} more nodes are not offered.`, 'muted'));
         return parts;
     }
-    function option(value, text) {
-        const made = el('option', text);
-        made.value = value;
-        made.setAttribute('value', value);
-        return made;
+    /** One field of the form, which sets its value on the node at `index` as the person edits it. */
+    function formField(index, field) {
+        const burstKey = `${String(index)}:${field.key}`;
+        return fieldControl(field, {
+            el,
+            id: freshId('field'),
+            held: () => session?.workflow().nodes[index],
+            set(node, typing) {
+                edit(() => session?.setNode(index, node, typing && burst === burstKey) ?? false, typing ? { typing: true } : { keepSelection: true });
+                burst = typing ? burstKey : null;
+            },
+            settled() {
+                burst = null;
+            }
+        });
     }
     /** Marks a control so the focus stays on it when the inspector is drawn again. */
     function focusable(element, key) {
         element.setAttribute('data-focus', key);
         return element;
-    }
-    /** One labelled field of the form, which sets its value on the node as the person edits it. */
-    function fieldControl(index, field) {
-        const id = freshId('field');
-        const wrap = el('div', undefined, field.input === 'checkbox' ? 'field check' : 'field');
-        const label = el('label', field.label);
-        label.setAttribute('for', id);
-        const error = el('p', '', 'field-error');
-        error.id = `${id}-error`;
-        let control;
-        if (field.input === 'textarea' || field.input === 'lines') {
-            const area = el('textarea', undefined, 'field-input');
-            area.rows = field.input === 'lines' ? 3 : 5;
-            control = area;
-        }
-        else if (field.input === 'select') {
-            const select = el('select', undefined, 'field-input');
-            for (const choice of field.options ?? [])
-                select.appendChild(option(choice.value, choice.label));
-            control = select;
-        }
-        else {
-            const input = el('input', undefined, field.input === 'checkbox' ? undefined : 'field-input');
-            input.type = field.input === 'checkbox' ? 'checkbox' : 'text';
-            if (field.input === 'number')
-                input.setAttribute('inputmode', 'numeric');
-            control = input;
-        }
-        control.id = id;
-        focusable(control, `field:${field.key}`);
-        if (field.input === 'checkbox')
-            control.checked = field.value === true;
-        else
-            control.value = typeof field.value === 'string' ? field.value : '';
-        const set = (typing) => {
-            const held = session?.workflow().nodes[index];
-            if (held === undefined)
-                return;
-            const raw = field.input === 'checkbox' ? control.checked : control.value;
-            const applied = applyField(held, field, raw);
-            if (!applied.ok) {
-                control.setAttribute('aria-invalid', 'true');
-                control.setAttribute('aria-describedby', error.id);
-                error.textContent = applied.error;
-                return;
-            }
-            control.removeAttribute('aria-invalid');
-            control.removeAttribute('aria-describedby');
-            error.textContent = '';
-            const burstKey = `${String(index)}:${field.key}`;
-            edit(() => session?.setNode(index, applied.node, typing && burst === burstKey) ?? false, typing ? { typing: true } : { keepSelection: true });
-            burst = typing ? burstKey : null;
-        };
-        if (field.input === 'checkbox' || field.input === 'select')
-            control.addEventListener('change', () => set(false));
-        else {
-            control.addEventListener('input', () => set(true));
-            control.addEventListener('change', () => {
-                burst = null;
-            });
-        }
-        if (field.input === 'checkbox')
-            wrap.append(control, label, error);
-        else
-            wrap.append(label, control, error);
-        return wrap;
     }
     function drawYaml(drawn) {
         const panel = panels.get('yaml');
