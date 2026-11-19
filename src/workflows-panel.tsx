@@ -183,13 +183,16 @@ function remove(view: Ready, row: SectionWorkflow): void {
 /** The folder separator a path already uses, so a joined path reads as one. */
 const separatorOf = (folder: string): string => (folder.includes('\\') && !folder.includes('/') ? '\\' : '/')
 
-/** The file a Delete removes, in words. */
-function fileOf(view: Ready, row: SectionWorkflow): string {
-  const file = `${row.name}.yaml`
-  if (row.source === 'global') return `${file} in the workflows folder of Archon's home folder`
+/**
+ * What a Delete removes, in words. Archon deletes the workflow's package folder when there is
+ * one, and otherwise both `<name>.yaml` and `<name>.yml` (0.12.1, DELETE `/api/workflows/:name`).
+ */
+function removedOf(view: Ready, row: SectionWorkflow): string {
+  const what = `the folder ${row.name} and everything in it, or, when there is no such folder, the files ${row.name}.yaml and ${row.name}.yml`
+  if (row.source === 'global') return `In the workflows folder of Archon's home folder this deletes ${what}`
   const folder = view.folder ?? ''
   const separator = separatorOf(folder)
-  return `${folder.replace(/[\\/]+$/, '')}${separator}.archon${separator}workflows${separator}${file}`
+  return `In ${folder.replace(/[\\/]+$/, '')}${separator}.archon${separator}workflows this deletes ${what}`
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -200,7 +203,7 @@ function confirmation(view: Ready, row: SectionWorkflow, writable: boolean): Orc
   return (
     <Callout tone="danger" title={`Delete ${row.name}?`}>
       <Stack gap="xs">
-        <Text>{`This deletes the file ${fileOf(view, row)}. There is no undo.`}</Text>
+        <Text>{`${removedOf(view, row)}. There is no undo.`}</Text>
         <Row gap="sm" wrap>
           <Button size="sm" tone="danger" disabled={!writable || read(deleting)} onPress={() => remove(view, row)}>
             {`Delete ${row.name}`}

@@ -95,12 +95,12 @@ describe('Delete', () => {
     clean(view)
   })
 
-  test('asks inline, naming the file and saying there is no undo, and sends the project once on confirmation', async () => {
+  test('asks inline, naming the files and saying there is no undo, and sends the project once on confirmation', async () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
     await view.press(deleteButton('ship-it'))
     assert.deepEqual(sent(view, 'workflows.delete'), [])
     const ask = view.find({ type: 'Callout', text: /^Delete ship-it\?/ })
-    assert.equal(ask?.text.includes('This deletes the file C:/Projects/web/.archon/workflows/ship-it.yaml. There is no undo.'), true)
+    assert.equal(ask?.text.includes('In C:/Projects/web/.archon/workflows this deletes the folder ship-it and everything in it, or, when there is no such folder, the files ship-it.yaml and ship-it.yml. There is no undo.'), true)
     await view.press({ type: 'Button', text: 'Cancel' })
     assert.equal(view.find({ type: 'Callout', text: /^Delete ship-it\?/ }), null)
     await view.press(deleteButton('ship-it'))
@@ -111,14 +111,14 @@ describe('Delete', () => {
     clean(view)
   })
 
-  test("a global workflow's file is named in Archon's home folder, and a refusal is said in the worker's words", async () => {
+  test("a global workflow's files are named in Archon's home folder, and a refusal is said in the worker's words", async () => {
     const view = await mountWorkflows({
       workflows: () => webWorkflows,
       remove: (input) => ({ kind: 'failed', name: input.name, message: 'Workflow not found: tidy' })
     })
     await view.press(deleteButton('tidy'))
     const ask = view.find({ type: 'Callout', text: /^Delete tidy\?/ })
-    assert.equal(ask?.text.includes("This deletes the file tidy.yaml in the workflows folder of Archon's home folder. There is no undo."), true)
+    assert.equal(ask?.text.includes("In the workflows folder of Archon's home folder this deletes the folder tidy and everything in it, or, when there is no such folder, the files tidy.yaml and tidy.yml. There is no undo."), true)
     await view.press(deleteButton('tidy'))
     assert.ok(view.find({ type: 'Callout', text: /^tidy was not deleted/ }))
     assert.ok(view.find(text('Workflow not found: tidy')))
