@@ -1,6 +1,7 @@
 // The client: the one module every call to Archon goes through, and the only caller of `fetch`.
 // It talks to this computer's loopback address and nowhere else, never follows a redirect,
-// bounds every call in time and in size, and takes nothing but JSON for an answer.
+// bounds every call in time and in size, and takes nothing but JSON for an answer. A stream is
+// the one exception: it is held open, bounded in time by its caller's signal, and is text.
 import { isLoopbackHost } from './loopback'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'

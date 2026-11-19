@@ -1,6 +1,7 @@
 // The connection state: the worker's one record of whether Archon is reachable, shared by every
 // frame. This file owns the state and when discovery runs; `startConnection` ties it to Orca
-// (the settings, the frames' requests, the posts and the status bar item).
+// (the settings, the frames' requests, the posts and the status bar item) and holds the
+// dashboard stream while Connected.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { createClient, type Client, type FetchLike, type Timers } from './client'
 import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings } from './connection-settings'

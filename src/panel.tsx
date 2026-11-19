@@ -1,8 +1,9 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
-import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
+import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
 import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
-import { restartRuns, runsSection, startRunsSection } from './runs-section'
+import { liveOffLine } from './live-line'
+import { clearRuns, hintRuns, refreshRuns, restartRuns, runsSection, startRunsSection } from './runs-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
@@ -20,13 +21,28 @@ const section = atom<unknown>('section', DEFAULT_SECTION, { persist: 'workspace'
  */
 const connection = atom<ConnectionView | null>(null)
 
+/**
+ * The store the panel's data came from: the server's store id, or its base URL when it reports
+ * none. Null until the panel is first Connected.
+ */
+const dataStore = atom<string | null>(null)
+
 /** Keeps the newest state: an answer and a post can arrive in either order. */
 function keepNewest(next: ConnectionView): void {
   const held = read(connection)
   if (held !== null && next.since <= held.since) return
   set(connection, next)
-  // On return to Connected every view that is showing fetches again.
-  if (next.kind === 'connected' && held?.kind !== 'connected') restartRuns()
+  if (next.kind !== 'connected') return
+  // Another store: what the panel held is cleared first.
+  const store = next.storeId ?? next.baseUrl
+  const before = read(dataStore)
+  const otherStore = before !== null && before !== store
+  set(dataStore, store)
+  if (otherStore) clearRuns()
+  // On return to Connected every view that is showing fetches again. When only `live` changed,
+  // the next read sets the safety timer to the new wait.
+  if (held?.kind !== 'connected' || otherStore) restartRuns()
+  else if (held.live !== next.live) refreshRuns()
 }
 
 /** Sends a connection request and keeps the state its answer carries. A failed request changes nothing. */
@@ -91,6 +107,7 @@ export function setup(ctx: PanelContext): void {
   })
   ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
+  ctx.subscriptions.push(plugin.on('runs.changed', hintRuns))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
   ask('connection.read')
   // Orca unmounts a hidden panel, so the Settings section shows from setup until it is left or
@@ -113,7 +130,15 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
   }
   const screen = stateScreen(state, actions)
   if (screen !== null || state?.kind !== 'connected') return screen
-  return id === 'runs' ? runsSection(state) : placeholder
+  if (id !== 'runs') return placeholder
+  const line = liveOffLine(state)
+  if (line === null) return runsSection(state)
+  return (
+    <Stack gap="sm">
+      {line}
+      {runsSection(state)}
+    </Stack>
+  )
 }
 
 export default function Panel() {

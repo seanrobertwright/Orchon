@@ -34,9 +34,10 @@ import {
 import type { Timers } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { formatClock, formatDuration, now } from './dates'
+import type { RunsHint } from './hint-view'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsView, type StatusFilter } from './runs-view'
-import { createViewFetch, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
+import { createViewFetch, LIVE_OFF_REFETCH_MS, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
 
@@ -102,7 +103,10 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
     apply: (answer) => apply(answer, given),
     fail: (error) => report(requestFailure(error)),
     minGapMs: RUNS_TABLE_GAP_MS,
-    safetyMs: SAFETY_REFETCH_MS,
+    safetyMs: () => {
+      const state = given.connection()
+      return state?.kind === 'connected' && !state.live ? LIVE_OFF_REFETCH_MS : SAFETY_REFETCH_MS
+    },
     now,
     timers: frameTimers
   })
@@ -118,6 +122,30 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
 export function restartRuns(): void {
   fetcher?.restart()
+}
+
+/**
+ * A hint that runs changed: on `workflow_status` the table (counts and the whole loaded range)
+ * is read again under its fetch rules, once the minimum gap allows. `dag_node` changes nothing
+ * the table shows.
+ */
+export function hintRuns(hint: RunsHint): void {
+  if (hint.types.includes('workflow_status')) fetcher?.refresh()
+}
+
+/** Reads the table again once the minimum gap allows, as a hint does. */
+export function refreshRuns(): void {
+  fetcher?.refresh()
+}
+
+/** Another store: forgets the rows, the filter, the selection and any failed read. */
+export function clearRuns(): void {
+  set(filter, 'all')
+  set(requested, ROWS_STEP)
+  set(loaded, null)
+  set(problem, null)
+  set(lastGood, null)
+  set(selected, null)
 }
 
 function chooseFilter(value: string): void {

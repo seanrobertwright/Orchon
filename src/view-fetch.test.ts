@@ -7,7 +7,7 @@ import { createViewFetch, type ViewFetch } from './view-fetch'
 /** A load the test answers by hand, recording when each one started and whether it was aborted. */
 type Pending = { at: number; signal: AbortSignal; answer(value: string): void; reject(error: unknown): void }
 
-function harness(options: { minGapMs?: number; safetyMs?: number } = {}) {
+function harness(options: { minGapMs?: number; safetyMs?: number | (() => number) } = {}) {
   const clock = createClock(0)
   const loads: Pending[] = []
   const applied: string[] = []
@@ -169,5 +169,23 @@ describe('the per-view fetch rules', () => {
     view.restart()
     view.refresh()
     assert.deepEqual(clock.waiting(), [])
+  })
+
+  test('a safety wait given as a function is asked each time the timer is set', async () => {
+    let wait = 30_000
+    const { view, clock, loads, last } = harness({ safetyMs: () => wait })
+    view.restart()
+    last().answer('first')
+    await settle()
+    assert.deepEqual(clock.waiting(), [30_000])
+    // Live updates went off: the next timer is the short one.
+    wait = 5_000
+    await clock.advance(30_000)
+    last().answer('second')
+    await settle()
+    assert.deepEqual(clock.waiting(), [5_000])
+    await clock.advance(5_000)
+    assert.equal(loads.length, 3)
+    view.stop()
   })
 })
