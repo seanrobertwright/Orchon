@@ -42,6 +42,29 @@ export function runPointerText(runId: string): string {
   return `${JSON.stringify({ orchon: 'run-graph', runId })}\n`
 }
 
+/** The most characters of the scope a builder file name keeps. */
+const SCOPE_PART_CAP = 40
+
+/**
+ * `<scope>-<workflow>.orchonflow`, each part cleaned first, so a project and a global workflow
+ * that share a name have a file each. Two projects' workflows of one name and scope share a file;
+ * its content names the project, and a tab reads it once, when it opens.
+ */
+export function builderPointerName(scope: string, workflow: string): string {
+  const part = clean(scope, 'scope').slice(0, SCOPE_PART_CAP).replace(/-+$/, '')
+  const name = clean(workflow, 'workflow').slice(0, NAME_PART_CAP).replace(/-+$/, '')
+  return `${part}-${name}${FLOW_SUFFIX}`
+}
+
+/** A workflow's identity as a builder tab reads it: its name, its Archon project or null, and its scope. */
+export type BuilderIdentity = { name: string; codebaseId: string | null; scope: string }
+
+/** A builder pointer file's content: the workflow's identity, since the tab never learns its file's name. */
+export function builderPointerText(identity: BuilderIdentity): string {
+  return `${JSON.stringify({ orchon: 'builder', name: identity.name, codebaseId: identity.codebaseId, scope: identity.scope })}
+`
+}
+
 /** A name the plugin writes: safe characters and one of its two suffixes. */
 const OWN_POINTER = /^[A-Za-z0-9_-]+\.(?:orchonrun|orchonflow)$/
 
