@@ -76,7 +76,19 @@ describe('the run graph request', () => {
       assert.deepEqual({ ...graph.header, started: '' }, { workflow: 'orchon-recorder-echo', shortId: runId.slice(0, 8), state: '✓ Completed', started: '', finished: true })
       assert.match(graph.header.started, /2026/)
       assert.deepEqual(graph.steps, [
-        { id: 'write', name: 'write', kind: 'exec', state: 'completed', glyph: '✓', word: 'Completed', group: null, isGroup: false, conditional: false, note: null }
+        {
+          id: 'write',
+          name: 'write',
+          kind: 'exec',
+          state: 'completed',
+          glyph: '✓',
+          word: 'Completed',
+          group: null,
+          isGroup: false,
+          conditional: false,
+          note: null,
+          summary: { duration: '0s', cost: null, model: null, skipReason: null, output: 'recorded', outputShown: 'whole' }
+        }
       ])
       assert.deepEqual(graph.edges, [])
     })
@@ -126,6 +138,75 @@ describe('the run graph request', () => {
       ]
     )
     assert.ok(graph.edges.some((edge) => edge.from === 'rounds' && edge.to === 'update-pr-body'))
+  })
+})
+
+describe("each step's summary for its card", () => {
+  const runId = ECHO_RUN['0.12.1']
+  const echo = jsonOf(listedWorkflow('0.12.1', 'orchon-recorder-echo')) as { workflow: Record<string, unknown> }
+  const event = (step: string, type: string, data: Record<string, unknown>): Record<string, unknown> => ({ event_type: type, step_name: step, data })
+
+  /** The recorded run with these nodes and events, drawn on a workflow of these ids. */
+  async function summaries(ids: string[], events: Record<string, unknown>[], states: Record<string, string> = {}): Promise<GraphStep[]> {
+    const stage = stageFor()
+    const recordedRun = jsonOf(recorded('0.12.1', 'run-detail')) as { run: Record<string, unknown> }
+    const nodes = ids.map((id) => ({ node_id: id, state: states[id] ?? 'completed' }))
+    stage.archon.answer(`${RUNS}${runId}`, json({ run: { ...recordedRun.run, nodes, metadata: { terminal_graph: { node_ids: ids } } }, events }))
+    stage.archon.answer(workflowUrl('orchon-recorder-echo'), json({ ...echo, workflow: { ...echo.workflow, nodes: ids.map((id) => ({ id, kind: 'exec' })) } }))
+    return ready((await readGraph(stage, runId)).graph).steps
+  }
+
+  test("carries its latest start's duration, cost and model, the first 4 KiB of its output, and a skipped step's reason", async () => {
+    const finished = {
+      binding: { provider: 'claude', model: { requested: 'sonnet', resolved: { source: 'provider', value: 'claude-sonnet-4-5' } } },
+      timing: { durationMs: 125_000 },
+      spend: { costUsd: { source: 'provider', value: 0.1234 } },
+      node_output: `${'a'.repeat(4_000)}${'b'.repeat(1_000)}`
+    }
+    const [agent, skipped, cheap] = await summaries(
+      ['agent', 'skipped', 'cheap'],
+      [
+        event('agent', 'node_started', { binding: {} }),
+        event('agent', 'node_failed', { timing: { durationMs: 1 }, node_output: 'first try' }),
+        event('agent', 'node_started', { binding: {} }),
+        event('agent', 'node_completed', finished),
+        event('skipped', 'node_skipped', { reason: 'when_condition', node_output: '' }),
+        event('cheap', 'node_completed', { binding: { model: { requested: 'haiku', resolved: { source: 'unavailable', reason: 'not_reported' } } }, cost_usd: 0.001, duration_ms: 3_400, node_output: 'done' })
+      ],
+      { skipped: 'skipped' }
+    )
+    assert.deepEqual(agent?.summary, {
+      duration: '2m 5s',
+      cost: '$0.12',
+      model: 'claude-sonnet-4-5',
+      skipReason: null,
+      output: `${'a'.repeat(4_000)}${'b'.repeat(96)}`,
+      outputShown: 'cut'
+    })
+    assert.deepEqual(skipped?.summary, { duration: null, cost: null, model: null, skipReason: 'Its when condition was false.', output: '', outputShown: 'whole' })
+    assert.deepEqual(cheap?.summary, { duration: '3s', cost: 'Under $0.01', model: 'haiku', skipReason: null, output: 'done', outputShown: 'whole' })
+  })
+
+  test("a recorded skip of a step that had completed before the run resumed says so", async () => {
+    const stage = stageFor()
+    const gateRun = 'e7678067-ddb7-44b2-9bec-2d9a049e9c5e'
+    stage.archon.answer(`${RUNS}${gateRun}`, recorded('0.12.1', 'attention-wait', 2))
+    stage.archon.answer(workflowUrl('orchon-recorder-gate'), listedWorkflow('0.12.1', 'orchon-recorder-gate'))
+    const graph = ready((await readGraph(stage, gateRun)).graph)
+    assert.equal(graph.steps.find((step) => step.id === 'gate')?.summary?.skipReason, 'It had completed before the run resumed.')
+  })
+
+  test('past the size one answer may carry, later steps carry no output and say so, and the answer stays inside 1 MiB', async () => {
+    const ids = Array.from({ length: 300 }, (_, index) => `step-${String(index)}`)
+    const steps = await summaries(
+      ids,
+      ids.map((id) => event(id, 'node_completed', { node_output: '€'.repeat(5_000) }))
+    )
+    assert.equal(steps[0]?.summary?.outputShown, 'cut')
+    assert.equal(steps[0]?.summary?.output.length, 4_096)
+    assert.equal(steps[299]?.summary?.outputShown, 'withheld')
+    assert.equal(steps[299]?.summary?.output, '')
+    assert.ok(new TextEncoder().encode(JSON.stringify(steps)).length < 1024 * 1024)
   })
 })
 

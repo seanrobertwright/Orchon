@@ -54,6 +54,8 @@ type Stage = {
   /** What the scripted worker answers next. */
   answer: { value: GraphAnswer | ((sent: Sent) => GraphAnswer | Promise<GraphAnswer>) }
   external: string[]
+  /** Tells the tab its graph area has this size, as Orca's frame would on a resize. */
+  resize(width: number, height: number): void
 }
 
 async function open(first: GraphAnswer, text = POINTER): Promise<Stage> {
@@ -64,7 +66,11 @@ async function open(first: GraphAnswer, text = POINTER): Promise<Stage> {
   const clock = createClock()
   const sent: Sent[] = []
   const handlers = new Map<string, ((payload: unknown) => void)[]>()
+  const sizes: ((width: number, height: number) => void)[] = []
   const stage: Stage = {
+    resize(width, height) {
+      for (const told of sizes) told(width, height)
+    },
     doc,
     app,
     clock,
@@ -96,6 +102,11 @@ async function open(first: GraphAnswer, text = POINTER): Promise<Stage> {
     openExternal(url) {
       stage.external.push(url)
       return Promise.resolve()
+    },
+    observeSize(_element, told) {
+      sizes.push(told)
+      told(800, 500)
+      return { dispose: () => sizes.splice(sizes.indexOf(told), 1) }
     }
   })
   await settle()
@@ -303,5 +314,365 @@ describe('refetching as run detail does', () => {
     await stage.post('runs.changed', { types: ['run'], runs: [RUN_ID] })
     await stage.clock.advance(60_000)
     assert.equal(reads(stage).length, 1)
+  })
+})
+
+/** The graph's visible region as numbers: its viewBox. */
+function viewBox(stage: Stage): number[] {
+  const svg = find(stage.app, (element) => (element.getAttribute('class') ?? '').split(' ').includes('graph'))
+  return (svg?.getAttribute('viewBox') ?? '').split(' ').map(Number)
+}
+const near = (actual: number[], expected: number[]): void => {
+  assert.equal(actual.length, expected.length, `${actual.join(' ')} is not ${expected.join(' ')}`)
+  actual.forEach((value, index) => assert.ok(Math.abs(value - (expected[index] ?? NaN)) < 0.01, `${actual.join(' ')} is not ${expected.join(' ')}`))
+}
+const one = (root: FakeElement, name: string): FakeElement => {
+  const [element] = withClass(root, name)
+  if (element === undefined) throw new Error(`Nothing has the class ${name}.`)
+  return element
+}
+const named = (root: FakeElement, name: string): FakeElement => {
+  const element = find(root, (candidate) => candidate.tagName === 'button' && (candidate.getAttribute('aria-label') ?? candidate.textContent) === name)
+  if (element === null) throw new Error(`No button is named ${name}.`)
+  return element
+}
+
+// Two steps one under the other lay out 216 wide and 196 high: a step is 184 by 60, with 44
+// between ranks and a margin of 16 all round.
+describe('the canvas tools', () => {
+  test('fits the graph to the tab, and fits again on resize until the user moves the view', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    near(viewBox(stage), [-292, -152, 800, 500])
+    stage.resize(108, 98)
+    near(viewBox(stage), [0, 0, 216, 196])
+    one(stage.app, 'viewport').dispatch('keydown', { key: 'ArrowRight' })
+    near(viewBox(stage), [96, 0, 216, 196])
+    stage.resize(216, 196)
+    near(viewBox(stage), [96, 0, 432, 392])
+    one(stage.app, 'viewport').dispatch('keydown', { key: '0' })
+    near(viewBox(stage), [0, 0, 216, 196])
+    stage.resize(108, 98)
+    near(viewBox(stage), [0, 0, 216, 196])
+    stage.resize(216, 196)
+    named(stage.app, 'Zoom in').click()
+    named(stage.app, 'Fit').click()
+    stage.resize(432, 392)
+    near(viewBox(stage), [-108, -98, 432, 392])
+  })
+
+  test('arrow keys pan the view, on the canvas and on a step', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const viewport = one(stage.app, 'viewport')
+    assert.equal(viewport.getAttribute('tabindex'), '0')
+    const keys = ['ArrowLeft', 'ArrowUp', 'ArrowDown', 'ArrowRight'].map((key) => viewport.dispatch('keydown', { key }))
+    assert.ok(keys.every((event) => event.defaultPrevented))
+    near(viewBox(stage), [0, 0, 216, 196])
+    withClass(stage.app, 'step')[0]?.dispatch('keydown', { key: 'ArrowDown' })
+    near(viewBox(stage), [0, 48, 216, 196])
+  })
+
+  test('the plus and minus keys, the on-canvas buttons and the wheel zoom', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const viewport = one(stage.app, 'viewport')
+    viewport.dispatch('keydown', { key: '+' })
+    near(viewBox(stage), [21.6, 19.6, 172.8, 156.8])
+    viewport.dispatch('keydown', { key: '-' })
+    near(viewBox(stage), [0, 0, 216, 196])
+    named(stage.app, 'Zoom in').click()
+    near(viewBox(stage), [21.6, 19.6, 172.8, 156.8])
+    named(stage.app, 'Zoom out').click()
+    near(viewBox(stage), [0, 0, 216, 196])
+    const wheel = viewport.dispatch('wheel', { deltaY: -100, clientX: 0, clientY: 0 })
+    assert.ok(wheel.defaultPrevented)
+    near(viewBox(stage), [0, 0, 172.8, 156.8])
+  })
+
+  test('dragging the canvas pans the view', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const viewport = one(stage.app, 'viewport')
+    viewport.dispatch('pointerdown', { button: 0, clientX: 100, clientY: 100, pointerId: 1 })
+    viewport.dispatch('pointermove', { clientX: 60, clientY: 80, pointerId: 1 })
+    viewport.dispatch('pointerup', { clientX: 60, clientY: 80, pointerId: 1 })
+    near(viewBox(stage), [40, 20, 216, 196])
+    viewport.dispatch('pointermove', { clientX: 0, clientY: 0, pointerId: 1 })
+    near(viewBox(stage), [40, 20, 216, 196])
+  })
+
+  test('panning and zooming move the drawing; they do not lay the graph out or draw it again', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    const svg = one(stage.app, 'graph')
+    const steps = withClass(svg, 'step')
+    const viewport = one(stage.app, 'viewport')
+    viewport.dispatch('keydown', { key: 'ArrowRight' })
+    viewport.dispatch('keydown', { key: '+' })
+    viewport.dispatch('wheel', { deltaY: 100, clientX: 10, clientY: 10 })
+    assert.equal(one(stage.app, 'graph'), svg)
+    assert.deepEqual(withClass(stage.app, 'step'), steps)
+  })
+
+  test('a minimap shows each step coloured by state and a frame around the view, which a drag moves', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stage.resize(216, 196)
+    const minimap = one(stage.app, 'minimap')
+    assert.deepEqual(
+      withClass(minimap, 'mini-step').map((box) => box.getAttribute('class')),
+      ['mini-step state-completed', 'mini-step state-waiting']
+    )
+    const frame = one(minimap, 'minimap-frame')
+    near(['x', 'y', 'width', 'height'].map((name) => Number(frame.getAttribute(name))), [0, 0, 216, 196])
+    const scale = Number(minimap.getAttribute('width')) / 216
+    minimap.dispatch('pointerdown', { button: 0, clientX: 150 * scale, clientY: 100 * scale, pointerId: 2 })
+    near(viewBox(stage), [42, 2, 216, 196])
+    minimap.dispatch('pointermove', { clientX: 108 * scale, clientY: 98 * scale, pointerId: 2 })
+    minimap.dispatch('pointerup', { pointerId: 2 })
+    near(viewBox(stage), [0, 0, 216, 196])
+    near(['x', 'y', 'width', 'height'].map((name) => Number(frame.getAttribute(name))), [0, 0, 216, 196])
+    stage.resize(432, 392)
+    near(viewBox(stage), [0, 0, 432, 392])
+  })
+
+  test('the zoom buttons, whose text is a sign, are named; the canvas says how to use the keys', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    for (const name of ['Zoom in', 'Zoom out']) assert.equal(named(stage.app, name).getAttribute('type'), 'button')
+    const viewport = one(stage.app, 'viewport')
+    assert.equal(viewport.getAttribute('aria-label'), 'Steps of archon-deliver-block')
+    const help = stage.doc.getElementById(viewport.getAttribute('aria-describedby') ?? '')
+    assert.equal(help?.textContent, 'Arrow keys pan, plus and minus zoom, and zero fits the graph.')
+  })
+})
+
+describe('the direction and the loop groups', () => {
+  const looped: GraphView = {
+    kind: 'ready',
+    header,
+    mismatch: null,
+    steps: [
+      step('forge'),
+      step('rounds', { kind: 'loop_group', isGroup: true, state: 'running', glyph: '●', word: 'Running' }),
+      step('rounds.implement', { name: 'implement', group: 'rounds' }),
+      step('rounds.pr', { name: 'pr', group: 'rounds', state: 'running', glyph: '●', word: 'Running' })
+    ],
+    edges: [
+      { from: 'forge', to: 'rounds' },
+      { from: 'rounds.implement', to: 'rounds.pr' }
+    ]
+  }
+
+  test('draws top to bottom or left to right, chosen in a labelled radio group, and fits the new layout', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    const legend = find(stage.app, (element) => element.tagName === 'legend')
+    assert.equal(legend?.textContent, 'Direction')
+    const radios = findAll(stage.app, (element) => element.tagName === 'input' && element.getAttribute('type') === 'radio')
+    const labels = radios.map((radio) => find(stage.app, (element) => element.tagName === 'label' && element.getAttribute('for') === radio.id)?.textContent)
+    assert.deepEqual(labels, ['Top to bottom', 'Left to right'])
+    assert.deepEqual(radios.map((radio) => radio.checked), [true, false])
+    assert.equal(new Set(radios.map((radio) => radio.getAttribute('name'))).size, 1)
+    const before = one(stage.app, 'graph')
+    one(stage.app, 'viewport').dispatch('keydown', { key: 'ArrowRight' })
+    const across = radios[1]
+    assert.ok(across !== undefined)
+    across.checked = true
+    across.dispatch('change')
+    assert.notEqual(one(stage.app, 'graph'), before)
+    // Two steps side by side lay out 444 wide and 92 high.
+    near(viewBox(stage), [-178, -204, 800, 500])
+  })
+
+  test('a loop group starts collapsed as one step that says how many steps it holds, and a switch draws its steps', async () => {
+    const stage = await open({ connection, graph: looped })
+    const drawnSteps = (): (string | null)[] => withClass(stage.app, 'step').map((box) => box.getAttribute('aria-label'))
+    assert.deepEqual(drawnSteps(), ['forge, exec, ✓ Completed', 'rounds, loop_group, ● Running, holds 2 steps'])
+    assert.equal(withClass(stage.app, 'group').length, 0)
+    assert.equal(withClass(stage.app, 'edge').length, 1)
+    const toggle = named(stage.app, 'Show loop steps')
+    assert.equal(toggle.getAttribute('aria-pressed'), 'false')
+    toggle.click()
+    assert.equal(toggle.getAttribute('aria-pressed'), 'true')
+    assert.deepEqual(drawnSteps(), ['forge, exec, ✓ Completed', 'implement, exec, ✓ Completed', 'pr, exec, ● Running'])
+    assert.equal(withClass(stage.app, 'group').length, 1)
+    toggle.click()
+    assert.equal(toggle.getAttribute('aria-pressed'), 'false')
+    assert.equal(withClass(stage.app, 'group').length, 0)
+  })
+
+  test('a graph with no loop group shows no switch for one', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    const toggle = find(stage.app, (element) => element.tagName === 'button' && element.textContent === 'Show loop steps')
+    assert.ok(toggle === null || toggle.hidden)
+  })
+})
+
+describe("a step's summary card", () => {
+  const summarised: GraphView = {
+    kind: 'ready',
+    header,
+    mismatch: null,
+    edges: [{ from: 'forge', to: 'review' }],
+    steps: [
+      step('forge', {
+        kind: 'agent',
+        summary: { duration: '2m 5s', cost: '$0.12', model: 'claude-sonnet-4-5', skipReason: null, output: '<b>made</b> it', outputShown: 'cut' }
+      }),
+      step('review', {
+        state: 'skipped',
+        glyph: '−',
+        word: 'Skipped',
+        summary: { duration: null, cost: null, model: null, skipReason: 'Its when condition was false.', output: '', outputShown: 'whole' }
+      })
+    ]
+  }
+  const card = (stage: Stage): FakeElement | null => withClass(stage.app, 'summary-card')[0] ?? null
+  const facts = (root: FakeElement): string[][] => {
+    const terms = findAll(root, (element) => element.tagName === 'dt').map((term) => term.textContent)
+    const values = findAll(root, (element) => element.tagName === 'dd').map((value) => value.textContent)
+    return terms.map((term, index) => [term, values[index] ?? ''])
+  }
+  const stepBox = (stage: Stage, id: string): FakeElement => {
+    const box = find(stage.app, (element) => element.getAttribute('data-step') === id)
+    if (box === null) throw new Error(`No step ${id} is drawn.`)
+    return box
+  }
+
+  test('a click opens a card over the canvas with the facts, the first 4 KiB of output and where the rest is', async () => {
+    const stage = await open({ connection, graph: summarised })
+    assert.equal(card(stage), null)
+    stepBox(stage, 'forge').click()
+    const shown = card(stage)
+    assert.ok(shown !== null)
+    assert.ok(withClass(stage.app, 'canvas-frame')[0]?.contains(shown), 'the card lies over the canvas, not beside it')
+    assert.equal(find(shown, (element) => element.tagName === 'h2')?.textContent, 'forge')
+    assert.deepEqual(facts(shown), [
+      ['Kind', 'agent'],
+      ['State', '✓ Completed'],
+      ['Duration', '2m 5s'],
+      ['Cost', '$0.12'],
+      ['Model', 'claude-sonnet-4-5']
+    ])
+    assert.equal(find(shown, (element) => element.tagName === 'pre')?.textContent, '<b>made</b> it')
+    assert.equal(markupWritten(stage.app), false)
+    const lines = texts(shown, 'p')
+    assert.ok(lines.includes('Only the first 4 KiB of the output is shown here.'))
+    assert.ok(lines.includes('Tool calls and agent text are in the Orchon panel.'))
+  })
+
+  test("a skipped step's card says why; facts Archon did not report say so", async () => {
+    const stage = await open({ connection, graph: summarised })
+    stepBox(stage, 'review').click()
+    const shown = card(stage)
+    assert.ok(shown !== null)
+    assert.deepEqual(facts(shown), [
+      ['Kind', 'exec'],
+      ['State', '− Skipped'],
+      ['Duration', 'Not reported'],
+      ['Cost', 'No cost reported'],
+      ['Model', 'Not reported'],
+      ['Skipped because', 'Its when condition was false.']
+    ])
+    assert.ok(texts(shown, 'p').includes('This step has no output.'))
+  })
+
+  test('a paused step says it is answered in the Orchon panel, and withheld output says where it is', async () => {
+    const graph: GraphView = {
+      kind: 'ready',
+      header,
+      mismatch: null,
+      edges: [],
+      steps: [
+        step('review', {
+          state: 'waiting',
+          glyph: '‖',
+          word: 'Waiting',
+          note: 'Answered in the Orchon panel.',
+          summary: { duration: null, cost: null, model: null, skipReason: null, output: '', outputShown: 'withheld' }
+        })
+      ]
+    }
+    const stage = await open({ connection, graph })
+    stepBox(stage, 'review').click()
+    const lines = texts(card(stage) as FakeElement, 'p')
+    assert.ok(lines.includes('Answered in the Orchon panel.'))
+    assert.ok(lines.includes("This graph's output was too large to send in full, so this step's is not shown here."))
+  })
+
+  test('Enter or Space on a focused step opens its card; Escape and Close close it; the card holds only Close', async () => {
+    const stage = await open({ connection, graph: summarised })
+    const forge = stepBox(stage, 'forge')
+    assert.equal(forge.getAttribute('aria-expanded'), 'false')
+    const enter = forge.dispatch('keydown', { key: 'Enter' })
+    assert.ok(enter.defaultPrevented)
+    assert.ok(card(stage) !== null)
+    assert.equal(forge.getAttribute('aria-expanded'), 'true')
+    assert.equal(forge.getAttribute('aria-controls'), card(stage)?.id)
+    const shown = card(stage) as FakeElement
+    assert.deepEqual(
+      findAll(shown, (element) => ['button', 'input', 'select', 'textarea', 'form', 'a'].includes(element.tagName)).map((element) => element.textContent),
+      ['Close']
+    )
+    shown.dispatch('keydown', { key: 'Escape' })
+    assert.equal(card(stage), null)
+    assert.equal(forge.getAttribute('aria-expanded'), 'false')
+    stepBox(stage, 'review').dispatch('keydown', { key: ' ' })
+    assert.equal(find(card(stage) as FakeElement, (element) => element.tagName === 'h2')?.textContent, 'review')
+    const close = named(card(stage) as FakeElement, 'Close')
+    close.focus()
+    close.click()
+    assert.equal(card(stage), null)
+    // Close took the focus with it, so it goes back to the step whose card it was.
+    assert.equal(stage.doc.activeElement, stepBox(stage, 'review'))
+  })
+
+  test('opening a card does not move the focus', async () => {
+    const stage = await open({ connection, graph: summarised })
+    const forge = stepBox(stage, 'forge')
+    forge.focus()
+    forge.dispatch('keydown', { key: 'Enter' })
+    assert.equal(stage.doc.activeElement, forge)
+  })
+
+  test('the click that ends a drag opens no card', async () => {
+    const stage = await open({ connection, graph: summarised })
+    const forge = stepBox(stage, 'forge')
+    forge.dispatch('pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+    forge.dispatch('pointermove', { clientX: 60, clientY: 10, pointerId: 1 })
+    forge.dispatch('pointerup', { clientX: 60, clientY: 10, pointerId: 1 })
+    forge.click()
+    assert.equal(card(stage), null)
+    forge.click()
+    assert.ok(card(stage) !== null)
+  })
+
+  test('a newer answer updates an open card, and closes it when its step is no longer drawn', async () => {
+    const stage = await open({ connection, graph: summarised })
+    stepBox(stage, 'forge').click()
+    const failed = summarised.steps.map((one) => (one.id === 'forge' ? { ...one, state: 'failed' as const, glyph: '✕', word: 'Failed' } : one))
+    stage.answer.value = { connection, graph: { ...summarised, steps: failed } }
+    await stage.clock.advance(30_000)
+    assert.ok(facts(card(stage) as FakeElement).some(([term, value]) => term === 'State' && value === '✕ Failed'))
+    stage.answer.value = { connection, graph: { ...summarised, steps: summarised.steps.filter((one) => one.id !== 'forge'), edges: [] } }
+    await stage.clock.advance(30_000)
+    assert.equal(card(stage), null)
+  })
+
+  test('a step from a worker that sends no summary still opens a card with what the tab has', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    stepBox(stage, 'forge').click()
+    assert.deepEqual(facts(card(stage) as FakeElement).map(([term]) => term), ['Kind', 'State', 'Duration', 'Cost', 'Model'])
+    assert.ok(texts(card(stage) as FakeElement, 'p').includes('Tool calls and agent text are in the Orchon panel.'))
+  })
+
+  test('a collapsed loop group says on its card how many steps it holds', async () => {
+    const graph: GraphView = {
+      kind: 'ready',
+      header,
+      mismatch: null,
+      edges: [],
+      steps: [step('rounds', { kind: 'loop_group', isGroup: true }), step('rounds.a', { name: 'a', group: 'rounds' })]
+    }
+    const stage = await open({ connection, graph })
+    stepBox(stage, 'rounds').click()
+    assert.ok(texts(card(stage) as FakeElement, 'p').includes('Holds 1 step. Show loop steps to draw it.'))
   })
 })
