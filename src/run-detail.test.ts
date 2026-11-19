@@ -22,24 +22,27 @@ async function readDetail(stage: Scene, input: RunDetailRequest): Promise<RunDet
 }
 
 /** The run each release's run-detail recording holds, read off the fixtures by hand. */
-const RECORDED: Record<Release, { id: string; started: number; ended: number; durationMs: number }> = {
+const RECORDED: Record<Release, { id: string; started: number; ended: number; durationMs: number; conversation: string }> = {
   '0.12.1': {
     id: '7c28e1a1-6432-4c9d-89d6-874cfaf81f89',
     started: Date.UTC(2026, 10, 19, 1, 1, 15),
     ended: Date.UTC(2026, 10, 19, 1, 1, 18),
-    durationMs: 207
+    durationMs: 207,
+    conversation: 'web-1795050072354-vqr978'
   },
   '0.13.2': {
     id: '542b1888-311b-4b65-b005-8b78e33a7c79',
     started: Date.UTC(2026, 10, 19, 1, 3, 14),
     ended: Date.UTC(2026, 10, 19, 1, 3, 16),
-    durationMs: 257
+    durationMs: 257,
+    conversation: 'web-1795050191420-o7xrhr'
   },
   '0.14.0': {
     id: '68b479b2-217a-4e84-b86d-ecb9faf394e6',
     started: Date.UTC(2026, 10, 19, 1, 5, 13),
     ended: Date.UTC(2026, 10, 19, 1, 5, 16),
-    durationMs: 507
+    durationMs: 507,
+    conversation: 'web-1795050310074-i0mt96'
   }
 }
 
@@ -69,11 +72,33 @@ describe('the run detail request', () => {
           ],
           stepCount: 1,
           unreadableSteps: 0,
-          waiting: null
+          waiting: null,
+          conversationId: run.conversation
         }
       })
     })
   }
+})
+
+describe('the conversation that started a run', () => {
+  /** The recorded run of 0.14.0 with its `parent_platform_id` set to `value`. */
+  async function withParent(value: unknown): Promise<RunDetail> {
+    const stage = connectedScene('0.14.0')
+    const run = RECORDED['0.14.0']
+    const answer = recorded('0.14.0', 'run-detail')
+    if (answer.kind !== 'json') throw new Error('The recorded run detail is not JSON.')
+    const body = answer.value as { run: Record<string, unknown> }
+    stage.archon.answer(`${RUN_PATH}${run.id}`, json({ ...body, run: { ...body.run, parent_platform_id: value } }))
+    return ready(await readDetail(stage, { runId: run.id }))
+  }
+
+  test('a run started from the CLI has none, and an id the conversation id rule refuses is left out without failing the run', async () => {
+    for (const value of [null, undefined, '', 'web/../x', 'a'.repeat(201), 42]) {
+      const detail = await withParent(value)
+      assert.equal(detail.status, 'completed')
+      assert.equal(Object.hasOwn(detail, 'conversationId'), false, String(value))
+    }
+  })
 })
 
 /** The ids of the recorded failed and waiting runs, read off the fixtures by hand. */
