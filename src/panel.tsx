@@ -130,13 +130,17 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
   }
   const screen = stateScreen(state, actions)
   if (screen !== null || state?.kind !== 'connected') return screen
-  if (id !== 'runs') return placeholder
-  const line = liveOffLine(state)
-  if (line === null) return runsSection(state)
+  return id === 'runs' ? runsSection(state) : placeholder
+}
+
+/** A section's body, under the line saying live updates are off while they are. */
+function underLiveLine(body: OrcaNode, state: ConnectionView | null): OrcaNode {
+  const line = state?.kind === 'connected' ? liveOffLine(state) : null
+  if (line === null) return body
   return (
     <Stack gap="sm">
       {line}
-      {runsSection(state)}
+      {body}
     </Stack>
   )
 }
@@ -151,7 +155,7 @@ export default function Panel() {
     >
       {SECTIONS.map(({ id, label }) => (
         <Tab key={id} value={id} label={label}>
-          {sectionBody(id, label, state)}
+          {underLiveLine(sectionBody(id, label, state), state)}
         </Tab>
       ))}
     </Tabs>

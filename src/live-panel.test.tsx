@@ -106,6 +106,26 @@ describe('live updates in the panel', () => {
     assert.equal(runsReads(view), 3)
   })
 
+  test('while live updates are off, says so under the section bar of every section', async () => {
+    const view = await mountConnected({ ...connected, live: false })
+    /** The words of the first text drawn in a node, depth first. */
+    const firstText = (node: TreeSnapshot | string | null): string | null => {
+      if (node === null || typeof node === 'string') return null
+      if (node.type === 'Text') return (node.children ?? []).filter((child) => typeof child === 'string').join('')
+      for (const child of node.children ?? []) {
+        const text = firstText(child)
+        if (text !== null) return text
+      }
+      return null
+    }
+    const root = view.tree()
+    const tabs = (root === null || typeof root === 'string' ? [] : (root.children ?? [])).filter(
+      (tab) => typeof tab !== 'string' && tab.type === 'Tab'
+    )
+    assert.ok(tabs.length > 1)
+    for (const tab of tabs) assert.equal(firstText(tab), 'Live updates are off. Refreshing every 5 seconds.')
+  })
+
   test('clears its timers when the panel closes: nothing is read after it', async () => {
     const view = await mountConnected({ ...connected, live: false })
     await view.post('runs.changed', { types: ['workflow_status'], runs: ['run-1'] })
