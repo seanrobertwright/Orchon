@@ -255,8 +255,18 @@ export function createClient(ports: ClientPorts): Client {
     return bytes instanceof Uint8Array ? { ok: true, bytes } : { ok: false, failure: bytes }
   }
 
-  /** One call, bounded in time and ended by its caller's signal, whatever its transport does. */
+  /** One call, with a failure other than its caller's cancelling reported to `ports.failed`. */
   async function send<C extends ClientCall | BytesCall, R extends ClientResult | BytesResult>(
+    call: C,
+    exchangeOf: (url: string, call: C, signal: AbortSignal) => Promise<R>
+  ): Promise<R | { ok: false; failure: ClientFailure }> {
+    const result = await bounded(call, exchangeOf)
+    if (!result.ok && result.failure.kind !== 'cancelled') ports.failed?.(call, result.failure)
+    return result
+  }
+
+  /** One call, bounded in time and ended by its caller's signal, whatever its transport does. */
+  async function bounded<C extends ClientCall | BytesCall, R extends ClientResult | BytesResult>(
     call: C,
     exchangeOf: (url: string, call: C, signal: AbortSignal) => Promise<R>
   ): Promise<R | { ok: false; failure: ClientFailure }> {
@@ -311,16 +321,7 @@ export function createClient(ports: ClientPorts): Client {
       return { ok: true, text: streamText(answer.body, call.signal) }
     },
 
-    async request(call) {
-      const result = await send(call, exchange)
-      if (!result.ok && result.failure.kind !== 'cancelled') ports.failed?.(call, result.failure)
-      return result
-    },
-
-    async bytes(call) {
-      const result = await send(call, bytesExchange)
-      if (!result.ok && result.failure.kind !== 'cancelled') ports.failed?.(call, result.failure)
-      return result
-    }
+    request: (call) => send(call, exchange),
+    bytes: (call) => send(call, bytesExchange)
   }
 }
