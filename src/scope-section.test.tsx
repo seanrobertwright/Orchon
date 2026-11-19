@@ -2,7 +2,7 @@
 // the scope and the runs table. These tests cover the scope switch, the notices, Link, Register
 // and Open in Orca: what the Runs section draws and which requests it sends.
 import { afterEach, assert, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
-import { connected } from '../scripts/connection-samples.ts'
+import { connected, searching } from '../scripts/connection-samples.ts'
 import { busyRuns } from '../scripts/runs-samples.ts'
 import { answeringScope, linkedApi, matchedWeb, remote, unmatchedFolder, unmatchedGit } from '../scripts/scope-samples.ts'
 import * as panelModule from './panel'
@@ -171,6 +171,31 @@ describe('the unmatched notice', () => {
     await view.press(button('Register with Archon'))
     await view.press(button('Register'))
     assert.ok(view.find({ type: 'Callout', text: 'Archon answered with an error (400).' }))
+  })
+})
+
+describe('Searching with data', () => {
+  test('keeps the switch and the notice under the banner, with Link and Register turned off', async () => {
+    const view = await mountWith(() => unmatchedGit)
+    await view.post('connection.changed', { ...searching, since: connected.since + 1 })
+    assert.ok(view.findAll({ type: 'Callout' }).some((callout) => /^Archon stopped answering at .*Changes are turned off until it answers\.$/.test(callout.text)))
+    assert.equal(view.valueOf(SCOPE), 'all')
+    assert.ok(view.find({ type: 'Text', text: 'This Orca project is not known to Archon.' }))
+    assert.equal(view.find(button('Link to an existing Archon project'))?.disabled, true)
+    assert.equal(view.find(button('Register with Archon'))?.disabled, true)
+    // Back to Connected, they are on again.
+    await view.post('connection.changed', { ...connected, since: connected.since + 2 })
+    assert.equal(view.find(button('Link to an existing Archon project'))?.disabled, false)
+    assert.equal(view.find(button('Register with Archon'))?.disabled, false)
+  })
+
+  test('turns off Change link and Clear link, and the switch still flips', async () => {
+    const view = await mountWith(() => linkedApi)
+    await view.post('connection.changed', { ...searching, since: connected.since + 1 })
+    assert.equal(view.find(button('Change link'))?.disabled, true)
+    assert.equal(view.find(button('Clear link'))?.disabled, true)
+    await view.select(SCOPE, 'all')
+    assert.equal(view.valueOf(SCOPE), 'all')
   })
 })
 

@@ -287,8 +287,8 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
   )
 }
 
-/** The section while connected. */
-export function runsSection(state: Connected): OrcaNode {
+/** The section while connected or under the Searching banner. `writable` is false when its controls that write are off. */
+export function runsSection(state: Connected, writable: boolean): OrcaNode {
   const status = read(filter)
   const runs = read(loaded)
   const held = read(problem)
@@ -307,7 +307,7 @@ export function runsSection(state: Connected): OrcaNode {
   return (
     <Stack gap="sm">
       {scopeSwitch()}
-      {scopeNotice()}
+      {scopeNotice(writable)}
       <Row gap="sm" align="center">
         <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
         <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />

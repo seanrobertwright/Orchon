@@ -166,7 +166,7 @@ function plural(count: number, one: string, many: string): string {
 }
 
 /** Link's chooser: the Archon projects by name, with a line for any that are not shown. */
-function chooser(choices: LinkChoices, current: string | null): OrcaNode {
+function chooser(choices: LinkChoices, current: string | null, writable: boolean): OrcaNode {
   const picked = read(chosen)
   const options = choices.projects.filter((project) => project.id !== current).map((project) => ({ value: project.id, label: project.name }))
   return (
@@ -183,7 +183,7 @@ function chooser(choices: LinkChoices, current: string | null): OrcaNode {
         </Text>
       ) : null}
       <Row gap="sm">
-        <Button size="sm" disabled={picked === null} onPress={() => (picked === null ? undefined : link(picked))}>
+        <Button size="sm" disabled={picked === null || !writable} onPress={() => (picked === null ? undefined : link(picked))}>
           Link
         </Button>
         <Button size="sm" variant="ghost" onPress={() => set(choosing, false)}>
@@ -195,13 +195,13 @@ function chooser(choices: LinkChoices, current: string | null): OrcaNode {
 }
 
 /** Register's confirmation: the exact folder that would be sent, and nothing sent until the press. */
-function confirmation(folder: string): OrcaNode {
+function confirmation(folder: string, writable: boolean): OrcaNode {
   return (
     <Stack gap="xs">
       <Text>Register this folder with Archon?</Text>
       <Code>{folder}</Code>
       <Row gap="sm">
-        <Button size="sm" onPress={() => register(folder)}>
+        <Button size="sm" disabled={!writable} onPress={() => register(folder)}>
           Register
         </Button>
         <Button size="sm" variant="ghost" onPress={() => set(confirming, false)}>
@@ -212,19 +212,19 @@ function confirmation(folder: string): OrcaNode {
   )
 }
 
-function unmatchedNotice(view: Extract<ScopeView, { kind: 'unmatched' }>): OrcaNode {
+function unmatchedNotice(view: Extract<ScopeView, { kind: 'unmatched' }>, writable: boolean): OrcaNode {
   const folder = view.registerFolder
   let body: OrcaNode
-  if (read(choosing)) body = chooser(view.choices, null)
-  else if (folder !== undefined && read(confirming)) body = confirmation(folder)
+  if (read(choosing)) body = chooser(view.choices, null, writable)
+  else if (folder !== undefined && read(confirming)) body = confirmation(folder, writable)
   else {
     body = (
       <Row gap="sm" wrap>
-        <Button size="sm" variant="outline" onPress={() => set(choosing, true)}>
+        <Button size="sm" variant="outline" disabled={!writable} onPress={() => set(choosing, true)}>
           Link to an existing Archon project
         </Button>
         {folder === undefined ? null : (
-          <Button size="sm" variant="outline" onPress={() => set(confirming, true)}>
+          <Button size="sm" variant="outline" disabled={!writable} onPress={() => set(confirming, true)}>
             Register with Archon
           </Button>
         )}
@@ -242,29 +242,32 @@ function unmatchedNotice(view: Extract<ScopeView, { kind: 'unmatched' }>): OrcaN
 }
 
 /** A link made by hand, with Change and Clear. */
-function linkedLine(view: Extract<ScopeView, { kind: 'matched' }>): OrcaNode {
-  if (read(choosing)) return chooser(view.choices, view.project.id)
+function linkedLine(view: Extract<ScopeView, { kind: 'matched' }>, writable: boolean): OrcaNode {
+  if (read(choosing)) return chooser(view.choices, view.project.id, writable)
   return (
     <Row gap="sm" wrap align="center">
       <Text muted size="sm">{`Linked by hand to ${view.project.name}.`}</Text>
-      <Button size="sm" variant="ghost" onPress={() => set(choosing, true)}>
+      <Button size="sm" variant="ghost" disabled={!writable} onPress={() => set(choosing, true)}>
         Change link
       </Button>
-      <Button size="sm" variant="ghost" onPress={clearLink}>
+      <Button size="sm" variant="ghost" disabled={!writable} onPress={clearLink}>
         Clear link
       </Button>
     </Row>
   )
 }
 
-/** What shows under the switch: the notice, the link line, or why a press changed nothing. */
-export function scopeNotice(): OrcaNode {
+/**
+ * What shows under the switch: the notice, the link line, or why a press changed nothing. Link,
+ * Register and the link line's buttons write, so they are off while `writable` is false.
+ */
+export function scopeNotice(writable: boolean): OrcaNode {
   const view = read(scope)
   const why = read(refused)
   let notice: OrcaNode = null
   if (view?.kind === 'remote') notice = <Callout tone="neutral">{REMOTE_WORKSPACE}</Callout>
-  else if (view?.kind === 'unmatched') notice = unmatchedNotice(view)
-  else if (view?.kind === 'matched' && view.by === 'link') notice = linkedLine(view)
+  else if (view?.kind === 'unmatched') notice = unmatchedNotice(view, writable)
+  else if (view?.kind === 'matched' && view.by === 'link') notice = linkedLine(view, writable)
   else if (view?.kind === 'failed') {
     notice = (
       <Callout tone="warning">
