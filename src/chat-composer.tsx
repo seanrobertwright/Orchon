@@ -1,13 +1,17 @@
 // The chat composer: the text area, **Send** and the hint line at the top of a thread or a new
 // chat, and what the panel does with each answer to a send. A send goes to the worker once and is
 // never sent again; the typed text stays until Archon accepts it. Drafts are kept per
-// conversation, and per project for a new chat, in memory while the panel is open. Nothing here
-// moves focus.
-import { atom, type Atom, Button, plugin, read, Row, set, Spinner, Stack, Text, Textarea, type OrcaNode } from 'orca'
+// conversation, and per project for a new chat, by the worker in plugin storage: the panel reads
+// them when it mounts, hands each change to the worker after a pause, and hands what still waits
+// when it unmounts. Nothing here moves focus.
+import { atom, type Atom, Button, plugin, read, Row, set, Spinner, Stack, Text, Textarea, type OrcaNode, type PanelContext } from 'orca'
+import { DRAFT_SEND_PAUSE_MS } from './chat-drafts-view'
 import { CHAT_MESSAGE_CAP, COMPOSER_CHARACTER_CAP, messageBytes, type ChatSendAnswer, type ChatSendOutcome, type ChatSendRequest } from './chat-send-view'
 import type { Thread, ThreadMessage } from './chat-thread-view'
 import type { ConnectionView } from './connection-view'
 import { now } from './dates'
+import { frameTimers } from './frame-timers'
+import { isRecord } from './records'
 import { offersTryAgain, troubleText } from './worker-words'
 import { nextTrouble, rejectionOf } from './view-fetch'
 
@@ -118,8 +122,12 @@ export type ComposerHooks = {
   refetch(): void
 }
 
-/** The typed text by draft key, in memory while the panel is open. */
+/** The typed text by draft key, as the worker kept it and as typed since. */
 const drafts = atom<Record<string, string>>({})
+/** The draft keys typed in during this panel run, which the worker's drafts read later do not replace. */
+const typed = atom<Record<string, true>>({})
+/** The drafts that wait for the pause before they go to the worker, by key. */
+const waiting = new Map<string, unknown>()
 /** One send at a time: the draft key of the send that waits for the worker, or null. */
 const sending = atom<string | null>(null)
 /** The note under a composer after its last send, by draft key. */
@@ -139,6 +147,60 @@ const draftOf = (key: string): string => {
 const noteOf = (key: string): string | null => {
   const all = read(notes)
   return Object.hasOwn(all, key) ? (all[key] ?? null) : null
+}
+
+/** Hands one draft to the worker now, as it stands. Text past the cap stays in the panel only. */
+function handDraft(key: string): void {
+  const pending = waiting.get(key)
+  if (pending !== undefined) frameTimers.clear(pending)
+  waiting.delete(key)
+  const text = draftOf(key)
+  if (messageBytes(text) > CHAT_MESSAGE_CAP) return
+  plugin.request('chat.draft.write', { key, text }).catch(() => {})
+}
+
+/** A keystroke: the draft changes now, and goes to the worker after a pause with no other. */
+function typeDraft(key: string, text: string): void {
+  setIn(drafts, key, text)
+  putKey(typed, key, true)
+  const pending = waiting.get(key)
+  if (pending !== undefined) frameTimers.clear(pending)
+  waiting.set(
+    key,
+    frameTimers.set(() => handDraft(key), DRAFT_SEND_PAUSE_MS)
+  )
+}
+
+/** Whether this panel run asked the worker for its drafts. */
+const draftsAsked = atom(false)
+
+/** Hands what still waits to the worker when the panel unmounts. */
+export function startComposerDrafts(ctx: PanelContext): void {
+  ctx.subscriptions.push({
+    dispose() {
+      for (const key of [...waiting.keys()]) handDraft(key)
+    }
+  })
+}
+
+/** Reads the worker's drafts, once in this panel run: the Chat section began to show. */
+export function readComposerDrafts(): void {
+  if (read(draftsAsked)) return
+  set(draftsAsked, true)
+  plugin.request('chat.drafts.read').then(
+    (answer) => {
+      const stored: Record<string, string> = {}
+      if (isRecord(answer.drafts)) for (const [key, text] of Object.entries(answer.drafts)) if (typeof text === 'string') stored[key] = text
+      const mine = read(typed)
+      const now = read(drafts)
+      for (const key of Object.keys(mine)) {
+        if (Object.hasOwn(now, key)) stored[key] = now[key] ?? ''
+        else delete stored[key]
+      }
+      set(drafts, stored)
+    },
+    () => {}
+  )
 }
 
 /** The note after an answer that did not take the message. */
@@ -172,6 +234,8 @@ async function send(target: ComposerTarget, message: string, hooks: ComposerHook
     const { outcome } = answer
     if (outcome.kind === 'sent') {
       setIn(drafts, key, null)
+      putKey(typed, key, true)
+      handDraft(key)
       beginTurn(outcome.conversationId, target.kind === 'thread' ? target.newest : undefined)
       hooks.sent(outcome.conversationId)
       return
@@ -220,7 +284,7 @@ export function composer(target: ComposerTarget, options: { writable: boolean; h
         maxLength={COMPOSER_CHARACTER_CAP}
         invalid={tooLong}
         disabled={locked}
-        onChange={(value) => setIn(drafts, key, value)}
+        onChange={(value) => typeDraft(key, value)}
         onSubmit={(value) => press(value)}
       />
       <Row gap="sm" align="center" wrap>
