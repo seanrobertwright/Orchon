@@ -1,10 +1,41 @@
 Third-party notices for Orchon
 
-Orchon ships no third-party code yet.
-
-When code from another project is copied into this repository, its licence text
-is added to this file in the same commit: Archon's MIT licence with the builder
-logic copied from Archon, and the licence of every bundled library.
+Orchon ships the code from other projects listed below. When more code from another project is
+copied into this repository, its licence text is added to this file in the same commit, as is
+the licence of every bundled library.
 
 The development dependencies named in package.json are used to check the
 repository. They are not part of the installed plugin.
+
+--------------------------------------------------------------------------------
+
+Archon
+https://github.com/coleam00/Archon
+
+The workflow builder's logic in editors/builder/archon/ is copied from Archon
+release v0.14.0 (commit 8def159a6b2c23e832a5283b4131cfffd9af9344), and
+editors/builder/support/node-ref.ts and editors/builder/support/archon-api.d.ts
+hold code from the same release. editors/builder/archon/UPSTREAM.md lists every
+difference from upstream.
+
+MIT License
+
+Copyright (c) 2025-2026 Cole Medin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

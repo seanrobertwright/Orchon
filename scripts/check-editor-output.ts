@@ -10,6 +10,25 @@ import { join, relative } from 'node:path'
 import { listRepoFiles, readRepoText, repoRoot } from './repo-files.ts'
 import { loadPackage, MissingTooling } from './tooling.ts'
 
+/**
+ * Editor TypeScript that only the tests load, so it has no JavaScript: the test fixtures and the
+ * test helpers copied with Archon's builder logic (editors/builder/archon/UPSTREAM.md).
+ * tsconfig.editors.json leaves out the same paths, and check-editor-output.test.ts holds the two
+ * lists equal.
+ */
+export const TEST_ONLY_EDITOR_SOURCES = {
+  folders: ['editors/builder/archon/fixtures/'],
+  files: ['editors/builder/archon/validation/test-helpers.ts']
+}
+
+/** Whether an editor source is test-only, and so is not compiled. */
+export function isTestOnlyEditorSource(path: string): boolean {
+  return (
+    TEST_ONLY_EDITOR_SOURCES.files.includes(path) ||
+    TEST_ONLY_EDITOR_SOURCES.folders.some((folder) => path.startsWith(folder))
+  )
+}
+
 export interface CompiledEditors {
   /** The text of each file the compiler writes, by its path from the repository root. */
   outputs: Map<string, string>

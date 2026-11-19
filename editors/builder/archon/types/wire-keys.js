@@ -1,0 +1,60 @@
+export const WIRE_KEY_ROLES = {
+    id: 'id',
+    description: 'base',
+    depends_on: 'base',
+    when: 'base',
+    trigger_rule: 'base',
+    model: 'base',
+    provider: 'base',
+    context: 'base',
+    output_format: 'base',
+    allowed_tools: 'base',
+    denied_tools: 'base',
+    idle_timeout: 'base',
+    retry: 'base',
+    hooks: 'base',
+    mcp: 'base',
+    skills: 'base',
+    plugins: 'base',
+    agents: 'base',
+    effort: 'base',
+    maxBudgetUsd: 'base',
+    systemPrompt: 'base',
+    fallbackModel: 'base',
+    settingSources: 'base',
+    pi: 'base',
+    mutates_checkout: 'base',
+    betas: 'base',
+    sandbox: 'base',
+    always_run: 'base',
+    persist_session: 'base',
+    output_type: 'base',
+    // `timeout` and `on_timeout` sit top-level on the flattened wire type, but the
+    // engine accepts `timeout` only on bash, script, loop and loop_group nodes and `on_timeout`
+    // only on bash and script nodes, so they are variant keys.
+    command: 'variant',
+    prompt: 'variant',
+    bash: 'variant',
+    script: 'variant',
+    runtime: 'variant',
+    deps: 'variant',
+    timeout: 'variant',
+    on_timeout: 'variant',
+    with: 'variant',
+    loop: 'variant',
+    approval: 'variant',
+    wait: 'variant',
+    cancel: 'variant',
+    loop_group: 'opaque',
+    workflow: 'opaque',
+    include: 'opaque',
+    input: 'opaque',
+    isolation: 'opaque',
+    fan_out: 'opaque',
+};
+/** The wire keys carrying a given role, as a runtime list. */
+export function wireKeysWithRole(role) {
+    return Object.entries(WIRE_KEY_ROLES)
+        .filter(([, keyRole]) => keyRole === role)
+        .map(([key]) => key);
+}

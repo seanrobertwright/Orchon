@@ -4,9 +4,11 @@ import { assert } from 'orca/testing'
 import {
   compareEditorOutput,
   compileEditors,
+  isTestOnlyEditorSource,
+  TEST_ONLY_EDITOR_SOURCES,
   readCommittedEditorJavaScript
 } from './check-editor-output.ts'
-import { listRepoFiles } from './repo-files.ts'
+import { listRepoFiles, readRepoText } from './repo-files.ts'
 import { INSTALL_HINT, withTooling } from './tooling.ts'
 
 const expected = new Map([
@@ -50,6 +52,25 @@ describe('the editor output check', () => {
     ])
   })
 
+  test("names Archon's builder test fixtures and test helpers as the only test-only editor sources", () => {
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/fixtures/index.ts'), true)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/fixtures/loop.fixture.ts'), true)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/validation/test-helpers.ts'), true)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/validation/structural.ts'), false)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/fixtures.ts'), false)
+    assert.equal(isTestOnlyEditorSource('editors/shared/fixtures/index.ts'), false)
+  })
+
+  test('tsconfig.editors.json leaves out exactly the test-only editor sources, besides tests and declarations', () => {
+    const { exclude } = JSON.parse(readRepoText('tsconfig.editors.json')) as { exclude: string[] }
+    assert.deepEqual(exclude, [
+      'editors/**/*.test.ts',
+      'editors/**/*.d.ts',
+      ...TEST_ONLY_EDITOR_SOURCES.folders.map((folder) => `${folder}**`),
+      ...TEST_ONLY_EDITOR_SOURCES.files
+    ])
+  })
+
   test('reads every JavaScript file under editors/ and none outside it', () => {
     const committed = readCommittedEditorJavaScript()
     const paths = listRepoFiles()
@@ -68,6 +89,7 @@ describe('the editor output check', () => {
     const sources = listRepoFiles()
       .map((file) => file.path)
       .filter((path) => /^editors\/.*\.ts$/.test(path) && !/\.(?:test|d)\.ts$/.test(path))
+      .filter((path) => !isTestOnlyEditorSource(path))
     assert.ok(sources.length > 0)
     assert.deepEqual(
       [...compiled.outputs.keys()].sort(),
@@ -76,5 +98,20 @@ describe('the editor output check', () => {
     assert.match(compiled.outputs.get('editors/run-graph/main.js') ?? '', /from "\.\.\/shared\/placeholder\.js"/)
 
     assert.deepEqual(compareEditorOutput(compiled.outputs, readCommittedEditorJavaScript()), [])
+  })
+
+  test('every compiled editor file is unminified ES module JavaScript under 1 MiB', async (t) => {
+    const compiled = await withTooling(compileEditors)
+    if (compiled === null) return t.skip(INSTALL_HINT)
+    assert.ok(compiled.outputs.size > 0)
+    for (const [path, text] of compiled.outputs) {
+      assert.ok(new TextEncoder().encode(text).length < 1024 * 1024, `${path} is 1 MiB or more`)
+      assert.ok(!/\brequire\(|\bmodule\.exports\b/.test(text), `${path} is not an ES module`)
+      assert.match(text, /^(?:import|export) /m, `${path} has no ES module import or export`)
+      const longest = Math.max(...text.split('\n').map((line) => line.length))
+      assert.ok(longest <= 400, `${path} has a line of ${longest} characters, as minified code would`)
+    }
+    // Comments survive, so the copied builder logic reads as upstream wrote it.
+    assert.match(compiled.outputs.get('editors/builder/archon/model/from-workflow.js') ?? '', /\/\*\* Convert a single wire node/)
   })
 })

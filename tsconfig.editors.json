@@ -12,5 +12,10 @@
     "declaration": false
   },
   "include": ["editors/**/*.ts"],
-  "exclude": ["editors/**/*.test.ts", "editors/**/*.d.ts"]
+  "exclude": [
+    "editors/**/*.test.ts",
+    "editors/**/*.d.ts",
+    "editors/builder/archon/fixtures/**",
+    "editors/builder/archon/validation/test-helpers.ts"
+  ]
 }

@@ -1,0 +1,52 @@
+/**
+ * Resolve a valid authored mode the builder has no editor for, or `null`.
+ * Checked before {@link detectVariantOrNull}: such a node carries none of the
+ * eight editable mode fields, so it would otherwise read as "no mode field".
+ */
+export function detectOpaqueKind(node) {
+    if (node.loop_group !== undefined)
+        return 'loop_group';
+    if (node.workflow !== undefined)
+        return 'workflow';
+    if (node.include !== undefined)
+        return 'include';
+    return null;
+}
+/**
+ * Resolve the variant of a wire node by mode-field presence, or `null` when no
+ * mode field is present at all (malformed or future-schema input). Import paths
+ * use this strict form so an unrecognizable node surfaces an issue instead of
+ * silently becoming an empty prompt node.
+ */
+export function detectVariantOrNull(node) {
+    if (node.loop !== undefined)
+        return 'loop';
+    if (node.approval !== undefined)
+        return 'approval';
+    if (node.wait !== undefined)
+        return 'wait';
+    if (node.cancel !== undefined)
+        return 'cancel';
+    if (node.bash !== undefined)
+        return 'bash';
+    if (node.script !== undefined)
+        return 'script';
+    if (node.command !== undefined)
+        return 'command';
+    if (node.prompt !== undefined)
+        return 'prompt';
+    return null;
+}
+/**
+ * Resolve the variant of a wire node by mode-field presence. Defaults to
+ * `prompt` for nodes with no mode field.
+ *
+ * UNSAFE outside issue-collection contexts: the `prompt` default hides a
+ * malformed/future-schema node instead of flagging it. Use
+ * {@link detectVariantOrNull} (and surface an issue on `null`) on any import or
+ * validation path; reach for this convenience form only where an unknown node
+ * has already been reported elsewhere.
+ */
+export function detectVariant(node) {
+    return detectVariantOrNull(node) ?? 'prompt';
+}
