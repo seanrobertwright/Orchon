@@ -116,3 +116,82 @@ describe('what the chat list leaves out', () => {
     })
   }
 })
+
+describe("Archon's answer", () => {
+  for (const release of RELEASES) {
+    test(`${release}: the recorded empty list is an empty list, not capped`, async () => {
+      const stage = chatScene(release)
+      stage.archon.answer(CODEBASES, recorded(release, 'codebases', 1))
+      stage.archon.answer(ALL_URL, recorded(release, 'conversations-empty'))
+      const mounted = await stage.mount(host())
+      assert.deepEqual(await read(mounted), { kind: 'ready', rows: [], capped: false, unreadable: 0 })
+      await mounted.worker.deactivate()
+    })
+  }
+
+  test('at 50 rows the list says it is capped, counting the hidden launches; at 49 it does not', async () => {
+    const id = RECORDED_ID['0.14.0']
+    const rows = (count: number): Record<string, unknown>[] => Array.from({ length: count }, (_, index) => likeRecorded('0.14.0', `web-${String(index)}`))
+    for (const [count, capped] of [
+      [50, true],
+      [49, false]
+    ] as const) {
+      const stage = chatScene('0.14.0', 'store-1')
+      stage.archon.answer(projectUrl(id), json(rows(count)))
+      const mounted = await stage.mount(host({ 'launch-conversations': { 'store-1': ['web-0'] } }))
+      const view = ready(await read(mounted, { codebaseId: id }))
+      assert.equal(view.rows.length, count - 1)
+      assert.equal(view.capped, capped)
+      await mounted.worker.deactivate()
+    }
+  })
+
+  test('drops and counts the rows it cannot read, and keeps a row whose time does not parse without its time', async () => {
+    const id = RECORDED_ID['0.12.1']
+    const stage = chatScene('0.12.1')
+    stage.archon.answer(
+      projectUrl(id),
+      json([
+        likeRecorded('0.12.1', 'web-good'),
+        likeRecorded('0.12.1', 'web-no-time', { last_activity_at: 'yesterday', title: '   ' }),
+        likeRecorded('0.12.1', '../web-escape'),
+        likeRecorded('0.12.1', 'web-bad-title', { title: 5 }),
+        likeRecorded('0.12.1', 'web-no-platform', { platform_type: '' }),
+        { ...likeRecorded('0.12.1', 'x'), platform_conversation_id: undefined },
+        'not a row'
+      ])
+    )
+    const mounted = await stage.mount(host())
+    const view = ready(await read(mounted, { codebaseId: id }))
+    assert.deepEqual(
+      view.rows.map((row) => [row.id, row.title, row.lastActivityAt]),
+      [
+        ['web-good', RECORDED_CHAT['0.12.1'].title, RECORDED_CHAT['0.12.1'].lastActivityAt],
+        ['web-no-time', null, null]
+      ]
+    )
+    assert.equal(view.unreadable, 5)
+    await mounted.worker.deactivate()
+  })
+
+  test('an answer that is not a list fails the read with a sentence naming the version', async () => {
+    const id = RECORDED_ID['0.12.1']
+    const stage = chatScene('0.12.1')
+    stage.archon.answer(projectUrl(id), json({ conversations: [] }))
+    const mounted = await stage.mount(host())
+    const view = await read(mounted, { codebaseId: id })
+    assert.equal(view.kind, 'failed')
+    assert.match(view.kind === 'failed' ? view.message : '', /Archon 0\.12\.1/)
+    await mounted.worker.deactivate()
+  })
+
+  test('a request with anything but a project id is refused', async () => {
+    const stage = chatScene('0.12.1')
+    const mounted = await stage.mount(host())
+    for (const input of [{ codebaseId: '' }, { codebaseId: 5 }, { search: 'x' }, 'cb-web']) {
+      await assert.rejects(mounted.worker.request('chats.read', input))
+    }
+    assert.equal(stage.archon.calls.filter((call) => call.url.includes('/api/conversations')).length, 0)
+    await mounted.worker.deactivate()
+  })
+})
