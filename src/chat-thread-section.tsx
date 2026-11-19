@@ -33,15 +33,13 @@ import {
   type ThreadToolCall
 } from './chat-thread-view'
 import type { ConnectionView } from './connection-view'
+import { CONVERSATION_ID_CAP } from './conversations'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
 import { plural } from './plural'
 import { createViewFetch, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { problemLine, type ReadProblem } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
-
-/** The most characters a conversation id may have, as the worker accepts it. */
-const CONVERSATION_ID_CAP = 200
 
 /**
  * The conversation that is open, kept per workspace because Orca unmounts a hidden panel. It is
@@ -103,7 +101,7 @@ function apply(answer: ThreadAnswer | null): void {
 }
 
 /** Starts the thread's fetch rules for this panel run. They stop when the panel closes. */
-export function startChatThread(ctx: PanelContext, given: ChatThreadHooks): void {
+export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks): void {
   hooks = given
   const view = createViewFetch<ThreadAnswer | null>({
     load(signal) {
@@ -230,7 +228,7 @@ function toolCallRow(call: ThreadToolCall): OrcaNode {
 }
 
 function filesLine(files: NonNullable<ThreadMessage['files']>): OrcaNode {
-  const more = files.notShown === 0 ? '' : `, and ${plural(files.notShown, 'more', 'more')}`
+  const more = files.notShown === 0 ? '' : `, and ${String(files.notShown)} more`
   return (
     <Text muted size="sm">
       {`Sent with ${plural(files.names.length + files.notShown, 'file', 'files')}: ${files.names.join(', ')}${more}`}

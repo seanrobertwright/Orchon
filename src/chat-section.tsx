@@ -24,7 +24,7 @@ import {
   type OrcaNode,
   type PanelContext
 } from 'orca'
-import { chatThreadHasData, chatThreadSection, clearChatThread, openChatId, openChatThread, restartChatThread, startChatThread } from './chat-thread-section'
+import { chatThreadHasData, chatThreadSection, clearChatThread, openChatId, openChatThread, restartChatThread, startChatThreadSection } from './chat-thread-section'
 import { ARCHON_CONVERSATIONS_CAP, CHAT_LIST_GAP_MS, type ChatRow, type ChatsAnswer, type ChatsRequest, type ChatsView } from './chats-view'
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
@@ -101,7 +101,7 @@ export function startChatSection(ctx: PanelContext, given: ChatSectionHooks): vo
     timers: frameTimers
   })
   fetcher = view
-  startChatThread(ctx, { ...given, back: () => view.restart() })
+  startChatThreadSection(ctx, { ...given, back: () => view.restart() })
   ctx.subscriptions.push({
     dispose() {
       view.stop()
