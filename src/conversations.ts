@@ -60,8 +60,18 @@ export function parseConversation(value: unknown): Conversation | null {
   }
 }
 
-/** Archon's list, or null when its answer as a whole is not one. `sent` counts every row, read or not. */
-export function parseConversations(value: unknown): { rows: Conversation[]; sent: number; unreadable: number } | null {
+/** Archon's list as the worker read it. */
+export type ConversationList = {
+  /** The rows that could be read. */
+  rows: Conversation[]
+  /** Every row Archon sent, read or not: what Archon's cap on the list counts. */
+  sent: number
+  /** The rows dropped because they could not be read. */
+  unreadable: number
+}
+
+/** Archon's list, or null when its answer as a whole is not one. */
+export function parseConversations(value: unknown): ConversationList | null {
   if (!Array.isArray(value)) return null
   const rows: Conversation[] = []
   for (const row of value as unknown[]) {
