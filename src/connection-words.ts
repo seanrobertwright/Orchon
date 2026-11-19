@@ -2,7 +2,7 @@
 // screens, the Settings section and the status bar item. They are copied from the wording table
 // of the decision on what the plugin shows when Archon is missing, so they are kept in one file.
 // The panel loads this file, so it imports nothing but types.
-import type { ConnectionView, NotFound, SettingKey } from './connection-view'
+import type { Connected, ConnectionView, NotFound, SettingKey } from './connection-view'
 
 /** The settings' labels as Orca's Settings shows them. */
 export const SETTING_LABELS: Record<SettingKey, string> = {
@@ -19,6 +19,8 @@ export const UNSUPPORTED_TITLE = 'This Archon is not supported.'
 
 /** The oldest Archon release Orchon works with. It is said to the person, never compared. */
 export const FLOOR_RELEASE = '0.12.1'
+/** The release that first served the metrics paths. It too is only said, never compared. */
+export const METRICS_RELEASE = '0.14.0'
 
 /** Archon's installation guide: the plugin's one link to a site outside this computer. */
 export const INSTALL_URL = 'https://archon.diy/getting-started/installation/'
@@ -69,4 +71,10 @@ export function statusSentence(view: ConnectionView): string {
     case 'unsupported':
       return `The Archon at ${view.baseUrl} is not supported. Orchon needs ${FLOOR_RELEASE} or newer.`
   }
+}
+
+/** What the Metrics section says, in place of any request, to a server without the metrics paths. */
+export function metricsMissing(view: Connected): string {
+  const reports = view.version === null ? 'This server does not report its version.' : `This server reports ${view.version}.`
+  return `Metrics needs Archon ${METRICS_RELEASE} or newer. ${reports}`
 }

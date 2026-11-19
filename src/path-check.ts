@@ -43,9 +43,6 @@ export const REQUIRED_PATHS: readonly string[] = [
 /** The paths of the Metrics section, first served by Archon 0.14.0. */
 export const METRICS_PATHS: readonly string[] = ['/api/metrics', '/api/metric-views']
 
-/** The release that first served the metrics paths, for the Metrics section's message. */
-export const METRICS_RELEASE = '0.14.0'
-
 export type PathCheck =
   /** Every required path is listed. The optional features are those whose paths are all listed. */
   | { kind: 'supported'; features: Features }
