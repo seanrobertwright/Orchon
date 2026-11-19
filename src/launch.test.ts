@@ -820,3 +820,41 @@ describe("the launch conversation's stream, replayed from the recordings", () =>
     assert.equal(streams.filter((stream) => stream.opened && !stream.closed).length, 0)
   })
 })
+
+describe('Edit and try again', () => {
+  test('brings the form back filled in from the launch record, bindings included', async () => {
+    const release: Release = '0.13.2'
+    const INPUTS = 'orchon-recorder-inputs'
+    const stage = launchScene(release)
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), staleList(release, { [INPUTS]: { item: { required: true }, not_declared: {} } }))
+    const launch = replayLaunch(stage, release, 'launch-undeclared', INPUTS)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: RECORDED_ID[release], reload: true })
+    const bindings = [{ name: 'small', model: 'haiku' }]
+    const started = ready(
+      ((await mounted.worker.request('launch.start', {
+        codebaseId: RECORDED_ID[release],
+        workflow: INPUTS,
+        message: String(launch.body['message']),
+        inputs: launch.body['inputs'] as Record<string, string>,
+        bindings
+      })) as LaunchAnswer).launch
+    )
+    // The form was emptied for the next launch.
+    assert.deepEqual([started.message, started.values, started.bindings], ['', {}, []])
+    for (const frame of framesOf(release, 'launch-undeclared', 'first')) launch.stream.send(frame)
+    await stage.clock.advance(100)
+    const refused = ready((await read(mounted)).launch).starting
+    assert.equal(refused?.state, 'refused')
+    const form = ready(((await mounted.worker.request('launch.retry', { launchId: refused?.launchId ?? '' })) as LaunchAnswer).launch)
+    assert.equal(form.starting, undefined)
+    assert.deepEqual(
+      [form.codebaseId, form.workflow, form.message, form.values, form.bindings],
+      [RECORDED_ID[release], INPUTS, launch.body['message'], launch.body['inputs'], bindings]
+    )
+    // Nothing is sent again by itself.
+    assert.equal(writes(stage).length, 2)
+    await assert.rejects(mounted.worker.request('launch.retry', { launchId: 'x'.repeat(65) }))
+    await mounted.worker.deactivate()
+  })
+})

@@ -890,6 +890,23 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       for (const draft of drafts.values()) if (draft.starting === launchId) delete draft.starting
       return notices()
     }),
+    // "Edit and try again": the form again, filled in from the launch record. Nothing is sent.
+    orca.panels.handle('launch.retry', async (input) => {
+      const launchId = parseLaunchId(input, 'Edit and try again')
+      const draft = draftOf(workspaceKey(await ports.focused()))
+      const record = records.find((entry) => entry.launchId === launchId)
+      if (record !== undefined) {
+        draft.codebaseId = record.codebaseId
+        draft.workflow = record.workflow
+        draft.message = record.form.message
+        draft.values = { ...record.form.values }
+        draft.bindings = record.form.bindings.map((binding) => ({ ...binding }))
+        delete draft.error
+        record.dismissed = true
+      }
+      if (draft.starting === launchId) delete draft.starting
+      return answer({})
+    }),
     // "Keep waiting": another 60 seconds of looking.
     orca.panels.handle('launch.wait', async (input) => {
       const launchId = parseLaunchId(input, 'Keep waiting')

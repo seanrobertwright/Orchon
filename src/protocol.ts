@@ -94,6 +94,8 @@ declare module 'orca' {
     'launch.notices': { output: NoticesAnswer }
     /** Dismisses a callout, or a run the Starting view opened. */
     'launch.dismiss': { input: { launchId: string }; output: NoticesAnswer }
+    /** "Edit and try again": the form again, filled in from the launch record. */
+    'launch.retry': { input: { launchId: string }; output: LaunchAnswer }
   }
   interface PluginPanelEvents {
     /**
