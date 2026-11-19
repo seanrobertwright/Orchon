@@ -1,9 +1,9 @@
 // The Chat section of the panel: the list of the scope's conversations with Archon's agent. It
 // draws only the worker's view model and fetches it under the shared per-view fetch rules, under
 // the project scope of `scope-section.tsx`. It ignores run hints, reads the list again on a chat
-// hint, and has no search. A row opens
-// the conversation's thread, drawn by `chat-thread-section.tsx` in place of the list. **New chat**
-// opens an empty thread, drawn by `chat-new.tsx`, whose first send creates the conversation.
+// hint, and has no search. A row opens the conversation's thread, drawn by `chat-thread-section.tsx`
+// in place of the list. **New chat** opens an empty thread, drawn by `chat-new.tsx`, whose first
+// send creates the conversation.
 import {
   atom,
   Badge,

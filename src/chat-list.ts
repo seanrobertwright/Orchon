@@ -81,7 +81,7 @@ export type ChatListPorts = {
   /** The connection state now, once the settings were first read. */
   current(): Promise<ConnectionView>
   /** The conversations' streams, which say which conversations are busy. */
-  live?: ChatStreams
+  chatStreams?: ChatStreams
 }
 
 /** Answers the frames' `chats.read`. */
@@ -92,7 +92,7 @@ export function startChatList(orca: OrcaWorkerApi, ports: ChatListPorts): Dispos
     if (connection.kind !== 'connected') return { connection, chats: { kind: 'not-connected' } }
     const chats = await readChats(ports.client, connection, request, context.signal, await launchedConversationIds(orca, connection))
     if (chats.kind === 'ready') {
-      for (const row of chats.rows) if (ports.live?.live(connection.baseUrl, row.id)?.busy === true) row.working = true
+      for (const row of chats.rows) if (ports.chatStreams?.live(connection.baseUrl, row.id)?.busy === true) row.working = true
     }
     return { connection: await ports.current(), chats }
   })

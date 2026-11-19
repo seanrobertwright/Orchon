@@ -356,7 +356,7 @@ export type ChatThreadPorts = {
   /** The connection state now, once the settings were first read. */
   current(): Promise<ConnectionView>
   /** The conversations' streams: each read of a thread is their lease. */
-  live?: ChatStreams
+  chatStreams?: ChatStreams
 }
 
 /** Answers the frames' `chat.read`. */
@@ -365,9 +365,9 @@ export function startChatThread(orca: OrcaWorkerApi, ports: ChatThreadPorts): Di
     const request = parseThreadRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, thread: { kind: 'not-connected' } }
-    ports.live?.lease(connection.baseUrl, request.conversationId, request.open === true)
+    ports.chatStreams?.lease(connection.baseUrl, request.conversationId, request.open === true)
     const thread = await readThread(ports.client, connection, request, context.signal)
-    const live = ports.live?.live(connection.baseUrl, request.conversationId) ?? null
+    const live = ports.chatStreams?.live(connection.baseUrl, request.conversationId) ?? null
     if (thread.kind === 'ready' && live !== null) thread.thread.live = live
     return { connection: await ports.current(), thread }
   })

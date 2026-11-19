@@ -85,8 +85,8 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   // Chat's leases on conversation streams, read through the same shared reader as the launcher's.
   const chatStreams = createChatStreams({ streams, now: ports.now, timers: ports.timers, hint: (hint) => orca.panels.post('chat.changed', hint) })
-  const chatList = startChatList(orca, { client: connection.client, current: connection.current, live: chatStreams })
-  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current, live: chatStreams })
+  const chatList = startChatList(orca, { client: connection.client, current: connection.current, chatStreams })
+  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current, chatStreams })
   const chatSend = startChatSend(orca, { client: connection.client, current: connection.current })
   const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
