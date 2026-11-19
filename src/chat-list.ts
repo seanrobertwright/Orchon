@@ -8,7 +8,8 @@ import type { Connected, ConnectionView } from './connection-view'
 import { ARCHON_CONVERSATIONS_CAP, type ChatRow, type ChatsAnswer, type ChatsRequest, type ChatsView } from './chats-view'
 import { CONVERSATIONS_PATH, parseConversations, WEB_PLATFORM } from './conversations'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { cappedTextRefusal, isCappedText, isRecord, own, refuseOtherKeys, refuseRequest } from './records'
+import { CONVERSATIONS_KEY, storeKey } from './launch'
+import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { PROJECT_ID_CAP } from './scope-view'
 
 /** A frame's request, or a refusal: nothing, or the id of an Archon project. */
@@ -29,7 +30,13 @@ function listPath(request: ChatsRequest): string {
 }
 
 /** Reads the scope's web conversations once. */
-export async function readChats(client: Client, server: Connected, request: ChatsRequest, signal: AbortSignal): Promise<ChatsView> {
+export async function readChats(
+  client: Client,
+  server: Connected,
+  request: ChatsRequest,
+  signal: AbortSignal,
+  launched: ReadonlySet<string> = new Set()
+): Promise<ChatsView> {
   const answer = await client.request({ baseUrl: server.baseUrl, path: listPath(request), timeout: 'read', signal })
   if (!answer.ok) return { kind: 'failed', message: readFailureText(answer.failure) }
   const list = parseConversations(answer.value)
@@ -45,13 +52,29 @@ export async function readChats(client: Client, server: Connected, request: Chat
   }
   const rows: ChatRow[] = []
   for (const conversation of list.rows) {
-    if (conversation.platform !== WEB_PLATFORM) continue
+    // CLI and Telegram conversations are never listed, nor the launcher's own.
+    if (conversation.platform !== WEB_PLATFORM || launched.has(conversation.id)) continue
     const row: ChatRow = { id: conversation.id, title: conversation.title, lastActivityAt: conversation.lastActivityAt }
     // A project Archon no longer lists is no project.
     if (names !== undefined) row.project = conversation.codebaseId === null ? null : (names.get(conversation.codebaseId) ?? null)
     rows.push(row)
   }
   return { kind: 'ready', rows, capped: list.sent >= ARCHON_CONVERSATIONS_CAP, unreadable: list.unreadable }
+}
+
+/**
+ * The ids of the conversations the plugin's launcher created for this Archon store, as it keeps
+ * them in plugin storage. Storage that cannot be read, or holds something else, hides nothing.
+ */
+async function launchConversations(orca: OrcaWorkerApi, server: Connected): Promise<Set<string>> {
+  let stored: unknown
+  try {
+    stored = await orca.storage.get(CONVERSATIONS_KEY)
+  } catch {
+    return new Set()
+  }
+  const ids = isRecord(stored) ? own(stored, storeKey(server)) : undefined
+  return new Set(Array.isArray(ids) ? (ids as unknown[]).filter(isText) : [])
 }
 
 export type ChatListPorts = {
@@ -66,7 +89,7 @@ export function startChatList(orca: OrcaWorkerApi, ports: ChatListPorts): Dispos
     const request = parseChatsRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, chats: { kind: 'not-connected' } }
-    const chats = await readChats(ports.client, connection, request, context.signal)
+    const chats = await readChats(ports.client, connection, request, context.signal, await launchConversations(orca, connection))
     return { connection: await ports.current(), chats }
   })
 }

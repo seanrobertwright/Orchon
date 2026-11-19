@@ -89,3 +89,30 @@ describe('the chat list under "All projects"', () => {
     })
   }
 })
+
+describe('what the chat list leaves out', () => {
+  for (const release of RELEASES) {
+    test(`${release}: the conversations the launcher recorded for this store, and every platform but web`, async () => {
+      const stage = chatScene(release, 'store-1')
+      const id = RECORDED_ID[release]
+      stage.archon.answer(
+        projectUrl(id),
+        json([
+          ...recordedRows(release, 1),
+          likeRecorded(release, 'web-kept'),
+          likeRecorded(release, 'cli-1', { platform_type: 'cli' }),
+          likeRecorded(release, 'telegram-1', { platform_type: 'telegram' })
+        ])
+      )
+      // The recorded conversation is a launch's in this store; another store's ids change nothing here.
+      const mounted = await stage.mount(host({ 'launch-conversations': { 'store-1': [RECORDED_CHAT[release].id], 'store-2': ['web-kept'] } }))
+      const view = ready(await read(mounted, { codebaseId: id }))
+      assert.deepEqual(
+        view.rows.map((row) => row.id),
+        ['web-kept']
+      )
+      assert.equal(view.unreadable, 0)
+      await mounted.worker.deactivate()
+    })
+  }
+})

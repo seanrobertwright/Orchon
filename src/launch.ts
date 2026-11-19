@@ -55,7 +55,7 @@ const DRAFTS_CAP = 50
 const LISTS_CAP = 20
 
 const LAST_WORKFLOW_KEY = 'launch-last-workflow'
-const CONVERSATIONS_KEY = 'launch-conversations'
+export const CONVERSATIONS_KEY = 'launch-conversations'
 /** How many projects per store remember their last launched workflow. */
 const LAST_WORKFLOWS_KEPT = 500
 
@@ -65,7 +65,7 @@ export const WORKFLOW_NOT_LISTED = 'Archon does not list that workflow for this 
 export const NOT_ACCEPTED = 'Archon did not accept the launch.'
 
 /** What saved data is stored under: the server's store id, or its base URL when it reports none. */
-const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
+export const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
 
 type Draft = {
   /** Undefined: not chosen, so the panel's project is the default. Null: chosen empty. */
