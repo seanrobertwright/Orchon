@@ -224,7 +224,7 @@ describe('the step tree', () => {
     const view = await openOn()
     await view.select(SHOW, 'artifacts')
     assert.equal(view.find(STEPS), null)
-    assert.ok(view.find({ type: 'Text', text: 'Artifacts are not shown in this version of Orchon.' }))
+    assert.ok(view.find({ type: 'Input', label: 'Filter artifacts by name' }))
   })
 
   test('opening another run shows it from the start: folds shut, Steps chosen, nothing selected', async () => {
