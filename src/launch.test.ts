@@ -329,6 +329,25 @@ describe('looking for the run', () => {
     await mounted.worker.deactivate()
   })
 
+  test('a launch whose call timed out keeps looking with no limit, and never offers "Keep waiting"', async () => {
+    const stage = launchScene(release)
+    replayAccepted(stage, release)
+    stage.archon.answer(`${DEFAULT}/api/workflows/${ECHO}/run`, HANG)
+    noRunYet(stage)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    await read(mounted, { project: id, reload: true })
+    const pending = mounted.worker.request('launch.start', { codebaseId: id, workflow: ECHO, message: 'Run it.' }) as Promise<LaunchAnswer>
+    await stage.clock.advance(30_000)
+    assert.equal(ready((await pending).launch).starting?.state, 'looking')
+    const before = looks(stage)
+    await stage.clock.advance(600_000)
+    const view = ready((await read(mounted)).launch)
+    assert.equal(view.starting?.state, 'looking')
+    assert.equal(view.starting?.late, false)
+    assert.ok(looks(stage) >= before + 60)
+    await mounted.worker.deactivate()
+  })
+
   test('looks on every dashboard hint, and takes the row that names the conversation by its own id alone', async () => {
     const stage = launchScene(release)
     const { runId } = replayAccepted(stage, release)

@@ -460,9 +460,9 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       }
     }
     for (const record of due) {
-      // A launch Archon started (or did not answer) with no run after 60 seconds offers "Keep
-      // waiting"; one queued for a free slot waits with no limit.
-      if (tracking(record) && record.state !== 'queued' && ports.now() - record.waitFrom >= LATE_AFTER_MS) {
+      // A launch Archon started with no run after 60 seconds offers "Keep waiting". One queued
+      // for a free slot, or one whose call timed out, keeps looking with no limit.
+      if (tracking(record) && record.state === 'started' && ports.now() - record.waitFrom >= LATE_AFTER_MS) {
         record.late = true
         any = true
       }

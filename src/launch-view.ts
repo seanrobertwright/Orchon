@@ -80,7 +80,7 @@ export type StartingView = {
   /** The project by name. */
   project: string
   state: StartingState
-  /** No run after 60 seconds of a launch that was not queued: offer "Keep waiting". */
+  /** No run after 60 seconds of a launch Archon started: offer "Keep waiting". */
   late: boolean
   /** The run, once found. */
   runId?: string
