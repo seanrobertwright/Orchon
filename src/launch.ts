@@ -43,7 +43,7 @@ import { SERVER_TEXT_CAP } from './run-control-view'
 import { RUN_ID_CAP } from './run-detail-view'
 import { PROJECT_ID_CAP, REMOTE_WORKSPACE } from './scope-view'
 import { readRun } from './run-detail'
-import { rerunDraft, rerunRefusal, rerunSourceOf } from './rerun'
+import { rerunDraft, rerunProject, rerunRefusal, rerunSourceOf } from './rerun'
 import { NOT_CONNECTED_TEXT } from './worker-words'
 import { parseWorkflowList, WORKFLOWS_CAP_BYTES, WORKFLOWS_PATH, type WorkflowList } from './workflows-list'
 
@@ -127,9 +127,18 @@ type LaunchRecord = {
   looking: boolean
 }
 
-type Listed = { projects: ArchonProject[]; unreadable: number }
-type ProjectsResult = { kind: 'ready'; listed: Listed } | { kind: 'failed'; message: string }
-type ListResult = { kind: 'ready'; list: WorkflowList } | { kind: 'too-large' } | { kind: 'failed'; message: string }
+export type Listed = { projects: ArchonProject[]; unreadable: number }
+export type ProjectsResult = { kind: 'ready'; listed: Listed } | { kind: 'failed'; message: string }
+export type ListResult = { kind: 'ready'; list: WorkflowList } | { kind: 'too-large' } | { kind: 'failed'; message: string }
+
+/**
+ * The launcher's kept reads of Archon's projects and of each project's trimmed workflow list,
+ * which the Workflows section shares so neither is read twice. `reload` reads Archon again.
+ */
+export type LaunchLists = {
+  projects(server: Connected, reload: boolean): Promise<ProjectsResult>
+  list(server: Connected, project: ArchonProject, reload: boolean): Promise<ListResult>
+}
 
 /** Drops a map's oldest entries, by insertion order, until it holds at most `cap`. */
 function capOldest(map: Map<string, unknown>, cap: number): void {
@@ -252,7 +261,7 @@ export type LaunchPorts = {
   timers: { set(run: () => void, ms: number): unknown; clear(handle: unknown): void }
 }
 
-export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable {
+export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable & { lists: LaunchLists } {
   const drafts = new Map<string, Draft>()
   const records: LaunchRecord[] = []
   const lists = new Map<string, ListResult>()
@@ -665,7 +674,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     }
     const refusal = rerunRefusal({
       status: run.status,
-      project: run.codebaseId === null ? 'none' : project === undefined ? 'unlisted' : 'listed',
+      project: rerunProject(run.codebaseId, project !== undefined),
       remote: focused.kind === 'remote'
     })
     // `rerunRefusal` refuses a project that is not listed; the second test only narrows the type.
@@ -735,6 +744,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   ]
 
   return {
+    lists: { projects: readProjects, list: readList },
     dispose() {
       stopped = true
       for (const record of records) if (record.timer !== undefined) ports.timers.clear(record.timer)

@@ -19,6 +19,7 @@ import {
 import { formsWithEdits } from '../scripts/forms-samples.ts'
 import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail } from '../scripts/runs-samples.ts'
 import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
+import { answeringWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
 import { answeringChats, sampleChats } from '../scripts/chat-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 import type { RunsRequest } from './runs-view'
@@ -73,6 +74,7 @@ const runWaitingOnSubRuns = answeringRun(
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
 const onLaunch = { persisted: { workspace: { section: 'launch' } } }
+const onWorkflows = { persisted: { workspace: { section: 'workflows' } } }
 const onChat = { persisted: { workspace: { section: 'chat' } } }
 
 export default defineCheck({
@@ -110,6 +112,7 @@ export default defineCheck({
     ...onLaunch
   },
   'launcher, unmatched project': { ...answeringLaunch({ launch: () => ({ ...webForm, codebaseId: null, workflows: { kind: 'none' }, workflow: null, description: '' }), scope: () => unmatchedGit }), ...onLaunch },
+  workflows: { ...answeringWorkflows({ workflows: () => ({ ...webWorkflows, readFrom: 'C:/Projects/web' }) }), ...onWorkflows },
   chat: { ...answeringChats((request) => sampleChats(8, request)), ...onChat },
   'chat, all projects at 50': { ...answeringChats((request) => sampleChats(50, request), { scope: () => unmatchedGit }), ...onChat },
   'chat, empty': { ...answeringChats((request) => sampleChats(0, request)), ...onChat },

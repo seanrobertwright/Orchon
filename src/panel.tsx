@@ -28,6 +28,7 @@ import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
 import type { SystemView } from './system-view'
 import { frameTimers } from './frame-timers'
+import { clearWorkflows, openWorkflows, restartWorkflows, startWorkflowsSection, workflowsHaveData, workflowsSection } from './workflows-panel'
 import { createViewFetch, nextTrouble, rejectionOf, SAFETY_REFETCH_MS, type ViewFetch, type WorkerTrouble } from './view-fetch'
 import { dataViewBody, troubleLine, underLine, type DataView } from './view-notices'
 
@@ -58,6 +59,7 @@ function keepNewest(next: ConnectionView): void {
     if (before !== null && before.storeId !== next.storeId) {
       clearRuns()
       clearLaunch()
+      clearWorkflows()
       clearChats()
     }
     set(lastConnected, next)
@@ -168,6 +170,7 @@ function show(next: SectionId): void {
   if (before === next) return
   // Opening the Launch section reads Archon's projects and the workflow list again.
   if (next === 'launch') openLaunch()
+  if (next === 'workflows') openWorkflows()
   if (next === 'settings') {
     readForms()
     askSystem('system.open')
@@ -204,15 +207,16 @@ export function setup(ctx: PanelContext): void {
   })
   startScope(ctx, {
     connection: () => read(connection),
-    // The Launch section's default project is the scope's, and the chat list follows it, so they read the scope too.
+    // The Launch and Workflows sections' default project is the scope's, and the chat list follows it, so they read the scope too.
     showing: () => {
       const showing = parseSection(read(section))
-      return showing === 'runs' || showing === 'launch' || showing === 'chat'
+      return showing === 'runs' || showing === 'launch' || showing === 'workflows' || showing === 'chat'
     },
     keep: keepNewest,
     changed: () => {
       rescopeRuns()
       restartLaunch()
+      restartWorkflows()
       restartChats()
     }
   })
@@ -226,6 +230,13 @@ export function setup(ctx: PanelContext): void {
       show('runs')
       openRunDetail(runId)
     }
+  })
+  startWorkflowsSection(ctx, {
+    connection: () => read(connection),
+    showing: () => parseSection(read(section)) === 'workflows',
+    keep: keepNewest,
+    project: scopedProjectId,
+    settled: scopeSettled
   })
   startChatSection(ctx, {
     connection: () => read(connection),
@@ -278,6 +289,7 @@ export function setup(ctx: PanelContext): void {
 const DATA_VIEWS: Partial<Record<SectionId, DataView>> = {
   runs: { hasData: runsHaveData, draw: runsSection },
   launch: { hasData: launchHasData, draw: (state, writable) => launchSection(state, writable, scopeNotice(writable)) },
+  workflows: { hasData: workflowsHaveData, draw: workflowsSection },
   chat: { hasData: chatsHaveData, draw: chatSection }
 }
 

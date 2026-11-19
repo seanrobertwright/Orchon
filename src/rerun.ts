@@ -22,6 +22,12 @@ export type RerunFacts = {
   remote: boolean
 }
 
+/** The run's project as `RerunFacts` names it: `codebaseId` is the run's project, `listed` whether Archon lists it now. */
+export function rerunProject(codebaseId: string | null, listed: boolean): RerunFacts['project'] {
+  if (codebaseId === null) return 'none'
+  return listed ? 'listed' : 'unlisted'
+}
+
 /**
  * Why Re-run is not offered, or null when it is: the one rule both run detail (which draws Re-run
  * on null) and `launch.rerun` (which refuses with the text) follow.

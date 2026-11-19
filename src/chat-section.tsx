@@ -28,6 +28,7 @@ import { ARCHON_CONVERSATIONS_CAP, CHAT_LIST_GAP_MS, type ChatRow, type ChatsAns
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
+import { plural } from './plural'
 import { scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { problemLine, type ReadProblem } from './view-notices'
@@ -124,9 +125,7 @@ export function restartChats(): void {
 }
 
 function unreadableLine(count: number): string {
-  return count === 1
-    ? '1 conversation could not be read and is not shown.'
-    : `${String(count)} conversations could not be read and are not shown.`
+  return plural(count, 'conversation could not be read and is not shown.', 'conversations could not be read and are not shown.')
 }
 
 function chatRow(chat: ChatRow, allProjects: boolean): OrcaNode {

@@ -68,8 +68,8 @@ function rowsOf<T>(answer: unknown, key: string, parse: (value: unknown) => T | 
   return (list as unknown[]).map(parse).filter((row): row is T => row !== null)
 }
 
-/** What saved links are stored under: the server's store id, or its base URL when it reports none. */
-const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
+/** What saved data is stored under: the server's store id, or its base URL when it reports none. */
+export const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
 
 const LINKS_KEY = 'project-links'
 

@@ -26,12 +26,13 @@ afterEach(async () => {
 /**
  * What a person notices first: the selected tab and the empty state under it. Runs and Chat are
  * built and the scripted worker has no runs and no conversations; Chat also has its heading.
- * Settings and Launch are built, so they have no empty state; their own tests are in
- * settings.test.tsx and launch-section.test.tsx. Every other section is still a placeholder.
+ * Settings, Launch and Workflows are built, so they have no empty state; their own tests are in
+ * settings.test.tsx, launch-section.test.tsx and workflows-panel.test.tsx. Every other section is
+ * still a placeholder.
  */
 function showing(view: TestPanel, label: string): void {
   let first: string[]
-  if (label === 'Settings' || label === 'Launch') first = []
+  if (label === 'Settings' || label === 'Launch' || label === 'Workflows') first = []
   else if (label === 'Runs') first = ['EmptyState "No runs yet"']
   else if (label === 'Chat') first = ['Heading "Conversations"', 'EmptyState "No conversations yet"']
   else first = [`EmptyState "${label}"`]

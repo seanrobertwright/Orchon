@@ -6,6 +6,7 @@ import { atom, Button, Callout, Code, plugin, RadioGroup, read, Row, Select, set
 import type { ConnectionView } from './connection-view'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
+import { plural } from './plural'
 import { REMOTE_WORKSPACE, type LinkChoices, type ScopeAnswer, type ScopeView } from './scope-view'
 import { createViewFetch, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 
@@ -159,10 +160,6 @@ export function scopeSwitch(): OrcaNode {
           { value: 'all', label: 'All projects' }
         ]
   return <RadioGroup label="Scope" labelHidden orientation="horizontal" value={scopeChoice()} options={options} onChange={flip} />
-}
-
-function plural(count: number, one: string, many: string): string {
-  return count === 1 ? `1 ${one}` : `${String(count)} ${many}`
 }
 
 /** Link's chooser: the Archon projects by name, with a line for any that are not shown. */
