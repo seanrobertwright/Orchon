@@ -76,6 +76,8 @@ export type NeedsYouView =
       total: number
       /** The first runs in the order Archon returned them, at most `CALLOUT_CAP`. */
       rows: RunRow[]
+      /** How many runs Archon queued for attention in the scope could not be read and are not shown. */
+      unreadable: number
     }
   | { kind: 'unavailable' }
 

@@ -25,10 +25,10 @@ const waitingRun = (index: number): RunRow => ({
   waiting: { kind: 'gate', question: `Approve the plan of run ${String(index)}?` }
 })
 
-/** The callout's view of `total` waiting runs: the first ten rows, as the worker sends them. */
-function needing(total: number): NeedsYouView {
+/** The callout's view of `total` waiting runs and `unreadable` that could not be read: the first ten rows, as the worker sends them. */
+function needing(total: number, unreadable = 0): NeedsYouView {
   const rows = Array.from({ length: Math.min(total, 10) }, (_, index) => waitingRun(index))
-  return { kind: 'ready', total, rows }
+  return { kind: 'ready', total, rows, unreadable }
 }
 
 /** A busy table of 40 runs, with `needsYou` beside it, and the snapshot's rows for the "Needs you" filter. */
@@ -121,8 +121,18 @@ describe('the "runs need you" callout', () => {
     assert.equal(callout(unavailable), null)
   })
 
+  test('says how many waiting runs could not be read, even when no other run needs you', async () => {
+    const some = await mountWith(needing(2, 1))
+    assert.match(callout(some)?.text ?? '', /1 waiting run could not be read and is not shown\./)
+    await panel?.unmount()
+    const none = await mountWith(needing(0, 3))
+    const box = none.find({ type: 'Callout', text: /could not be read/ })
+    assert.equal(box?.props['title'], 'Waiting runs could not be read')
+    assert.match(box?.text ?? '', /3 waiting runs could not be read and are not shown\./)
+  })
+
   test('an unreadable run reads "Needs a look in Archon\'s console"', async () => {
-    const view = await mountWith({ kind: 'ready', total: 1, rows: [{ ...sampleRun(3, 'paused'), waiting: { kind: 'unreadable' } }] })
+    const view = await mountWith({ kind: 'ready', total: 1, rows: [{ ...sampleRun(3, 'paused'), waiting: { kind: 'unreadable' } }], unreadable: 0 })
     assert.match(callout(view)?.text ?? '', /workflow-3/)
     assert.match(callout(view)?.text ?? '', /Needs a look in Archon's console/)
   })

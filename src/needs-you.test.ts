@@ -109,12 +109,14 @@ describe('which runs need you', () => {
     })
   }
 
-  test('a run whose attention has no kind cannot be read, and the rest still count', async () => {
+  test('a run whose attention has no kind cannot be read: the rest still count and the tooltip says one was left out', async () => {
     const stage = connectedTo('0.12.1', 'attention-gate')
     stage.archon.answer(ATTENTION, queueOf('0.12.1', [KINDS.gate, { message: 'no kind' }, KINDS.wait]))
     const mounted = await stage.mount()
     await stage.clock.advance(1_000)
-    assert.equal(texts(mounted.statusBar()).at(-1), '2 need you')
+    const last = mounted.statusBar().at(-1) as { text: string; tooltip: string }
+    assert.equal(last.text, '2 need you')
+    assert.match(last.tooltip, /^2 runs need you on Archon 0\.12\.1 at http:\/\/127\.0\.0\.1:3090; 1 waiting run could not be read\.$/)
   })
 })
 
@@ -150,6 +152,28 @@ describe('when the waiting runs cannot be read', () => {
     stage.archon.answer(ATTENTION, recorded('0.12.1', 'attention-gate'))
     await stage.clock.advance(SNAPSHOT_SAFETY_MS)
     assert.equal(texts(mounted.statusBar()).at(-1), '1 needs you')
+  })
+})
+
+describe('when only the running count cannot be read', () => {
+  test('the runs that need you still count, and the tooltip says the running count is unavailable', async () => {
+    const stage = connectedTo('0.12.1', 'attention-gate')
+    stage.archon.answer(RUNNING, json({ error: 'Failed' }, 500))
+    const mounted = await stage.mount()
+    await stage.clock.advance(1_000)
+    const last = mounted.statusBar().at(-1) as { text: string; tooltip: string }
+    assert.equal(last.text, '1 needs you')
+    assert.match(last.tooltip, /^1 run needs you on Archon 0\.12\.1 at http:\/\/127\.0\.0\.1:3090; the running count is unavailable\.$/)
+  })
+
+  test('with nothing waiting, the item reads "Archon" and the tooltip says the running count is unavailable', async () => {
+    const stage = connectedTo('0.12.1', 'attention-empty')
+    stage.archon.answer(RUNNING, json({ error: 'Failed' }, 500))
+    const mounted = await stage.mount()
+    await stage.clock.advance(1_000)
+    const last = mounted.statusBar().at(-1) as { text: string; tooltip: string }
+    assert.equal(last.text, 'Archon')
+    assert.match(last.tooltip, /^The running count is unavailable from Archon 0\.12\.1 at /)
   })
 })
 
@@ -313,7 +337,7 @@ describe('the runs table answered from the snapshot', () => {
       await stage.clock.advance(0)
       const other = ((await mounted.worker.request('runs.read', { status: 'needs-you', rows: 25, codebaseId: 'other' })) as RunsAnswer).runs
       assert.equal(other.kind === 'ready' ? other.total : null, 0)
-      assert.deepEqual(other.kind === 'ready' ? other.needsYou : null, { kind: 'ready', total: 0, rows: [] })
+      assert.deepEqual(other.kind === 'ready' ? other.needsYou : null, { kind: 'ready', total: 0, rows: [], unreadable: 0 })
     })
   }
 
@@ -336,6 +360,36 @@ describe('the runs table answered from the snapshot', () => {
     stage.archon.answer(FIRST_PAGE, recorded('0.12.1', 'dashboard-runs'))
     const runs = await read(stage, { status: 'all', rows: 25 })
     assert.deepEqual(runs.kind === 'ready' && runs.needsYou?.kind === 'ready' ? runs.needsYou.rows[0]?.waiting : null, { kind: 'unreadable' })
+  })
+
+  test('a waiting run that cannot be read is counted as not shown, in the callout and the "Needs you" filter', async () => {
+    const stage = connectedTo('0.12.1', 'attention-gate')
+    stage.archon.answer(ATTENTION, queueOf('0.12.1', [KINDS.gate, { message: 'no kind' }, 'not a record']))
+    stage.archon.answer(FIRST_PAGE, recorded('0.12.1', 'dashboard-runs'))
+    const all = await read(stage, { status: 'all', rows: 25 })
+    const needsYou = all.kind === 'ready' ? all.needsYou : undefined
+    assert.deepEqual(needsYou?.kind === 'ready' ? [needsYou.total, needsYou.unreadable] : null, [1, 2])
+    const mounted = await stage.mount()
+    await stage.clock.advance(0)
+    const filtered = ((await mounted.worker.request('runs.read', { status: 'needs-you', rows: 25 })) as RunsAnswer).runs
+    assert.deepEqual(filtered.kind === 'ready' ? [filtered.total, filtered.rows.length, filtered.unreadable] : null, [1, 1, 2])
+  })
+
+  test('a waiting run that cannot be read counts in the scope of its project, or in every scope when its project cannot be read', async () => {
+    const stage = connectedTo('0.12.1', 'attention-gate')
+    const queue = queueOf('0.12.1', [{ message: 'no kind' }, { message: 'no kind' }])
+    if (queue.kind !== 'json') throw new Error('The scripted queue is not JSON.')
+    const [mine, unknown] = field(queue.value, 'runs') as Record<string, unknown>[]
+    const runs = [{ ...mine, codebase_id: 'mine' }, { ...unknown, codebase_id: 7 }]
+    stage.archon.answer(ATTENTION, { ...queue, value: { ...(queue.value as Record<string, unknown>), runs } })
+    stage.archon.answer(`${DEFAULT}/api/dashboard/runs?codebaseId=mine&limit=50&offset=0`, recorded('0.12.1', 'dashboard-runs-empty'))
+    stage.archon.answer(`${DEFAULT}/api/dashboard/runs?codebaseId=other&limit=50&offset=0`, recorded('0.12.1', 'dashboard-runs-empty'))
+    const unreadable = (view: RunsView): number | null => (view.kind === 'ready' && view.needsYou?.kind === 'ready' ? view.needsYou.unreadable : null)
+    assert.equal(unreadable(await read(stage, { status: 'all', rows: 25, codebaseId: 'mine' })), 2)
+    const mounted = await stage.mount()
+    await stage.clock.advance(0)
+    const other = ((await mounted.worker.request('runs.read', { status: 'all', rows: 25, codebaseId: 'other' })) as RunsAnswer).runs
+    assert.equal(unreadable(other), 1)
   })
 
   test('a table row of a run that needs you carries its question, for the preview', async () => {

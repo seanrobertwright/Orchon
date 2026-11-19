@@ -41,3 +41,9 @@ export const filterWord = (filter: TableFilter): string =>
 
 /** A status as a glyph and a word, such as "✓ Completed". */
 export const statusText = (status: RunStatus): string => `${STATUS_GLYPH[status]} ${STATUS_WORD[status]}`
+
+/** "1 run needs you" or "N runs need you": the callout's title and the start of the status bar's tooltip. */
+export const runsNeedYou = (count: number): string => (count === 1 ? '1 run needs you' : `${String(count)} runs need you`)
+
+/** "1 waiting run could not be read", or "N waiting runs …", for a run Archon queued for attention that Orchon cannot read. */
+export const waitingUnread = (count: number): string => `${String(count)} waiting ${count === 1 ? 'run' : 'runs'} could not be read`

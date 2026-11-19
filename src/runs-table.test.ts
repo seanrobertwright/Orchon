@@ -77,7 +77,7 @@ describe('the runs table request', () => {
         ],
         unreadable: 0,
         // Nothing waits in the scripted Archon's attention queue.
-        needsYou: { kind: 'ready', total: 0, rows: [] }
+        needsYou: { kind: 'ready', total: 0, rows: [], unreadable: 0 }
       })
     })
 
@@ -92,7 +92,7 @@ describe('the runs table request', () => {
         rows: [],
         unreadable: 0,
         // Nothing waits in the scripted Archon's attention queue.
-        needsYou: { kind: 'ready', total: 0, rows: [] }
+        needsYou: { kind: 'ready', total: 0, rows: [], unreadable: 0 }
       })
     })
   }

@@ -4,6 +4,7 @@
 import type { Timers } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { statusSentence } from './connection-words'
+import { runsNeedYou, waitingUnread } from './run-status-words'
 
 /** The manifest id of the item. */
 export const STATUS_ITEM_ID = 'status'
@@ -29,9 +30,13 @@ const TEXT: Record<ConnectionView['kind'], string> = {
 
 /**
  * What the snapshot of runs that need you says to the item: the two counts, or that the waiting
- * runs could not be read. Before the first read there is none, and the item reads as for no runs.
+ * runs could not be read. `running` is null when only the running count could not be read, and
+ * `unread` is how many waiting runs could not be read. Before the first read there is none, and
+ * the item reads as for no runs.
  */
-export type StatusCounts = { kind: 'counted'; needsYou: number; running: number } | { kind: 'unavailable' }
+export type StatusCounts =
+  | { kind: 'counted'; needsYou: number; running: number | null; unread: number }
+  | { kind: 'unavailable' }
 
 /** The most a figure shows before it reads "99+". */
 export const FIGURE_CAP = 99
@@ -43,19 +48,26 @@ const archonAt = (view: Connected): string =>
   view.version === null ? `Archon at ${view.baseUrl}` : `Archon ${view.version} at ${view.baseUrl}`
 
 const runs = (count: number): string => (count === 1 ? '1 run' : `${String(count)} runs`)
+const needVerb = (count: number): string => (count === 1 ? 'needs' : 'need')
+const isAre = (count: number): string => (count === 1 ? 'is' : 'are')
 
 /** The one full sentence of the tooltip while Connected. */
 function connectedSentence(view: Connected, counts: StatusCounts | undefined): string {
   if (counts === undefined) return statusSentence(view)
   if (counts.kind === 'unavailable') return `The count of runs that need you is unavailable from ${archonAt(view)}.`
-  const { needsYou, running } = counts
+  const { needsYou, running, unread } = counts
+  const notes: string[] = []
+  if (running === null && needsYou > 0) notes.push('the running count is unavailable')
+  if (unread > 0) notes.push(waitingUnread(unread))
+  let main: string
   if (needsYou > 0) {
-    const need = `${runs(needsYou)} ${needsYou === 1 ? 'needs' : 'need'} you`
-    const also = running === 0 ? '' : ` and ${String(running)} ${running === 1 ? 'is' : 'are'} running`
-    return `${need}${also} on ${archonAt(view)}.`
-  }
-  if (running > 0) return `${runs(running)} ${running === 1 ? 'is' : 'are'} running on ${archonAt(view)}.`
-  return statusSentence(view)
+    const also = running === null || running === 0 ? '' : ` and ${String(running)} ${isAre(running)} running`
+    main = `${runsNeedYou(needsYou)}${also} on ${archonAt(view)}`
+  } else if (running === null) main = `The running count is unavailable from ${archonAt(view)}`
+  else if (running > 0) main = `${runs(running)} ${isAre(running)} running on ${archonAt(view)}`
+  else if (notes.length === 0) return statusSentence(view)
+  else main = `No run needs you on ${archonAt(view)}`
+  return notes.length === 0 ? `${main}.` : `${main}; ${notes.join(' and ')}.`
 }
 
 /**
@@ -69,10 +81,10 @@ export function statusItem(view: ConnectionView, counts?: StatusCounts): StatusI
   if (view.kind === 'connected') {
     const tooltip = connectedSentence(view, counts)
     if (counts?.kind === 'counted' && counts.needsYou > 0) {
-      const text = `${figure(counts.needsYou)} ${counts.needsYou === 1 ? 'needs' : 'need'} you`
+      const text = `${figure(counts.needsYou)} ${needVerb(counts.needsYou)} you`
       return { text, icon: 'bell', tone: 'warning', tooltip }
     }
-    const text = counts?.kind === 'counted' && counts.running > 0 ? `${figure(counts.running)} running` : TEXT.connected
+    const text = counts?.kind === 'counted' && counts.running !== null && counts.running > 0 ? `${figure(counts.running)} running` : TEXT.connected
     return { text, icon: 'bot', tone: 'neutral', tooltip }
   }
   const warns = view.kind === 'bad-setting' || view.kind === 'unsupported'

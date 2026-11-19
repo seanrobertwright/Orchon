@@ -136,7 +136,7 @@ export function waitingRun(index: number): RunRow {
  */
 export function busyRunsNeedingYou(total: number, needing: number, request: RunsRequest): RunsView {
   const waiting = Array.from({ length: needing }, (_, index) => waitingRun(index))
-  const needsYou: NeedsYouView = { kind: 'ready', total: needing, rows: waiting.slice(0, CALLOUT_CAP) }
+  const needsYou: NeedsYouView = { kind: 'ready', total: needing, rows: waiting.slice(0, CALLOUT_CAP), unreadable: 0 }
   const busy = busyRuns(total, request.status === 'needs-you' ? { ...request, status: 'all' } : request)
   if (busy.kind !== 'ready') return busy
   if (request.status === 'needs-you') return { ...busy, total: needing, rows: waiting.slice(0, request.rows), needsYou }

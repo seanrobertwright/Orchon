@@ -90,7 +90,7 @@ async function readWithSnapshot(client: Client, server: Connected, request: Runs
     const counted = await readRuns(client, server, { ...request, status: 'all', rows: 1 }, signal)
     if (counted.kind !== 'ready') return counted
     const view = needsYou.view(request.codebaseId)
-    return { ...counted, total: view.kind === 'ready' ? view.total : rows.length, rows, unreadable: 0, needsYou: view }
+    return { ...counted, total: view.kind === 'ready' ? view.total : rows.length, rows, unreadable: view.kind === 'ready' ? view.unreadable : 0, needsYou: view }
   }
   const read = await readRuns(client, server, request, signal)
   if (read.kind !== 'ready') return read

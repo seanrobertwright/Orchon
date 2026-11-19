@@ -50,29 +50,45 @@ function parseWaiting(attention: unknown): Waiting | null | false {
 }
 
 /**
- * The runs that need you in Archon's answer, in the order it gave them, or null when the answer
- * as a whole cannot be read. A row that cannot be read is left out and counted.
+ * The Archon project of a row Archon queued for attention that cannot be read: its id, null for
+ * none, or undefined when the project cannot be read either, so the row counts in every scope.
  */
-export function parseAttentionRuns(value: unknown): { entries: Entry[]; unread: number } | null {
+type Unread = string | null | undefined
+
+/** The Archon project a row of the attention answer names: none is null, one that cannot be read undefined. */
+function projectOf(run: unknown): Unread {
+  if (!isRecord(run)) return undefined
+  const id = own(run, 'codebase_id')
+  if (id === undefined || id === null) return null
+  return typeof id === 'string' ? id : undefined
+}
+
+/**
+ * The runs that need you in Archon's answer, in the order it gave them, or null when the answer
+ * as a whole cannot be read. A row that cannot be read is left out, and its project kept in
+ * `unread` so the callout and the "Needs you" filter can say it is not shown.
+ */
+export function parseAttentionRuns(value: unknown): { entries: Entry[]; unread: Unread[] } | null {
   if (!isRecord(value)) return null
   const runs = own(value, 'runs')
   if (!Array.isArray(runs)) return null
   const entries: Entry[] = []
-  let unread = 0
+  const unread: Unread[] = []
   for (const run of runs as unknown[]) {
     const row = parseRun(run)
     const waiting = isRecord(run) ? parseWaiting(own(run, 'attention')) : false
-    const codebaseId = isRecord(run) ? own(run, 'codebase_id') : undefined
-    if (row === null || waiting === false || (codebaseId !== undefined && codebaseId !== null && typeof codebaseId !== 'string')) {
-      unread += 1
+    const codebaseId = projectOf(run)
+    if (row === null || waiting === false || codebaseId === undefined) {
+      unread.push(codebaseId)
       continue
     }
-    if (waiting !== null) entries.push({ row: { ...row, waiting }, codebaseId: typeof codebaseId === 'string' ? codebaseId : null })
+    if (waiting !== null) entries.push({ row: { ...row, waiting }, codebaseId })
   }
   return { entries, unread }
 }
 
-type Held = { kind: 'counted'; entries: Entry[]; running: number } | { kind: 'unavailable' }
+/** The snapshot. `running` is null when only the running count could not be read. */
+type Held = { kind: 'counted'; entries: Entry[]; unread: Unread[]; running: number | null } | { kind: 'unavailable' }
 
 export type NeedsYouPorts = {
   client: Client
@@ -138,8 +154,9 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
     const [attention, running] = await Promise.all([call(ATTENTION_PATH), call(RUNNING_PATH)])
     const parsed = attention.ok ? parseAttentionRuns(attention.value) : null
     const page = running.ok ? parseDashboardRunsPage(running.value) : null
-    if (parsed === null || page === null) return { kind: 'unavailable' }
-    return { kind: 'counted', entries: parsed.entries, running: page.counts.running }
+    // Only the waiting runs make the snapshot unavailable; a failed running count is said apart.
+    if (parsed === null) return { kind: 'unavailable' }
+    return { kind: 'counted', entries: parsed.entries, unread: parsed.unread, running: page === null ? null : page.counts.running }
   }
 
   /** One read now. Another asked for while it is in flight waits for it, then for the gap. */
@@ -207,6 +224,12 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
     return codebaseId === undefined ? held.entries : held.entries.filter((entry) => entry.codebaseId === codebaseId)
   }
 
+  /** How many waiting runs in the scope could not be read; one whose project is unknown counts in every scope. */
+  function unreadIn(codebaseId: string | undefined): number {
+    if (held?.kind !== 'counted') return 0
+    return codebaseId === undefined ? held.unread.length : held.unread.filter((id) => id === undefined || id === codebaseId).length
+  }
+
   return {
     connected(next) {
       if (server !== null && server.storeId !== next.storeId) held = undefined
@@ -227,12 +250,19 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
     },
     counts() {
       if (held === undefined) return undefined
-      return held.kind === 'unavailable' ? held : { kind: 'counted', needsYou: held.entries.length, running: held.running }
+      return held.kind === 'unavailable'
+        ? held
+        : { kind: 'counted', needsYou: held.entries.length, running: held.running, unread: held.unread.length }
     },
     view(codebaseId) {
       const entries = scoped(codebaseId)
       if (entries === null) return { kind: 'unavailable' }
-      return { kind: 'ready', total: entries.length, rows: entries.slice(0, CALLOUT_CAP).map((entry) => entry.row) }
+      return {
+        kind: 'ready',
+        total: entries.length,
+        rows: entries.slice(0, CALLOUT_CAP).map((entry) => entry.row),
+        unreadable: unreadIn(codebaseId)
+      }
     },
     rows(count, codebaseId) {
       const entries = scoped(codebaseId)

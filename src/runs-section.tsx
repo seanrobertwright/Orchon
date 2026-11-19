@@ -37,9 +37,8 @@ import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
 import { clearRunDetail, openRunDetail, openRunId, restartRunDetail, runDetailHasData, runDetailSection } from './run-detail-section'
 import { worktreeLine } from './worktree-line'
-import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
+import { FILTER_ORDER, filterWord, runsNeedYou, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText, waitingUnread } from './run-status-words'
 import {
-  CALLOUT_CAP,
   ROWS_CAP,
   ROWS_STEP,
   type NeedsYouView,
@@ -282,20 +281,21 @@ function waitingText(waiting: Waiting): string {
   return waiting.kind === 'unreadable' ? "Needs a look in Archon's console" : waiting.question
 }
 
-const runsNeedYou = (count: number): string => (count === 1 ? '1 run needs you' : `${String(count)} runs need you`)
-
 /**
- * The "runs need you" callout: a row per run in Archon's order, at most `CALLOUT_CAP`, then a
- * last row that sets the filter to "Needs you". A row opens the run. Hidden when nothing needs
- * you, when the count is unavailable, and while the filter is "Needs you".
+ * The "runs need you" callout: a row per run in Archon's order, which the worker caps at
+ * `CALLOUT_CAP`, then a last row that sets the filter to "Needs you", then a line for the waiting
+ * runs that could not be read. A row opens the run. Hidden when nothing needs you and nothing
+ * waiting went unread, when the count is unavailable, and while the filter is "Needs you".
  */
 function needsYouCallout(needsYou: NeedsYouView | undefined, status: TableFilter): OrcaNode {
-  if (needsYou?.kind !== 'ready' || needsYou.total === 0 || status === 'needs-you') return null
+  if (needsYou?.kind !== 'ready' || (needsYou.total === 0 && needsYou.unreadable === 0) || status === 'needs-you') return null
   const allProjects = scopeChoice() === 'all'
-  const shown = needsYou.rows.slice(0, CALLOUT_CAP)
+  const shown = needsYou.rows
   const more = needsYou.total - shown.length
+  const unread = needsYou.unreadable
+  const title = needsYou.total > 0 ? runsNeedYou(needsYou.total) : 'Waiting runs could not be read'
   return (
-    <Callout tone="warning" icon="bell" title={runsNeedYou(needsYou.total)}>
+    <Callout tone="warning" icon="bell" title={title}>
       <Stack gap="sm">
         {shown.map((run) => (
           <Stack key={run.id} gap="none">
@@ -315,6 +315,11 @@ function needsYouCallout(needsYou: NeedsYouView | undefined, status: TableFilter
           </Stack>
         ))}
         {more > 0 ? <Link onPress={showNeedsYou}>{`and ${String(more)} more`}</Link> : null}
+        {unread > 0 ? (
+          <Text muted size="sm">
+            {`${waitingUnread(unread)} and ${unread === 1 ? 'is' : 'are'} not shown.`}
+          </Text>
+        ) : null}
       </Stack>
     </Callout>
   )
