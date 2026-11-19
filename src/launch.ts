@@ -670,7 +670,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
         record.dispatched = true
         if (record.tracked) lookAfterFrame(record)
       } else if (frame.type === 'error') giveUp(record, 'failed', frame.message)
-      else if (!frame.locked && !record.dispatched) giveUp(record, 'refused', record.lastText ?? NO_REASON_TEXT)
+      else if (frame.type === 'lock' && !frame.locked && !record.dispatched) giveUp(record, 'refused', record.lastText ?? NO_REASON_TEXT)
     }
   }
 

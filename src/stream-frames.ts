@@ -1,7 +1,7 @@
 // The frame parser: reads Server-Sent Events by hand from the text of a `fetch` body, since the
 // worker has no `EventSource`, and reads the data of one dashboard frame. It is pure logic.
 import { HINT_TYPES, type HintType } from './hint-view'
-import { isRecord, own } from './records'
+import { isRecord, isText, own } from './records'
 
 /** One dispatched event: its name (`message` unless the stream named one) and its data lines joined. */
 export type StreamFrame = { event: string; data: string }
@@ -96,6 +96,12 @@ export type ConversationFrame =
   | { type: 'workflow_dispatch' }
   /** Archon failed the message. Its text is not saved anywhere else. */
   | { type: 'error'; message: string }
+  /** The agent called a tool: its name alone is read, never its input. */
+  | { type: 'tool_call'; name: string }
+  /** A tool the agent called finished. Nothing of its output is read. */
+  | { type: 'tool_result' }
+  /** Archon warned about the turn, such as a reply it could not save. Nothing of its text is read. */
+  | { type: 'warning' }
 
 /** What one conversation frame says, or null for a frame the plugin does not read, a heartbeat included. */
 export function readConversationFrame(frame: StreamFrame): ConversationFrame | null {
@@ -122,5 +128,11 @@ export function readConversationFrame(frame: StreamFrame): ConversationFrame | n
     const message = own(value, 'message')
     return { type: 'error', message: typeof message === 'string' ? message : '' }
   }
+  if (type === 'tool_call') {
+    const name = own(value, 'name')
+    return isText(name) ? { type: 'tool_call', name } : null
+  }
+  if (type === 'tool_result') return { type: 'tool_result' }
+  if (type === 'warning') return { type: 'warning' }
   return null
 }

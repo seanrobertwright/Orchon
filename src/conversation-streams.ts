@@ -20,10 +20,11 @@ export const conversationStreamPath = (conversationId: string): string => `/api/
 export type ConversationEvent =
   | { kind: 'frame'; frame: ConversationFrame }
   /**
-   * The stream ended, broke or could not be opened: another reader took it, or the server let it
-   * go. It is not opened again for anyone listening now.
+   * The stream ended, broke or could not be opened. It is not opened again for anyone listening
+   * now. `closed`: the server ended it, as it does when another reader takes it, or answered the
+   * open with something other than a stream. `network`: nothing took the connection, or it broke.
    */
-  | { kind: 'ended' }
+  | { kind: 'ended'; cause: 'closed' | 'network' }
 
 export type StreamListener = (event: ConversationEvent) => void
 
@@ -73,19 +74,23 @@ export function createConversationStreams(ports: ConversationStreamsPorts): Conv
     }
   }
 
-  function end(reader: Reader): void {
+  function end(reader: Reader, cause: 'closed' | 'network' = 'closed'): void {
     if (reader.ended) return
     reader.ended = true
     if (readers.get(reader.key) === reader) readers.delete(reader.key)
-    if (!reader.controller.signal.aborted) tell(reader, { kind: 'ended' })
+    if (!reader.controller.signal.aborted) tell(reader, { kind: 'ended', cause })
     reader.controller.abort()
   }
 
   async function read(reader: Reader, baseUrl: string, conversationId: string): Promise<void> {
     const { signal } = reader.controller
+    let cause: 'closed' | 'network' = 'closed'
     try {
       const opened = await ports.client.stream({ baseUrl, path: conversationStreamPath(conversationId), signal })
-      if (!opened.ok) return
+      if (!opened.ok) {
+        if (opened.failure.kind === 'refused') cause = 'network'
+        return
+      }
       const parser = createFrameParser()
       for await (const text of opened.text) {
         const frames = parser.push(text)
@@ -95,8 +100,11 @@ export function createConversationStreams(ports: ConversationStreamsPorts): Conv
           if (read !== null && !signal.aborted) tell(reader, { kind: 'frame', frame: read })
         }
       }
+    } catch (error) {
+      cause = 'network'
+      throw error
     } finally {
-      end(reader)
+      end(reader, cause)
     }
   }
 
