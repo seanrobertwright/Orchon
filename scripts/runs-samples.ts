@@ -1,7 +1,10 @@
 // The runs table as the worker would answer it, for the panel's tests and for the scenarios of
 // `orca plugin check`. These are view models, the worker's output, never Archon's JSON. It is
 // development tooling: Orca never loads it.
+import type { ConnectionView } from '../src/connection-view.ts'
+import type { RunDetail, RunDetailAnswer, RunDetailRequest, RunDetailView, Step } from '../src/run-detail-view.ts'
 import { EMPTY_COUNTS, type RunRow, type RunStatus, type RunsRequest, type RunsView, type StatusCounts } from '../src/runs-view.ts'
+import { answeringRuns, connected } from './connection-samples.ts'
 export { answeringRuns, noRuns } from './connection-samples.ts'
 
 /** When the sample runs are set: noon UTC on 18 November 2026. */
@@ -51,5 +54,64 @@ export function busyRuns(total: number, request: RunsRequest, unreadable = 0): R
     total: matching.length,
     rows: matching.slice(0, request.rows),
     unreadable
+  }
+}
+
+/** A run's detail as the worker answers it: a paused run of a workflow with a loop and steps not reached. */
+export function sampleDetail(index = 1, change: Partial<RunDetail> = {}): RunDetail {
+  const run = busyRun(index)
+  const step = (id: string, state: Step['state'], extra: Partial<Step> = {}): Step => ({
+    id,
+    name: id,
+    kind: 'prompt',
+    state,
+    loop: null,
+    starts: state === 'pending' ? 0 : 1,
+    durationMs: state === 'completed' || state === 'failed' ? 12_000 : null,
+    reached: state !== 'pending',
+    ...extra
+  })
+  const steps: Step[] = [
+    step('plan', 'completed', { durationMs: 95_000 }),
+    step('implement', 'running', { kind: 'loop' }),
+    step('implement.build', 'completed', { name: 'build', loop: 'implement', starts: 3, kind: 'bash' }),
+    step('implement.test', 'running', { name: 'test', loop: 'implement', starts: 2, kind: 'bash' }),
+    step('review', 'pending'),
+    step('ship', 'pending')
+  ]
+  return {
+    id: run.id,
+    workflow: run.workflow,
+    status: run.status,
+    startedAt: run.startedAt,
+    endedAt: run.endedAt,
+    costUsd: 0.42,
+    project: run.project,
+    workingPath: run.workingPath,
+    message: run.message,
+    messageCut: false,
+    steps,
+    stepCount: steps.length,
+    unreadableSteps: 0,
+    waiting: null,
+    ...change
+  }
+}
+
+/**
+ * A stand-in for the worker that answers the runs table as `answeringRuns` does, and run detail
+ * as `detail` says for each request.
+ */
+export function answeringRun(
+  runs: RunsView | ((request: RunsRequest) => RunsView),
+  detail: (request: RunDetailRequest) => RunDetailView,
+  connection: ConnectionView = connected
+) {
+  const base = answeringRuns(runs, connection)
+  return {
+    requests: {
+      ...base.requests,
+      'run.read': (request: RunDetailRequest): RunDetailAnswer => ({ connection, run: detail(request) })
+    }
   }
 }

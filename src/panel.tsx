@@ -5,7 +5,8 @@ import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
 import { liveOffLine } from './live-line'
-import { clearRuns, hintRuns, refreshRuns, rescopeRuns, restartRunsView, runsHaveData, runsSection, startRunsSection } from './runs-section'
+import { hintRunDetail, startRunDetail } from './run-detail-section'
+import { clearRuns, hintRuns, refreshRuns, rescopeRuns, restartRuns, restartRunsView, runsHaveData, runsSection, startRunsSection } from './runs-section'
 import { startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
@@ -142,6 +143,12 @@ export function setup(ctx: PanelContext): void {
     showing: () => parseSection(read(section)) === 'runs',
     keep: keepNewest
   })
+  startRunDetail(ctx, {
+    connection: () => read(connection),
+    showing: () => parseSection(read(section)) === 'runs',
+    keep: keepNewest,
+    back: restartRuns
+  })
   startScope(ctx, {
     connection: () => read(connection),
     showing: () => parseSection(read(section)) === 'runs',
@@ -151,6 +158,7 @@ export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
   ctx.subscriptions.push(plugin.on('runs.changed', hintRuns))
+  ctx.subscriptions.push(plugin.on('runs.changed', hintRunDetail))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
   startFormGroups(ctx, { keep: keepNewest })
   // The first read, then one on the safety refetch: a worker that did not answer is tried again.

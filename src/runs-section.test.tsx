@@ -159,7 +159,7 @@ describe('the Runs section', () => {
       ]
     )
     assert.ok(view.find({ type: 'RelativeTime' }))
-    assert.equal(view.findAll({ type: 'Button' }).filter((button) => button.text === 'Open run').length, 0)
+    assert.equal(view.findAll({ type: 'Button' }).filter((button) => button.text === 'Open run').length, 1)
     clean(view)
   })
 

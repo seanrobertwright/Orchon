@@ -34,6 +34,7 @@ import type { Connected, ConnectionView } from './connection-view'
 import { formatClock, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
+import { clearRunDetail, openRunDetail, openRunId, restartRunDetail, runDetailHasData, runDetailSection } from './run-detail-section'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
 import { restartScope, scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
@@ -91,7 +92,10 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
   const view = createViewFetch<RunsAnswer | null>({
     load(signal) {
       // The table waits for the scope, so it never reads one project and then another.
-      if (given.connection()?.kind !== 'connected' || !given.showing() || !scopeSettled()) return Promise.resolve(null)
+      // While a run is open its detail shows in place of the table, which is read again on the way back.
+      if (given.connection()?.kind !== 'connected' || !given.showing() || !scopeSettled() || openRunId() !== null) {
+        return Promise.resolve(null)
+      }
       const request: RunsRequest = { status: read(filter), rows: read(requested) }
       const codebaseId = scopedProjectId()
       return plugin.request('runs.read', codebaseId === undefined ? request : { ...request, codebaseId }, { signal })
@@ -120,7 +124,7 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
 
 /** Whether the table holds an answer to show, as Searching keeps it under its banner. */
 export function runsHaveData(): boolean {
-  return read(loaded) !== null
+  return openRunId() === null ? read(loaded) !== null : runDetailHasData()
 }
 
 /** A different Archon store: what the section held, chosen and loaded belongs to the old one. */
@@ -131,6 +135,7 @@ export function clearRuns(): void {
   set(problem, null)
   set(lastGood, null)
   set(selected, null)
+  clearRunDetail()
 }
 
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
@@ -156,6 +161,7 @@ export function refreshRuns(): void {
 export function restartRunsView(): void {
   restartScope()
   restartRuns()
+  restartRunDetail()
 }
 
 /** The project the table is filtered by changed: it reads from the newest run again. */
@@ -274,6 +280,11 @@ function preview(run: RunRow): OrcaNode {
         {run.message === '' ? null : <Text>{run.message}</Text>}
         <KeyValue label="Run facts" items={facts} />
         {worktreeLine(run)}
+        <Row>
+          <Button size="sm" onPress={() => openRunDetail(run.id)}>
+            Open run
+          </Button>
+        </Row>
       </Stack>
     </Card>
   )
@@ -301,6 +312,7 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
         maxHeight="lg"
         emptyText={status === 'all' ? 'No runs.' : `No ${filterWord(status).toLowerCase()} runs.`}
         onSelectionChange={({ keys }) => set(selected, keys[0] ?? null)}
+        onRowAction={({ key }) => openRunDetail(key)}
         onLoadMore={loadMore}
       />
       <Text muted size="sm">
@@ -313,6 +325,7 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
 
 /** The section while connected or under the Searching banner. `writable` is false when its controls that write are off. */
 export function runsSection(state: Connected, writable: boolean): OrcaNode {
+  if (openRunId() !== null) return runDetailSection(state, writable)
   const status = read(filter)
   const runs = read(loaded)
   const held = read(problem)
