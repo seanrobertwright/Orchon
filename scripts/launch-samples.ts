@@ -20,6 +20,7 @@ export const webForm: Extract<LaunchView, { kind: 'ready' }> = {
   workflows: { kind: 'ready', rows: [deliver, review], total: 2, matching: 2, unreadable: 0 },
   workflow: 'deliver',
   description: deliver.description,
+  inputs: { kind: 'ready', rows: [] },
   message: '',
   posting: false
 }

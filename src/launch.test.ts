@@ -468,3 +468,51 @@ describe('the workflow list', () => {
     await mounted.worker.deactivate()
   })
 })
+
+describe('declared inputs', () => {
+  const release: Release = '0.12.1'
+  const id = RECORDED_ID[release]
+  const INPUTS = 'orchon-recorder-inputs'
+
+  async function choose(mounted: MountedScene, workflow: string): Promise<Extract<LaunchView, { kind: 'ready' }>> {
+    await read(mounted, { project: id, reload: true })
+    return ready(((await mounted.worker.request('launch.edit', { workflow })) as LaunchAnswer).launch)
+  }
+
+  test('the chosen workflow brings its declared inputs in declared order, with the default as placeholder', async () => {
+    const stage = launchScene(release)
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    assert.deepEqual((await choose(mounted, INPUTS)).inputs, { kind: 'ready', rows: [{ name: 'item', required: true, description: 'Any text.', placeholder: '' }] })
+    const queue = (await choose(mounted, 'archon-build-queue')).inputs
+    if (queue.kind !== 'ready') throw new Error(queue.kind)
+    // Declared order, read off the recorded workflow by hand.
+    assert.deepEqual(queue.rows.map((row) => row.name), ['repo_host', 'repo_path', 'order', 'round_limit', 'mode', 'number', 'replay', 'as_of'])
+    assert.deepEqual(queue.rows[2], {
+      name: 'order',
+      required: false,
+      description: 'Pickup order, intake\'s format: a JSON array of "<key> <asc|desc>" with keys urgency, importance, size, complexity and created.',
+      placeholder: '["urgency desc","importance desc","size asc","created asc"]'
+    })
+    assert.equal(ready((await read(mounted)).launch).inputs.kind, 'ready')
+    await mounted.worker.deactivate()
+  })
+
+  test('a default that is not a string shows as its JSON text, and a workflow declaring more than 50 inputs cannot be launched', async () => {
+    const stage = launchScene(release)
+    const page = recorded(release, 'workflows')
+    if (page.kind !== 'json') throw new Error('The recorded workflows are not JSON.')
+    const many = Object.fromEntries(Array.from({ length: 51 }, (_, index) => [`in_${String(index)}`, { default: index }]))
+    const rows = (field(page.value, 'workflows') as Record<string, unknown>[]).map((row) => {
+      const workflow = field(row, 'workflow') as Record<string, unknown>
+      return workflow['name'] === INPUTS ? { ...row, workflow: { ...workflow, inputs: { item: { default: { a: [1] } } } } } : workflow['name'] === ECHO ? { ...row, workflow: { ...workflow, inputs: many } } : row
+    })
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), json({ ...(page.value as Record<string, unknown>), workflows: rows }))
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    assert.deepEqual((await choose(mounted, INPUTS)).inputs, { kind: 'ready', rows: [{ name: 'item', required: false, description: '', placeholder: '{"a":[1]}' }] })
+    assert.deepEqual((await choose(mounted, ECHO)).inputs, { kind: 'too-many', declared: 51 })
+    const refused = ready(((await mounted.worker.request('launch.start', { codebaseId: id, workflow: ECHO, message: 'Go.' })) as LaunchAnswer).launch)
+    assert.equal(refused.error, 'This workflow declares 51 inputs, more than the 50 Orchon can fill in. Launch it from Archon.')
+    assert.deepEqual(writes(stage), [])
+    await mounted.worker.deactivate()
+  })
+})

@@ -63,6 +63,29 @@ export type WorkflowsView =
   | { kind: 'too-large' }
   | { kind: 'failed'; message: string }
 
+/** The most declared inputs the form draws. A workflow that declares more cannot be launched here. */
+export const INPUTS_CAP = 50
+
+/** One declared input as the form draws it: a text field. */
+export type LaunchInput = {
+  name: string
+  required: boolean
+  /** Cut to `DESCRIPTION_CAP`, or empty. */
+  description: string
+  /** The declared default as text, cut to `DESCRIPTION_CAP`, or empty. */
+  placeholder: string
+}
+
+export type InputsView =
+  /** The chosen workflow's inputs in declared order; none when no workflow is chosen. */
+  | { kind: 'ready'; rows: LaunchInput[] }
+  /** The workflow declares more than `INPUTS_CAP` inputs: none is drawn and Start is refused. */
+  | { kind: 'too-many'; declared: number }
+
+/** Why Start refuses a workflow with more than `INPUTS_CAP` inputs, said by the panel and the worker alike. */
+export const tooManyInputsText = (declared: number): string =>
+  `This workflow declares ${declared.toLocaleString('en-US')} inputs, more than the ${String(INPUTS_CAP)} Orchon can fill in. Launch it from Archon.`
+
 /** Where a launch stands while the Starting view shows it. */
 export type StartingState =
   /** Archon took the launch and starts it. */
@@ -105,6 +128,8 @@ export type LaunchView =
       workflow: string | null
       /** The chosen workflow's description, cut, or empty. */
       description: string
+      /** The chosen workflow's declared inputs. */
+      inputs: InputsView
       /** The draft's message. */
       message: string
       /** Why the last Start did not launch: Archon's words, or the worker's. */

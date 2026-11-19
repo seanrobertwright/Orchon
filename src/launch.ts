@@ -12,6 +12,7 @@ import type { HintType } from './hint-view'
 import {
   CONVERSATIONS_KEPT,
   DESCRIPTION_CAP,
+  INPUTS_CAP,
   LAUNCH_ID_CAP,
   MESSAGE_CAP,
   NO_MESSAGE,
@@ -20,6 +21,8 @@ import {
   SEARCH_CAP,
   WORKFLOW_NAME_CAP,
   WORKFLOWS_CAP,
+  tooManyInputsText,
+  type InputsView,
   type LaunchAnswer,
   type LaunchEdit,
   type LaunchNotice,
@@ -40,7 +43,7 @@ import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys
 import { SERVER_TEXT_CAP } from './run-control-view'
 import { PROJECT_ID_CAP, REMOTE_WORKSPACE } from './scope-view'
 import { NOT_CONNECTED_TEXT } from './worker-words'
-import { parseWorkflowList, WORKFLOWS_CAP_BYTES, WORKFLOWS_PATH, type WorkflowList } from './workflows-list'
+import { parseWorkflowList, WORKFLOWS_CAP_BYTES, WORKFLOWS_PATH, type ListedWorkflow, type WorkflowList } from './workflows-list'
 
 /** How often the tracker looks for a run in the first 30 seconds, and how often after. */
 export const FIRST_LOOK_MS = 2_000
@@ -76,6 +79,8 @@ type Draft = {
   posting: boolean
   /** The launch the Starting view shows. */
   starting?: string
+  /** The panel's project as its last read named it, the default while none is chosen. */
+  panelProject?: string
 }
 
 type LaunchRecord = {
@@ -191,6 +196,21 @@ function ordered(list: WorkflowList): LaunchWorkflow[] {
   return list.workflows
     .map((workflow) => ({ name: workflow.name, description: workflow.description, source: workflow.source, recommended: recommended.has(workflow.name) }))
     .sort((first, second) => Number(second.recommended) - Number(first.recommended) || first.name.localeCompare(second.name))
+}
+
+/** A workflow's declared inputs as the form draws them, or none when no workflow is chosen. */
+function inputsOf(workflow: ListedWorkflow | undefined): InputsView {
+  if (workflow === undefined) return { kind: 'ready', rows: [] }
+  if (workflow.inputCount > INPUTS_CAP) return { kind: 'too-many', declared: workflow.inputCount }
+  return {
+    kind: 'ready',
+    rows: workflow.inputs.map((input) => ({
+      name: input.name,
+      required: input.required,
+      description: cutAt(input.description, DESCRIPTION_CAP),
+      placeholder: cutAt(input.placeholder, DESCRIPTION_CAP)
+    }))
+  }
 }
 
 const contains = (text: string, needle: string): boolean => text.toLowerCase().includes(needle.toLowerCase())
@@ -354,19 +374,24 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   }
 
   /** The form as it stands for the focused workspace, reading Archon only for what it lacks. */
-  async function viewOf(request: LaunchRequest, reload: boolean): Promise<LaunchView> {
+  async function viewOf(request: LaunchRequest, reload: boolean, fromRead: boolean): Promise<LaunchView> {
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { kind: 'not-connected' }
     const focused = await ports.focused()
     if (focused.kind === 'remote') return { kind: 'remote' }
     const draft = draftOf(workspaceKey(focused))
+    // Only a frame's read names the panel's project; every other answer keeps the last one named.
+    if (fromRead) {
+      if (request.project === undefined) delete draft.panelProject
+      else draft.panelProject = request.project
+    }
     const read = await readProjects(connection, reload)
     if (read.kind === 'failed') return read
     const { listed } = read
     const byName = [...listed.projects].sort((first, second) => first.name.localeCompare(second.name) || first.id.localeCompare(second.id))
     const search = request.search ?? ''
     const found = search === '' ? byName : byName.filter((project) => contains(project.name, search))
-    const wanted = draft.codebaseId === undefined ? (request.project ?? null) : draft.codebaseId
+    const wanted = draft.codebaseId === undefined ? (draft.panelProject ?? null) : draft.codebaseId
     const project = wanted === null ? undefined : listed.projects.find((entry) => entry.id === wanted)
     const rows = found.slice(0, PROJECTS_CAP).map(({ id, name }) => ({ id, name }))
     if (project !== undefined && !rows.some((row) => row.id === project.id)) rows.unshift({ id: project.id, name: project.name })
@@ -388,6 +413,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       workflows: workflowsView(list, request.filter ?? '', workflow),
       workflow,
       description: cutAt(listedWorkflow?.description ?? '', DESCRIPTION_CAP),
+      inputs: inputsOf(listedWorkflow),
       message: draft.message,
       posting: draft.posting
     }
@@ -397,8 +423,8 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     return view
   }
 
-  async function answer(request: LaunchRequest, reload = false): Promise<LaunchAnswer> {
-    const launch = await viewOf(request, reload)
+  async function answer(request: LaunchRequest, reload = false, fromRead = false): Promise<LaunchAnswer> {
+    const launch = await viewOf(request, reload, fromRead)
     return { connection: await ports.current(), launch, notices: noticesOf() }
   }
 
@@ -510,7 +536,9 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       const project = listed.projects.find((entry) => entry.id === input.codebaseId)
       if (project === undefined) return await refuse(NOT_LISTED)
       const list = await readList(connection, project, false)
-      if (list.kind !== 'ready' || !list.list.workflows.some((entry) => entry.name === input.workflow)) return await refuse(WORKFLOW_NOT_LISTED)
+      const workflow = list.kind === 'ready' ? list.list.workflows.find((entry) => entry.name === input.workflow) : undefined
+      if (workflow === undefined) return await refuse(WORKFLOW_NOT_LISTED)
+      if (workflow.inputCount > INPUTS_CAP) return await refuse(tooManyInputsText(workflow.inputCount))
       const store = storeKey(connection)
       const created = await ports.client.request({
         baseUrl: connection.baseUrl,
@@ -604,7 +632,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   const subscriptions: Disposable[] = [
     orca.panels.handle('launch.read', (input) => {
       const request = parseLaunchRequest(input)
-      return answer(request, request.reload === true)
+      return answer(request, request.reload === true, true)
     }),
     orca.panels.handle('launch.edit', (input) => edit(parseLaunchEdit(input))),
     orca.panels.handle('launch.start', (input) => start(parseLaunchStart(input))),
