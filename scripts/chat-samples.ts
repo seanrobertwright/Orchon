@@ -2,7 +2,7 @@
 // `orca plugin check`. These are view models, the worker's output, never Archon's JSON. It is
 // development tooling: Orca never loads it.
 import type { MockHostOptions } from 'orca/testing'
-import type { ChatRow, ChatsRequest, ChatsView } from '../src/chats-view.ts'
+import { ARCHON_CONVERSATIONS_CAP, type ChatRow, type ChatsRequest, type ChatsView } from '../src/chats-view.ts'
 import type { ConnectionView } from '../src/connection-view.ts'
 import type { ScopeView } from '../src/scope-view.ts'
 import { connected } from './connection-samples.ts'
@@ -19,10 +19,10 @@ export function sampleChat(index: number, allProjects = false): ChatRow {
   return row
 }
 
-/** `count` conversations as the worker answers the request, capped when Archon gave 50. */
+/** `count` conversations as the worker answers the request, capped when Archon gave its cap. */
 export function sampleChats(count: number, request: ChatsRequest = {}, unreadable = 0): Extract<ChatsView, { kind: 'ready' }> {
   const allProjects = request.codebaseId === undefined
-  return { kind: 'ready', rows: Array.from({ length: count }, (_, index) => sampleChat(index, allProjects)), capped: count >= 50, unreadable }
+  return { kind: 'ready', rows: Array.from({ length: count }, (_, index) => sampleChat(index, allProjects)), capped: count >= ARCHON_CONVERSATIONS_CAP, unreadable }
 }
 
 /**
