@@ -55,7 +55,7 @@ const DRAFTS_CAP = 50
 const LISTS_CAP = 20
 
 const LAST_WORKFLOW_KEY = 'launch-last-workflow'
-export const CONVERSATIONS_KEY = 'launch-conversations'
+const CONVERSATIONS_KEY = 'launch-conversations'
 /** How many projects per store remember their last launched workflow. */
 const LAST_WORKFLOWS_KEPT = 500
 
@@ -65,7 +65,22 @@ export const WORKFLOW_NOT_LISTED = 'Archon does not list that workflow for this 
 export const NOT_ACCEPTED = 'Archon did not accept the launch.'
 
 /** What saved data is stored under: the server's store id, or its base URL when it reports none. */
-export const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
+const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
+
+/**
+ * The ids of the conversations the launcher created for this Archon store, as it keeps them in
+ * plugin storage. Storage that cannot be read, or holds something else, gives none.
+ */
+export async function launchedConversationIds(orca: OrcaWorkerApi, server: Connected): Promise<Set<string>> {
+  let stored: unknown
+  try {
+    stored = await orca.storage.get(CONVERSATIONS_KEY)
+  } catch {
+    return new Set()
+  }
+  const ids = isRecord(stored) ? own(stored, storeKey(server)) : undefined
+  return new Set(Array.isArray(ids) ? (ids as unknown[]).filter(isText) : [])
+}
 
 type Draft = {
   /** Undefined: not chosen, so the panel's project is the default. Null: chosen empty. */

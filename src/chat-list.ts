@@ -8,8 +8,8 @@ import type { Connected, ConnectionView } from './connection-view'
 import { ARCHON_CONVERSATIONS_CAP, type ChatRow, type ChatsAnswer, type ChatsRequest, type ChatsView } from './chats-view'
 import { CONVERSATIONS_PATH, parseConversations, WEB_PLATFORM } from './conversations'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { CONVERSATIONS_KEY, storeKey } from './launch'
-import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
+import { launchedConversationIds } from './launch'
+import { cappedTextRefusal, isCappedText, isRecord, own, refuseOtherKeys, refuseRequest } from './records'
 import { PROJECT_ID_CAP } from './scope-view'
 
 /** A frame's request, or a refusal: nothing, or the id of an Archon project. */
@@ -29,6 +29,22 @@ function listPath(request: ChatsRequest): string {
   return `${CONVERSATIONS_PATH}?${query.toString()}`
 }
 
+/** One read of Archon, parsed: the value, or the failure the panel says. */
+type Parsed<T> = { ok: true; value: T } | { ok: false; message: string }
+
+async function readParsed<T>(
+  client: Client,
+  server: Connected,
+  path: string,
+  parse: (value: unknown) => T | null,
+  signal: AbortSignal
+): Promise<Parsed<T>> {
+  const answer = await client.request({ baseUrl: server.baseUrl, path, timeout: 'read', signal })
+  if (!answer.ok) return { ok: false, message: readFailureText(answer.failure) }
+  const value = parse(answer.value)
+  return value === null ? { ok: false, message: unreadableAnswerText(server.version) } : { ok: true, value }
+}
+
 /** Reads the scope's web conversations once. */
 export async function readChats(
   client: Client,
@@ -37,18 +53,15 @@ export async function readChats(
   signal: AbortSignal,
   launched: ReadonlySet<string> = new Set()
 ): Promise<ChatsView> {
-  const answer = await client.request({ baseUrl: server.baseUrl, path: listPath(request), timeout: 'read', signal })
-  if (!answer.ok) return { kind: 'failed', message: readFailureText(answer.failure) }
-  const list = parseConversations(answer.value)
-  if (list === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
+  const read = await readParsed(client, server, listPath(request), parseConversations, signal)
+  if (!read.ok) return { kind: 'failed', message: read.message }
+  const list = read.value
   // Under "All projects" each row names its project, from Archon's list of them.
   let names: Map<string, string> | undefined
   if (request.codebaseId === undefined) {
-    const projects = await client.request({ baseUrl: server.baseUrl, path: CODEBASES_PATH, timeout: 'read', signal })
-    if (!projects.ok) return { kind: 'failed', message: readFailureText(projects.failure) }
-    const listed = parseCodebases(projects.value)
-    if (listed === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
-    names = new Map(listed.projects.map((project) => [project.id, project.name]))
+    const projects = await readParsed(client, server, CODEBASES_PATH, parseCodebases, signal)
+    if (!projects.ok) return { kind: 'failed', message: projects.message }
+    names = new Map(projects.value.projects.map((project) => [project.id, project.name]))
   }
   const rows: ChatRow[] = []
   for (const conversation of list.rows) {
@@ -60,21 +73,6 @@ export async function readChats(
     rows.push(row)
   }
   return { kind: 'ready', rows, capped: list.sent >= ARCHON_CONVERSATIONS_CAP, unreadable: list.unreadable }
-}
-
-/**
- * The ids of the conversations the plugin's launcher created for this Archon store, as it keeps
- * them in plugin storage. Storage that cannot be read, or holds something else, hides nothing.
- */
-async function launchConversations(orca: OrcaWorkerApi, server: Connected): Promise<Set<string>> {
-  let stored: unknown
-  try {
-    stored = await orca.storage.get(CONVERSATIONS_KEY)
-  } catch {
-    return new Set()
-  }
-  const ids = isRecord(stored) ? own(stored, storeKey(server)) : undefined
-  return new Set(Array.isArray(ids) ? (ids as unknown[]).filter(isText) : [])
 }
 
 export type ChatListPorts = {
@@ -89,7 +87,7 @@ export function startChatList(orca: OrcaWorkerApi, ports: ChatListPorts): Dispos
     const request = parseChatsRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, chats: { kind: 'not-connected' } }
-    const chats = await readChats(ports.client, connection, request, context.signal, await launchConversations(orca, connection))
+    const chats = await readChats(ports.client, connection, request, context.signal, await launchedConversationIds(orca, connection))
     return { connection: await ports.current(), chats }
   })
 }
