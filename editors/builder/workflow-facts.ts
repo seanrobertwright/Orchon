@@ -3,7 +3,7 @@
 // the YAML a save would write. The copied Archon logic reads the definition; this module gathers
 // what the tab draws, once per definition, so nothing is derived again on a redraw. It is pure.
 import { fromWorkflowDefinition, toWorkflowDefinition } from './archon/model/index.ts'
-import type { BuilderNode, Issue, OpaqueKind, Severity, WireWorkflowDefinition } from './archon/types/index.ts'
+import type { BuilderNode, BuilderWorkflow, Issue, OpaqueKind, Severity, WireWorkflowDefinition } from './archon/types/index.ts'
 import { runValidation } from './archon/validation/index.ts'
 import { serializeToYaml } from './archon/yaml/index.ts'
 import { notEditableHere } from './not-editable.ts'
@@ -101,37 +101,58 @@ function nodeFacts(node: BuilderNode): NodeFacts {
 
 const issueFacts = (issue: Issue): IssueFacts => ({ severity: SEVERITY[issue.severity], rule: issue.rule, message: issue.message, nodeId: issue.path.nodeId ?? null })
 
+/** Each node's facts, kept while the node is unchanged: an edit replaces only the node it changes. */
+const nodeFactsCache = new WeakMap<BuilderNode, NodeFacts>()
+
+function cachedNodeFacts(node: BuilderNode): NodeFacts {
+  let found = nodeFactsCache.get(node)
+  if (found === undefined) {
+    found = nodeFacts(node)
+    nodeFactsCache.set(node, found)
+  }
+  return found
+}
+
+/**
+ * What the tab shows of a workflow under edit: the local rules run on it as it stands, after the
+ * issues opening found about the nodes still in it.
+ */
+export function workflowFactsOf(workflow: BuilderWorkflow, openingIssues: readonly Issue[]): WorkflowFacts {
+  const nodes = workflow.nodes.map(cachedNodeFacts)
+  const first = new Map<string, number>()
+  nodes.forEach((node, index) => {
+    if (!first.has(node.id)) first.set(node.id, index)
+  })
+  const edges: EdgeFacts[] = []
+  nodes.forEach((node, to) => {
+    for (const id of node.dependsOn) {
+      const from = first.get(id)
+      if (from !== undefined && from !== to) edges.push({ from, to })
+    }
+  })
+  edges.sort((a, b) => a.from - b.from || a.to - b.to)
+  const opening = openingIssues.filter((issue) => issue.path.nodeId === undefined || first.has(issue.path.nodeId))
+  const found = [...opening, ...runValidation(workflow)]
+    .map((issue, at) => ({ issue, at }))
+    .sort((a, b) => RANK[a.issue.severity] - RANK[b.issue.severity] || a.at - b.at)
+    .map(({ issue }) => issueFacts(issue))
+  return {
+    name: typeof workflow.name === 'string' ? workflow.name : '',
+    description: typeof workflow.description === 'string' ? workflow.description : '',
+    nodes,
+    edges,
+    issues: found,
+    yaml: serializeToYaml(toWorkflowDefinition(workflow)),
+    settingsYaml: settingsYaml(workflow.meta as Record<string, unknown>)
+  }
+}
+
 /** What the tab shows of a definition the worker checked, or null when the copied logic cannot read it. */
 export function workflowFacts(definition: Record<string, unknown>): WorkflowFacts | null {
   if (!Array.isArray(definition.nodes)) return null
   try {
     const { workflow, issues } = fromWorkflowDefinition(definition as unknown as WireWorkflowDefinition)
-    const nodes = workflow.nodes.map(nodeFacts)
-    const first = new Map<string, number>()
-    nodes.forEach((node, index) => {
-      if (!first.has(node.id)) first.set(node.id, index)
-    })
-    const edges: EdgeFacts[] = []
-    nodes.forEach((node, to) => {
-      for (const id of node.dependsOn) {
-        const from = first.get(id)
-        if (from !== undefined && from !== to) edges.push({ from, to })
-      }
-    })
-    edges.sort((a, b) => a.from - b.from || a.to - b.to)
-    const found = [...issues, ...runValidation(workflow)]
-      .map((issue, at) => ({ issue, at }))
-      .sort((a, b) => RANK[a.issue.severity] - RANK[b.issue.severity] || a.at - b.at)
-      .map(({ issue }) => issueFacts(issue))
-    return {
-      name: typeof workflow.name === 'string' ? workflow.name : '',
-      description: typeof workflow.description === 'string' ? workflow.description : '',
-      nodes,
-      edges,
-      issues: found,
-      yaml: serializeToYaml(toWorkflowDefinition(workflow)),
-      settingsYaml: settingsYaml(workflow.meta as Record<string, unknown>)
-    }
+    return workflowFactsOf(workflow, issues)
   } catch {
     return null
   }

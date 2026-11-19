@@ -240,7 +240,7 @@ describe('the inspector', () => {
     const group = withClass(inspector, 'not-editable')[0]
     assert.ok(group)
     assert.deepEqual(texts(group, 'h3'), ['Not editable here'])
-    assert.deepEqual(texts(group, 'li'), ['depends_on', 'include'])
+    assert.deepEqual(texts(group, 'li'), ['include'])
     assert.ok(texts(inspector, 'li').includes('nope'))
   })
 

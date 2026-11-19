@@ -66,8 +66,13 @@ describe('Not editable here', () => {
     assert.deepEqual(notEditableHere(opened({ id: 'a', prompt: 'p', future_field: { kept: true } })), ['future_field'])
   })
 
-  test('lists every field but the id of a node the builder shows read-only', () => {
-    const group = opened({ id: 'tdd', depends_on: ['a'], loop_group: { max_iterations: 2, nodes: [] } })
-    assert.deepEqual(notEditableHere(group), ['depends_on', 'loop_group'])
+  test('lists every field of a node the builder shows read-only but its id and the shared fields, which stay editable', () => {
+    const group = opened({ id: 'tdd', depends_on: ['a'], when: "$a.output == 'x'", description: 'd', trigger_rule: 'all_done', loop_group: { max_iterations: 2, nodes: [] }, model: 'opus' })
+    assert.deepEqual(notEditableHere(group), ['model', 'loop_group'])
+  })
+
+  test('lists no field the inspector has an editor for, the description included', () => {
+    assert.deepEqual(notEditableHere(opened({ id: 'a', prompt: 'p', description: 'Plans', persist_session: true })), [])
+    assert.deepEqual(notEditableHere(opened({ id: 'g', approval: { message: 'm', on_reject: { prompt: 'p', max_attempts: 2 } } })), [])
   })
 })

@@ -53,9 +53,9 @@ describe('the nodes of a workflow', () => {
     )
   })
 
-  test('list the fields that have no editor under "Not editable here", and every field but the id of a read-only node', () => {
+  test('list the fields that have no editor under "Not editable here", and every field of a read-only node but its id and the shared fields', () => {
     const read = facts({ name: 'x', nodes: [{ id: 'plan', prompt: 'p', future_field: 1 }, { id: 'sub', workflow: 'other', depends_on: ['plan'] }] })
-    assert.deepEqual(read.nodes.map((node) => node.notEditable), [['future_field'], ['depends_on', 'workflow']])
+    assert.deepEqual(read.nodes.map((node) => node.notEditable), [['future_field'], ['workflow']])
   })
 
   test('each carry their own YAML and their dependencies', () => {
