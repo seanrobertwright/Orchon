@@ -2,6 +2,7 @@
 // answers. It holds the run's facts, its steps and its waiting state only: no artifact listing,
 // no event payload and no step output crosses to the panel. It is types and constants only.
 import type { ConnectionAnswer } from './connection-view'
+import type { Question } from './run-answer-view'
 import type { RunStatus } from './runs-view'
 
 /** The most characters a run id a frame sends may have. */
@@ -103,6 +104,8 @@ export type RunDetail = {
   /** How many of Archon's steps could not be read and are not shown. */
   unreadableSteps: number
   waiting: Waiting | null
+  /** The open gate or attention wait of a paused run, which the answer block shows. Left out when there is none. */
+  question?: Question
   /** Set when Archon's `owner_observation` says the run's owner is unreachable. Left out otherwise. */
   ownerUnreachable?: true
 }

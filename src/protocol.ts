@@ -4,6 +4,7 @@ import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
 import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
+import type { RunAnswerRequest } from './run-answer-view'
 import type { RunControlAnswer, RunControlRequest } from './run-control-view'
 import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
@@ -31,6 +32,8 @@ declare module 'orca' {
     'artifact.read': { input: ArtifactRequest; output: ArtifactAnswer }
     /** Cancel, Abandon, Resume or Try now on one run: sent once, never tried again. */
     'run.control': { input: RunControlRequest; output: RunControlAnswer }
+    /** Answers a gate through `respond` or an attention wait through `answer`, guarded by the question it was written for: sent once, never tried again. */
+    'run.answer': { input: RunAnswerRequest; output: RunControlAnswer }
     /** The project scope of the focused workspace. It takes no input. */
     'scope.read': { output: ScopeAnswer }
     /** Links the focused Orca project to an Archon project Archon lists, or changes its link. */

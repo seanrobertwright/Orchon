@@ -10,6 +10,8 @@ import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
+import { questionOf } from './questions'
+import type { Question } from './run-answer-view'
 import type { WorkspaceRow } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, ownRecord, refuseRequest } from './records'
@@ -291,6 +293,7 @@ function parseRunDetail(value: unknown): ParsedRun | null {
   const steps = orderSteps(parsedNodes, events)
   const live = LIVE.includes(status)
   const text = message ?? ''
+  const question = questionOf(run, metadata)
   return {
     id,
     workflow,
@@ -307,6 +310,7 @@ function parseRunDetail(value: unknown): ParsedRun | null {
     unreadableSteps: nodes.length - parsedNodes.length,
     waiting: live ? (attentionWaiting(run) ?? waitOf(metadata)) : null,
     children: live ? childIds(run) : null,
+    ...(question === null ? {} : { question }),
     ...(own(run, 'owner_observation') === 'unreachable' ? { ownerUnreachable: true as const } : {})
   }
 }
@@ -327,6 +331,8 @@ export type RunDetailPorts = {
   workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
   /** Why Open graph is off for a run with or without a project, or null when it is on. Never off when left out. */
   graphOff?(hasProject: boolean): Promise<string | null>
+  /** Told the question of each run read, or null when it waits on none or is gone, so an answer can be checked against it. */
+  questionRead?(runId: string, question: Question | null): void
   now(): number
 }
 
@@ -374,8 +380,10 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
   /** The run's view, and for a ready run why Open graph is off, when it is. */
   async function read(server: Connected, request: RunDetailRequest, signal: AbortSignal): Promise<Omit<RunDetailAnswer, 'connection'>> {
     const fetched = await readRun(ports.client, server, request.runId, signal)
+    if (fetched.kind === 'gone') ports.questionRead?.(request.runId, null)
     if (fetched.kind !== 'run') return { run: fetched }
     const parsed = fetched.run
+    ports.questionRead?.(request.runId, parsed.question ?? null)
     const open = request.open === true
     const { codebaseId, children, waiting, ...facts } = parsed
     const project = codebaseId === null ? null : await projectName(server, codebaseId, open, signal)

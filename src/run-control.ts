@@ -7,6 +7,7 @@ import type { Client, ClientResult } from './client'
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import { isRecord, isText, own, refuseRequest } from './records'
+import { answerWrite, parseRunAnswerRequest, STALE_ANSWER_TEXT, type QuestionMemory } from './run-answer'
 import { RUN_PATH } from './run-detail'
 import { RUN_ACTIONS, SERVER_TEXT_CAP, type RunControlAnswer, type RunControlOutcome, type RunControlRequest } from './run-control-view'
 
@@ -69,13 +70,39 @@ export const WRITE_IN_FLIGHT_TEXT = 'Another change to this run is still waiting
 export type RunControlPorts = {
   client: Client
   current(): Promise<ConnectionView>
+  /** The question run detail last read for each run, which an answer must be written for. No answer is taken when left out. */
+  questions?: QuestionMemory
 }
 
-/** Answers the frames' `run.control`. */
+/** Answers the frames' `run.control` and `run.answer`, one write per run at a time across both. */
 export function startRunControl(orca: OrcaWorkerApi, ports: RunControlPorts): Disposable {
   /** The runs with a write in flight. A run is in it from the check to the answer. */
   const writing = new Set<string>()
-  return orca.panels.handle('run.control', async (input): Promise<RunControlAnswer> => {
+  const answers = orca.panels.handle('run.answer', async (input): Promise<RunControlAnswer> => {
+    const request = parseRunAnswerRequest(input)
+    if (writing.has(request.runId)) {
+      return { connection: await ports.current(), outcome: { kind: 'refused', status: null, message: WRITE_IN_FLIGHT_TEXT } }
+    }
+    writing.add(request.runId)
+    try {
+      const connection = await ports.current()
+      if (connection.kind !== 'connected') return { connection, outcome: { kind: 'not-connected' } }
+      const write = answerWrite(request, ports.questions?.lastRead(request.runId))
+      if (write === null) return { connection, outcome: { kind: 'refused', status: null, message: STALE_ANSWER_TEXT } }
+      const result = await ports.client.request({
+        baseUrl: connection.baseUrl,
+        path: `${RUN_PATH}${encodeURIComponent(request.runId)}/${write.route}`,
+        method: 'POST',
+        body: write.body,
+        timeout: 'write',
+        errorBody: true
+      })
+      return { connection: await ports.current(), outcome: controlOutcome(result) }
+    } finally {
+      writing.delete(request.runId)
+    }
+  })
+  const controls = orca.panels.handle('run.control', async (input): Promise<RunControlAnswer> => {
     const request = parseRunControlRequest(input)
     if (writing.has(request.runId)) {
       return { connection: await ports.current(), outcome: { kind: 'refused', status: null, message: WRITE_IN_FLIGHT_TEXT } }
@@ -98,4 +125,10 @@ export function startRunControl(orca: OrcaWorkerApi, ports: RunControlPorts): Di
       writing.delete(request.runId)
     }
   })
+  return {
+    dispose() {
+      answers.dispose()
+      controls.dispose()
+    }
+  }
 }
