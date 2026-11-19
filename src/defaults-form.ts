@@ -66,7 +66,7 @@ export function defaultsForm(): GroupSpec {
       for (const [id, saved] of config.models) put(modelField(id), saved)
       put(CODEX_EFFORT, config.codexEffort)
       put(CODEX_WEB_SEARCH, config.codexWebSearch)
-      return { values, unreadable }
+      return { values, unreadable, shown: {} }
     },
 
     keyOf: (fieldId) => fieldId,

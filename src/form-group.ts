@@ -8,8 +8,11 @@ import type { FieldOption, FormField, FormGroupId } from './forms-view'
 /** Field values by field id. An empty string is nothing chosen or typed. */
 export type Values = Record<string, string>
 
-/** A group's values as last loaded from Archon, and the fields whose saved value is unreadable. */
-export type Loaded = { values: Values; unreadable: ReadonlySet<string> }
+/**
+ * A group's values as last loaded from Archon, the fields whose saved value is unreadable, and
+ * text the group draws from the same read but never compares or sends, such as a placeholder.
+ */
+export type Loaded = { values: Values; unreadable: ReadonlySet<string>; shown: Values }
 
 export type GroupContext = { providers: Providers }
 

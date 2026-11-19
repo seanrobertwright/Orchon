@@ -14,8 +14,9 @@ import { readFailureText, unreadableAnswerText } from './read-failure'
 import { isRecord, own, refuseRequest } from './records'
 import { tiersForm } from './tiers-form'
 
-/** The groups, in the order the section shows them. */
-const GROUP_IDS: readonly FormGroupId[] = ['defaults', 'tiers']
+/** The groups, in the order the section shows them. A spec holds no state, so one list serves every worker. */
+const SPECS: readonly GroupSpec[] = [defaultsForm(), tiersForm()]
+const GROUP_IDS: readonly FormGroupId[] = SPECS.map((spec) => spec.id)
 
 /** A value from a frame longer than this is refused, not cut. The field's own limit is checked on Save. */
 const VALUE_LENGTH = 1_000
@@ -87,7 +88,7 @@ const EMPTY_PROVIDERS: Providers = { shown: [], all: new Map(), more: 0, unreada
 
 export function createSettingsForms(ports: SettingsFormsPorts): SettingsForms {
   const groups = new Map<FormGroupId, GroupState>(
-    [defaultsForm(), tiersForm()].map((spec) => [spec.id, { spec, loaded: null, current: {}, saving: false, notice: null, conflict: null }])
+    SPECS.map((spec) => [spec.id, { spec, loaded: null, current: {}, saving: false, notice: null, conflict: null }])
   )
   let providers: Providers = EMPTY_PROVIDERS
   let failure: string | null = null

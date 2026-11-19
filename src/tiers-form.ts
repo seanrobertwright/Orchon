@@ -42,27 +42,26 @@ function tierOf(fieldId: string): TierName {
 const resolved = (preset: Preset | null): string => (preset === null ? 'No built-in default' : `${preset.provider}/${preset.model}`)
 
 export function tiersForm(): GroupSpec {
-  /** Kept from the newest config read, for the placeholders and the summary. */
-  let defaults: Record<TierName, Preset | null> = { small: null, medium: null, large: null }
-
   return {
     id: 'tiers',
     title: 'Model tiers',
     path: TIERS_PATH,
 
     load(config: ConfigFacts): Loaded {
-      defaults = config.tierDefaults
       const values: Values = {}
       const unreadable = new Set<string>()
+      // What each unset tier resolves to, for its model placeholder and the summary.
+      const shown: Values = {}
       for (const tier of TIER_NAMES) {
         const saved = config.tiers[tier]
         const set = saved.kind === 'set' ? saved.value : null
         values[provider(tier)] = set?.provider ?? ''
         values[model(tier)] = set?.model ?? ''
         values[effort(tier)] = set?.effort ?? ''
+        shown[tier] = resolved(config.tierDefaults[tier])
         if (saved.kind === 'unreadable') for (const fieldId of [provider(tier), model(tier), effort(tier)]) unreadable.add(fieldId)
       }
-      return { values, unreadable }
+      return { values, unreadable, shown }
     },
 
     keyOf: tierOf,
@@ -91,7 +90,7 @@ export function tiersForm(): GroupSpec {
           id: model(tier),
           label: `${TITLES[tier]} model`,
           value: current[model(tier)] ?? '',
-          placeholder: resolved(defaults[tier]),
+          placeholder: loaded.shown[tier] ?? resolved(null),
           maxLength: MODEL_LENGTH,
           error: error(model(tier))
         })
@@ -158,7 +157,7 @@ export function tiersForm(): GroupSpec {
       const parts = TIER_NAMES.map((tier) => {
         if (loaded.unreadable.has(provider(tier))) return `${tier} Unreadable`
         const chosen = loaded.values[provider(tier)] ?? ''
-        return `${tier} ${chosen === '' ? resolved(defaults[tier]) : `${chosen}/${loaded.values[model(tier)] ?? ''}`}`
+        return `${tier} ${chosen === '' ? (loaded.shown[tier] ?? resolved(null)) : `${chosen}/${loaded.values[model(tier)] ?? ''}`}`
       })
       const text = parts.join(', ')
       return text.charAt(0).toUpperCase() + text.slice(1)
