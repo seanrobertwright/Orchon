@@ -43,7 +43,7 @@ import { SERVER_TEXT_CAP } from './run-control-view'
 import { RUN_ID_CAP } from './run-detail-view'
 import { PROJECT_ID_CAP, REMOTE_WORKSPACE } from './scope-view'
 import { readRun } from './run-detail'
-import { rerunDraft, rerunRefusal, rerunSourceOf } from './rerun'
+import { rerunDraft, rerunProject, rerunRefusal, rerunSourceOf } from './rerun'
 import { NOT_CONNECTED_TEXT } from './worker-words'
 import { parseWorkflowList, WORKFLOWS_CAP_BYTES, WORKFLOWS_PATH, type WorkflowList } from './workflows-list'
 
@@ -674,7 +674,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     }
     const refusal = rerunRefusal({
       status: run.status,
-      project: run.codebaseId === null ? 'none' : project === undefined ? 'unlisted' : 'listed',
+      project: rerunProject(run.codebaseId, project !== undefined),
       remote: focused.kind === 'remote'
     })
     // `rerunRefusal` refuses a project that is not listed; the second test only narrows the type.

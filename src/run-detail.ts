@@ -33,7 +33,7 @@ import {
   type StepState,
   type Waiting
 } from './run-detail-view'
-import { rerunRefusal } from './rerun'
+import { rerunProject, rerunRefusal } from './rerun'
 import { workspaceIdFor } from './runs-table'
 import { RUN_STATUSES, type RunStatus } from './runs-view'
 
@@ -412,7 +412,7 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
     const rerun =
       rerunRefusal({
         status: detail.status,
-        project: codebaseId === null ? 'none' : project === null ? 'unlisted' : 'listed',
+        project: rerunProject(codebaseId, project !== null),
         remote: (await ports.remote?.()) ?? false
       }) === null
     return { run: { kind: 'ready', detail }, ...(graphOff === null ? {} : { graphOff }), ...(rerun ? { rerun: true as const } : {}) }
