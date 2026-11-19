@@ -8,9 +8,13 @@ import { createSession, type Session } from './session.ts'
 
 const json = (body: unknown, status = 200): Answer => ({ status, contentType: 'application/json', body })
 
+/** The bundled workflow the recorder must never launch. The stand-in lists it as bundled. */
+const CLEANUP = 'archon-worktree-cleanup'
+
 /**
- * A release that registers the project and creates conversations, and reads every workflow as
- * `loaded` says. Everything else it does not know. It keeps each request it was sent.
+ * A release that registers the project and creates conversations, lists one bundled workflow,
+ * `archon-worktree-cleanup`, and reads every workflow of the recorder's as `loaded` says.
+ * Everything else it does not know. It keeps each request it was sent.
  */
 function standInRelease(loaded: (name: string) => unknown): { client: LoopbackClient; sent: string[] } {
   const sent: string[] = []
@@ -22,7 +26,10 @@ function standInRelease(loaded: (name: string) => unknown): { client: LoopbackCl
       if (route === 'GET /api/health') return json({ status: 'ok', version: '0.0.0' })
       if (route === 'GET /api/openapi.json') return json({ paths: { '/api/auth/status': { get: {} } } })
       if (route === 'POST /api/codebases') return json({ id: 'project-1', default_cwd: '/tmp/throwaway/project' }, 201)
-      if (route === 'GET /api/workflows') return json({ workflows: [] })
+      if (route === 'GET /api/workflows') return json({ workflows: [{ source: 'bundled', workflow: { name: CLEANUP } }] })
+      if (route === `GET /api/workflows/${CLEANUP}`) {
+        return json({ source: 'bundled', filename: `${CLEANUP}.yaml`, workflow: { name: CLEANUP, nodes: [{ id: 'a', kind: 'exec' }] } })
+      }
       if (route === 'POST /api/conversations') return json({ id: 'conversation-1', conversationId: 'web-1' })
       const workflow = /^GET \/api\/workflows\/(orchon-recorder-[a-z]+)$/.exec(route)
       if (workflow?.[1] !== undefined) return json(loaded(workflow[1]))
@@ -73,16 +80,20 @@ describe('a recording run', () => {
     assert.deepEqual(launches(sent), [])
   })
 
-  test('never sends a chat message, and asks for no bundled workflow by name', async () => {
-    const { sent } = await withAgent
-    assert.deepEqual(
-      sent.filter((request) => /^POST \/api\/conversations\/[^/]+\/message$/.test(request)),
-      []
-    )
-    assert.deepEqual(
-      sent.filter((request) => request.includes('archon-worktree-cleanup')),
-      []
-    )
+  test('never sends a chat message, and reads archon-worktree-cleanup without launching it', async () => {
+    for (const run of [withAgent, fromBundled, unknown]) {
+      const { session, sent } = await run
+      assert.deepEqual(
+        sent.filter((request) => /^POST \/api\/conversations\/[^/]+\/message$/.test(request)),
+        []
+      )
+      // Its load answer is recorded like every bundled workflow's, and nothing else is sent for it.
+      assert.deepEqual(
+        sent.filter((request) => request.includes(CLEANUP)),
+        [`GET /api/workflows/${CLEANUP}`]
+      )
+      assert.ok(session.files.some((file) => file.path === `workflows/${CLEANUP}.json`))
+    }
   })
 
   test('goes on after a scenario fails, and notes it as a gap', async () => {
