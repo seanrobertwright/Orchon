@@ -11,8 +11,8 @@ import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
 import { formatDateTime } from './dates'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { cappedTextRefusal, isCappedText, isRecord, isText, own, ownRecord, refuseRequest } from './records'
-import { parseRunDetail, RUN_PATH } from './run-detail'
+import { cappedTextRefusal, isCappedText, isRecord, isText, own, ownRecord, refuseOtherKeys, refuseRequest } from './records'
+import { readRun } from './run-detail'
 import { RUN_ID_CAP, type Step } from './run-detail-view'
 import { statusText } from './run-status-words'
 import type { RunStatus } from './runs-view'
@@ -38,9 +38,7 @@ export function parseGraphRequest(input: unknown): GraphRequest {
   if (!isCappedText(runId, RUN_ID_CAP)) refuseRequest(cappedTextRefusal('The run id', RUN_ID_CAP))
   const locale = own(input, 'locale')
   if (typeof locale !== 'string' || !LOCALE.test(locale)) refuseRequest('The language must be a language tag such as en-US.')
-  for (const key of Object.keys(input)) {
-    if (key !== 'runId' && key !== 'locale') refuseRequest(`The run graph request does not take ${key}.`)
-  }
+  refuseOtherKeys(input, ['runId', 'locale'], 'The run graph request')
   return { runId, locale }
 }
 
@@ -158,13 +156,9 @@ export function startRunGraph(orca: OrcaWorkerApi, ports: RunGraphPorts): Dispos
     ports.client.request({ baseUrl: server.baseUrl, path, timeout: 'read', signal })
 
   async function read(server: Connected, request: GraphRequest, signal: AbortSignal): Promise<GraphView> {
-    const answer = await get(server, `${RUN_PATH}${encodeURIComponent(request.runId)}`, signal)
-    if (!answer.ok) {
-      if (answer.failure.kind === 'status' && answer.failure.status === 404) return { kind: 'gone' }
-      return { kind: 'failed', message: readFailureText(answer.failure) }
-    }
-    const run = parseRunDetail(answer.value)
-    if (run === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
+    const fetched = await readRun(ports.client, server, request.runId, signal)
+    if (fetched.kind !== 'run') return fetched
+    const { run } = fetched
     const live = LIVE.includes(run.status)
     const started = run.startedAt === null ? '' : formatDateTime(run.startedAt, request.locale)
     const header: GraphHeader = { workflow: run.workflow, shortId: run.id.slice(0, 8), state: statusText(run.status), started, finished: !live }
@@ -189,7 +183,7 @@ export function startRunGraph(orca: OrcaWorkerApi, ports: RunGraphPorts): Dispos
 
     const ran = new Map(run.steps.map((step) => [step.id, step]))
     const fileIds = new Set((nodes ?? []).map((node) => node.id))
-    const mismatch = nodes === null ? 'deleted' : mismatched(runTopIds(answer.value, run.steps), fileIds, live) ? 'changed' : null
+    const mismatch = nodes === null ? 'deleted' : mismatched(runTopIds(fetched.value, run.steps), fileIds, live) ? 'changed' : null
     if (mismatch !== null || nodes === null) {
       if (run.stepCount > GRAPH_STEPS_CAP) return { kind: 'too-many', header, count: run.stepCount, cap: GRAPH_STEPS_CAP }
       return { kind: 'ready', header, mismatch: mismatch ?? 'deleted', steps: fromRun(run.steps, run.status), edges: [] }

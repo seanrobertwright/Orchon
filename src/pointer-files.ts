@@ -1,7 +1,8 @@
 // Pointer files (#33, "The panel shell"): the files the worker writes into `.orchon/` at the root
 // of the focused local workspace so Orca opens a wide tab on them. This module is pure logic:
 // their names, their content and which of the folder's files a sweep deletes. The writes go
-// through the disk module, in `wide-tabs.ts`.
+// through the disk module, in `wide-tabs.ts`; only its entry type is imported here.
+import type { DiskEntry } from './disk'
 
 /** The folder at the workspace root that holds the pointer files and nothing else of the plugin's. */
 export const POINTER_FOLDER = '.orchon'
@@ -44,15 +45,12 @@ export function runPointerText(runId: string): string {
 /** A name the plugin writes: safe characters and one of its two suffixes. */
 const OWN_POINTER = /^[A-Za-z0-9_-]+\.(?:orchonrun|orchonflow)$/
 
-/** One entry of the folder, as the disk module lists it. */
-export type FolderEntry = { name: string; modifiedMs: number; file: boolean }
-
 /**
  * The names a sweep deletes: the plugin's own pointer files older than 7 days, then all but the
  * newest 20 of the rest. `keep` is never deleted, and counts towards the 20. Anything that is not
  * one of the plugin's own pointer files is never named.
  */
-export function sweepPlan(entries: readonly FolderEntry[], now: number, keep?: string): string[] {
+export function sweepPlan(entries: readonly DiskEntry[], now: number, keep?: string): string[] {
   const own = entries.filter((entry) => entry.file && OWN_POINTER.test(entry.name))
   const doomed = new Set<string>()
   for (const entry of own) if (entry.name !== keep && now - entry.modifiedMs > POINTER_AGE_CAP_MS) doomed.add(entry.name)

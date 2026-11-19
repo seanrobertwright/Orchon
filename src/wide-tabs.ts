@@ -10,9 +10,8 @@ import type { ConnectionView } from './connection-view'
 import type { Disk } from './disk'
 import { GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan } from './pointer-files'
 import type { FocusedWorkspace } from './project-scope'
-import { readFailureText, unreadableAnswerText } from './read-failure'
-import { cappedTextRefusal, isCappedText, isRecord, own, refuseRequest } from './records'
-import { parseRunDetail, RUN_PATH } from './run-detail'
+import { parseOneText } from './records'
+import { readRun } from './run-detail'
 import { RUN_ID_CAP } from './run-detail-view'
 import { REMOTE_WORKSPACE } from './scope-view'
 import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
@@ -31,10 +30,7 @@ const GITIGNORE_CAP_BYTES = 1024
 
 /** Open graph's input, or a refusal: a run id of 1 to the cap and nothing else. */
 export function parseGraphOpenRequest(input: unknown): GraphOpenRequest {
-  if (!isRecord(input)) refuseRequest('Open graph takes a run id.')
-  const runId = own(input, 'runId')
-  if (!isCappedText(runId, RUN_ID_CAP)) refuseRequest(cappedTextRefusal('The run id', RUN_ID_CAP))
-  for (const key of Object.keys(input)) if (key !== 'runId') refuseRequest(`Open graph does not take ${key}.`)
+  const runId = parseOneText(input, { name: 'Open graph', shape: 'Open graph takes a run id.', key: 'runId', field: 'The run id', cap: RUN_ID_CAP })
   return { runId }
 }
 
@@ -100,17 +96,9 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     if (focused.kind !== 'local') return refused(focused.kind === 'none' ? NO_WORKSPACE_TAB : REMOTE_WORKSPACE)
     const held = off.get(focused.workspaceId)
     if (held !== undefined) return refused(held)
-    const answer = await ports.client.request({
-      baseUrl: connection.baseUrl,
-      path: `${RUN_PATH}${encodeURIComponent(request.runId)}`,
-      timeout: 'read',
-      signal
-    })
-    if (!answer.ok) {
-      return refused(answer.failure.kind === 'status' && answer.failure.status === 404 ? RUN_GONE : readFailureText(answer.failure))
-    }
-    const run = parseRunDetail(answer.value)
-    if (run === null) return refused(unreadableAnswerText(connection.version))
+    const fetched = await readRun(ports.client, connection, request.runId, signal)
+    if (fetched.kind !== 'run') return refused(fetched.kind === 'gone' ? RUN_GONE : fetched.message)
+    const { run } = fetched
     if (run.codebaseId === null) return refused(NO_PROJECT_GRAPH)
     const folder = folderOf(focused.root)
     const name = runPointerName(run.workflow, run.id)

@@ -194,7 +194,7 @@ function waitOf(metadata: Record<string, unknown>): Waiting | null {
 }
 
 /** A run as run detail reads it, before its lookups. */
-type ParsedRun = Omit<RunDetail, 'project' | 'waiting'> & {
+export type ParsedRun = Omit<RunDetail, 'project' | 'waiting'> & {
   codebaseId: string | null
   waiting: Waiting | null
   /** The sub-runs it waits on, or null when it waits on none. */
@@ -202,9 +202,27 @@ type ParsedRun = Omit<RunDetail, 'project' | 'waiting'> & {
 }
 
 const LIVE: readonly RunStatus[] = ['running', 'paused', 'pending']
+/** One read of `GET runs/{id}`: the parsed run with the answer it came from, gone on a 404, or why it failed. */
+export type RunRead = { kind: 'run'; run: ParsedRun; value: unknown } | { kind: 'gone' } | { kind: 'failed'; message: string }
+
+/** Reads and parses one run. A 404 means the run is gone; any other failure, or an answer it cannot parse, is failed with the reason. */
+export async function readRun(
+  client: Client,
+  server: Pick<Connected, 'baseUrl' | 'version'>,
+  runId: string,
+  signal: AbortSignal
+): Promise<RunRead> {
+  const answer = await client.request({ baseUrl: server.baseUrl, path: `${RUN_PATH}${encodeURIComponent(runId)}`, timeout: 'read', signal })
+  if (!answer.ok) {
+    if (answer.failure.kind === 'status' && answer.failure.status === 404) return { kind: 'gone' }
+    return { kind: 'failed', message: readFailureText(answer.failure) }
+  }
+  const run = parseRunDetail(answer.value)
+  return run === null ? { kind: 'failed', message: unreadableAnswerText(server.version) } : { kind: 'run', run, value: answer.value }
+}
 
 /** Archon's answer, or null when the run as a whole cannot be read. */
-export function parseRunDetail(value: unknown): ParsedRun | null {
+function parseRunDetail(value: unknown): ParsedRun | null {
   if (!isRecord(value)) return null
   const run = own(value, 'run')
   if (!isRecord(run)) return null
@@ -314,13 +332,9 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
 
   /** The run's view, and for a ready run why Open graph is off, when it is. */
   async function read(server: Connected, request: RunDetailRequest, signal: AbortSignal): Promise<Omit<RunDetailAnswer, 'connection'>> {
-    const answer = await get(server, `${RUN_PATH}${encodeURIComponent(request.runId)}`, signal)
-    if (!answer.ok) {
-      if (answer.failure.kind === 'status' && answer.failure.status === 404) return { run: { kind: 'gone' } }
-      return { run: { kind: 'failed', message: readFailureText(answer.failure) } }
-    }
-    const parsed = parseRunDetail(answer.value)
-    if (parsed === null) return { run: { kind: 'failed', message: unreadableAnswerText(server.version) } }
+    const fetched = await readRun(ports.client, server, request.runId, signal)
+    if (fetched.kind !== 'run') return { run: fetched }
+    const parsed = fetched.run
     const open = request.open === true
     const { codebaseId, children, waiting, ...facts } = parsed
     const project = codebaseId === null ? null : await projectName(server, codebaseId, open, signal)
