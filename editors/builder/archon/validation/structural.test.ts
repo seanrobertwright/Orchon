@@ -139,6 +139,22 @@ describe('validateStructural', () => {
     }
   });
 
+  // Orchon: the property's `type` is read only when the property holds it itself (see UPSTREAM.md).
+  test('until_field reads only a type the property holds itself', () => {
+    const inherited = Object.create({ type: 'string' }) as Record<string, unknown>;
+    const issues = validateStructural(
+      wf([
+        {
+          id: 'l',
+          variant: 'loop',
+          base: { output_format: { properties: { done: inherited }, required: ['done'] } },
+          data: { prompt: 'iterate', max_iterations: 5, fresh_context: false, until_field: 'done' },
+        },
+      ])
+    );
+    expect(issues.filter(issue => issue.path.field === 'loop.until_field')).toEqual([]);
+  });
+
   test('a blank channel is flagged even when its sibling is valid', () => {
     // The at-least-one rule only fires when NO channel is declared, so these two
     // shapes are caught by the per-channel checks. Both are broken at runtime:

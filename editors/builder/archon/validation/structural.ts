@@ -108,9 +108,11 @@ function checkUntilField(field: string, schema: Record<string, unknown> | undefi
     issues.push(`loop.until_field '${field}' must be listed in output_format.required`);
   }
   const property: unknown = Reflect.get(properties, field);
-  const type =
-    property !== null && typeof property === 'object' && 'type' in property
-      ? property.type
+  // Orchon: `Object.hasOwn`, where upstream tests `'type' in property`, so a
+  // `type` the property only inherits is not read.
+  const type: unknown =
+    property !== null && typeof property === 'object' && Object.hasOwn(property, 'type')
+      ? Reflect.get(property, 'type')
       : undefined;
   if (typeof type === 'string' && type !== 'boolean') {
     issues.push(`loop.until_field '${field}' must have type 'boolean', not '${type}'`);

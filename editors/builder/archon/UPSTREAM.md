@@ -84,6 +84,9 @@ is React and React Flow, and the plugin draws its own screens.
   Only `structural.id.empty`, `structural.id.duplicate`, `graph.ref.unknown` and `graph.cycle`
   are errors, and only they block a save (`../save-blockers.ts`). `content.var.unknown` is a
   warning upstream too.
+- `validation/structural.ts`: the `until_field` check reads the property's `type` only when the
+  property holds it itself (`Object.hasOwn`), where upstream tests `'type' in property`. The
+  plugin tests plain objects with `Object.hasOwn`.
 - `validation/structural.ts`: the wait timestamp check reads the calendar from the digits (month
   length, leap years, hours to 23, minutes and seconds to 59) in place of a round-trip through
   `new Date(value)`. The plugin reads dates only in its date helper. It accepts and refuses the
@@ -101,7 +104,8 @@ is React and React Flow, and the plugin draws its own screens.
   are rewritten to pin the plugin's: each input opens read-only or keeps its field, with an
   `info` issue, and saves unchanged.
 - `validation/structural.test.ts` gains the test "wait timestamps must name a real UTC calendar
-  instant", which pins the timestamps the upstream check accepted and refused.
+  instant", which pins the timestamps the upstream check accepted and refused, and the test
+  "until_field reads only a type the property holds itself".
 
 ### Comments kept as upstream wrote them
 
