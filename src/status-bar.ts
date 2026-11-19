@@ -23,12 +23,16 @@ const TEXT: Record<ConnectionView['kind'], string> = {
   connected: 'Archon',
   searching: 'Archon…',
   'not-found': 'Archon off',
-  'bad-setting': 'Archon setup'
+  'bad-setting': 'Archon setup',
+  unsupported: 'Archon setup'
 }
 
-/** What the item shows for a connection state. A stopped Archon is ordinary, so it is neutral. */
+/**
+ * What the item shows for a connection state. A stopped Archon is ordinary, so it is neutral; a
+ * refused setting and an unsupported server need the person, so they warn.
+ */
 export function statusItem(view: ConnectionView): StatusItem {
-  const warns = view.kind === 'bad-setting'
+  const warns = view.kind === 'bad-setting' || view.kind === 'unsupported'
   return {
     text: TEXT[view.kind],
     icon: warns ? 'warning' : 'bot',

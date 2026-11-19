@@ -2,15 +2,17 @@
 // Orchon is not connected. One message at a time, in Orca's own components, and every state is
 // told in words as well as by its icon.
 import { Button, Code, EmptyState, Link, Row, Spinner, Stack, Text, type OrcaNode } from 'orca'
-import type { BadSetting, ConnectionView, NotFound } from './connection-view'
+import type { AddressSource, BadSetting, ConnectionView, NotFound, Unsupported } from './connection-view'
 import {
   BAD_SETTING_TITLE,
+  FLOOR_RELEASE,
   INSTALL_URL,
   isHomeMissing,
   NO_HOME_TITLE,
   NOT_RUNNING_TITLE,
   SEARCHING_LABEL,
-  SETTING_LABELS
+  SETTING_LABELS,
+  UNSUPPORTED_TITLE
 } from './connection-words'
 
 export type StateScreenActions = {
@@ -109,6 +111,49 @@ function badSetting(view: BadSetting, actions: StateScreenActions): OrcaNode {
   )
 }
 
+/** Where an address came from, as the words that follow it. */
+function addressFrom(source: AddressSource, homeFolder: string | null): OrcaNode {
+  switch (source) {
+    case 'setting':
+      return '(from the Base URL setting)'
+    case 'server-json':
+      return homeFolder === null ? (
+        <>
+          (from <Code>server.json</Code>)
+        </>
+      ) : (
+        <>
+          (from <Code>server.json</Code> in <Code>{homeFolder}</Code>)
+        </>
+      )
+    case 'default':
+      return '(the default address)'
+  }
+}
+
+/**
+ * The server answered, but lacks paths Orchon needs. It never says the server is too old: a fork
+ * or a source build can report a release past the floor and still lack one.
+ */
+function unsupportedScreen(view: Unsupported, actions: StateScreenActions): OrcaNode {
+  const reports = view.version === null ? '' : `reports Archon ${view.version} and `
+  return (
+    <EmptyState title={UNSUPPORTED_TITLE} icon="warning">
+      <Text>
+        The server at <Code>{view.baseUrl}</Code> {addressFrom(view.source, view.settings.homeFolder)} {reports}lacks
+        parts of Archon's API that Orchon needs. Orchon works with Archon {FLOOR_RELEASE} or newer. Checking again
+        every 30 seconds.
+      </Text>
+      <Row gap="sm" wrap justify="center">
+        <Button onPress={actions.tryAgain}>Try again</Button>
+        <Button variant="outline" onPress={actions.openSettings}>
+          Connection settings
+        </Button>
+      </Row>
+    </EmptyState>
+  )
+}
+
 /**
  * The screen for a connection state, or null when Orchon is connected and the section shows its
  * own content. A panel the worker has not answered yet has no state: it shows the spinner too.
@@ -128,5 +173,7 @@ export function stateScreen(view: ConnectionView | null, actions: StateScreenAct
       return isHomeMissing(view) ? noHome(view, actions) : notRunning(view, actions)
     case 'bad-setting':
       return badSetting(view, actions)
+    case 'unsupported':
+      return unsupportedScreen(view, actions)
   }
 }

@@ -3,17 +3,18 @@
 import { assert, describe, test } from 'orca/testing'
 import {
   ARCHON_HOME,
+  DEFAULT,
   DEFAULT_HEALTH,
+  DEFAULT_OPENAPI,
   HANG,
   health,
   html,
   json,
   scene,
   SERVER_RECORD,
+  urls,
   type Scene
 } from '../scripts/scripted-archon.ts'
-
-const DEFAULT = 'http://127.0.0.1:3090'
 
 /** A scene whose Archon home folder exists and holds this `server.json`. */
 function withRecord(record: unknown): Scene {
@@ -22,8 +23,6 @@ function withRecord(record: unknown): Scene {
   stage.disk.files.set(SERVER_RECORD, typeof record === 'string' ? record : JSON.stringify(record))
   return stage
 }
-
-const urls = (stage: Scene): string[] => stage.archon.calls.map((call) => call.url)
 
 describe('discovery', () => {
   test('with nothing set and no server.json, finds Archon at the default address', async () => {
@@ -40,7 +39,8 @@ describe('discovery', () => {
         baseUrl: DEFAULT,
         source: 'default',
         version: '0.12.1',
-        storeId: 'store-a'
+        storeId: 'store-a',
+        features: { metrics: false }
       }
     )
     assert.equal(stage.archon.calls[0]?.url, DEFAULT_HEALTH)
@@ -64,7 +64,8 @@ describe('discovery', () => {
     assert.equal(state.kind, 'connected')
     if (state.kind !== 'connected') return
     assert.deepEqual([state.baseUrl, state.source, state.version], ['http://localhost:4000', 'setting', '0.14.0'])
-    assert.deepEqual(urls(stage), ['http://localhost:4000/api/health'])
+    // The path list is read from the confirmed address too, and from nowhere else.
+    assert.deepEqual(urls(stage), ['http://localhost:4000/api/health', 'http://localhost:4000/api/openapi.json'])
     assert.deepEqual(stage.disk.asked, [])
   })
 
@@ -89,7 +90,7 @@ describe('discovery', () => {
     assert.equal(state.kind, 'connected')
     if (state.kind !== 'connected') return
     assert.deepEqual([state.baseUrl, state.source, state.version], ['http://127.0.0.1:4100', 'server-json', '0.13.2'])
-    assert.deepEqual(urls(stage), ['http://127.0.0.1:4100/api/health'])
+    assert.deepEqual(urls(stage), ['http://127.0.0.1:4100/api/health', 'http://127.0.0.1:4100/api/openapi.json'])
   })
 
   test('reads the other loopback spellings of a host in server.json', async () => {
@@ -168,7 +169,7 @@ describe('discovery', () => {
       stage.archon.answer(DEFAULT_HEALTH, health())
       const state = (await stage.mount()).latest()
       assert.equal(state.kind === 'connected' && state.source, 'default', JSON.stringify(record))
-      assert.deepEqual(urls(stage), [DEFAULT_HEALTH], JSON.stringify(record))
+      assert.deepEqual(urls(stage), [DEFAULT_HEALTH, DEFAULT_OPENAPI], JSON.stringify(record))
     }
   })
 

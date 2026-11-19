@@ -2,6 +2,7 @@
 import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, Text, update, type OrcaNode, type PanelContext } from 'orca'
 import { connectionGroup } from './connection-group'
 import type { ConnectionView } from './connection-view'
+import { metricsMissing } from './connection-words'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { stateScreen, type StateScreenActions } from './state-screen'
 
@@ -52,6 +53,10 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
         {state?.kind === 'connected' ? placeholder : <Text>Archon's settings appear here when Orchon is connected.</Text>}
       </Stack>
     )
+  }
+  // Without its paths the Metrics section says which release it needs, and asks Archon nothing.
+  if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
+    return <EmptyState title={label} description={metricsMissing(state)} />
   }
   return stateScreen(state, actions) ?? placeholder
 }

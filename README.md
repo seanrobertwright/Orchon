@@ -6,9 +6,9 @@ Orchon is a plugin for [Orca](https://github.com/stablyai/orca). It brings the c
 
 ## Status
 
-Orchon finds the Archon on this computer and says whether it is connected. It shows none of Archon's data yet.
+Orchon finds the Archon on this computer, checks that it is one Orchon works with, and says whether it is connected. It shows none of Archon's data yet.
 
-- A sidebar panel named Orchon with a section bar: Runs, Launch, Workflows, Chat, Metrics and Settings. While Orchon is connected, each section is an empty placeholder. While it is not, each section says why: Orchon is looking for Archon, Archon is not running (with the command that starts it), there is no Archon home folder, or a connection setting is not valid. Settings always shows a read-only Connection group with the state, the connected address and both connection settings. The panel reopens on the section last shown in a workspace.
+- A sidebar panel named Orchon with a section bar: Runs, Launch, Workflows, Chat, Metrics and Settings. While Orchon is connected, each section is an empty placeholder. While it is not, each section says why: Orchon is looking for Archon, Archon is not running (with the command that starts it), there is no Archon home folder, a connection setting is not valid, or the Archon found is not supported. Metrics says it needs Archon 0.14.0 or newer when the server lacks the metrics paths. Settings always shows a read-only Connection group with the state, the connected address and both connection settings. The panel reopens on the section last shown in a workspace.
 - A status bar item that reads "Archon", "Archon…", "Archon off" or "Archon setup" by connection state, with one sentence as its tooltip. Pressing it runs the command "Orchon: Show runs", which makes an open panel show Runs.
 - An editor tab for each kind of pointer file: "Orchon run graph" for `.orchonrun` files and "Orchon workflow builder" for `.orchonflow` files. Each shows a placeholder page.
 
@@ -20,7 +20,9 @@ Orchon talks only to this computer's loopback address, and counts an address as 
 2. The address in `server.json` in the Archon home folder. The folder is `~/.archon` unless the Archon home folder setting names another.
 3. `http://127.0.0.1:3090`.
 
-When nothing answers, Orchon looks again after 2 seconds and then at longer intervals, up to one try every 30 seconds, until Archon answers. It never starts or stops Archon. Both settings are changed in Orca's Settings, and Orchon looks again as soon as one changes.
+Once an address answers, Orchon reads its list of API paths from `/api/openapi.json` before it counts as connected. An Archon whose list lacks a path Orchon needs, or that answers with something other than JSON holding a `paths` object, is not supported. A refused connection, a timeout, an error status or an answer too large to read keeps Orchon searching. The version Archon reports is shown and decides nothing: Orchon works with Archon 0.12.1 or newer because those releases serve the paths it needs.
+
+When nothing answers, Orchon looks again after 2 seconds and then at longer intervals, up to one try every 30 seconds, until Archon answers. An Archon that is not supported is checked again every 30 seconds. Orchon never starts or stops Archon. Both settings are changed in Orca's Settings, and Orchon looks again as soon as one changes.
 
 ## Requirements
 
@@ -40,7 +42,7 @@ There is no bundler. Orca loads `src/worker.ts` and `src/panel.tsx` as written. 
 
 The workflow builder's rules for reading, editing, validating and writing a workflow are copied from Archon release v0.14.0 into `editors/builder/archon/`. [`UPSTREAM.md`](editors/builder/archon/UPSTREAM.md) there gives the commit and every difference from upstream. The plugin's own replacements for what that code imported from the rest of Archon are in `editors/builder/support/`. Its test fixtures and test helpers are loaded only by the tests, so they have no JavaScript.
 
-`npm run check` runs every gate below in turn. CI runs the same gates on every pull request and on every push to `main`, against the latest Orca release.
+`npm run check` runs every gate below in turn. CI runs the same gates on every pull request and on every push to `main`, against the latest Orca release. When that release cannot be downloaded, CI still runs the gates that need no Orca, skips the ones that do, and names each skipped gate and why in a warning and the job summary.
 
 | Command | What it checks |
 | --- | --- |

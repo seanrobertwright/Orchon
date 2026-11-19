@@ -15,7 +15,9 @@ import {
   oneBadSetting,
   OTHER_HOME,
   searching,
-  twoBadSettings
+  twoBadSettings,
+  unsupported,
+  unsupportedAtSetting
 } from '../scripts/connection-samples.ts'
 import type { ConnectionView } from './connection-view'
 import * as panelModule from './panel'
@@ -201,6 +203,47 @@ describe('the state screens', () => {
     clean(view)
   })
 
+  test('Unsupported says the server is not supported, with its version, and never "too old"', async () => {
+    const view = await mountIn(unsupported)
+    assert.equal(
+      words(view, 'EmptyState'),
+      'This Archon is not supported. The server at http://127.0.0.1:3090 (the default address) reports ' +
+        "Archon 0.11.1 and lacks parts of Archon's API that Orchon needs. Orchon works with Archon 0.12.1 " +
+        'or newer. Checking again every 30 seconds. Try again Connection settings'
+    )
+    assert.ok(view.find({ type: 'EmptyState' })?.props.icon)
+    assert.deepEqual(labels(view, 'Button'), ['Try again', 'Connection settings'])
+    assert.ok(labels(view, 'Code').includes('http://127.0.0.1:3090'))
+    assert.ok(!/too old/i.test(words(view, 'EmptyState')))
+    clean(view)
+  })
+
+  test('Unsupported says where the address came from, and leaves out a version the server did not report', async () => {
+    const view = await mountIn(unsupportedAtSetting)
+    assert.equal(
+      words(view, 'EmptyState'),
+      'This Archon is not supported. The server at http://localhost:4000 (from the Base URL setting) ' +
+        "lacks parts of Archon's API that Orchon needs. Orchon works with Archon 0.12.1 or newer. " +
+        'Checking again every 30 seconds. Try again Connection settings'
+    )
+    await view.unmount()
+
+    const atRecord = await mountIn({ ...unsupported, baseUrl: 'http://127.0.0.1:4100', source: 'server-json' })
+    assert.ok(
+      words(atRecord, 'EmptyState').startsWith(
+        `This Archon is not supported. The server at http://127.0.0.1:4100 (from server.json in ${HOME}) reports`
+      ),
+      words(atRecord, 'EmptyState')
+    )
+    clean(atRecord)
+  })
+
+  test('shows the version Archon reported as text, whatever it holds', async () => {
+    const view = await mountIn({ ...unsupported, version: '<b>0.11.1</b>' })
+    assert.match(words(view, 'EmptyState'), /reports Archon <b>0\.11\.1<\/b> and lacks/)
+    clean(view)
+  })
+
   test('shows the words a reason marks as code as code', async () => {
     const view = await mountIn(twoBadSettings)
     const code = labels(view, 'Code')
@@ -210,7 +253,7 @@ describe('the state screens', () => {
   })
 
   test('every data section shows the same state screen below the section bar', async () => {
-    for (const state of [notRunning, noHome, oneBadSetting, twoBadSettings]) {
+    for (const state of [notRunning, noHome, oneBadSetting, twoBadSettings, unsupported]) {
       const view = await mountIn(state)
       const first = words(view, 'EmptyState')
       for (const section of DATA_SECTIONS) {
@@ -224,7 +267,7 @@ describe('the state screens', () => {
   })
 
   test('the section bar stays enabled in every state', async () => {
-    for (const state of [searching, notRunning, noHome, oneBadSetting, connected]) {
+    for (const state of [searching, notRunning, noHome, oneBadSetting, unsupported, connected]) {
       const view = await mountIn(state)
       assert.deepEqual(
         view.findAll({ type: 'Tab' }).map((tab) => tab.disabled),
@@ -236,7 +279,7 @@ describe('the state screens', () => {
   })
 
   test('"Connection settings" opens the Settings section', async () => {
-    for (const state of [notRunning, noHome, oneBadSetting]) {
+    for (const state of [notRunning, noHome, oneBadSetting, unsupported]) {
       const view = await mountIn(state, 'chat')
       await view.press({ type: 'Button', text: 'Connection settings' })
       assert.equal(view.valueOf(SECTION_BAR), 'settings', state.kind)
@@ -316,7 +359,7 @@ describe('the Connection group of the Settings section', () => {
   const NOT_CONNECTED = "Archon's settings appear here when Orchon is connected."
 
   test('is open and read-only in every state, and says where to change the settings', async () => {
-    for (const state of [searching, connected, notRunning, noHome, oneBadSetting, twoBadSettings]) {
+    for (const state of [searching, connected, notRunning, noHome, oneBadSetting, twoBadSettings, unsupported]) {
       const view = await mountIn(state, 'settings')
       const group = view.find({ type: 'Collapsible', label: 'Connection' })
       assert.ok(group, state.kind)
@@ -368,7 +411,8 @@ describe('the Connection group of the Settings section', () => {
       [searching, 'State: Looking for Archon…'],
       [notRunning, 'State: Archon is not running.'],
       [noHome, 'State: Orchon could not find Archon.'],
-      [oneBadSetting, 'State: A connection setting is not valid.']
+      [oneBadSetting, 'State: A connection setting is not valid.'],
+      [unsupported, 'State: This Archon is not supported.']
     ]
     for (const [state, row] of expected) {
       const view = await mountIn(state, 'settings')

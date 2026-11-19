@@ -6,7 +6,7 @@ declare module 'orca' {
   interface PluginRequests {
     /** The connection state. Neither request takes an input. */
     'connection.read': { output: ConnectionAnswer }
-    /** "Try again": in Not found, runs discovery at once. */
+    /** "Try again": in Not found and Unsupported, runs discovery at once. */
     'connection.retry': { output: ConnectionAnswer }
   }
   interface PluginPanelEvents {
