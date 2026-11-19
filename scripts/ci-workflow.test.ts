@@ -70,6 +70,10 @@ const needNoOrca = [
   'npm run check:limits'
 ]
 
+// The conditions a step carries to run only with Orca, or only without it.
+const whenOrcaInstalled = "steps.orca.outcome == 'success'"
+const whenOrcaMissing = "steps.orca.outcome == 'failure'"
+
 describe('the CI workflow', () => {
   test('runs on every pull request and on a push to main', () => {
     assert.deepEqual(topLevelBlock('on'), ['  pull_request:', '  push:', '    branches: [main]'])
@@ -116,7 +120,7 @@ describe('the CI workflow', () => {
 
   test('each gate that needs Orca runs only when the download succeeded', () => {
     for (const gate of needOrca) {
-      assert.equal(stepMatching(runs(gate)).if, "steps.orca.outcome == 'success'", `"${gate}" runs without Orca`)
+      assert.equal(stepMatching(runs(gate)).if, whenOrcaInstalled, `"${gate}" runs without Orca`)
     }
   })
 
@@ -131,7 +135,7 @@ describe('the CI workflow', () => {
 
   test('when the download failed, a warning and the job summary name each skipped gate and why', () => {
     const report = stepMatching(/::warning/)
-    assert.equal(report.if, "steps.orca.outcome == 'failure'")
+    assert.equal(report.if, whenOrcaMissing)
     const text = report.lines.join('\n')
     assert.match(text, /^ {10}echo "::warning title=[^"]+::[^"]+"$/m)
     assert.match(text, />> "\$GITHUB_STEP_SUMMARY"/)
