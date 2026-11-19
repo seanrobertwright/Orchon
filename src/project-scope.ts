@@ -10,7 +10,7 @@ import type { Disk } from './disk'
 import { matchProject, type ArchonProject } from './project-match'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { isRecord, own, refuseRequest } from './records'
-import { CHOICES_CAP, type LinkChoices, type LinkRequest, type OpenRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
+import { CHOICES_CAP, REMOTE_WORKSPACE, type LinkChoices, type LinkRequest, type OpenRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
 import { localAndWritable, normalisePath, originUrl } from './workspaces'
 
 /** The longest Git config file the worker reads. */
@@ -94,8 +94,7 @@ function choicesOf(projects: readonly ArchonProject[], unreadable: number): Link
   }
 }
 
-/** What a refused press says. The remote line is the notice of #33, word for word. */
-export const REMOTE_WORKSPACE = 'This workspace is on another host. Orchon works with the Archon on this computer.'
+/** What a refused press says. */
 export const NOT_LISTED = 'Archon no longer lists that project. Choose another.'
 const NOT_CONNECTED = 'Orchon is not connected to Archon.'
 const NO_WORKSPACE = 'No workspace is focused in Orca.'

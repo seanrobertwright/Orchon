@@ -2,7 +2,8 @@
 import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
 import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
-import { restartRuns, runsSection, startRunsSection } from './runs-section'
+import { rescopeRuns, restartRuns, runsSection, startRunsSection } from './runs-section'
+import { restartScope, startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
@@ -26,7 +27,10 @@ function keepNewest(next: ConnectionView): void {
   if (held !== null && next.since <= held.since) return
   set(connection, next)
   // On return to Connected every view that is showing fetches again.
-  if (next.kind === 'connected' && held?.kind !== 'connected') restartRuns()
+  if (next.kind === 'connected' && held?.kind !== 'connected') {
+    restartScope()
+    restartRuns()
+  }
 }
 
 /** Sends a connection request and keeps the state its answer carries. A failed request changes nothing. */
@@ -71,7 +75,10 @@ function closeSystem(): void {
 function show(next: SectionId): void {
   const before = parseSection(read(section))
   set(section, next)
-  if (next === 'runs') restartRuns()
+  if (next === 'runs') {
+    restartScope()
+    restartRuns()
+  }
   if (before === next) return
   if (next === 'settings') askSystem('system.open')
   if (before === 'settings') closeSystem()
@@ -88,6 +95,12 @@ export function setup(ctx: PanelContext): void {
     connection: () => read(connection),
     showing: () => parseSection(read(section)) === 'runs',
     keep: keepNewest
+  })
+  startScope(ctx, {
+    connection: () => read(connection),
+    showing: () => parseSection(read(section)) === 'runs',
+    keep: keepNewest,
+    changed: rescopeRuns
   })
   ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))

@@ -1,7 +1,7 @@
 // The Runs section of the panel: a filter row, the runs table, a count line and a read-only
 // preview of the selected run. It draws only the worker's view model and fetches it under the
-// shared per-view fetch rules. The scope switch, the "Needs you" option, the callout, New run
-// and run detail come with their own tickets.
+// shared per-view fetch rules, under the project scope of `scope-section.tsx`. The "Needs you"
+// option, the callout, New run and run detail come with their own tickets.
 import {
   atom,
   Badge,
@@ -35,7 +35,8 @@ import type { Timers } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { formatClock, formatDuration, now } from './dates'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
-import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsView, type StatusFilter } from './runs-view'
+import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
+import { scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
@@ -96,8 +97,11 @@ function apply(answer: RunsAnswer | null, hooks: RunsSectionHooks): void {
 export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): void {
   const view = createViewFetch<RunsAnswer | null>({
     load(signal) {
-      if (given.connection()?.kind !== 'connected' || !given.showing()) return Promise.resolve(null)
-      return plugin.request('runs.read', { status: read(filter), rows: read(requested) }, { signal })
+      // The table waits for the scope, so it never reads one project and then another.
+      if (given.connection()?.kind !== 'connected' || !given.showing() || !scopeSettled()) return Promise.resolve(null)
+      const request: RunsRequest = { status: read(filter), rows: read(requested) }
+      const codebaseId = scopedProjectId()
+      return plugin.request('runs.read', codebaseId === undefined ? request : { ...request, codebaseId }, { signal })
     },
     apply: (answer) => apply(answer, given),
     fail: (error) => report(requestFailure(error)),
@@ -118,6 +122,13 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
 export function restartRuns(): void {
   fetcher?.restart()
+}
+
+/** The project the table is filtered by changed: it reads from the newest run again. */
+export function rescopeRuns(): void {
+  set(requested, ROWS_STEP)
+  set(selected, null)
+  restartRuns()
 }
 
 function chooseFilter(value: string): void {
@@ -141,6 +152,13 @@ const COLUMNS: readonly TableColumn[] = [
   { key: 'ranFor', label: 'Ran for', width: 'sm', hideBelow: 'md' }
 ]
 
+/** Under "All projects" the table also names each run's project, from 480 px. */
+const ALL_PROJECTS_COLUMNS: readonly TableColumn[] = [
+  ...COLUMNS.slice(0, 3),
+  { key: 'project', label: 'Project', width: 'md', hideBelow: 'md' },
+  ...COLUMNS.slice(3)
+]
+
 /** How long a run ran: a duration that keeps counting while it has not ended. */
 function ranFor(run: RunRow): TableCell {
   if (run.startedAt === null) return ''
@@ -155,6 +173,7 @@ function tableRow(run: RunRow): TableRow {
       run: `${STATUS_GLYPH[run.status]} ${run.workflow}`,
       status: statusText(run.status),
       started: run.startedAt === null ? '' : { type: 'relative', at: run.startedAt, format: 'short' },
+      project: run.project ?? '',
       ranFor: ranFor(run)
     }
   }
@@ -170,6 +189,38 @@ function countLine(runs: Ready): string {
 
 function unreadableLine(count: number): string {
   return count === 1 ? '1 run could not be read and is not shown.' : `${String(count)} runs could not be read and are not shown.`
+}
+
+/** Opens the workspace a run's folder belongs to. A failed request changes nothing. */
+function openInOrca(workspaceId: string): void {
+  plugin.request('workspace.open', { workspaceId }).then(
+    () => {},
+    () => {}
+  )
+}
+
+/**
+ * Under the worktree: **Open in Orca** when Orca lists the run's folder as a workspace, and
+ * otherwise the hint about Orca's Non-Orca worktrees setting. Whether the folder exists is not
+ * checked: the worker's closed disk list of #32 has no such read.
+ */
+function worktreeLine(run: RunRow): OrcaNode {
+  if (run.workingPath === null) return null
+  const { workspaceId } = run
+  if (workspaceId !== undefined) {
+    return (
+      <Row>
+        <Button size="sm" variant="outline" onPress={() => openInOrca(workspaceId)}>
+          Open in Orca
+        </Button>
+      </Row>
+    )
+  }
+  return (
+    <Text muted size="sm">
+      Orca does not show this worktree. To open it in Orca, show it in the project's Non-Orca worktrees setting.
+    </Text>
+  )
 }
 
 function preview(run: RunRow): OrcaNode {
@@ -188,6 +239,7 @@ function preview(run: RunRow): OrcaNode {
         </Row>
         {run.message === '' ? null : <Text>{run.message}</Text>}
         <KeyValue label="Run facts" items={facts} />
+        {worktreeLine(run)}
       </Stack>
     </Card>
   )
@@ -218,7 +270,7 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
     <>
       <Table
         label="Runs"
-        columns={COLUMNS}
+        columns={scopeChoice() === 'all' ? ALL_PROJECTS_COLUMNS : COLUMNS}
         rows={runs.rows.map(tableRow)}
         selectionMode="single"
         selected={run === undefined ? [] : [run.id]}
@@ -255,6 +307,8 @@ export function runsSection(state: Connected): OrcaNode {
   else body = table(runs, status)
   return (
     <Stack gap="sm">
+      {scopeSwitch()}
+      {scopeNotice()}
       <Row gap="sm" align="center">
         <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
         <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />

@@ -10,6 +10,7 @@ import type {
   Unsupported
 } from '../src/connection-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
+import type { ScopeAnswer } from '../src/scope-view.ts'
 import type { SystemAnswer, SystemView } from '../src/system-view.ts'
 
 export const HOME = '/home/ada/.archon'
@@ -148,6 +149,7 @@ type Answers = {
   'system.open': SystemAnswer
   'system.refresh': SystemAnswer
   'system.close': null
+  'scope.read': ScopeAnswer
 }
 
 /**
@@ -167,7 +169,9 @@ export function answeringRuns(
       'runs.read': (request) => ({ connection, runs: typeof runs === 'function' ? runs(request) : runs }),
       'system.open': { connection, system },
       'system.refresh': { connection, system },
-      'system.close': null
+      'system.close': null,
+      // No workspace is focused, so the Runs section shows every project.
+      'scope.read': { connection, scope: { kind: 'no-workspace' } }
     }
   }
 }

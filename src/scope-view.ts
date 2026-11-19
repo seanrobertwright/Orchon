@@ -3,6 +3,9 @@
 // read one contract and none of Archon's JSON crosses to the panel.
 import type { ConnectionAnswer } from './connection-view'
 
+/** The notice of a remote workspace (#33), word for word. A refused press says it too. */
+export const REMOTE_WORKSPACE = 'This workspace is on another host. Orchon works with the Archon on this computer.'
+
 /** An Archon project as the panel names it. */
 export type ProjectRef = { id: string; name: string }
 
