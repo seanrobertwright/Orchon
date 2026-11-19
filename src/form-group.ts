@@ -73,9 +73,16 @@ function withKept(listed: FieldOption[], suffix: string, kept: readonly string[]
   return options
 }
 
-/** The registered providers as select options, and a saved or chosen one Archon does not list. */
-export const providerOptions = (first: FieldOption, context: GroupContext, ...kept: string[]): FieldOption[] =>
-  withKept([first, ...context.providers.shown.map((provider) => ({ value: provider.id, label: provider.displayName }))], '(not registered)', kept)
+/**
+ * The registered providers as select options, after `first` when there is one, and a saved or
+ * chosen one Archon does not list.
+ */
+export const providerOptions = (first: FieldOption | null, context: GroupContext, ...kept: string[]): FieldOption[] =>
+  withKept(
+    [...(first === null ? [] : [first]), ...context.providers.shown.map((provider) => ({ value: provider.id, label: provider.displayName }))],
+    '(not registered)',
+    kept
+  )
 
 /** Effort levels as select options, and a saved or chosen one the provider does not accept. */
 export const effortOptions = (first: FieldOption, levels: readonly string[], ...kept: string[]): FieldOption[] =>
@@ -114,6 +121,47 @@ export function checkPreset(errors: Map<string, string>, ids: PresetFields, valu
     errors.set(where, `${providerName(context, chosen)} does not accept this effort.`)
   }
 }
+
+/** How a preset's fields are drawn: the provider select's empty choice, if it has one, and the model's placeholder. */
+export type PresetLook = { none: FieldOption | null; placeholder: string }
+
+/**
+ * The fields of one preset as drawn: a provider select, a model text and, when the chosen provider
+ * accepts effort levels, an effort select. Each is labelled `<label> provider`, `<label> model`
+ * and `<label> effort`. `saved` is the provider as loaded, kept as a choice when Archon does not list it.
+ */
+export function presetFields(
+  ids: PresetFields,
+  label: string,
+  look: PresetLook,
+  current: Values,
+  saved: string,
+  errors: ReadonlyMap<string, string>,
+  context: GroupContext
+): FormField[] {
+  const error = (fieldId: string): string | null => errors.get(fieldId) ?? null
+  const chosen = current[ids.provider] ?? ''
+  const fields: FormField[] = [
+    { kind: 'select', id: ids.provider, label: `${label} provider`, value: chosen, options: providerOptions(look.none, context, saved, chosen), error: error(ids.provider) },
+    { kind: 'text', id: ids.model, label: `${label} model`, value: current[ids.model] ?? '', placeholder: look.placeholder, maxLength: MODEL_LENGTH, error: error(ids.model) }
+  ]
+  const levels = effortLevelsOf(context, chosen)
+  if (levels.length > 0) {
+    const value = current[ids.effort] ?? ''
+    fields.push({
+      kind: 'select',
+      id: ids.effort,
+      label: `${label} effort`,
+      value,
+      options: effortOptions({ value: '', label: 'None' }, levels, value),
+      error: error(ids.effort)
+    })
+  }
+  return fields
+}
+
+/** A preset as one text, from its provider, model and effort, for comparing two presets. */
+export const presetText = (provider: string, model: string, effort: string): string => [provider, model, effort].join('\u0000')
 
 /** A preset as Archon takes it, from its fields' trimmed values, or null when no provider is chosen. An empty effort is left out. */
 export function presetBody(ids: PresetFields, values: Values): { provider: string; model: string; effort?: string } | null {

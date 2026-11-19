@@ -6,11 +6,8 @@ import {
   CHOOSE_A_PROVIDER,
   checkPreset,
   clean,
-  effortLevelsOf,
-  effortOptions,
-  MODEL_LENGTH,
   presetBody,
-  providerOptions,
+  presetFields,
   withProvider,
   type GroupSpec,
   type Loaded,
@@ -69,42 +66,13 @@ export function tiersForm(): GroupSpec {
 
     fields(current, loaded, errors, context) {
       const fields: FormField[] = []
-      const error = (fieldId: string): string | null => errors.get(fieldId) ?? null
       for (const tier of TIER_NAMES) {
         if (loaded.unreadable.has(provider(tier))) {
           fields.push({ kind: 'unreadable', id: provider(tier), label: `${TITLES[tier]} tier` })
           continue
         }
-        const chosen = current[provider(tier)] ?? ''
-        fields.push({
-          kind: 'select',
-          id: provider(tier),
-          label: `${TITLES[tier]} provider`,
-          value: chosen,
-          options: providerOptions({ value: '', label: 'Default' }, context, loaded.values[provider(tier)] ?? '', chosen),
-          error: error(provider(tier))
-        })
-        fields.push({
-          kind: 'text',
-          id: model(tier),
-          label: `${TITLES[tier]} model`,
-          value: current[model(tier)] ?? '',
-          placeholder: loaded.shown[tier] ?? resolved(null),
-          maxLength: MODEL_LENGTH,
-          error: error(model(tier))
-        })
-        const levels = effortLevelsOf(context, chosen)
-        if (levels.length > 0) {
-          const value = current[effort(tier)] ?? ''
-          fields.push({
-            kind: 'select',
-            id: effort(tier),
-            label: `${TITLES[tier]} effort`,
-            value,
-            options: effortOptions({ value: '', label: 'None' }, levels, value),
-            error: error(effort(tier))
-          })
-        }
+        const look = { none: { value: '', label: 'Default' }, placeholder: loaded.shown[tier] ?? resolved(null) }
+        fields.push(...presetFields(presetOf(tier), TITLES[tier], look, current, loaded.values[provider(tier)] ?? '', errors, context))
       }
       return fields
     },
