@@ -111,6 +111,14 @@ export type LaunchView =
       error?: string
       /** A launch from this workspace is being posted. */
       posting: boolean
+      /**
+       * The inputs the draft holds, by name in the workflow's order: filled by Re-run from the
+       * run's `metadata.inputs`, kept only for names the chosen workflow declares. Left out when
+       * there are none.
+       */
+      inputs?: DraftInput[]
+      /** Sentences about what Re-run filled and what it could not. Left out when there are none. */
+      rerunNotes?: string[]
       /** The Starting view, which replaces the form. */
       starting?: StartingView
     }
@@ -143,6 +151,15 @@ export type LaunchEdit = {
   workflow?: string | null
   message?: string
 }
+
+/** One input a draft holds: a name the workflow declares and its value as text. */
+export type DraftInput = { name: string; value: string }
+
+/** What Re-run sends: the run to fill the launcher from. The worker reads the run itself. */
+export type RerunRequest = { runId: string }
+
+/** How many names a Re-run notice lists before "and N more". */
+export const NOTE_NAMES_CAP = 10
 
 /** What Start sends. */
 export type LaunchStart = { codebaseId: string; workflow: string; message: string }
