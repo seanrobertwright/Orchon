@@ -50,6 +50,11 @@ export type ClientCall = {
   /** Sent as JSON. The worker builds it; nothing from a frame is passed through. */
   body?: unknown
   maxBytes?: number
+  /**
+   * Keeps the JSON body of an answer outside 200 to 299, such as Archon's message on a refused
+   * write. It is read under the same cap; one that is not JSON is left out.
+   */
+  errorBody?: boolean
   /** Aborts the call when its caller no longer wants the answer. */
   signal?: AbortSignal
 }
@@ -65,8 +70,8 @@ export type ClientFailure =
   | { kind: 'too-large' }
   /** No JSON content type, or a body that is not JSON. From a `200` it means the feature is missing. */
   | { kind: 'not-json' }
-  /** A status outside 200 to 299, a redirect included. */
-  | { kind: 'status'; status: number }
+  /** A status outside 200 to 299, a redirect included. `body` only when the call asked for it. */
+  | { kind: 'status'; status: number; body?: unknown }
   /** The caller aborted the call. */
   | { kind: 'cancelled' }
 
@@ -140,8 +145,14 @@ export function createClient(ports: ClientPorts): Client {
       init.body = JSON.stringify(call.body)
     }
     const answer = await ports.fetch(url, init)
-    if (answer.status < 200 || answer.status > 299) return fail({ kind: 'status', status: answer.status })
-    if (!JSON_CONTENT_TYPE.test(answer.headers.get('content-type')?.trim() ?? '')) return fail({ kind: 'not-json' })
+    const json = JSON_CONTENT_TYPE.test(answer.headers.get('content-type')?.trim() ?? '')
+    if (answer.status < 200 || answer.status > 299) {
+      if (call.errorBody !== true || !json) return fail({ kind: 'status', status: answer.status })
+      const text = await readCapped(answer.body, call.maxBytes ?? READ_CAP_BYTES)
+      const parsed = typeof text === 'string' ? parseJson(text) : null
+      return fail(parsed?.ok === true ? { kind: 'status', status: answer.status, body: parsed.value } : { kind: 'status', status: answer.status })
+    }
+    if (!json) return fail({ kind: 'not-json' })
     const text = await readCapped(answer.body, call.maxBytes ?? READ_CAP_BYTES)
     return typeof text === 'string' ? parseJson(text) : fail(text)
   }

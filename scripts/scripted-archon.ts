@@ -117,21 +117,28 @@ export const RELEASES = ['0.12.1', '0.13.2', '0.14.0'] as const
 export type Release = (typeof RELEASES)[number]
 
 /**
- * The first answer a recorded fixture holds, as the scripted Archon gives it: the recorded
- * status, content type and body. Fixtures are recorded from real releases, never typed.
+ * One answer a recorded fixture holds, the first unless `index` names another, as the scripted
+ * Archon gives it: the recorded status, content type and body. Fixtures are recorded from real
+ * releases, never typed.
  */
-export function recorded(release: Release, scenario: string): Scripted {
+export function recorded(release: Release, scenario: string, index = 0): Scripted {
   const log = field(JSON.parse(readRepoText(`fixtures/${release}/${scenario}.json`)), 'log')
-  const first: unknown = Array.isArray(log) ? log[0] : undefined
+  const first: unknown = Array.isArray(log) ? log[index] : undefined
   const status = field(first, 'status')
   const contentType = field(first, 'contentType')
   const body = field(first, 'body')
   if (typeof status !== 'number' || typeof contentType !== 'string') {
-    throw new Error(`fixtures/${release}/${scenario}.json holds no recorded answer.`)
+    throw new Error(`fixtures/${release}/${scenario}.json holds no recorded answer at ${String(index)}.`)
   }
   return typeof body === 'string'
     ? { kind: 'text', text: body, contentType, status }
     : { kind: 'json', value: body, status, contentType }
+}
+
+/** The request body a recorded fixture holds at `index`, as Archon was sent it. */
+export function recordedRequest(release: Release, scenario: string, index: number): unknown {
+  const log = field(JSON.parse(readRepoText(`fixtures/${release}/${scenario}.json`)), 'log')
+  return field(Array.isArray(log) ? log[index] : undefined, 'requestBody')
 }
 
 /** A recorded path list with some paths taken out, as an Archon that lacks them would answer. */

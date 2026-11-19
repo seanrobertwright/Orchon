@@ -4,12 +4,13 @@ import { Code, Collapsible, Stack, Text, type OrcaNode } from 'orca'
 import { accessGroup } from './access-group'
 import { connectionGroup } from './connection-group'
 import type { ConnectionView } from './connection-view'
+import { formGroups } from './form-groups'
 import { systemGroup } from './system-group'
 import type { SystemView } from './system-view'
 import { searchingBanner } from './view-notices'
 
 export type SettingsActions = {
-  /** Reads health and the update check again. */
+  /** Reads health, the update check, the config and the providers again. */
   refresh(): void
 }
 
@@ -30,8 +31,7 @@ function archonGroups(connection: ConnectionView | null, system: SystemView | nu
   const groups = (refresh: (() => void) | null): OrcaNode => (
     <>
       {systemGroup(system, refresh)}
-      {notBuilt('Defaults')}
-      {notBuilt('Model tiers')}
+      {formGroups(refresh !== null)}
       {notBuilt('Aliases')}
     </>
   )
