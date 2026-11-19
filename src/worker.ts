@@ -3,6 +3,7 @@
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
 import { startBuilder } from './builder'
+import { startChatDrafts } from './chat-drafts'
 import { startChatList } from './chat-list'
 import { startChatSend } from './chat-send'
 import { startChatRun } from './chat-run'
@@ -86,6 +87,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const chatThread = startChatThread(orca, { client: connection.client, current: connection.current })
   const chatSend = startChatSend(orca, { client: connection.client, current: connection.current })
   const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
+  const chatDrafts = startChatDrafts(orca, { timers: ports.timers })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
@@ -95,6 +97,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     chatThread.dispose()
     chatSend.dispose()
     chatRun.dispose()
+    chatDrafts.dispose()
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()
