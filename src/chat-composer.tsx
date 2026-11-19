@@ -192,9 +192,9 @@ export function readComposerDrafts(): void {
       const stored: Record<string, string> = {}
       if (isRecord(answer.drafts)) for (const [key, text] of Object.entries(answer.drafts)) if (typeof text === 'string') stored[key] = text
       const mine = read(typed)
-      const now = read(drafts)
+      const held = read(drafts)
       for (const key of Object.keys(mine)) {
-        if (Object.hasOwn(now, key)) stored[key] = now[key] ?? ''
+        if (Object.hasOwn(held, key)) stored[key] = held[key] ?? ''
         else delete stored[key]
       }
       set(drafts, stored)
