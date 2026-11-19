@@ -12,8 +12,8 @@ export const PROJECT_REMOTE = 'https://github.com/orchon-recorder/throwaway-proj
 /** The commit's author, given on the command line so that no Git identity of the developer's is read. */
 const AUTHOR = ['-c', 'user.name=Orchon Recorder', '-c', 'user.email=recorder@example.invalid', '-c', 'commit.gpgsign=false']
 
-/** Makes the project and answers its folder. */
-export function createThrowawayProject(home: ThrowawayHome): string {
+/** Makes the project and answers its folder. `signal` stops a `git` command when the recording is interrupted. */
+export async function createThrowawayProject(home: ThrowawayHome, signal?: AbortSignal): Promise<string> {
   assertOwnHome(home)
   const folder = home.projectFolder
   const workflows = join(folder, '.archon', 'workflows')
@@ -23,13 +23,13 @@ export function createThrowawayProject(home: ThrowawayHome): string {
     const file = workflowFile(workflow)
     writeFileSync(join(workflows, file.name), file.text)
   }
-  const git = (...args: string[]): void => {
-    const done = runToEnd(home, 'git', args, { cwd: folder })
+  const git = async (...args: string[]): Promise<void> => {
+    const done = await runToEnd(home, 'git', args, { cwd: folder, ...(signal === undefined ? {} : { signal }) })
     if (done.status !== 0) throw new Error(`git ${args[0] ?? ''} failed in the throwaway project: ${done.stderr.trim()}`)
   }
-  git('init', '--initial-branch=main')
-  git('add', '--all')
-  git(...AUTHOR, 'commit', '--message', 'Throwaway project for the Orchon fixture recorder')
-  git('remote', 'add', 'origin', PROJECT_REMOTE)
+  await git('init', '--initial-branch=main')
+  await git('add', '--all')
+  await git(...AUTHOR, 'commit', '--message', 'Throwaway project for the Orchon fixture recorder')
+  await git('remote', 'add', 'origin', PROJECT_REMOTE)
   return folder
 }

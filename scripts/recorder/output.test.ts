@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
-import { LOG_FILE, NotARecordingFolder, writeFixtures } from './output.ts'
+import { LOG_FILE, NotARecordingFolder, writeFixtures, writeRecording } from './output.ts'
 import { isA, scratchFolders } from './testing.ts'
 
 const scratch = scratchFolders()
@@ -36,5 +36,29 @@ describe('writing fixtures', () => {
     assert.throws(() => writeFixtures(folder, [{ path: 'new.json', text: '{}\n' }], '# Log\n'), isA(NotARecordingFolder))
     assert.equal(existsSync(join(folder, 'notes.txt')), true)
     assert.equal(existsSync(join(folder, 'new.json')), false)
+  })
+
+  test('a complete recording replaces an earlier one and leaves nothing beside it', () => {
+    const parent = scratch()
+    const folder = join(parent, '0.12.1')
+    writeFixtures(folder, [{ path: 'old.json', text: '{}\n' }], '# Old\n')
+    assert.equal(writeRecording(folder, { files: [{ path: 'new.json', text: '{}\n' }], log: '# New\n', complete: true }), 'written')
+    assert.deepEqual(readdirSync(folder).sort(), [LOG_FILE, 'new.json'])
+    assert.deepEqual(readdirSync(parent), ['0.12.1'])
+  })
+
+  test('a failed or interrupted recording leaves an earlier one as it was', () => {
+    const folder = scratch()
+    writeFixtures(folder, [{ path: 'old.json', text: '{"kept":true}\n' }], '# Old\n')
+    assert.equal(writeRecording(folder, { files: [{ path: 'new.json', text: '{}\n' }], log: '# New\n', complete: false }), 'kept')
+    assert.deepEqual(readdirSync(folder).sort(), [LOG_FILE, 'old.json'])
+    assert.equal(readFileSync(join(folder, 'old.json'), 'utf8'), '{"kept":true}\n')
+    assert.equal(readFileSync(join(folder, LOG_FILE), 'utf8'), '# Old\n')
+  })
+
+  test('a failed or interrupted recording makes no folder', () => {
+    const folder = join(scratch(), '0.12.1')
+    assert.equal(writeRecording(folder, { files: [{ path: 'new.json', text: '{}\n' }], log: '# New\n', complete: false }), 'kept')
+    assert.equal(existsSync(folder), false)
   })
 })

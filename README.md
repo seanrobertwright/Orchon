@@ -110,7 +110,9 @@ Read this before you run it. The recorder:
 - Launches only its own workflows, which it writes into that project. They hold shell steps, an approval gate and an attention wait, and no agent. It never launches a bundled workflow, so it never launches `archon-worktree-cleanup`, and it never sends a chat message.
 - Costs a little: for each launch that saves its message, Archon writes a title with its small model, through your own Claude login.
 - Leaves the release reachable the way `archon serve` does while it runs. Archon listens on every network interface by default.
-- Stops the release and every process it started, deletes the throwaway folder, scrubs what it recorded, and writes the fixtures. A fixture that still holds a machine path or name after scrubbing is not written, and the log says so.
+- Stops the release and every process it started, deletes the throwaway folder, scrubs what it recorded, and writes the fixtures. On Linux and macOS a process that has not ended five seconds after SIGTERM is sent SIGKILL; on Windows `taskkill /T /F` ends the tree at once.
+- Does the same on Ctrl+C at any point, the release's first boot and `provider add` included. A second Ctrl+C does not cut the cleanup short: the recorder ends once the release is gone and the throwaway folder is deleted.
+- Writes nothing when the run failed, was interrupted, or held back a fixture that still named a machine path or name after scrubbing. The fixtures folder of that release is left as it was, and the log is printed instead. A complete run replaces the folder only once the new recording is on disk.
 
 After recording, run `npm run check` and read the diff before you commit.
 

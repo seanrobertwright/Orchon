@@ -11,11 +11,13 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { homedir, hostname, tmpdir, userInfo } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { parseArguments, USAGE } from './recorder/arguments.ts'
+import { BOOT_TIMEOUT_MS, waitUntilHealthy } from './recorder/boot.ts'
 import { nowIso } from './recorder/clock.ts'
 import { createThrowawayHome, removeThrowawayHome } from './recorder/home.ts'
 import { createLoopbackClient, type LoopbackClient } from './recorder/http.ts'
+import { untilInterrupted, watchInterrupts } from './recorder/interrupt.ts'
 import { recordedLog } from './recorder/log.ts'
-import { writeFixtures } from './recorder/output.ts'
+import { writeRecording } from './recorder/output.ts'
 import { runToEnd, startRelease, type RunningRelease } from './recorder/process.ts'
 import { createThrowawayProject } from './recorder/project.ts'
 import { recordRelease } from './recorder/scenarios.ts'
@@ -25,24 +27,12 @@ import { repoRoot } from './repo-files.ts'
 
 const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms))
 
-/** How long a release may take to answer its first health check: it downloads its server first. */
-const BOOT_TIMEOUT_MS = 300_000
-
 /**
  * The provider installed into the throwaway home with the release's own `provider add`. No
  * workflow the recorder launches uses it. Archon uses it for one thing: the title it writes
  * with its small model for each launch that saves a message.
  */
 const PROVIDER = 'claude'
-
-async function healthOf(client: LoopbackClient): Promise<unknown> {
-  try {
-    const answer = await client.request('GET', '/api/health')
-    return answer.status === 200 ? answer.body : null
-  } catch {
-    return null
-  }
-}
 
 async function answersAtAll(client: LoopbackClient): Promise<boolean> {
   try {
@@ -51,27 +41,6 @@ async function answersAtAll(client: LoopbackClient): Promise<boolean> {
   } catch {
     return false
   }
-}
-
-function lastLines(file: string, count: number): string {
-  try {
-    return readFileSync(file, 'utf8').split('\n').slice(-count).join('\n')
-  } catch {
-    return ''
-  }
-}
-
-async function waitUntilHealthy(client: LoopbackClient, release: RunningRelease): Promise<unknown> {
-  const until = performance.now() + BOOT_TIMEOUT_MS
-  while (performance.now() < until) {
-    const health = await healthOf(client)
-    if (health !== null) return health
-    if (release.hasExited()) {
-      throw new Error(`The release ended before it answered.\n${lastLines(release.logFile, 30)}`)
-    }
-    await sleep(500)
-  }
-  throw new Error(`The release did not answer within ${BOOT_TIMEOUT_MS / 1000} seconds.\n${lastLines(release.logFile, 30)}`)
 }
 
 /** The store id a health answer reports, when the release reports one. */
@@ -88,7 +57,11 @@ function versionOf(health: unknown): string | null {
   return typeof version === 'string' ? version : null
 }
 
-async function main(): Promise<number> {
+/**
+ * One recording, from the checks of the command line to the fixtures on disk. `signal` aborts at
+ * the first Ctrl+C: every wait then ends, and the release is stopped and its home deleted.
+ */
+async function record(signal: AbortSignal): Promise<number> {
   const args = parseArguments(process.argv.slice(2))
   if ('error' in args) {
     console.error(`${args.error}\n\n${USAGE}`)
@@ -105,6 +78,7 @@ async function main(): Promise<number> {
     console.error(`Something already answers on port ${args.port}. The recorder did not start it: name another --port.`)
     return 2
   }
+  if (signal.aborted) return 130
 
   const recordedAt = nowIso()
   const binaryBytes = readFileSync(binary)
@@ -128,37 +102,39 @@ async function main(): Promise<number> {
       host: hostname()
     })
   )
-  // Whatever goes wrong, the release is stopped and its home deleted: Ctrl+C ends the recording
-  // early, and a rejection nobody awaited is kept as the failure instead of ending the process.
-  const interrupted = new Promise<never>((_, reject) => {
-    process.once('SIGINT', () => reject(new Error('Interrupted before the recording was complete.')))
-  })
+  // Whatever goes wrong, the release is stopped and its home deleted. A rejection nobody awaited
+  // is kept as the failure instead of ending the process.
   process.on('unhandledRejection', (reason) => {
     failure ??= reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)
   })
   try {
-    const version = runToEnd(home, binary, ['--version'])
+    const version = await runToEnd(home, binary, ['--version'], { signal })
+    signal.throwIfAborted()
     reportedVersion = version.stdout.trim()
     if (version.status !== 0 || !reportedVersion.includes(args.release)) {
       throw new Error(`The binary does not report release ${args.release}. It printed: ${reportedVersion || version.stderr.trim()}`)
     }
     // A fresh home has no provider, and a release with none refuses to create a conversation.
-    const provider = runToEnd(home, binary, ['provider', 'add', PROVIDER], { timeoutMs: BOOT_TIMEOUT_MS })
+    const provider = await runToEnd(home, binary, ['provider', 'add', PROVIDER], { timeoutMs: BOOT_TIMEOUT_MS, signal })
+    signal.throwIfAborted()
     if (provider.status === 0) console.log(`Installed the ${PROVIDER} provider into the throwaway home.`)
     else session.missing(`the ${PROVIDER} provider`, `\`provider add ${PROVIDER}\` failed: ${(provider.stderr || provider.stdout).trim()}`)
-    const projectFolder = createThrowawayProject(home)
+    const projectFolder = await createThrowawayProject(home, signal)
+    signal.throwIfAborted()
     release = startRelease(home, binary, args.port)
     console.log(`Started the release on port ${args.port}. Waiting for it to answer.`)
-    const health = await waitUntilHealthy(client, release)
+    const health = await waitUntilHealthy({ client, release, signal })
     serverVersion = versionOf(health)
     const storeId = storeIdOf(health)
     if (storeId !== null) scrubber.learnStoreId(storeId)
-    await Promise.race([recordRelease(session, { projectFolder, archonHome: home.archonHome }), interrupted])
+    await Promise.race([recordRelease(session, { projectFolder, archonHome: home.archonHome }), untilInterrupted(signal)])
   } catch (error) {
     failure = error instanceof Error ? (error.stack ?? error.message) : String(error)
   } finally {
-    await release?.stop()
     // The release must be gone before its home is: nothing may be left running.
+    if (release !== undefined && !(await release.stop())) {
+      console.error(`The release (process ${release.pid}) had not ended after it was killed.`)
+    }
     for (let tries = 0; tries < 40 && (await answersAtAll(client)); tries += 1) await sleep(250)
     if (await answersAtAll(client)) console.error(`Port ${args.port} still answers after the release was stopped.`)
     try {
@@ -189,10 +165,33 @@ ${String(error)}`)
     files,
     gaps: session.gaps.map((gap) => ({ what: gap.what, why: scrubber.scrub(gap.why) }))
   })
-  writeFixtures(outFolder, files, log)
-  console.log(`${files.length} fixtures and RECORDED.md written.`)
+  // A failed or interrupted run, or one that held a fixture back, replaces nothing.
+  const complete = failure === null && refused.length === 0 && !signal.aborted
+  if (writeRecording(outFolder, { files, log, complete }) === 'written') {
+    console.log(`${files.length} fixtures and RECORDED.md written.`)
+  } else {
+    console.error(`The recording is not complete, so nothing was written and ${outFolder} is as it was. Its log:\n\n${log}`)
+  }
   if (failure !== null) console.error(scrubber.scrub(failure))
-  return failure !== null || refused.length > 0 ? 1 : 0
+  if (signal.aborted) return 130
+  return complete ? 0 : 1
 }
 
-if (import.meta.main) process.exitCode = await main()
+async function main(): Promise<number> {
+  // Listening starts before anything is made, and stops only after the cleanup: until then a
+  // second Ctrl+C is held, so it cannot end the recorder with the release still running.
+  const watch = watchInterrupts(process, (line) => console.error(line))
+  try {
+    return await record(watch.signal)
+  } finally {
+    watch.dispose()
+  }
+}
+
+if (import.meta.main) {
+  const code = await main()
+  // After an interruption the scenario that was running is abandoned, and its waits would keep
+  // the process alive against a release that is gone. The cleanup is done, so the recorder ends.
+  if (code === 130) process.exit(code)
+  process.exitCode = code
+}
