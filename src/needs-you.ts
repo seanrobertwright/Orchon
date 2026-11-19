@@ -8,7 +8,8 @@ import type { Connected } from './connection-view'
 import { cutAt } from './cutter'
 import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage, parseRun } from './dashboard-runs'
 import type { RunsHint, ShowRuns } from './hint-view'
-import { isRecord, own } from './records'
+import type { Notice } from './notifications'
+import { isRecord, own, ownRecord } from './records'
 import { CALLOUT_CAP, ROWS_CAP, type NeedsYouView, type RunRow, type Waiting } from './runs-view'
 import type { SnapshotCounts } from './status-bar'
 
@@ -27,14 +28,41 @@ export const SHOW_RUNS_MEMORY_MS = 60_000
 /** How much of a question the snapshot keeps: one line of a callout row or a preview. */
 export const QUESTION_CAP = 200
 
-/** One run that needs you, with the Archon project it belongs to for the panel's scope switch. */
-type Entry = { row: RunRow & { waiting: Waiting }; codebaseId: string | null }
+/**
+ * One run that needs you, with the Archon project it belongs to for the panel's scope switch, and
+ * what tells this question from the next for notifications: null when Archon's row does not say.
+ */
+type Entry = { row: RunRow & { waiting: Waiting }; codebaseId: string | null; identity: string | null }
 
 /** Text on one line: every run of white space, line breaks included, becomes one space. */
 const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
 /** What a row's `attention` says: the run needs you and why, it does not, or the field cannot be read. */
-type Attention = { kind: 'needs-you'; waiting: Waiting } | { kind: 'not-needed' } | { kind: 'unread' }
+type Attention = { kind: 'needs-you'; waiting: Waiting; identity: string | null } | { kind: 'not-needed' } | { kind: 'unread' }
+
+/** A text field, or null when it is missing, empty or not text. */
+function textOf(record: Record<string, unknown>, key: string): string | null {
+  const value = own(record, key)
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
+/**
+ * What tells one question from the next, held in memory for notifications only: a gate by its run,
+ * node and pause id, an attention wait by its run and `occurrence`, an unreadable run by its run
+ * and `reason`. A gate's pause id is the run's `metadata.approval.pauseId`, or the row's
+ * `occurrence` when that is missing. Null when the parts that name the question are missing.
+ */
+function identityOf(run: Record<string, unknown>, attention: Record<string, unknown>, kind: string): string | null {
+  const runId = textOf(run, 'id')
+  if (runId === null) return null
+  if (kind === 'unreadable') return JSON.stringify(['unreadable', runId, textOf(attention, 'reason') ?? ''])
+  const occurrence = textOf(attention, 'occurrence')
+  if (kind === 'attention') return occurrence === null ? null : JSON.stringify(['wait', runId, occurrence])
+  const approval = ownRecord(ownRecord(run, 'metadata'), 'approval')
+  const nodeId = textOf(ownRecord(attention, 'respondTo'), 'nodeId') ?? textOf(approval, 'nodeId')
+  const pauseId = textOf(approval, 'pauseId') ?? occurrence
+  return nodeId === null || pauseId === null ? null : JSON.stringify(['gate', runId, nodeId, pauseId])
+}
 
 const NOT_NEEDED: Attention = { kind: 'not-needed' }
 const UNREAD: Attention = { kind: 'unread' }
@@ -45,15 +73,16 @@ const UNREAD: Attention = { kind: 'unread' }
  * parent waiting on sub-runs, stalled tool calls and any other kind do not. A question with no
  * message text cannot be shown, so the field cannot be read.
  */
-function parseAttention(attention: unknown): Attention {
+function parseAttention(run: Record<string, unknown>): Attention {
+  const attention = own(run, 'attention')
   if (!isRecord(attention)) return attention === null || attention === undefined ? NOT_NEEDED : UNREAD
   const kind = own(attention, 'kind')
-  if (kind === 'unreadable') return { kind: 'needs-you', waiting: { kind: 'unreadable' } }
+  if (kind === 'unreadable') return { kind: 'needs-you', waiting: { kind: 'unreadable' }, identity: identityOf(run, attention, kind) }
   if (kind !== 'awaiting_response' && kind !== 'attention') return typeof kind === 'string' ? NOT_NEEDED : UNREAD
   const message = own(attention, 'message')
   if (typeof message !== 'string') return UNREAD
   const question = cutAt(oneLine(message), QUESTION_CAP)
-  return { kind: 'needs-you', waiting: { kind: kind === 'attention' ? 'wait' : 'gate', question } }
+  return { kind: 'needs-you', waiting: { kind: kind === 'attention' ? 'wait' : 'gate', question }, identity: identityOf(run, attention, kind) }
 }
 
 /**
@@ -83,12 +112,21 @@ export function parseAttentionRuns(value: unknown): { entries: Entry[]; unread: 
   const unread: Unread[] = []
   for (const run of runs as unknown[]) {
     const row = parseRun(run)
-    const attention = isRecord(run) ? parseAttention(own(run, 'attention')) : UNREAD
+    const attention = isRecord(run) ? parseAttention(run) : UNREAD
     const codebaseId = projectOf(run)
     if (row === null || attention.kind === 'unread' || codebaseId === undefined) unread.push(codebaseId)
-    else if (attention.kind === 'needs-you') entries.push({ row: { ...row, waiting: attention.waiting }, codebaseId })
+    else if (attention.kind === 'needs-you') entries.push({ row: { ...row, waiting: attention.waiting }, codebaseId, identity: attention.identity })
   }
   return { entries, unread }
+}
+
+/** The runs that need you as notifications name them; a run whose question has no identity is left out. */
+function noticesOf(entries: readonly Entry[]): Notice[] {
+  const notices: Notice[] = []
+  for (const { row, identity } of entries) {
+    if (identity !== null) notices.push({ identity, kind: row.waiting.kind, workflow: row.workflow, project: row.project })
+  }
+  return notices
 }
 
 /** The snapshot. `running` is null when only the running count could not be read. */
@@ -100,6 +138,8 @@ export type NeedsYouPorts = {
   timers: Timers
   /** The snapshot now says something else. */
   changed(): void
+  /** A read that could be counted, on this store: the runs that need you as notifications name them. */
+  counted?(storeId: string | null, notices: Notice[]): void
   log(message: string): void
 }
 
@@ -181,7 +221,9 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
     const mine = generation
     current = readOnce(target, controller.signal)
       .then((next) => {
-        if (mine === generation) keep(next)
+        if (mine !== generation) return
+        keep(next)
+        if (next.kind === 'counted') ports.counted?.(target.storeId, noticesOf(next.entries))
       })
       .catch((error: unknown) => {
         ports.log(`Orchon could not read the runs that need you: ${error instanceof Error ? error.message : String(error)}`)

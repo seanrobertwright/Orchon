@@ -10,8 +10,9 @@ import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
 import { createLive } from './live'
 import { createNeedsYou, type NeedsYou } from './needs-you'
+import { createNotifications, DEFAULT_LEVEL, NOTIFICATIONS_KEY, parseNotificationSetting, type NotificationSetting } from './notifications'
 import { checkPaths } from './path-check'
-import { refuseRequest } from './records'
+import { isRecord, own, refuseRequest } from './records'
 import { createStatusBar, showRunsSentence, STATUS_ITEM_ID, statusItem, type SnapshotCounts } from './status-bar'
 import { createSystem } from './system'
 
@@ -343,6 +344,8 @@ export type StartedConnection = {
   needsYou: NeedsYou
   /** The status bar sentence now, as the "Orchon: Show runs" command returns it. */
   showRunsSentence(): string
+  /** The Notifications setting as last read. */
+  notificationSetting(): NotificationSetting
   stop(): void
 }
 
@@ -366,8 +369,15 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     timers: ports.timers,
     failed: (call, failure) => connection.callFailed(call.baseUrl, failure)
   })
+  /** The Notifications setting, as the settings were last read. */
+  let setting: NotificationSetting = { level: DEFAULT_LEVEL, recognised: true }
   const connection = createConnection({
-    readSettings: () => orca.settings.get(),
+    // The one read of the settings also gives the Notifications setting; a failed read keeps its last value.
+    async readSettings() {
+      const all = await orca.settings.get()
+      setting = parseNotificationSetting(isRecord(all) ? own(all, NOTIFICATIONS_KEY) : undefined)
+      return all
+    },
     homeDir: ports.homeDir,
     client,
     openDisk: ports.openDisk,
@@ -392,6 +402,16 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     }
   })
   let held: ConnectionView | undefined
+  const notifications = createNotifications({
+    now: ports.now,
+    timers: ports.timers,
+    level: () => setting.level,
+    show(notification) {
+      orca.host.call('notifications.show', notification).catch((error: unknown) => {
+        orca.log(`Orchon could not show a notification: ${error instanceof Error ? error.message : String(error)}`)
+      })
+    }
+  })
   const needsYou = createNeedsYou({
     client,
     now: ports.now,
@@ -400,6 +420,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       showStatus()
       orca.panels.post('needs-you.changed', null)
     },
+    counted: (storeId, notices) => notifications.waiting(storeId, notices),
     log: (message) => orca.log(message)
   })
   /** The snapshot's counts while Connected; in any other state the item reads without them. */
@@ -469,11 +490,13 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       const view = held ?? { kind: 'searching', since: ports.now(), settings: NO_SETTINGS }
       return showRunsSentence(view, countsFor(view))
     },
+    notificationSetting: () => setting,
     stop() {
       for (const subscription of subscriptions) subscription.dispose()
       connection.stop()
       live.close()
       needsYou.stop()
+      notifications.stop()
       system.close()
       statusBar.stop()
     }
