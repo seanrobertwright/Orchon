@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
+import type { ChatsAnswer, ChatsRequest } from './chats-view'
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
 import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
@@ -94,6 +95,8 @@ declare module 'orca' {
     'launch.notices': { output: NoticesAnswer }
     /** Dismisses a callout, or a run the Starting view opened. */
     'launch.dismiss': { input: { launchId: string }; output: NoticesAnswer }
+    /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */
+    'chats.read': { input: ChatsRequest; output: ChatsAnswer }
   }
   interface PluginPanelEvents {
     /**
