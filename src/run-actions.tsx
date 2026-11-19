@@ -4,6 +4,8 @@
 // while it is every write control on that run is off, an answer from the answer block included,
 // which shares this rule and the outcome shown under the row. The worker checks each request again and
 // sends it once; the panel shows Archon's answer as plain text and reads the run again at once.
+// Re-run sits in the same row on the runs the worker offers it for; it writes nothing to Archon,
+// it only fills the launcher (#15, #27).
 import { atom, Button, Callout, plugin, read, Row, set, Stack, Text, update, type OrcaNode } from 'orca'
 import type { ConnectionView } from './connection-view'
 import type { RunAnswerRequest } from './run-answer-view'
@@ -49,6 +51,11 @@ const shown = atom<{ runId: string; outcome: Shown } | null>(null)
 /** The runs whose Cancel Archon refused with a 409, which then offer Abandon. */
 const cancelRefused = atom<readonly string[]>([])
 
+/** The run whose Re-run is being filled, while the worker answers. */
+const rerunning = atom<string | null>(null)
+/** Why the open run's last Re-run did not open the launcher, until the person leaves the run. */
+const rerunRefused = atom<{ runId: string; message: string } | null>(null)
+
 /** How many runs the panel remembers a refused Cancel for. */
 const CANCEL_REFUSED_KEPT = 50
 
@@ -63,6 +70,8 @@ export type RunActionHooks = {
   /** Archon answered that the run does not exist. */
   gone(): void
   keep(view: ConnectionView): void
+  /** Re-run: fills the launcher from the run and shows it. Rejects with the worker's refusal. Re-run is not drawn when left out. */
+  rerun?(runId: string): Promise<void>
 }
 
 /**
@@ -93,6 +102,7 @@ export function runActionsRead(detail: RunDetail): void {
 export function resetRunActions(): void {
   set(confirming, null)
   set(shown, null)
+  set(rerunRefused, null)
 }
 
 function rejectionText(error: unknown): string {
@@ -150,10 +160,29 @@ function write(
   )
 }
 
-/** The action row, or the confirmation in its place. `writable` is false while Searching. */
-export function actionRow(detail: RunDetail, writable: boolean, hooks: RunActionHooks, resumeAfterAnswer = false): OrcaNode {
+/** Re-run pressed: one at a time, and the worker's refusal shown under the row. */
+function pressRerun(runId: string, hooks: RunActionHooks): void {
+  const rerun = hooks.rerun
+  if (rerun === undefined || read(rerunning) !== null) return
+  set(rerunning, runId)
+  set(rerunRefused, null)
+  rerun(runId).then(
+    () => set(rerunning, null),
+    (error: unknown) => {
+      set(rerunning, null)
+      if (hooks.openRunId() === runId) set(rerunRefused, { runId, message: rejectionText(error) })
+    }
+  )
+}
+
+/**
+ * The action row, or the confirmation in its place. `writable` is false while Searching.
+ * `rerun` is set when the worker offers Re-run for the run.
+ */
+export function actionRow(detail: RunDetail, writable: boolean, hooks: RunActionHooks, resumeAfterAnswer = false, rerun = false): OrcaNode {
   const controls = offered(detail, resumeAfterAnswer)
-  if (controls.length === 0) return null
+  const rerunShown = rerun && hooks.rerun !== undefined
+  if (controls.length === 0 && !rerunShown) return null
   const pressed = read(writing).find((held) => held.runId === detail.id)?.control
   const off = !writable || pressed !== undefined
   const open = read(confirming)
@@ -189,8 +218,20 @@ export function actionRow(detail: RunDetail, writable: boolean, hooks: RunAction
           {pressed === control ? PRESSED[control] : LABEL[control]}
         </Button>
       ))}
+      {rerunShown ? (
+        <Button size="sm" variant="outline" disabled={!writable || read(rerunning) !== null} onPress={() => pressRerun(detail.id, hooks)}>
+          {read(rerunning) === detail.id ? 'Opening the launcher…' : 'Re-run'}
+        </Button>
+      ) : null}
     </Row>
   )
+}
+
+/** Why the open run's last Re-run did not open the launcher, under the action row. */
+export function rerunLine(detail: RunDetail): OrcaNode {
+  const refused = read(rerunRefused)
+  if (refused === null || refused.runId !== detail.id) return null
+  return <Text size="sm">{refused.message}</Text>
 }
 
 /** Archon's answer to the open run's last write, beside the action row (#14, part 8). */
