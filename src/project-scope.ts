@@ -10,7 +10,7 @@ import type { Disk } from './disk'
 import { matchProject, type ArchonProject } from './project-match'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { isRecord, own, refuseRequest } from './records'
-import { CHOICES_CAP, type LinkChoices, type LinkRequest, type ScopeAnswer, type ScopeView } from './scope-view'
+import { CHOICES_CAP, type LinkChoices, type LinkRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
 import { localAndWritable, normalisePath, originUrl } from './workspaces'
 
 /** The longest Git config file the worker reads. */
@@ -99,6 +99,8 @@ export const REMOTE_WORKSPACE = 'This workspace is on another host. Orchon works
 export const NOT_LISTED = 'Archon no longer lists that project. Choose another.'
 const NOT_CONNECTED = 'Orchon is not connected to Archon.'
 const NO_WORKSPACE = 'No workspace is focused in Orca.'
+export const NOT_GIT = 'Only a Git repository can be registered. Link this folder to an Archon project instead.'
+export const FOLDER_CHANGED = 'The folder to register has changed. Check it and confirm again.'
 
 type LocalFocus = Extract<Focus, { kind: 'local' }>
 
@@ -125,6 +127,15 @@ export function parseLinkRequest(input: unknown): LinkRequest {
   if (!isText(projectId) || projectId.length > 200) refuseRequest('The project id must be text of 1 to 200 characters.')
   for (const key of Object.keys(input)) if (key !== 'projectId') refuseRequest(`Link does not take ${key}.`)
   return { projectId }
+}
+
+/** Register's input, or a refusal: the folder the person confirmed and nothing else. */
+export function parseRegisterRequest(input: unknown): RegisterRequest {
+  if (!isRecord(input)) refuseRequest('Register takes the folder that was confirmed.')
+  const folder = own(input, 'folder')
+  if (!isText(folder) || folder.length > 4096) refuseRequest('The folder must be text of 1 to 4096 characters.')
+  for (const key of Object.keys(input)) if (key !== 'folder') refuseRequest(`Register does not take ${key}.`)
+  return { folder }
 }
 
 export type ProjectScopePorts = {
@@ -280,6 +291,27 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
       return {}
     }
 
+  /**
+   * Register, once the person confirmed `folder`: it must be exactly the main checkout folder the
+   * scope shows, of a Git project. Only then is `POST /api/codebases` sent, with `{ path }` and no
+   * other key, and never retried.
+   */
+  const register =
+    (folder: string): Press =>
+    async ({ server, focused, signal }) => {
+      if (focused.repository === null) return { refused: NOT_GIT }
+      if (folder !== focused.repository) return { refused: FOLDER_CHANGED }
+      const sent = await ports.client.request({
+        baseUrl: server.baseUrl,
+        path: CODEBASES_PATH,
+        method: 'POST',
+        body: { path: focused.repository },
+        timeout: 'write',
+        signal
+      })
+      return sent.ok ? { reread: true } : { refused: readFailureText(sent.failure) }
+    }
+
   const subscriptions: Disposable[] = [
     orca.panels.handle('scope.read', (input, context) => {
       refuseInput(input)
@@ -289,7 +321,8 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
     orca.panels.handle('scope.unlink', (input, context) => {
       refuseInput(input)
       return answer(context.signal, link(null))
-    })
+    }),
+    orca.panels.handle('scope.register', (input, context) => answer(context.signal, register(parseRegisterRequest(input).folder)))
   ]
 
   return {

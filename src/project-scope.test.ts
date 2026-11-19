@@ -286,3 +286,93 @@ describe('Link to an existing Archon project', () => {
     await worker.deactivate()
   })
 })
+
+/** Archon's projects around a registration: none until a POST that succeeds, then the recorded project at `folder`. */
+function registering(stage: Scene, release: Release, folder: string, post: ReturnType<typeof recorded> = recorded(release, 'codebases')): void {
+  let registered = false
+  stage.archon.answer(CODEBASES, (call) => {
+    if (call.method === 'POST') {
+      registered = post.kind === 'json' && (post.status ?? 200) < 300
+      return post
+    }
+    return registered ? codebasesAt(release, folder) : json([])
+  })
+}
+
+const posts = (stage: Scene): { url: string; body?: string }[] =>
+  stage.archon.calls.filter((call) => call.method === 'POST').map((call) => (call.body === undefined ? { url: call.url } : { url: call.url, body: call.body }))
+
+describe('Register with Archon', () => {
+  for (const release of RELEASES) {
+    test(`sends POST /api/codebases with the confirmed main checkout folder only, then matches it (${release})`, async () => {
+      const stage = connectedScene(release)
+      registering(stage, release, 'C:/Projects/web')
+      const { worker } = await stage.mount(orcaWith('ws-feature'))
+      const before = (await worker.request('scope.read')) as ScopeAnswer
+      assert.equal(before.scope.kind === 'unmatched' ? before.scope.registerFolder : null, 'C:/Projects/web')
+      // Reading the scope never registers anything.
+      assert.deepEqual(posts(stage), [])
+      const answer = (await worker.request('scope.register', { folder: 'C:/Projects/web' })) as ScopeAnswer
+      assert.deepEqual(posts(stage), [{ url: CODEBASES, body: '{"path":"C:/Projects/web"}' }])
+      assert.equal(answer.refused, undefined)
+      assert.deepEqual(answer.scope.kind === 'matched' ? [answer.scope.project.id, answer.scope.by] : answer.scope.kind, [RECORDED_ID[release], 'path'])
+      await worker.deactivate()
+    })
+  }
+
+  test('a folder other than the main checkout shown is refused, and nothing is sent', async () => {
+    const stage = connectedScene()
+    registering(stage, '0.12.1', 'C:/Projects/web')
+    const { worker } = await stage.mount(orcaWith('ws-feature'))
+    for (const folder of ['C:/Users/ada/orca/workspaces/web/feature', 'c:/projects/web', 'C:/Projects/web/']) {
+      const answer = (await worker.request('scope.register', { folder })) as ScopeAnswer
+      assert.equal(answer.refused, 'The folder to register has changed. Check it and confirm again.', folder)
+    }
+    assert.deepEqual(posts(stage), [])
+    await worker.deactivate()
+  })
+
+  test('a folder that is not a Git repository is refused, and nothing is sent', async () => {
+    const stage = connectedScene()
+    registering(stage, '0.12.1', 'D:/Notes')
+    const notes: Row = { id: 'ws-notes', kind: 'folder', name: 'notes', projectId: 'p-notes', path: 'D:/Notes', branch: null, hostId: 'local' }
+    const { worker } = await stage.mount(orcaWith('ws-notes', [notes], [{ id: 'p-notes', name: 'notes', kind: 'folder', hostId: 'local', path: 'D:/Notes' }]))
+    const answer = (await worker.request('scope.register', { folder: 'D:/Notes' })) as ScopeAnswer
+    assert.equal(answer.refused, 'Only a Git repository can be registered. Link this folder to an Archon project instead.')
+    assert.deepEqual(posts(stage), [])
+    await worker.deactivate()
+  })
+
+  test('in a remote workspace Register is off, and nothing is sent', async () => {
+    const stage = connectedScene()
+    registering(stage, '0.12.1', '/srv/web')
+    const ssh: Row = { ...mainCheckout, id: 'ws-ssh', hostId: 'ssh:box', path: '/srv/web' }
+    const { worker } = await stage.mount(orcaWith('ws-ssh', [ssh], [{ ...webProject, hostId: 'ssh:box', path: '/srv/web' }]))
+    const answer = (await worker.request('scope.register', { folder: '/srv/web' })) as ScopeAnswer
+    assert.equal(answer.refused, 'This workspace is on another host. Orchon works with the Archon on this computer.')
+    assert.deepEqual(posts(stage), [])
+    await worker.deactivate()
+  })
+
+  test('a refused registration says why, and is not sent again', async () => {
+    const stage = connectedScene()
+    registering(stage, '0.12.1', 'C:/Projects/web', json({ error: 'Path is not a git repository' }, 400))
+    const { worker } = await stage.mount(orcaWith('ws-feature'))
+    const answer = (await worker.request('scope.register', { folder: 'C:/Projects/web' })) as ScopeAnswer
+    assert.equal(answer.refused, 'Archon answered with an error (400).')
+    assert.equal(answer.scope.kind, 'unmatched')
+    assert.equal(posts(stage).length, 1)
+    await worker.deactivate()
+  })
+
+  test('a malformed register request is refused before anything is sent', async () => {
+    const stage = connectedScene()
+    registering(stage, '0.12.1', 'C:/Projects/web')
+    const { worker } = await stage.mount(orcaWith('ws-feature'))
+    for (const input of [null, {}, { folder: '' }, { folder: 3 }, { folder: 'C:/Projects/web', path: 'x' }]) {
+      await assert.rejects(worker.request('scope.register', input as never), (error: unknown) => (error as { code?: string }).code === 'invalid_params')
+    }
+    assert.deepEqual(posts(stage), [])
+    await worker.deactivate()
+  })
+})
