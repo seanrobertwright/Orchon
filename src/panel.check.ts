@@ -154,6 +154,18 @@ export default defineCheck({
     ...answeringThread((request) => sampleThread(60, request, { unreadable: 1 })),
     persisted: { workspace: { section: 'chat', openChat: 'web-chat-0' } }
   },
+  'chat thread with a workflow dispatch and its result': {
+    ...answeringThread((request) => {
+      const view = sampleThread(4, request)
+      if (view.kind !== 'ready') return view
+      const [newest, ...rest] = view.thread.messages
+      if (newest === undefined) return view
+      const result = { ...newest, id: 'msg-result', blocks: ['The site is **live**.'], result: { workflow: 'deploy-site', runId: 'run-5' } }
+      const dispatch = { ...newest, id: 'msg-dispatch', blocks: [], dispatch: { workflow: 'deploy-site', workerId: 'web-worker-5' } }
+      return { ...view, thread: { ...view.thread, messages: [result, dispatch, ...rest] } }
+    }),
+    persisted: { workspace: { section: 'chat', openChat: 'web-chat-0' } }
+  },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
