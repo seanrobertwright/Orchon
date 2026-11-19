@@ -1,5 +1,6 @@
 // Fails when the committed editor JavaScript is not what the compiler writes for
-// tsconfig.editors.json, or when a JavaScript file under editors/ has no TypeScript source.
+// tsconfig.editors.json, or when a JavaScript file under editors/ has no TypeScript source and is
+// not one of the third-party files copied in by name.
 // The editors ship as committed, unminified ESM beside their source.
 //
 //   node scripts/check-editor-output.ts
@@ -20,6 +21,13 @@ export const TEST_ONLY_EDITOR_SOURCES = {
   folders: ['editors/builder/archon/fixtures/'],
   files: ['editors/builder/archon/validation/test-helpers.ts']
 }
+
+/**
+ * Third-party JavaScript the editors ship as its project built it, named one by one: dagre's
+ * single-file ESM build, copied in with its licence (#11, #23). It has no TypeScript source by
+ * design, so it is neither compiled nor compared. THIRD_PARTY_NOTICES names each file.
+ */
+export const COPIED_EDITOR_JAVASCRIPT: readonly string[] = ['editors/shared/dagre.esm.js']
 
 /** Whether an editor source is test-only, and so is not compiled. */
 export function isTestOnlyEditorSource(path: string): boolean {
@@ -84,7 +92,7 @@ export function compareEditorOutput(
     }
   }
   for (const path of [...committed.keys()].sort()) {
-    if (!expected.has(path)) {
+    if (!expected.has(path) && !COPIED_EDITOR_JAVASCRIPT.includes(path)) {
       problems.push(`${path} has no TypeScript source: editor JavaScript is compiler output only.`)
     }
   }

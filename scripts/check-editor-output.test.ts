@@ -2,6 +2,7 @@
 import { describe, test } from 'node:test'
 import { assert } from 'orca/testing'
 import {
+  COPIED_EDITOR_JAVASCRIPT,
   compareEditorOutput,
   compileEditors,
   isTestOnlyEditorSource,
@@ -50,6 +51,23 @@ describe('the editor output check', () => {
       'editors/builder/old.js has no TypeScript source: editor JavaScript is compiler output only.',
       'editors/shared/handwritten.js has no TypeScript source: editor JavaScript is compiler output only.'
     ])
+  })
+
+  test('passes a copied third-party file, which has no TypeScript source by design', () => {
+    const committed = new Map(expected).set('editors/shared/dagre.esm.js', 'var e=1;export{e as layout};\n')
+    assert.deepEqual(compareEditorOutput(expected, committed), [])
+  })
+
+  test("names dagre's single-file ESM build as the only copied editor JavaScript, with its licence beside it and in THIRD_PARTY_NOTICES", () => {
+    assert.deepEqual(COPIED_EDITOR_JAVASCRIPT, ['editors/shared/dagre.esm.js'])
+    const paths = listRepoFiles().map((file) => file.path)
+    const notices = readRepoText('THIRD_PARTY_NOTICES')
+    for (const path of COPIED_EDITOR_JAVASCRIPT) {
+      assert.ok(paths.includes(path), `${path} is not in the repository`)
+      assert.ok(notices.includes(path), `THIRD_PARTY_NOTICES does not name ${path}`)
+    }
+    assert.ok(paths.includes('editors/shared/dagre.LICENSE'))
+    assert.match(readRepoText('editors/shared/dagre.LICENSE'), /Copyright \(c\) 2012-2014 Chris Pettitt/)
   })
 
   test("names Archon's builder test fixtures and test helpers as the only test-only editor sources", () => {
