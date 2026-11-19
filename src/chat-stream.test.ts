@@ -273,6 +273,25 @@ describe('when the stream ends', () => {
     await stage.clock.advance(120_000)
     assert.equal(opens(stage, id), 3)
   })
+  for (const [what, answer] of [
+    ['an error status', { kind: 'json', value: { error: 'restarting' }, status: 503 }],
+    ['an answer that is not an event stream', { kind: 'text', text: '<html></html>', contentType: 'text/html', status: 200 }]
+  ] as const) {
+    test(`a stream that opens on ${what} is no takeover: it is tried again on the same backoff`, async () => {
+      const { stage, id } = chatScene('0.14.0')
+      stage.archon.answer(streamUrl(id), answer)
+      const mounted = await stage.mount()
+      await readThread(mounted, id, true)
+      await stage.clock.advance(100)
+      assert.equal(opens(stage, id), 1)
+      await stage.clock.advance(1_000)
+      assert.equal(opens(stage, id), 2)
+      await stage.clock.advance(2_000)
+      assert.equal(opens(stage, id), 3)
+      await mounted.worker.deactivate()
+      assert.deepEqual(stage.clock.waiting(), [])
+    })
+  }
 })
 
 describe('the chat list', () => {
