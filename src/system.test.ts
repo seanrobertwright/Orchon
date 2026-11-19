@@ -8,6 +8,7 @@ import {
   DEFAULT_OPENAPI,
   CLOCK_START,
   HANG,
+  html,
   health,
   json,
   recorded,
@@ -16,7 +17,8 @@ import {
   scene,
   settle,
   type MountedScene,
-  type Release
+  type Release,
+  type Scripted
 } from '../scripts/scripted-archon.ts'
 import type { SystemView } from './system-view'
 
@@ -64,7 +66,7 @@ describe('the System group', () => {
         runningWorkflows: 0,
         platforms: { names: ['Web'], more: 0 }
       })
-      assert.equal(system.failed, false)
+      assert.equal(system.failure, null)
       await mounted.worker.deactivate()
     })
   }
@@ -282,13 +284,13 @@ describe('the System group', () => {
     stage.archon.answer(DEFAULT_HEALTH, REFUSE)
     await stage.clock.advance(30_000)
     const failed = systemPosts(mounted).at(-1)
-    assert.equal(failed?.failed, true)
+    assert.equal(failed?.failure, 'Archon did not answer.')
     assert.deepEqual(failed?.health, first.health)
     assert.equal(failed?.readAt, CLOCK_START)
 
     stage.archon.answer(DEFAULT_HEALTH, recorded('0.14.0', 'health'))
     const again = (await mounted.worker.request('system.refresh')).system
-    assert.equal(again.failed, false)
+    assert.equal(again.failure, null)
     assert.equal(again.readAt, CLOCK_START + 30_000)
     await mounted.worker.deactivate()
   })
@@ -303,6 +305,25 @@ describe('the System group', () => {
     assert.equal(system.health, null)
     await settle()
     assert.deepEqual(callsSince(stage, mark), { health: 0, updates: 0 })
+    await mounted.worker.deactivate()
+  })
+
+  test('says why a health read failed, in the words of the failed-read table', async () => {
+    const { stage, mounted } = await connectedTo('0.14.0')
+    await mounted.worker.request('system.open')
+    const cases: [Scripted, string][] = [
+      [json({ error: 'boom' }, 500), 'Archon answered with an error (500).'],
+      [html(), 'This Archon does not have this feature.'],
+      [json(['not', 'health']), "Orchon could not read Archon's answer."]
+    ]
+    for (const [answer, words] of cases) {
+      stage.archon.answer(DEFAULT_HEALTH, answer)
+      assert.equal((await mounted.worker.request('system.refresh')).system.failure, words)
+    }
+    stage.archon.answer(DEFAULT_HEALTH, HANG)
+    const pending = mounted.worker.request('system.refresh')
+    await stage.clock.advance(10_000)
+    assert.equal((await pending).system.failure, 'Archon did not answer within 10 seconds.')
     await mounted.worker.deactivate()
   })
 })

@@ -36,8 +36,11 @@ export type SystemView = {
   health: HealthFacts | null
   /** When `health` was read, or null before the first answer. */
   readAt: number | null
-  /** The newest health read failed, so `health` is from an earlier answer. */
-  failed: boolean
+  /**
+   * Why the newest health read failed, as one sentence, or null when it did not. `health` is
+   * then from an earlier answer, or null when there is none.
+   */
+  failure: string | null
   updates: Updates
 }
 

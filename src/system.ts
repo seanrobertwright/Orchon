@@ -1,7 +1,7 @@
 // The System group of the Settings section: the worker's reads of Archon's health and its update
 // check, trimmed to the view model the panel draws. Health is read when the section opens, on
 // Refresh and every 30 seconds while the section shows; the update check on open and Refresh only.
-import type { Client, Timers } from './client'
+import type { Client, ClientFailure, Timers } from './client'
 import type { ConnectionView } from './connection-view'
 import { HEALTH_PATH } from './discovery'
 import { isRecord } from './records'
@@ -86,6 +86,27 @@ export function parseUpdates(value: unknown): Updates {
   return { kind: 'unavailable' }
 }
 
+/** An answer that does not validate. */
+const UNREADABLE = "Orchon could not read Archon's answer."
+
+/** Why a read gave no answer, in the words of the failed-read table. */
+function failureText(failure: ClientFailure): string {
+  switch (failure.kind) {
+    case 'timeout':
+      return `Archon did not answer within ${failure.timeoutMs / 1_000} seconds.`
+    case 'too-large':
+      return "Archon's answer was too large to read."
+    case 'status':
+      return `Archon answered with an error (${failure.status}).`
+    case 'not-json':
+      return 'This Archon does not have this feature.'
+    case 'refused':
+    case 'not-loopback':
+    case 'cancelled':
+      return 'Archon did not answer.'
+  }
+}
+
 export type SystemPorts = {
   client: Client
   /** The connection state as it is now. */
@@ -104,7 +125,7 @@ export type System = {
 }
 
 export function createSystem(ports: SystemPorts): System {
-  let view: SystemView = { since: ports.now(), health: null, readAt: null, failed: false, updates: { kind: 'checking' } }
+  let view: SystemView = { since: ports.now(), health: null, readAt: null, failure: null, updates: { kind: 'checking' } }
 
   function change(next: Omit<SystemView, 'since'>): SystemView {
     view = { ...next, since: Math.max(ports.now(), view.since + 1) }
@@ -167,10 +188,11 @@ export function createSystem(ports: SystemPorts): System {
       const connection = ports.connection()
       if (connection.kind !== 'connected') return null
       const answer = await ports.client.request({ baseUrl: connection.baseUrl, path: HEALTH_PATH, timeout: 'read' })
-      const health = answer.ok ? parseHealthFacts(answer.value) : null
+      if (!answer.ok) return change({ ...view, failure: failureText(answer.failure) })
+      const health = parseHealthFacts(answer.value)
       return health === null
-        ? change({ ...view, failed: true })
-        : change({ ...view, health, readAt: ports.now(), failed: false })
+        ? change({ ...view, failure: UNREADABLE })
+        : change({ ...view, health, readAt: ports.now(), failure: null })
     })().finally(() => {
       reading = undefined
     })
