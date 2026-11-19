@@ -9,7 +9,7 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
-import { CONVERSATION_ID, CONVERSATION_ID_CAP } from './conversations'
+import { isConversationId } from './conversations'
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
 import { questionOf } from './questions'
@@ -298,7 +298,7 @@ function parseRunDetail(value: unknown): ParsedRun | null {
   const text = message ?? ''
   const question = questionOf(run, metadata)
   const parent = own(run, 'parent_platform_id')
-  const conversationId = typeof parent === 'string' && parent.length <= CONVERSATION_ID_CAP && CONVERSATION_ID.test(parent) ? parent : null
+  const conversationId = isConversationId(parent) ? parent : null
   return {
     id,
     workflow,

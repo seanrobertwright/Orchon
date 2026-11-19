@@ -5,7 +5,7 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { ChatRunAnswer, ChatRunRequest, ChatRunView } from './chat-run-view'
 import type { Client } from './client'
 import type { Connected, ConnectionView } from './connection-view'
-import { CONVERSATION_ID, CONVERSATION_ID_CAP } from './conversations'
+import { CONVERSATION_ID_CAP, isConversationId } from './conversations'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, own, refuseOtherKeys, refuseRequest } from './records'
 import { RUN_ID_CAP } from './run-detail-view'
@@ -17,7 +17,7 @@ export function parseChatRunRequest(input: unknown): ChatRunRequest {
   if (!isRecord(input)) refuseRequest('Open run takes the id of the conversation the workflow works in.')
   refuseOtherKeys(input, ['workerId'], 'The Open run request')
   const workerId = own(input, 'workerId')
-  if (typeof workerId !== 'string' || workerId === '' || workerId.length > CONVERSATION_ID_CAP || !CONVERSATION_ID.test(workerId)) {
+  if (!isConversationId(workerId)) {
     refuseRequest(`${cappedTextRefusal('The conversation id', CONVERSATION_ID_CAP)} It may hold only letters, digits, _ and -.`)
   }
   return { workerId }

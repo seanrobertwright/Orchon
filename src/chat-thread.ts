@@ -26,7 +26,7 @@ import {
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
-import { CONVERSATION_ID, CONVERSATION_ID_CAP, CONVERSATIONS_PATH, parseConversation } from './conversations'
+import { CONVERSATION_ID_CAP, CONVERSATIONS_PATH, isConversationId, parseConversation } from './conversations'
 import { cutAt, cutMarkdown, cutText, oneLine } from './cutter'
 import { parseInstant } from './dates'
 import { readFailureText, unreadableAnswerText } from './read-failure'
@@ -38,7 +38,7 @@ export function parseThreadRequest(input: unknown): ThreadRequest {
   if (!isRecord(input)) refuseRequest('The chat thread request takes a conversation id and a limit.')
   refuseOtherKeys(input, ['conversationId', 'limit', 'toolCalls'], 'The chat thread request')
   const conversationId = own(input, 'conversationId')
-  if (typeof conversationId !== 'string' || conversationId === '' || conversationId.length > CONVERSATION_ID_CAP || !CONVERSATION_ID.test(conversationId)) {
+  if (!isConversationId(conversationId)) {
     refuseRequest(`${cappedTextRefusal('The conversation id', CONVERSATION_ID_CAP)} It may hold only letters, digits, _ and -.`)
   }
   const limit = own(input, 'limit')
@@ -137,8 +137,7 @@ function parseDispatch(value: unknown): SavedMessage['dispatch'] {
   const name = own(value, 'workflowName')
   if (!isText(name)) return null
   const worker = own(value, 'workerConversationId')
-  const valid = typeof worker === 'string' && worker.length <= CONVERSATION_ID_CAP && CONVERSATION_ID.test(worker)
-  return { workflow: workflowName(name), workerId: valid ? worker : null }
+  return { workflow: workflowName(name), workerId: isConversationId(worker) ? worker : null }
 }
 
 /** `metadata.workflowResult`, or null unless it names a workflow and a run id run detail accepts. */
@@ -233,7 +232,8 @@ function parseMessages(value: unknown): { rows: SavedMessage[]; sent: number; un
 const isFramework = (category: string | null): boolean => category !== null && (category.startsWith('workflow_') || category.startsWith('system_'))
 
 /** A workflow's result card: a `workflow_result` message that names its run. */
-const isResult = (message: SavedMessage): boolean => message.category === 'workflow_result' && message.result !== null
+const isResult = (message: SavedMessage): message is SavedMessage & { result: NonNullable<SavedMessage['result']> } =>
+  message.category === 'workflow_result' && message.result !== null
 
 /** Whether the thread shows a message: every one but framework messages, of which only a dispatch and a result show. */
 const isShown = (message: SavedMessage): boolean => !isFramework(message.category) || message.dispatch !== null || isResult(message)
@@ -247,7 +247,7 @@ function messageView(message: SavedMessage, withToolCalls: boolean): ThreadMessa
   const cut = format === 'markdown' ? cutMarkdown(content, cap) : cutText(content, cap)
   const view: ThreadMessage = { id: message.id, role: message.role, at: message.at, format, blocks: cut.blocks.map((block) => block.text), notShown: cut.notShown }
   if (message.dispatch !== null) view.dispatch = message.dispatch
-  else if (message.result !== null && isResult(message)) view.result = message.result
+  else if (isResult(message)) view.result = message.result
   if (message.error !== null) view.error = cutAt(message.error, ERROR_TEXT_CAP)
   if (message.files.length > 0) {
     const names = message.files.slice(0, FILE_NAMES_CAP).map((name) => cutAt(oneLine(name), FILE_NAME_CAP))
