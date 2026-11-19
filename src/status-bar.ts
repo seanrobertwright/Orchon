@@ -2,7 +2,7 @@
 // only when something differs and never more than once a second. Orca puts no limit on
 // `statusBar.update`, so the worker limits itself.
 import type { Timers } from './client'
-import type { ConnectionView } from './connection-view'
+import type { Connected, ConnectionView } from './connection-view'
 import { statusSentence } from './connection-words'
 
 /** The manifest id of the item. */
@@ -13,7 +13,7 @@ export const STATUS_GAP_MS = 1_000
 
 export type StatusItem = {
   text: string
-  icon: 'bot' | 'warning'
+  icon: 'bot' | 'bell' | 'warning'
   tone: 'neutral' | 'warning'
   /** One full sentence. */
   tooltip: string
@@ -28,10 +28,53 @@ const TEXT: Record<ConnectionView['kind'], string> = {
 }
 
 /**
- * What the item shows for a connection state. A stopped Archon is ordinary, so it is neutral; a
- * refused setting and an unsupported server need the person, so they warn.
+ * What the snapshot of runs that need you says to the item: the two counts, or that the waiting
+ * runs could not be read. Before the first read there is none, and the item reads as for no runs.
  */
-export function statusItem(view: ConnectionView): StatusItem {
+export type StatusCounts = { kind: 'counted'; needsYou: number; running: number } | { kind: 'unavailable' }
+
+/** The most a figure shows before it reads "99+". */
+export const FIGURE_CAP = 99
+
+const figure = (count: number): string => (count > FIGURE_CAP ? `${String(FIGURE_CAP)}+` : String(count))
+
+/** Where the counts were taken, in the words of the Connected sentence. */
+const archonAt = (view: Connected): string =>
+  view.version === null ? `Archon at ${view.baseUrl}` : `Archon ${view.version} at ${view.baseUrl}`
+
+const runs = (count: number): string => (count === 1 ? '1 run' : `${String(count)} runs`)
+
+/** The one full sentence of the tooltip while Connected. */
+function connectedSentence(view: Connected, counts: StatusCounts | undefined): string {
+  if (counts === undefined) return statusSentence(view)
+  if (counts.kind === 'unavailable') return `The count of runs that need you is unavailable from ${archonAt(view)}.`
+  const { needsYou, running } = counts
+  if (needsYou > 0) {
+    const need = `${runs(needsYou)} ${needsYou === 1 ? 'needs' : 'need'} you`
+    const also = running === 0 ? '' : ` and ${String(running)} ${running === 1 ? 'is' : 'are'} running`
+    return `${need}${also} on ${archonAt(view)}.`
+  }
+  if (running > 0) return `${runs(running)} ${running === 1 ? 'is' : 'are'} running on ${archonAt(view)}.`
+  return statusSentence(view)
+}
+
+/**
+ * What the item shows for a connection state and, while Connected, the snapshot's counts. A
+ * stopped Archon is ordinary, so it is neutral; a refused setting and an unsupported server need
+ * the person, so they warn. One figure at a time: runs that need you take the text, with the bell
+ * and the warning tone, and the running count moves to the tooltip. The text always carries the
+ * meaning; the icon and the tone only repeat it.
+ */
+export function statusItem(view: ConnectionView, counts?: StatusCounts): StatusItem {
+  if (view.kind === 'connected') {
+    const tooltip = connectedSentence(view, counts)
+    if (counts?.kind === 'counted' && counts.needsYou > 0) {
+      const text = `${figure(counts.needsYou)} ${counts.needsYou === 1 ? 'needs' : 'need'} you`
+      return { text, icon: 'bell', tone: 'warning', tooltip }
+    }
+    const text = counts?.kind === 'counted' && counts.running > 0 ? `${figure(counts.running)} running` : TEXT.connected
+    return { text, icon: 'bot', tone: 'neutral', tooltip }
+  }
   const warns = view.kind === 'bad-setting' || view.kind === 'unsupported'
   return {
     text: TEXT[view.kind],
@@ -39,6 +82,17 @@ export function statusItem(view: ConnectionView): StatusItem {
     tone: warns ? 'warning' : 'neutral',
     tooltip: statusSentence(view)
   }
+}
+
+/** Where the person goes after a press, since the worker cannot show the panel itself. */
+export const WHERE_TO_GO = 'Open the Orchon panel in the right sidebar.'
+
+/**
+ * What the "Orchon: Show runs" command returns: while Connected, the status sentence and where to
+ * go; in any other state, that state's sentence.
+ */
+export function showRunsSentence(view: ConnectionView, counts?: StatusCounts): string {
+  return view.kind === 'connected' ? `${connectedSentence(view, counts)} ${WHERE_TO_GO}` : statusSentence(view)
 }
 
 function same(first: StatusItem, second: StatusItem): boolean {
