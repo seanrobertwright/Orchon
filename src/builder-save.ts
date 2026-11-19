@@ -34,6 +34,7 @@ import {
   type ValidationErrors
 } from '../editors/builder/builder-view'
 import { sameDefinition } from '../editors/builder/same-definition'
+import type { TabConnection } from '../editors/run-graph/graph-view'
 
 export const VALIDATE_PATH = `${WORKFLOWS_PATH}/validate`
 
@@ -179,30 +180,42 @@ export type BuilderSavePorts = {
   current(): Promise<ConnectionView>
 }
 
+/**
+ * Answers a write request with the connection read fresh afterwards: `run`'s outcome while
+ * Connected, else a refusal that says Orchon is not connected.
+ */
+async function whenConnected<O>(
+  ports: BuilderSavePorts,
+  locale: string,
+  run: (connection: Connected) => Promise<O | { kind: 'refused'; message: string }>
+): Promise<{ connection: TabConnection; outcome: O | { kind: 'refused'; message: string } }> {
+  const connection = await ports.current()
+  if (connection.kind !== 'connected') return { connection: tabConnection(connection, locale), outcome: { kind: 'refused', message: NOT_CONNECTED } }
+  const outcome = await run(connection)
+  return { connection: tabConnection(await ports.current(), locale), outcome }
+}
+
 /** Answers the builder tabs' `builder.save` and `builder.validate`. */
 export function startBuilderSave(orca: OrcaWorkerApi, ports: BuilderSavePorts): Disposable {
   let saving = false
   const subscriptions = [
     orca.panels.handle('builder.save', async (input): Promise<BuilderSaveAnswer> => {
       const request = parseSaveRequest(input)
-      const connection = await ports.current()
-      if (connection.kind !== 'connected') return { connection: tabConnection(connection, request.locale), save: { kind: 'refused', message: NOT_CONNECTED } }
-      if (saving) return { connection: tabConnection(connection, request.locale), save: { kind: 'refused', message: SAVE_IN_FLIGHT } }
-      saving = true
-      let save: BuilderSaveOutcome
-      try {
-        save = await saveIn(ports.client, connection, request)
-      } finally {
-        saving = false
-      }
-      return { connection: tabConnection(await ports.current(), request.locale), save }
+      const { connection, outcome } = await whenConnected<BuilderSaveOutcome>(ports, request.locale, async (server) => {
+        if (saving) return { kind: 'refused', message: SAVE_IN_FLIGHT }
+        saving = true
+        try {
+          return await saveIn(ports.client, server, request)
+        } finally {
+          saving = false
+        }
+      })
+      return { connection, save: outcome }
     }),
     orca.panels.handle('builder.validate', async (input): Promise<BuilderValidateAnswer> => {
       const request = parseValidateRequest(input)
-      const connection = await ports.current()
-      if (connection.kind !== 'connected') return { connection: tabConnection(connection, request.locale), validate: { kind: 'refused', message: NOT_CONNECTED } }
-      const validate = await validateIn(ports.client, connection, request.definition)
-      return { connection: tabConnection(await ports.current(), request.locale), validate }
+      const { connection, outcome } = await whenConnected<BuilderValidateOutcome>(ports, request.locale, (server) => validateIn(ports.client, server, request.definition))
+      return { connection, validate: outcome }
     })
   ]
   return {
