@@ -70,8 +70,8 @@ export type RunActionHooks = {
   /** Archon answered that the run does not exist. */
   gone(): void
   keep(view: ConnectionView): void
-  /** Re-run: fills the launcher from the run and shows it. Rejects with the worker's refusal. Re-run is not drawn when left out. */
-  rerun?(runId: string): Promise<void>
+  /** Re-run: fills the launcher from the run and shows it. Rejects with the worker's refusal. */
+  rerun(runId: string): Promise<void>
 }
 
 /**
@@ -162,11 +162,10 @@ function write(
 
 /** Re-run pressed: one at a time, and the worker's refusal shown under the row. */
 function pressRerun(runId: string, hooks: RunActionHooks): void {
-  const rerun = hooks.rerun
-  if (rerun === undefined || read(rerunning) !== null) return
+  if (read(rerunning) !== null) return
   set(rerunning, runId)
   set(rerunRefused, null)
-  rerun(runId).then(
+  hooks.rerun(runId).then(
     () => set(rerunning, null),
     (error: unknown) => {
       set(rerunning, null)
@@ -175,13 +174,18 @@ function pressRerun(runId: string, hooks: RunActionHooks): void {
   )
 }
 
-/**
- * The action row, or the confirmation in its place. `writable` is false while Searching.
- * `rerun` is set when the worker offers Re-run for the run.
- */
-export function actionRow(detail: RunDetail, writable: boolean, hooks: RunActionHooks, resumeAfterAnswer = false, rerun = false): OrcaNode {
-  const controls = offered(detail, resumeAfterAnswer)
-  const rerunShown = rerun && hooks.rerun !== undefined
+/** What run detail tells the action row beyond the run itself. */
+export type ActionRowOptions = {
+  /** Set once a gate with no pause id was answered: the row offers Resume (see `offered`). */
+  resumeAfterAnswer?: boolean
+  /** Set when the worker offers Re-run for the run. */
+  rerun?: boolean
+}
+
+/** The action row, or the confirmation in its place. `writable` is false while Searching. */
+export function actionRow(detail: RunDetail, writable: boolean, hooks: RunActionHooks, options: ActionRowOptions = {}): OrcaNode {
+  const controls = offered(detail, options.resumeAfterAnswer ?? false)
+  const rerunShown = options.rerun ?? false
   if (controls.length === 0 && !rerunShown) return null
   const pressed = read(writing).find((held) => held.runId === detail.id)?.control
   const off = !writable || pressed !== undefined

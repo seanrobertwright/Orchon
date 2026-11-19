@@ -85,7 +85,7 @@ export type RunDetailHooks = {
   /** The way back: the runs table shows again and is read again. */
   back(): void
   /** Re-run: fills the launcher from the run and shows it. Rejects with the worker's refusal. */
-  rerun?(runId: string): Promise<void>
+  rerun(runId: string): Promise<void>
 }
 
 let fetcher: ViewFetch | undefined
@@ -503,7 +503,7 @@ const actionHooks: RunActionHooks = {
     set(problem, null)
   },
   keep: (view) => hooks?.keep(view),
-  rerun: (runId) => hooks?.rerun?.(runId) ?? Promise.resolve()
+  rerun: (runId) => hooks?.rerun(runId) ?? Promise.resolve()
 }
 
 /** What a press of Open graph says when the worker itself does not answer. */
@@ -554,7 +554,7 @@ function body(detail: RunDetail, writable: boolean): OrcaNode {
     <>
       {answerBlock(detail, writable, actionHooks)}
       {waitingCallout(detail.waiting)}
-      {actionRow(detail, writable, actionHooks, resumeAfterAnswer(detail), read(rerunOffered))}
+      {actionRow(detail, writable, actionHooks, { resumeAfterAnswer: resumeAfterAnswer(detail), rerun: read(rerunOffered) })}
       {rerunLine(detail)}
       {outcomeCallout(detail, actionHooks)}
       {factsFold(detail)}
