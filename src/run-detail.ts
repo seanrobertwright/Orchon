@@ -18,12 +18,15 @@ import {
   LAUNCH_MESSAGE_CAP,
   RUN_ID_CAP,
   STEP_ROWS_CAP,
+  STALLED_CALLS_CAP,
   STEP_STATES,
+  UNREADABLE_DETAIL_CAP,
   type ChildRow,
   type RunDetail,
   type RunDetailAnswer,
   type RunDetailRequest,
   type RunDetailView,
+  type StalledCall,
   type Step,
   type StepState,
   type Waiting
@@ -182,6 +185,44 @@ function childIds(run: Record<string, unknown>): string[] | null {
   return null
 }
 
+
+
+/** The `attention` kinds that are a question or nothing to wait for: the answer block's, or none. */
+const NOT_WAITING = ['awaiting_response', 'attention', 'terminal', 'blocked_on_child', 'blocked_on_children']
+
+/** One stalled tool call, or null when it has no name or time. */
+function stalledCall(value: unknown): StalledCall | null {
+  if (!isRecord(value)) return null
+  const name = own(value, 'name')
+  const title = own(value, 'title')
+  const stalledForMs = own(value, 'stalledForMs')
+  if (!isText(name) || !isLength(stalledForMs)) return null
+  return { name, title: isText(title) ? title : null, stalledForMs }
+}
+
+/**
+ * A waiting state with nothing to answer, from the run's `attention`: a usage-limit pause, an
+ * unreadable run, stalled tool calls, or a kind this version does not know. Sub-runs are read
+ * by `childIds`, and a question is the answer block's.
+ */
+function attentionWaiting(run: Record<string, unknown>): Waiting | null {
+  const attention = own(run, 'attention')
+  if (!isRecord(attention)) return null
+  const kind = own(attention, 'kind')
+  if (typeof kind === 'string' && NOT_WAITING.includes(kind)) return null
+  if (kind === 'usage_limit') return { kind: 'usage-limit', resumeAt: parseInstant(own(attention, 'resumeAt')) }
+  if (kind === 'unreadable') {
+    const detail = own(attention, 'detail')
+    return { kind: 'unreadable', detail: typeof detail === 'string' ? cutAt(detail, UNREADABLE_DETAIL_CAP) : '' }
+  }
+  if (kind === 'stalled_tool_calls') {
+    const list = own(attention, 'calls')
+    const calls = (Array.isArray(list) ? (list as unknown[]) : []).map(stalledCall).filter((call) => call !== null)
+    return { kind: 'stalled', calls: calls.slice(0, STALLED_CALLS_CAP), more: Math.max(0, calls.length - STALLED_CALLS_CAP) }
+  }
+  return { kind: 'unknown' }
+}
+
 /** A time or event wait from the run's metadata. A time that does not parse is dropped. */
 function waitOf(metadata: Record<string, unknown>): Waiting | null {
   const wait = own(metadata, 'wait')
@@ -248,8 +289,9 @@ export function parseRunDetail(value: unknown): ParsedRun | null {
     steps: steps.slice(0, STEP_ROWS_CAP),
     stepCount: steps.length,
     unreadableSteps: nodes.length - parsedNodes.length,
-    waiting: live ? waitOf(metadata) : null,
-    children: live ? childIds(run) : null
+    waiting: live ? (attentionWaiting(run) ?? waitOf(metadata)) : null,
+    children: live ? childIds(run) : null,
+    ...(own(run, 'owner_observation') === 'unreachable' ? { ownerUnreachable: true as const } : {})
   }
 }
 

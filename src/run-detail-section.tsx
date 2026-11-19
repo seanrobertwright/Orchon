@@ -31,7 +31,7 @@ import { cutAt } from './cutter'
 import { formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
-import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type Step, type ChildRow, type Waiting } from './run-detail-view'
+import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type StalledCall, type Step, type ChildRow, type Waiting } from './run-detail-view'
 import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
@@ -369,39 +369,97 @@ function childRow(child: ChildRow): OrcaNode {
   )
 }
 
-/** The waiting callout: what a run waits for, besides a question. */
+/** What a waiting callout says when Orchon cannot tell more: a pointer to Archon's console. */
+const CONSOLE_POINTER = "Open Archon's console to look at it."
+
+/** A warning callout holding its lines. */
+const warningCallout = (lines: OrcaNode): OrcaNode => (
+  <Callout tone="warning">
+    <Stack gap="xs">{lines}</Stack>
+  </Callout>
+)
+
+/** "and N more" under a capped list, or nothing. */
+const moreLine = (more: number): OrcaNode =>
+  more > 0 ? (
+    <Text muted size="sm">
+      {`and ${String(more)} more`}
+    </Text>
+  ) : null
+
+/** One stalled tool call: its name and title, and how long it has not answered. */
+function stalledRow(call: StalledCall, index: number): OrcaNode {
+  const silent = formatDuration(call.stalledForMs)
+  return (
+    <ListItem
+      key={`${String(index)}:${call.name}`}
+      title={call.title === null ? call.name : `${call.name}: ${call.title}`}
+      description={silent === '' ? 'No answer yet' : `No answer for ${silent}`}
+    />
+  )
+}
+
+/** The waiting callout: what a run waits for with nothing to answer (#14, part 7). */
 function waitingCallout(waiting: Waiting | null): OrcaNode {
   if (waiting === null) return null
-  if (waiting.kind === 'children') {
-    const count = waiting.children.length + waiting.more
-    return (
-      <Callout tone="warning">
-        <Stack gap="xs">
-          <Text>{count === 1 ? 'Waiting for a sub-run.' : `Waiting for ${String(count)} sub-runs.`}</Text>
+  switch (waiting.kind) {
+    case 'children': {
+      const count = waiting.children.length + waiting.more
+      return warningCallout(
+        <>
+          <Text>{count === 1 ? 'Waiting on 1 sub-run. Answer it in its own run.' : `Waiting on ${String(count)} sub-runs. Answer each one in its own run.`}</Text>
           <List label="Sub-runs">{waiting.children.map(childRow)}</List>
-          {waiting.more > 0 ? (
-            <Text muted size="sm">
-              {`and ${String(waiting.more)} more`}
-            </Text>
-          ) : null}
-        </Stack>
-      </Callout>
-    )
+          {moreLine(waiting.more)}
+        </>
+      )
+    }
+    case 'usage-limit':
+      return warningCallout(
+        waiting.resumeAt === null ? (
+          <Text>Paused on a provider usage limit. Archon tries again by itself.</Text>
+        ) : (
+          <Text>
+            Paused on a provider usage limit. Archon tries again by itself <RelativeTime at={waiting.resumeAt} />.
+          </Text>
+        )
+      )
+    case 'unreadable':
+      return warningCallout(
+        <>
+          <Text>{`Orchon cannot read what this run waits for. ${CONSOLE_POINTER}`}</Text>
+          {waiting.detail === '' ? null : <Text muted>{waiting.detail}</Text>}
+        </>
+      )
+    case 'stalled': {
+      const count = waiting.calls.length + waiting.more
+      return warningCallout(
+        <>
+          <Text>{count === 1 ? '1 tool call has not returned.' : `${String(count)} tool calls have not returned.`}</Text>
+          <List label="Tool calls that have not returned">{waiting.calls.map(stalledRow)}</List>
+          {moreLine(waiting.more)}
+        </>
+      )
+    }
+    case 'unknown':
+      return warningCallout(<Text>{`This run is waiting in a way this version of Orchon does not know. ${CONSOLE_POINTER}`}</Text>)
+    case 'time':
+    case 'event': {
+      const until = untilText(waiting.until)
+      const sentence =
+        waiting.kind === 'time'
+          ? until === null
+            ? 'Waiting until a set time.'
+            : `Waiting until ${until}.`
+          : until === null
+            ? `Waiting for the event ${waiting.event}.`
+            : `Waiting for the event ${waiting.event}, until ${until} at the latest.`
+      return (
+        <Callout tone="warning">
+          <Text>{sentence}</Text>
+        </Callout>
+      )
+    }
   }
-  const until = untilText(waiting.until)
-  const sentence =
-    waiting.kind === 'time'
-      ? until === null
-        ? 'Waiting until a set time.'
-        : `Waiting until ${until}.`
-      : until === null
-        ? `Waiting for the event ${waiting.event}.`
-        : `Waiting for the event ${waiting.event}, until ${until} at the latest.`
-  return (
-    <Callout tone="warning">
-      <Text>{sentence}</Text>
-    </Callout>
-  )
 }
 
 function body(detail: RunDetail): OrcaNode {
