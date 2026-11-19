@@ -1,6 +1,6 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
 import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
-import { chatSection, chatsHaveData, clearChats, restartChats, startChatSection } from './chat-section'
+import { chatSection, chatsHaveData, clearChats, rescopeChats, restartChats, startChatSection } from './chat-section'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
@@ -218,7 +218,7 @@ export function setup(ctx: PanelContext): void {
       rescopeRuns()
       restartLaunch()
       restartWorkflows()
-      restartChats()
+      rescopeChats()
     }
   })
   startLaunchSection(ctx, {
