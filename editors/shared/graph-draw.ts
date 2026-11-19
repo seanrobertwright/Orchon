@@ -1,6 +1,7 @@
 // The graph drawn as the plugin's own SVG, shared by the run graph and the builder (#11): a frame
 // per loop group, an edge per routed edge with an arrowhead, dashed into a conditional step, and
-// a box per step with its name and its state as a glyph and a word. A step the builder cannot
+// a box per step with its name and its state as a glyph and a word, and a fault line on a node
+// the builder found at fault. A step the builder cannot
 // edit is drawn read-only: its class gives a dashed border and a muted fill, and it carries a lock
 // glyph and a "read-only" line, so the state is never told by colour alone. Each box is a focusable
 // button named by its step, kind and state, and carries its step id in `data-step` so the tab
@@ -28,6 +29,8 @@ export type DrawStep = {
   holds?: number
   /** A node the builder cannot edit: drawn dashed and muted, with a lock glyph and a "read-only" line. */
   readOnly?: boolean
+  /** What is wrong with a node the builder found at fault: a glyph, such as ✖, and words, such as "1 error". */
+  fault?: { glyph: string; words: string }
 }
 
 /** The glyph and the line a read-only step carries. */
@@ -82,7 +85,8 @@ export function drawGraph(doc: Document, laid: Layout, steps: ReadonlyMap<string
 
   for (const edge of laid.edges) {
     const d = edge.points.map((point, at) => `${at === 0 ? 'M' : 'L'}${String(point.x)} ${String(point.y)}`).join(' ')
-    svg.appendChild(make('path', { d, class: edge.dashed ? 'edge dashed' : 'edge', 'marker-end': `url(#${arrow})` }))
+    // Each edge names its ends, so a press on it can tell which one it is.
+    svg.appendChild(make('path', { d, class: edge.dashed ? 'edge dashed' : 'edge', 'marker-end': `url(#${arrow})`, 'data-from': edge.from, 'data-to': edge.to }))
   }
 
   for (const box of laid.steps) {
@@ -92,10 +96,11 @@ export function drawGraph(doc: Document, laid: Layout, steps: ReadonlyMap<string
     const stateText = readOnly ? `${LOCK_GLYPH} ${step.stateText}` : step.stateText
     // A read-only step's state line repeats its kind, so its name says read-only in its place.
     const said = readOnly ? (step.stateText === step.kind ? READ_ONLY_LINE : `${step.stateText}, ${READ_ONLY_LINE}`) : step.stateText
-    const label = [step.name, step.kind, said, holds].filter((part) => part !== null && part !== '').join(', ')
+    const fault = step.fault === undefined ? null : `${step.fault.glyph} ${step.fault.words}`
+    const label = [step.name, step.kind, said, holds, step.fault?.words ?? null].filter((part) => part !== null && part !== '').join(', ')
     const group = svg.appendChild(
       make('g', {
-        class: `step state-${step.state}${readOnly ? ' read-only' : ''}`,
+        class: `step state-${step.state}${readOnly ? ' read-only' : ''}${fault === null ? '' : ' fault'}`,
         role: 'button',
         tabindex: 0,
         'aria-label': label,
@@ -110,7 +115,7 @@ export function drawGraph(doc: Document, laid: Layout, steps: ReadonlyMap<string
     group.appendChild(make('rect', { width: 4, height: box.height, rx: 2, class: 'bar' }))
     group.appendChild(text(cut(step.name), { x: 12, y: 19, class: 'name' }))
     group.appendChild(text(stateText, { x: 12, y: 37, class: 'state' }))
-    const note = [readOnly ? READ_ONLY_LINE : null, step.holds === undefined ? null : holdsPhrase(step.holds, 'upper'), step.note].filter((part) => part !== null).join(' · ')
+    const note = [fault, readOnly ? READ_ONLY_LINE : null, step.holds === undefined ? null : holdsPhrase(step.holds, 'upper'), step.note].filter((part) => part !== null).join(' · ')
     if (note !== '') group.appendChild(text(note, { x: 12, y: box.height - 8, class: 'note' }))
   }
   return svg

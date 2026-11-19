@@ -54,40 +54,58 @@ function nodeFacts(node) {
     };
 }
 const issueFacts = (issue) => ({ severity: SEVERITY[issue.severity], rule: issue.rule, message: issue.message, nodeId: issue.path.nodeId ?? null });
+/** Each node's facts, kept while the node is unchanged: an edit replaces only the node it changes. */
+const nodeFactsCache = new WeakMap();
+function cachedNodeFacts(node) {
+    let found = nodeFactsCache.get(node);
+    if (found === undefined) {
+        found = nodeFacts(node);
+        nodeFactsCache.set(node, found);
+    }
+    return found;
+}
+/**
+ * What the tab shows of a workflow under edit: the local rules run on it as it stands, after the
+ * issues opening found about the nodes still in it.
+ */
+export function workflowFactsOf(workflow, openingIssues) {
+    const nodes = workflow.nodes.map(cachedNodeFacts);
+    const first = new Map();
+    nodes.forEach((node, index) => {
+        if (!first.has(node.id))
+            first.set(node.id, index);
+    });
+    const edges = [];
+    nodes.forEach((node, to) => {
+        for (const id of node.dependsOn) {
+            const from = first.get(id);
+            if (from !== undefined && from !== to)
+                edges.push({ from, to });
+        }
+    });
+    edges.sort((a, b) => a.from - b.from || a.to - b.to);
+    const opening = openingIssues.filter((issue) => issue.path.nodeId === undefined || first.has(issue.path.nodeId));
+    const found = [...opening, ...runValidation(workflow)]
+        .map((issue, at) => ({ issue, at }))
+        .sort((a, b) => RANK[a.issue.severity] - RANK[b.issue.severity] || a.at - b.at)
+        .map(({ issue }) => issueFacts(issue));
+    return {
+        name: typeof workflow.name === 'string' ? workflow.name : '',
+        description: typeof workflow.description === 'string' ? workflow.description : '',
+        nodes,
+        edges,
+        issues: found,
+        yaml: serializeToYaml(toWorkflowDefinition(workflow)),
+        settingsYaml: settingsYaml(workflow.meta)
+    };
+}
 /** What the tab shows of a definition the worker checked, or null when the copied logic cannot read it. */
 export function workflowFacts(definition) {
     if (!Array.isArray(definition.nodes))
         return null;
     try {
         const { workflow, issues } = fromWorkflowDefinition(definition);
-        const nodes = workflow.nodes.map(nodeFacts);
-        const first = new Map();
-        nodes.forEach((node, index) => {
-            if (!first.has(node.id))
-                first.set(node.id, index);
-        });
-        const edges = [];
-        nodes.forEach((node, to) => {
-            for (const id of node.dependsOn) {
-                const from = first.get(id);
-                if (from !== undefined && from !== to)
-                    edges.push({ from, to });
-            }
-        });
-        edges.sort((a, b) => a.from - b.from || a.to - b.to);
-        const found = [...issues, ...runValidation(workflow)]
-            .map((issue, at) => ({ issue, at }))
-            .sort((a, b) => RANK[a.issue.severity] - RANK[b.issue.severity] || a.at - b.at)
-            .map(({ issue }) => issueFacts(issue));
-        return {
-            name: typeof workflow.name === 'string' ? workflow.name : '',
-            description: typeof workflow.description === 'string' ? workflow.description : '',
-            nodes,
-            edges,
-            issues: found,
-            yaml: serializeToYaml(toWorkflowDefinition(workflow)),
-            settingsYaml: settingsYaml(workflow.meta)
-        };
+        return workflowFactsOf(workflow, issues);
     }
     catch {
         return null;
