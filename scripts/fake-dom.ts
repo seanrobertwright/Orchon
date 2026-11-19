@@ -44,6 +44,8 @@ export class FakeElement {
   markupWritten = false
   /** A radio's or checkbox's state. */
   checked = false
+  /** What an input, a text area or a select holds. */
+  value = ''
 
   constructor(tagName: string, namespaceURI: string | null) {
     this.tagName = tagName

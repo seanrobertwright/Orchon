@@ -164,7 +164,7 @@ describe('the canvas', () => {
     const boxes = withClass(pane, 'step')
     assert.deepEqual(
       boxes.map((box) => box.getAttribute('aria-label')),
-      ['plan, prompt, prompt', 'run, bash, bash', 'rounds, loop group, read-only', 'shared, include, read-only']
+      ['plan, prompt, prompt', 'run, bash, bash', 'rounds, loop group, read-only', 'shared, include, read-only, 1 error']
     )
     assert.equal(withClass(pane, 'edge').length, 2)
   })
@@ -176,7 +176,7 @@ describe('the canvas', () => {
     for (const box of readOnly) {
       const lines = findAll(box, (element) => element.tagName === 'text').map((element) => element.textContent)
       assert.ok(lines.some((line) => line.startsWith('🔒 ')), lines.join(' | '))
-      assert.ok(lines.includes('read-only'), lines.join(' | '))
+      assert.ok(lines.some((line) => line.split(' · ').includes('read-only')), lines.join(' | '))
     }
     const css = readRepoText('editors/builder/builder.css')
     assert.match(css, /\.step\.read-only \.box \{[^}]*stroke-dasharray[^}]*fill: var\(--orca-muted\)/)
@@ -202,7 +202,7 @@ describe('the outline', () => {
     const items = withClass(outline, 'outline-node')
     assert.deepEqual(
       items.map((item) => item.getAttribute('aria-label')),
-      ['plan, prompt', 'run, bash', 'rounds, loop group, read-only', 'shared, include, read-only']
+      ['plan, prompt', 'run, bash', 'rounds, loop group, read-only', 'shared, include, read-only, 1 error']
     )
     assert.deepEqual(
       items.map((item) => withClass(item, 'ro').map((badge) => badge.textContent)),
@@ -227,7 +227,7 @@ describe('the inspector', () => {
     const stage = await open(readyAnswer)
     const inspector = panelOf(stage, 'Inspector')
     assert.equal(texts(inspector, 'h2')[0], 'mixed')
-    assert.ok(texts(inspector, 'p').includes('Every kind'))
+    assert.equal(find(inspector, (element) => element.tagName === 'textarea')?.value, 'Every kind')
     assert.ok(texts(inspector, 'pre').includes('inputs:\n  goal:\n    required: true'))
   })
 
@@ -241,7 +241,7 @@ describe('the inspector', () => {
     assert.ok(group)
     assert.deepEqual(texts(group, 'h3'), ['Not editable here'])
     assert.deepEqual(texts(group, 'li'), ['include'])
-    assert.ok(texts(inspector, 'li').includes('nope'))
+    assert.ok(withClass(inspector, 'dep-id').some((item) => item.textContent === 'nope'))
   })
 
   test('an editable node has no banner, and no group when every field has an editor', async () => {
@@ -252,7 +252,7 @@ describe('the inspector', () => {
     assert.equal(withClass(inspector, 'read-only-banner').length, 0)
     assert.equal(withClass(inspector, 'not-editable').length, 0)
     assert.ok(texts(inspector, 'p').includes('Kind: bash'))
-    assert.ok(texts(inspector, 'li').includes('plan'))
+    assert.ok(withClass(inspector, 'dep-id').some((item) => item.textContent === 'plan'))
   })
 })
 
@@ -420,7 +420,7 @@ describe('a node with many dependencies', () => {
     withClass(panelOf(stage, 'Outline'), 'outline-node')[205]?.click()
     await settle()
     const inspector = panelOf(stage, 'Inspector')
-    assert.equal(texts(inspector, 'li').filter((line) => /^d\d+$/.test(line)).length, 200)
+    assert.equal(withClass(inspector, 'dep-id').filter((item) => /^d\d+$/.test(item.textContent)).length, 200)
     assert.ok(texts(inspector, 'p').includes('5 more dependencies are not shown.'))
   })
 })

@@ -58,6 +58,8 @@ export type CanvasOptions = {
   observeSize?: ObserveSize
   /** A step was pressed, by a click or by Enter or Space while it has focus. */
   onStep?(id: string): void
+  /** An edge was clicked: the ids of the steps at its two ends. */
+  onEdge?(from: string, to: string): void
 }
 
 export type Canvas = {
@@ -227,7 +229,15 @@ export function createCanvas(options: CanvasOptions): Canvas {
       return
     }
     const id = stepOf(event.target)
-    if (id !== null) options.onStep?.(id)
+    if (id !== null) {
+      options.onStep?.(id)
+      return
+    }
+    const edge = event.target as Element | null
+    if (edge === null) return
+    const from = edge.getAttribute('data-from')
+    const to = edge.getAttribute('data-to')
+    if (from !== null && to !== null) options.onEdge?.(from, to)
   })
 
   /** The pointer on the minimap moves the view's centre to the graph point under it. */

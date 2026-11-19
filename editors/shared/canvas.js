@@ -184,8 +184,17 @@ export function createCanvas(options) {
             return;
         }
         const id = stepOf(event.target);
-        if (id !== null)
+        if (id !== null) {
             options.onStep?.(id);
+            return;
+        }
+        const edge = event.target;
+        if (edge === null)
+            return;
+        const from = edge.getAttribute('data-from');
+        const to = edge.getAttribute('data-to');
+        if (from !== null && to !== null)
+            options.onEdge?.(from, to);
     });
     /** The pointer on the minimap moves the view's centre to the graph point under it. */
     let miniPointer = null;

@@ -77,9 +77,8 @@ describe('an edit', () => {
       for (const [name, value] of Object.entries(was)) {
         if (name === outer && inner === undefined) continue
         if (name === outer && inner !== undefined) {
-          const { [inner]: _edited, ...kept } = value as Record<string, unknown>
-          const { [inner]: _now, ...keptNow } = node[name] as Record<string, unknown>
-          assert.deepEqual(keptNow, kept, `${String(node.id)}.${name}`)
+          const others = (record: unknown): [string, unknown][] => Object.entries(record as Record<string, unknown>).filter(([field]) => field !== inner)
+          assert.deepEqual(others(node[name]), others(value), `${String(node.id)}.${name}`)
           continue
         }
         assert.deepEqual(node[name], value, `${String(node.id)}.${name}`)

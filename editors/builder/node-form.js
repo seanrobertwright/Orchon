@@ -121,25 +121,21 @@ function read(record, path) {
     }
     return at;
 }
+/** `record` without its field `key`. */
+function without(record, key) {
+    return Object.fromEntries(Object.entries(record).filter(([held]) => held !== key));
+}
 /** `record` with the value at `path` set, or removed when `value` is undefined. An object left empty by a removal is removed too. */
 function written(record, path, value) {
     const [head, ...rest] = path;
     if (head === undefined)
         return record;
     if (rest.length === 0) {
-        if (value === undefined) {
-            const { [head]: _gone, ...kept } = record;
-            return kept;
-        }
-        return { ...record, [head]: value };
+        return value === undefined ? without(record, head) : { ...record, [head]: value };
     }
     const inner = isPlain(record[head]) ? record[head] : {};
     const next = written(inner, rest, value);
-    if (Object.keys(next).length === 0) {
-        const { [head]: _gone, ...kept } = record;
-        return kept;
-    }
-    return { ...record, [head]: next };
+    return Object.keys(next).length === 0 ? without(record, head) : { ...record, [head]: next };
 }
 function shown(node, spec) {
     if (spec.key === 'wait.mode')
