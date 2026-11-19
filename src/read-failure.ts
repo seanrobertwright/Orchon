@@ -1,6 +1,7 @@
 // What a view says when one read from Archon fails while Orchon is connected. The texts are
 // copied from the error table of the decision on what the plugin shows when Archon is missing
-// (#22, part 8), and every view that reads from Archon says them from here.
+// (#22, part 8), apart from the one line marked below, and every view that reads from Archon
+// says them from here.
 import type { ClientFailure } from './client'
 import { FLOOR_RELEASE } from './connection-words'
 
@@ -18,6 +19,8 @@ export function readFailureText(failure: ClientFailure): string {
       return `Archon answered with an error (${String(failure.status)}).`
     case 'not-json':
       return 'This Archon does not have this feature.'
+    // Not in that table: a refused call moves the connection to Searching (#44), and this line
+    // is what the view says until then.
     case 'refused':
     case 'not-loopback':
     case 'cancelled':
