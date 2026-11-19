@@ -9,9 +9,10 @@ import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
 import { createLive } from './live'
+import { createNeedsYou, type NeedsYou } from './needs-you'
 import { checkPaths } from './path-check'
 import { refuseRequest } from './records'
-import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
+import { createStatusBar, showRunsSentence, STATUS_ITEM_ID, statusItem, type SnapshotCounts } from './status-bar'
 import { createSystem } from './system'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
@@ -338,6 +339,10 @@ export type StartedConnection = {
   /** The one client every call to Archon goes through. */
   client: Client
   current(): Promise<ConnectionView>
+  /** The snapshot of runs that need you, read while Connected. */
+  needsYou: NeedsYou
+  /** The status bar sentence now, as the "Orchon: Show runs" command returns it. */
+  showRunsSentence(): string
   stop(): void
 }
 
@@ -373,19 +378,44 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       const before = held
       held = view
       orca.panels.post('connection.changed', view)
-      statusBar.show(statusItem(view))
       system.connectionChanged()
-      // The stream is held while Connected, and opened at once whenever discovery connects.
-      if (view.kind !== 'connected') live.close()
-      else if (before?.kind !== 'connected') live.open(view.baseUrl)
+      // The stream is held while Connected, and opened at once whenever discovery connects. The
+      // snapshot is read on every reconnect.
+      if (view.kind !== 'connected') {
+        live.close()
+        needsYou.disconnected()
+      } else if (before?.kind !== 'connected') {
+        live.open(view.baseUrl)
+        needsYou.connected(view)
+      }
+      showStatus()
     }
   })
   let held: ConnectionView | undefined
+  const needsYou = createNeedsYou({
+    client,
+    now: ports.now,
+    timers: ports.timers,
+    changed() {
+      showStatus()
+      orca.panels.post('needs-you.changed', null)
+    },
+    log: (message) => orca.log(message)
+  })
+  /** The snapshot's counts while Connected; in any other state the item reads without them. */
+  const countsFor = (view: ConnectionView): SnapshotCounts | undefined => (view.kind === 'connected' ? needsYou.counts() : undefined)
+  /** The item for the state now and, while Connected, the snapshot's counts. */
+  function showStatus(): void {
+    if (held !== undefined) statusBar.show(statusItem(held, countsFor(held)))
+  }
   const live = createLive({
     client,
     now: ports.now,
     timers: ports.timers,
-    hint: (hint) => orca.panels.post('runs.changed', hint),
+    hint(hint) {
+      orca.panels.post('runs.changed', hint)
+      needsYou.hint(hint)
+    },
     live: (open) => connection.setLive(open),
     refused: () => connection.refused(),
     log: (message) => orca.log(message)
@@ -403,7 +433,10 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     orca.settings.onDidChange(() => void connection.settingsChanged()),
     orca.panels.handle('connection.read', async (input) => {
       refuseInput(input)
-      return { connection: await connection.read() }
+      const view = await connection.read()
+      // A press remembered for a panel that mounts after it.
+      const showRuns = needsYou.pressed()
+      return showRuns === undefined ? { connection: view } : { connection: view, showRuns }
     }),
     orca.panels.handle('connection.retry', async (input) => {
       refuseInput(input)
@@ -431,10 +464,16 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
   return {
     client,
     current: () => connection.current(),
+    needsYou,
+    showRunsSentence() {
+      const view = held ?? { kind: 'searching', since: ports.now(), settings: NO_SETTINGS }
+      return showRunsSentence(view, countsFor(view))
+    },
     stop() {
       for (const subscription of subscriptions) subscription.dispose()
       connection.stop()
       live.close()
+      needsYou.stop()
       system.close()
       statusBar.stop()
     }

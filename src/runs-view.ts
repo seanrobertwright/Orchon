@@ -13,6 +13,11 @@ export type StatusFilter = 'all' | RunStatus
 
 export const STATUS_FILTERS: readonly StatusFilter[] = ['all', ...RUN_STATUSES]
 
+/** The table's filters: a status filter, or the runs that need you from the worker's snapshot. */
+export type TableFilter = StatusFilter | 'needs-you'
+
+export const TABLE_FILTERS: readonly TableFilter[] = [...STATUS_FILTERS, 'needs-you']
+
 /** How many rows the panel asks for at a time, and where it stops. */
 export const ROWS_STEP = 25
 export const ROWS_CAP = 500
@@ -21,7 +26,7 @@ export const ROWS_CAP = 500
  * What a panel sends: the filter, and how many of the newest runs it wants, rows 0 to N. Under
  * "This project" it also sends the Archon project's id; under "All projects" it leaves it out.
  */
-export type RunsRequest = { status: StatusFilter; rows: number; codebaseId?: string }
+export type RunsRequest = { status: TableFilter; rows: number; codebaseId?: string }
 
 /** How many runs Archon holds of each status, whatever the filter, and in all. */
 export type StatusCounts = Record<StatusFilter, number>
@@ -46,7 +51,35 @@ export type RunRow = {
   workingPath: string | null
   /** The `workspace.list` row whose path is the run's folder, once normalised. Left out when Orca lists none. */
   workspaceId?: string
+  /** What the run waits for from the person, when it needs you. Left out when it does not. */
+  waiting?: Waiting
 }
+
+/**
+ * Why a run needs you: an unanswered gate or attention wait, with its question cut to one line,
+ * or a run Archon cannot describe, which only Archon's console can help with.
+ */
+export type Waiting = { kind: 'gate' | 'wait'; question: string } | { kind: 'unreadable' }
+
+/** How many rows the "runs need you" callout shows before its "and N more" row. */
+export const CALLOUT_CAP = 10
+
+/**
+ * The runs that need you under the scope the panel asked for, from the worker's snapshot: the
+ * callout's rows and the "Needs you" count. `unavailable` when Archon's waiting runs could not be
+ * read.
+ */
+export type NeedsYouView =
+  | {
+      kind: 'ready'
+      /** How many runs need you in the scope. */
+      total: number
+      /** The first runs in the order Archon returned them, at most `CALLOUT_CAP`. */
+      rows: RunRow[]
+      /** How many runs Archon queued for attention in the scope could not be read and are not shown. */
+      unreadable: number
+    }
+  | { kind: 'unavailable' }
 
 export type RunsView =
   /** Orchon is not connected, so Archon was not asked. */
@@ -60,6 +93,8 @@ export type RunsView =
       rows: RunRow[]
       /** How many of the runs read could not be read and are not shown. */
       unreadable: number
+      /** The runs that need you under the same scope, from the worker's snapshot. */
+      needsYou?: NeedsYouView
     }
   /** The read failed. The message is one sentence for the person. */
   | { kind: 'failed'; message: string }

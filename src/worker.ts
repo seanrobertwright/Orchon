@@ -10,21 +10,18 @@ import { startRunDetail } from './run-detail'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
 
-/** The manifest text of the status bar item, and what its press answers until runs are counted. */
-const STATUS_TEXT = 'Orchon'
-
 /**
  * Everything the worker does, on the ports it is given: the real ones in Orca, scripted ones in
  * the tests. Returns what stops it.
  */
 export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
-  // The status bar item's press, also in the palette. It never opens or closes the sidebar: an
-  // open panel hears the hint and shows Runs.
-  orca.commands.register('show-runs', () => {
-    orca.panels.post('show-runs', null)
-    return STATUS_TEXT
-  })
   const connection = startConnection(orca, ports)
+  // The status bar item's press, also in the palette. It never opens or closes the sidebar: an
+  // open panel hears the hint and shows Runs, and one that mounts within a minute reads it.
+  orca.commands.register('show-runs', () => {
+    orca.panels.post('show-runs', connection.needsYou.press())
+    return connection.showRunsSentence()
+  })
   const projectScope = startProjectScope(orca, {
     client: connection.client,
     current: connection.current,
