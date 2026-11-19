@@ -278,6 +278,102 @@
       }
     },
     {
+      "name": "wsl-localhost-share-long-prefix-worktree",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-28",
+        "kind": "worktree",
+        "name": "wsl localhost share long prefix worktree",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "\\\\?\\UNC\\wsl.localhost\\Ubuntu\\home\\dev\\projects\\app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-dollar-share-long-prefix-folder",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-29",
+        "kind": "folder",
+        "name": "wsl dollar share long prefix folder",
+        "project": null,
+        "projectId": null,
+        "path": "\\\\?\\UNC\\wsl$\\Debian\\home\\dev\\notes",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-localhost-upper-case-share-worktree-backslash",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-30",
+        "kind": "worktree",
+        "name": "wsl localhost upper case share worktree backslash",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "\\\\WSL.LOCALHOST\\Ubuntu\\home\\dev\\projects\\app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-localhost-upper-case-share-worktree-forward",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-31",
+        "kind": "worktree",
+        "name": "wsl localhost upper case share worktree forward",
+        "project": "app",
+        "projectId": "project-app",
+        "path": "//WSL.LOCALHOST/Ubuntu/home/dev/projects/app",
+        "branch": "main",
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-dollar-upper-case-share-folder-backslash",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-32",
+        "kind": "folder",
+        "name": "wsl dollar upper case share folder backslash",
+        "project": null,
+        "projectId": null,
+        "path": "\\\\WSL$\\Debian\\home\\dev\\notes",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
+      "name": "wsl-dollar-upper-case-share-folder-forward",
+      "shape": "wsl-share",
+      "platform": "win32",
+      "localAndWritable": false,
+      "row": {
+        "id": "ws-33",
+        "kind": "folder",
+        "name": "wsl dollar upper case share folder forward",
+        "project": null,
+        "projectId": null,
+        "path": "//WSL$/Debian/home/dev/notes",
+        "branch": null,
+        "hostId": "local"
+      }
+    },
+    {
       "name": "wsl-runtime-drive-worktree-backslash",
       "shape": "wsl-runtime-on-drive",
       "platform": "any",

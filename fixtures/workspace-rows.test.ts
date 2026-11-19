@@ -44,15 +44,21 @@ const TABLE_ROWS = [
 
 const isWindowsPath = (path: string): boolean => /^[A-Za-z]:[\\/]/.test(path) || /^[\\/]{2}/.test(path)
 
+/** The long-path prefix of a UNC path. Windows reads it only with backslashes. */
+const LONG_UNC_PREFIX = '\\\\?\\UNC\\'
+
 /**
  * The test of #25, as that ticket words it: the host id is exactly `local`, and on Windows the
- * path is not a WSL share path. It checks the answers written into the fixture; the worker's own
- * test is built and tested with the workspace code.
+ * path is not a WSL share path once a leading `\\?\UNC\` is taken off, every `\` is turned into
+ * `/`, and case is ignored. Taking the prefix off leaves the UNC path it stands for, so it is
+ * replaced with the `\\` it stands in for. It checks the answers written into the fixture; the
+ * worker's own test is built and tested with the workspace code.
  */
 function localAndWritable(row: WorkspaceRow, platform: string): boolean {
   if (row.hostId !== 'local') return false
   if (platform !== 'win32') return true
-  return !/^\/\/(wsl\.localhost|wsl\$)\//i.test(row.path.replaceAll('\\', '/'))
+  const path = row.path.startsWith(LONG_UNC_PREFIX) ? `\\\\${row.path.slice(LONG_UNC_PREFIX.length)}` : row.path
+  return !/^\/\/(wsl\.localhost|wsl\$)\//i.test(path.replaceAll('\\', '/'))
 }
 
 describe('the path and host-id fixtures', () => {
@@ -81,7 +87,8 @@ describe('the path and host-id fixtures', () => {
   })
 
   test('give every Windows path in both slash directions', () => {
-    const windows = fixture.rows.filter((row) => isWindowsPath(row.row.path))
+    // A long-path prefixed path has no forward-slash spelling: Windows reads `\\?\` only as written.
+    const windows = fixture.rows.filter((row) => isWindowsPath(row.row.path) && !row.row.path.startsWith(LONG_UNC_PREFIX))
     assert.ok(windows.length > 0)
     for (const row of windows) {
       const forward = row.row.path.replaceAll('\\', '/')
@@ -100,6 +107,16 @@ describe('the path and host-id fixtures', () => {
     const shares = fixture.rows.filter((row) => row.shape === 'wsl-share').map((row) => row.row.path.replaceAll('\\', '/'))
     assert.ok(shares.some((path) => path.startsWith('//wsl.localhost/')))
     assert.ok(shares.some((path) => path.startsWith('//wsl$/')))
+  })
+
+  test('give a WSL share with the long-path prefix, and the share names in upper case', () => {
+    const shares = fixture.rows.filter((row) => row.shape === 'wsl-share').map((row) => row.row.path)
+    assert.ok(shares.some((path) => path.startsWith('\\\\?\\UNC\\wsl.localhost\\')))
+    assert.ok(shares.some((path) => path.startsWith('\\\\?\\UNC\\wsl$\\')))
+    for (const name of ['WSL.LOCALHOST', 'WSL$']) {
+      const upper = shares.filter((path) => path.replaceAll('\\', '/').startsWith(`//${name}/`))
+      assert.ok(upper.some((path) => path.includes('\\')) && upper.some((path) => !path.includes('\\')), `no ${name} share in both slash directions`)
+    }
   })
 
   test('give each host id the table names: local, ssh, runtime and none', () => {
