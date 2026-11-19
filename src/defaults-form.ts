@@ -33,14 +33,22 @@ const INHERIT = { value: '', label: 'Inherit' }
 
 const modelField = (providerId: string): string => `${MODEL_PREFIX}${providerId}`
 
+/** The labels of the fields that are not a provider's model. A field id is its Archon key. */
+const LABELS: Readonly<Record<string, string>> = {
+  [ASSISTANT]: 'Default assistant',
+  [CODEX_EFFORT]: 'Codex reasoning effort',
+  [CODEX_WEB_SEARCH]: 'Codex web search'
+}
+
+/** A field's label. A model field is named by its provider, through `name`. */
+function labelOf(fieldId: string, name: (providerId: string) => string): string {
+  if (Object.hasOwn(LABELS, fieldId)) return LABELS[fieldId] ?? fieldId
+  return `${name(fieldId.slice(MODEL_PREFIX.length))} model`
+}
+
 export function defaultsForm(): GroupSpec {
-  function label(fieldId: string, context: GroupContext): string {
-    if (fieldId === ASSISTANT) return 'Default assistant'
-    if (fieldId === CODEX_EFFORT) return 'Codex reasoning effort'
-    if (fieldId === CODEX_WEB_SEARCH) return 'Codex web search'
-    const id = fieldId.slice(MODEL_PREFIX.length)
-    return `${context.providers.all.get(id)?.displayName ?? id} model`
-  }
+  const label = (fieldId: string, context: GroupContext): string =>
+    labelOf(fieldId, (id) => context.providers.all.get(id)?.displayName ?? id)
 
   return {
     id: 'defaults',
@@ -63,12 +71,7 @@ export function defaultsForm(): GroupSpec {
 
     keyOf: (fieldId) => fieldId,
 
-    keyLabel(key) {
-      if (key === ASSISTANT) return 'Default assistant'
-      if (key === CODEX_EFFORT) return 'Codex reasoning effort'
-      if (key === CODEX_WEB_SEARCH) return 'Codex web search'
-      return `${key.slice(MODEL_PREFIX.length)} model`
-    },
+    keyLabel: (key) => labelOf(key, (id) => id),
 
     fields(current, loaded, errors, context) {
       const fields: FormField[] = []

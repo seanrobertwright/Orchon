@@ -47,23 +47,22 @@ export const NOT_REGISTERED = 'This provider is not registered with Archon.'
 /** A value as it is compared and sent: trimmed. */
 export const clean = (value: string | undefined): string => (value ?? '').trim()
 
-/** The registered providers as select options, and a saved or chosen one Archon does not list. */
-export function providerOptions(first: FieldOption, context: GroupContext, ...kept: string[]): FieldOption[] {
-  const options = [first, ...context.providers.shown.map((provider) => ({ value: provider.id, label: provider.displayName }))]
-  for (const id of kept) {
-    if (id !== '' && !options.some((option) => option.value === id)) options.push({ value: id, label: `${id} (not registered)` })
+/** The listed options, then each kept value they lack, labelled with `suffix`. Empty values are left out. */
+function withKept(listed: FieldOption[], suffix: string, kept: readonly string[]): FieldOption[] {
+  const options = [...listed]
+  for (const value of kept) {
+    if (value !== '' && !options.some((option) => option.value === value)) options.push({ value, label: `${value} ${suffix}` })
   }
   return options
 }
 
+/** The registered providers as select options, and a saved or chosen one Archon does not list. */
+export const providerOptions = (first: FieldOption, context: GroupContext, ...kept: string[]): FieldOption[] =>
+  withKept([first, ...context.providers.shown.map((provider) => ({ value: provider.id, label: provider.displayName }))], '(not registered)', kept)
+
 /** Effort levels as select options, and a saved or chosen one the provider does not accept. */
-export function effortOptions(first: FieldOption, levels: readonly string[], ...kept: string[]): FieldOption[] {
-  const options = [first, ...levels.map((level) => ({ value: level, label: level }))]
-  for (const level of kept) {
-    if (level !== '' && !options.some((option) => option.value === level)) options.push({ value: level, label: `${level} (not accepted)` })
-  }
-  return options
-}
+export const effortOptions = (first: FieldOption, levels: readonly string[], ...kept: string[]): FieldOption[] =>
+  withKept([first, ...levels.map((level) => ({ value: level, label: level }))], '(not accepted)', kept)
 
 /** Whether a provider is registered with Archon. */
 export const registered = (context: GroupContext, id: string): boolean => context.providers.all.has(id)
