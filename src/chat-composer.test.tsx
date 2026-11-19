@@ -318,6 +318,30 @@ describe('while the conversation is busy', () => {
     assert.equal(view.find(MESSAGE)?.props.disabled, false)
     clean(view)
   })
+
+  test("a workflow's dispatch row is the agent's reply: unchanged for 6 seconds, it ends the turn, and the run is followed in Runs", async () => {
+    const messages = { now: [question('q1', 1_000)] }
+    const view = await openFirst({ thread: liveThread(messages) })
+    assert.ok(view.find(WORKING))
+    const dispatched: ThreadMessage = { ...reply('d1', ''), blocks: [], dispatch: { workflow: 'deploy', workerId: 'web-worker-1' } }
+    messages.now = [dispatched, ...messages.now]
+    await advance(view, 3_000)
+    assert.ok(view.find(WORKING), 'a dispatch just seen may be followed by more of the reply')
+    await advance(view, 3_000)
+    assert.ok(view.find(WORKING))
+    await advance(view, 3_000)
+    assert.equal(view.find(WORKING), null)
+    assert.equal(view.find(MESSAGE)?.props.disabled, false)
+    clean(view)
+  })
+
+  test("a thread whose newest message is a workflow's result card is not busy", async () => {
+    const card: ThreadMessage = { ...reply('w1', 'Deployed.'), result: { workflow: 'deploy', runId: 'run-1' } }
+    const view = await openFirst({ thread: liveThread({ now: [card, question('q1', 60_000)] }) })
+    assert.equal(view.find(WORKING), null)
+    assert.equal(view.find(MESSAGE)?.props.disabled, false)
+    clean(view)
+  })
 })
 
 describe('drafts', () => {
