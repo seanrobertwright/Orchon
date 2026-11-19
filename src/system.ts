@@ -104,8 +104,8 @@ function failureText(failure: ClientFailure): string {
 
 export type SystemPorts = {
   client: Client
-  /** The connection state as it is now. */
-  connection(): ConnectionView
+  /** The connection state, once the settings were first read. */
+  connection(): Promise<ConnectionView>
   now(): number
   timers: Timers
   /** Called with each view made by a read that no request waits for. */
@@ -173,7 +173,7 @@ export function createSystem(ports: SystemPorts): System {
   async function readBoth(): Promise<SystemView> {
     watching = true
     readLater()
-    const connection = ports.connection()
+    const connection = await ports.connection()
     waitingToConnect = connection.kind !== 'connected'
     if (connection.kind !== 'connected') return view
     change({ ...view, updates: { kind: 'checking' } })
@@ -193,7 +193,7 @@ export function createSystem(ports: SystemPorts): System {
   /** Reads health while Connected. Null when not Connected, and nothing was read. */
   function readHealth(): Promise<SystemView | null> {
     reading ??= (async () => {
-      const connection = ports.connection()
+      const connection = await ports.connection()
       if (connection.kind !== 'connected') return null
       const answer = await ports.client.request({ baseUrl: connection.baseUrl, path: HEALTH_PATH, timeout: 'read' })
       if (!answer.ok) return change({ ...view, failure: failureText(answer.failure) })
@@ -211,8 +211,11 @@ export function createSystem(ports: SystemPorts): System {
     open: readBoth,
     refresh: readBoth,
     connectionChanged() {
-      if (!watching || !waitingToConnect || ports.connection().kind !== 'connected') return
-      void readBoth().then((next) => ports.changed(next))
+      if (!watching || !waitingToConnect) return
+      void ports.connection().then(async (connection) => {
+        if (!watching || !waitingToConnect || connection.kind !== 'connected') return
+        ports.changed(await readBoth())
+      })
     },
     close
   }

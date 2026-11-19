@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
+import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { SystemAnswer, SystemView } from './system-view'
 
 declare module 'orca' {
@@ -9,6 +10,8 @@ declare module 'orca' {
     'connection.read': { output: ConnectionAnswer }
     /** "Try again": in Not found and Unsupported, runs discovery at once. */
     'connection.retry': { output: ConnectionAnswer }
+    /** The runs table: the counts and rows 0 to N of one status filter, in one answer. */
+    'runs.read': { input: RunsRequest; output: RunsAnswer }
     /**
      * The Settings section began to show: reads health and the update check at once, then health
      * every 30 seconds until `system.close`. The System requests take no input.

@@ -24,12 +24,13 @@ afterEach(async () => {
 })
 
 /**
- * What a person notices first: the selected tab and the placeholder under it. Settings is built,
- * so it has no placeholder; its own tests are in settings.test.tsx.
+ * What a person notices first: the selected tab and the empty state under it. Runs is built and
+ * the scripted worker has no runs. Settings is built, so it has no empty state; its own tests are
+ * in settings.test.tsx. Every other section is still a placeholder.
  */
 function showing(view: TestPanel, label: string): void {
-  const placeholder = label === 'Settings' ? [] : [`EmptyState "${label}"`]
-  assert.deepEqual(view.summary(), [`Tabs "Orchon sections": "${label}" selected`, ...placeholder])
+  const empty = label === 'Settings' ? [] : [`EmptyState "${label === 'Runs' ? 'No runs yet' : label}"`]
+  assert.deepEqual(view.summary(), [`Tabs "Orchon sections": "${label}" selected`, ...empty])
 }
 
 function clean(view: TestPanel): void {
@@ -50,7 +51,7 @@ test('opens on Runs with the six sections in order, in words only', async () => 
   clean(panel)
 })
 
-test('switches between the section placeholders', async () => {
+test('switches between the sections', async () => {
   panel = await mount(panelModule)
   for (const [id, label] of [...SECTIONS].reverse()) {
     await panel.select(SECTION_BAR, id)

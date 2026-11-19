@@ -66,3 +66,29 @@ export function formatClock(at: number, locale: string): string {
     return new Intl.DateTimeFormat(undefined, CLOCK).format(at)
   }
 }
+
+const UNITS: readonly [string, number][] = [
+  ['d', 86_400_000],
+  ['h', 3_600_000],
+  ['m', 60_000],
+  ['s', 1_000]
+]
+
+/**
+ * A length of time in its shortest form: its two largest units, such as "3s", "2m 5s", "1h 4m"
+ * or "2d 3h", with a zero second unit left out. A part of a second is dropped. A duration that
+ * is negative or not finite gives an empty text.
+ */
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return ''
+  const first = UNITS.findIndex(([, size]) => ms >= size)
+  if (first === -1) return '0s'
+  const parts: string[] = []
+  let rest = ms
+  for (const [unit, size] of UNITS.slice(first, first + 2)) {
+    const count = Math.floor(rest / size)
+    rest -= count * size
+    if (count > 0) parts.push(`${String(count)}${unit}`)
+  }
+  return parts.join(' ')
+}

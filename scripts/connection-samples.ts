@@ -9,6 +9,7 @@ import type {
   SettingsView,
   Unsupported
 } from '../src/connection-view.ts'
+import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
 import type { SystemAnswer, SystemView } from '../src/system-view.ts'
 
 export const HOME = '/home/ada/.archon'
@@ -137,30 +138,43 @@ export const systemRead: SystemView = {
   }
 }
 
+/** No runs at all, as the worker answers the runs table of an Archon that has run nothing. */
+export const noRuns: Extract<RunsView, { kind: 'ready' }> = { kind: 'ready', counts: EMPTY_COUNTS, total: 0, rows: [], unreadable: 0 }
+
 type Answers = {
   'connection.read': { connection: ConnectionView }
   'connection.retry': { connection: ConnectionView }
+  'runs.read': (request: RunsRequest) => RunsAnswer
   'system.open': SystemAnswer
   'system.refresh': SystemAnswer
   'system.close': null
 }
 
 /**
- * A stand-in for the worker that answers every connection request with one state, and every
- * System request with one view: by default the read one while Connected and the unread one
- * otherwise.
+ * A stand-in for the worker that answers every connection request with one state, the runs table
+ * as `runs` says, and every System request with one view: by default the read one while
+ * Connected and the unread one otherwise.
  */
-export function answering(
-  connection: ConnectionView,
+export function answeringRuns(
+  runs: RunsView | ((request: RunsRequest) => RunsView),
+  connection: ConnectionView = connected,
   system: SystemView = connection.kind === 'connected' ? systemRead : systemUnread
 ): { requests: Answers } {
   return {
     requests: {
       'connection.read': { connection },
       'connection.retry': { connection },
+      'runs.read': (request) => ({ connection, runs: typeof runs === 'function' ? runs(request) : runs }),
       'system.open': { connection, system },
       'system.refresh': { connection, system },
       'system.close': null
     }
   }
 }
+
+/**
+ * A stand-in for the worker that answers every connection request with one state, the runs table
+ * with no runs, and every System request as `answeringRuns` does.
+ */
+export const answering = (connection: ConnectionView, system?: SystemView): { requests: Answers } =>
+  answeringRuns(noRuns, connection, system)

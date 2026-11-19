@@ -8,6 +8,7 @@ import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
 import { checkPaths } from './path-check'
+import { refuseRequest } from './records'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
 import { createSystem } from './system'
 
@@ -62,6 +63,8 @@ export type Connection = {
    * check, at most one in flight: a server that no longer answers moves the state to Searching.
    */
   read(): Promise<ConnectionView>
+  /** The state, once the settings were first read, with no health check. Data requests carry it. */
+  current(): Promise<ConnectionView>
   /**
    * "Try again": in Not found and Unsupported, runs discovery at once. In any other state it
    * changes nothing.
@@ -69,8 +72,6 @@ export type Connection = {
   retry(): Promise<ConnectionView>
   /** A setting changed: parses both again, and runs discovery at once when either one differs. */
   settingsChanged(): Promise<void>
-  /** The state as it is now, with nothing checked or waited for. */
-  current(): ConnectionView
   stop(): void
 }
 
@@ -220,6 +221,11 @@ export function createConnection(ports: ConnectionPorts): Connection {
       return view
     },
 
+    async current() {
+      await ready
+      return view
+    },
+
     async retry() {
       await ready
       if (waitsToLookAgain(view)) {
@@ -245,10 +251,6 @@ export function createConnection(ports: ConnectionPorts): Connection {
       await look(parsed)
     },
 
-    current() {
-      return view
-    },
-
     stop() {
       generation += 1
       inFlight.abort()
@@ -260,14 +262,22 @@ export function createConnection(ports: ConnectionPorts): Connection {
 /** A frame sends these requests with no input. Anything else is refused. */
 function refuseInput(input: unknown): void {
   if (input === undefined || input === null) return
-  throw Object.assign(new Error('This request takes no input.'), { code: 'invalid_params' })
+  refuseRequest('This request takes no input.')
+}
+
+/** A started connection: what the data requests read through, and what stops it. */
+export type StartedConnection = {
+  /** The one client every call to Archon goes through. */
+  client: Client
+  current(): Promise<ConnectionView>
+  stop(): void
 }
 
 /**
  * Starts the connection on Orca: discovery begins at once, every change is posted to the frames
- * and shown in the status bar item, and the frames' requests are answered. Returns what stops it.
+ * and shown in the status bar item, and the frames' requests are answered.
  */
-export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
+export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): StartedConnection {
   const statusBar = createStatusBar({
     now: ports.now,
     timers: ports.timers,
@@ -314,12 +324,12 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
     orca.panels.handle('system.open', async (input) => {
       refuseInput(input)
       const view = await system.open()
-      return { connection: connection.current(), system: view }
+      return { connection: await connection.current(), system: view }
     }),
     orca.panels.handle('system.refresh', async (input) => {
       refuseInput(input)
       const view = await system.refresh()
-      return { connection: connection.current(), system: view }
+      return { connection: await connection.current(), system: view }
     }),
     orca.panels.handle('system.close', (input) => {
       refuseInput(input)
@@ -330,10 +340,14 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
   statusBar.show(statusItem({ kind: 'searching', since: ports.now(), settings: NO_SETTINGS }))
   connection.start()
 
-  return () => {
-    for (const subscription of subscriptions) subscription.dispose()
-    connection.stop()
-    system.close()
-    statusBar.stop()
+  return {
+    client,
+    current: () => connection.current(),
+    stop() {
+      for (const subscription of subscriptions) subscription.dispose()
+      connection.stop()
+      system.close()
+      statusBar.stop()
+    }
   }
 }

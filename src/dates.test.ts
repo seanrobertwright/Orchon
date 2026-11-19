@@ -1,6 +1,6 @@
 // Pure logic: the one date helper. Everything about time in the shipped code goes through it.
 import { assert, describe, test } from 'orca/testing'
-import { formatClock, now, parseInstant } from './dates'
+import { formatClock, formatDuration, now, parseInstant } from './dates'
 
 describe('the date helper', () => {
   test('now is the current time in milliseconds since the epoch', () => {
@@ -60,5 +60,22 @@ describe('the date helper', () => {
     assert.equal(formatClock(Number.POSITIVE_INFINITY, 'en-GB'), '')
     assert.equal(formatClock(8.64e15 + 1, 'en-GB'), '')
     assert.equal(formatClock(-8.64e15 - 1, 'en-GB'), '')
+  })
+
+  test('writes a duration in its two largest units, the shortest form', () => {
+    assert.equal(formatDuration(0), '0s')
+    assert.equal(formatDuration(999), '0s')
+    assert.equal(formatDuration(3_000), '3s')
+    assert.equal(formatDuration(125_000), '2m 5s')
+    assert.equal(formatDuration(120_000), '2m')
+    assert.equal(formatDuration(3_840_000), '1h 4m')
+    assert.equal(formatDuration(3_600_000), '1h')
+    assert.equal(formatDuration(2 * 86_400_000 + 3 * 3_600_000 + 59_000), '2d 3h')
+  })
+
+  test('answers an empty text for a duration that is negative or not a number', () => {
+    assert.equal(formatDuration(-1), '')
+    assert.equal(formatDuration(Number.NaN), '')
+    assert.equal(formatDuration(Number.POSITIVE_INFINITY), '')
   })
 })

@@ -200,14 +200,15 @@ describe('the System group', () => {
   })
 
   test('asks the worker to read when the section shows, and to stop when it is left', async () => {
+    // Opened on Runs, the panel also reads the runs table once connected.
     const view = await mountOn(connected, systemRead, 'runs')
-    assert.deepEqual(requests(view), ['connection.read'])
+    assert.deepEqual(requests(view), ['connection.read', 'runs.read'])
     await view.select(SECTION_BAR, 'settings')
-    assert.deepEqual(requests(view), ['connection.read', 'system.open'])
+    assert.deepEqual(requests(view), ['connection.read', 'runs.read', 'system.open'])
     await view.select(SECTION_BAR, 'chat')
-    assert.deepEqual(requests(view), ['connection.read', 'system.open', 'system.close'])
+    assert.deepEqual(requests(view), ['connection.read', 'runs.read', 'system.open', 'system.close'])
     await view.select(SECTION_BAR, 'metrics')
-    assert.deepEqual(requests(view), ['connection.read', 'system.open', 'system.close'])
+    assert.deepEqual(requests(view), ['connection.read', 'runs.read', 'system.open', 'system.close'])
     clean(view)
   })
 
@@ -222,7 +223,8 @@ describe('the System group', () => {
   test('the show-runs hint leaves Settings, and the reads stop', async () => {
     const view = await mountOn(connected, systemRead)
     await view.post('show-runs', null)
-    assert.deepEqual(requests(view), ['connection.read', 'system.open', 'system.close'])
+    // Coming to Runs reads the runs table.
+    assert.deepEqual(requests(view), ['connection.read', 'system.open', 'runs.read', 'system.close'])
   })
 
   test('Refresh asks the worker to read again, and a posted view replaces the one shown', async () => {
