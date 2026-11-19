@@ -21,6 +21,9 @@ export const DRAFT_KEY = new RegExp(`^(?:conversation:[\\w-]{1,${String(CONVERSA
 /** The draft key of an open conversation. */
 export const conversationDraftKey = (conversationId: string): string => `conversation:${conversationId}`
 
+/** The draft key of a new chat in an Archon project. */
+export const newChatDraftKey = (codebaseId: string): string => `new:${codebaseId}`
+
 /** What `chat.drafts.read` answers: every kept draft's text by its key. */
 export type ChatDraftsAnswer = { drafts: Record<string, string> }
 

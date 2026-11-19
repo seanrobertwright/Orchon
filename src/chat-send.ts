@@ -15,6 +15,7 @@ import {
   type ChatSendOutcome,
   type ChatSendRequest
 } from './chat-send-view'
+import { conversationDraftKey, newChatDraftKey } from './chat-drafts-view'
 import type { Client, ClientFailure } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
@@ -96,6 +97,8 @@ export type ChatSendPorts = {
   client: Client
   /** The connection state now, once the settings were first read. */
   current(): Promise<ConnectionView>
+  /** Archon accepted a message: the draft it was typed in, by its key, is no longer needed. */
+  accepted?(draftKey: string): void
 }
 
 /** Said when Archon answered a send without accepting it. */
@@ -176,6 +179,9 @@ export function startChatSend(orca: OrcaWorkerApi, ports: ChatSendPorts): Dispos
         request.conversationId !== undefined
           ? await sendTo(ports, connection, request.conversationId, request.message)
           : await createIn(ports, connection, request.codebaseId, request.message)
+      if (outcome.kind === 'sent') {
+        ports.accepted?.(request.conversationId !== undefined ? conversationDraftKey(request.conversationId) : newChatDraftKey(request.codebaseId))
+      }
       return { connection: await ports.current(), outcome }
     } finally {
       sending = false

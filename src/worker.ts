@@ -85,9 +85,9 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const chatList = startChatList(orca, { client: connection.client, current: connection.current })
   const chatThread = startChatThread(orca, { client: connection.client, current: connection.current })
-  const chatSend = startChatSend(orca, { client: connection.client, current: connection.current })
   const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
   const chatDrafts = startChatDrafts(orca, { timers: ports.timers })
+  const chatSend = startChatSend(orca, { client: connection.client, current: connection.current, accepted: (key) => chatDrafts.clear(key) })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()

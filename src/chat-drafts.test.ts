@@ -2,7 +2,7 @@
 // host whose plugin storage the test reads. These tests cover chat drafts: what the worker keeps,
 // what it writes to plugin storage and when, and what it drops.
 import { assert, describe, test } from 'orca/testing'
-import { scene, type MountedScene } from '../scripts/scripted-archon.ts'
+import { DEFAULT, DEFAULT_HEALTH, health, json, recorded, scene, type MountedScene, type Scene } from '../scripts/scripted-archon.ts'
 import type { ChatDraftsAnswer } from './chat-drafts-view'
 
 const KEY = 'chat-drafts'
@@ -106,6 +106,51 @@ describe('chat drafts', () => {
       await assert.rejects(mounted.worker.request('chat.draft.write', input as never), (error: unknown) => (error as { code?: string }).code === 'invalid_params')
     }
     assert.deepEqual(await drafts(mounted), {})
+    await mounted.worker.deactivate()
+  })
+})
+
+/** The one web conversation and the one project of the 0.12.1 recording. */
+const CONVERSATION = 'web-1795050072354-vqr978'
+const PROJECT = 'cd8c6f17a56a08ff6e8c24143751f5c4'
+
+/** Archon 0.12.1 accepting a send, as `chat-send.test.ts` scripts it from the recorded launch route. */
+function sendScene(): Scene {
+  const stage = scene()
+  stage.archon.answer(DEFAULT_HEALTH, health({ version: '0.12.1' }))
+  stage.archon.answer(`${DEFAULT}/api/codebases`, recorded('0.12.1', 'codebases', 1))
+  stage.archon.answer(`${DEFAULT}/api/conversations/${CONVERSATION}/message`, recorded('0.12.1', 'launch-accepted', 6))
+  stage.archon.answer(`${DEFAULT}/api/conversations`, recorded('0.12.1', 'launch-accepted', 0))
+  return stage
+}
+
+describe('a draft and its send', () => {
+  test("is cleared when Archon accepts the conversation's message", async () => {
+    const stage = sendScene()
+    const mounted = await stage.mount({})
+    await write(mounted, `conversation:${CONVERSATION}`, 'Sent soon')
+    await write(mounted, 'conversation:web-other', 'Not sent')
+    await mounted.worker.request('chat.send', { conversationId: CONVERSATION, message: 'Sent soon' })
+    assert.deepEqual(await drafts(mounted), { 'conversation:web-other': 'Not sent' })
+    await mounted.worker.deactivate()
+  })
+
+  test("a new chat's draft in its project is cleared when Archon accepts its first message", async () => {
+    const stage = sendScene()
+    const mounted = await stage.mount({})
+    await write(mounted, `new:${PROJECT}`, 'Hello')
+    await mounted.worker.request('chat.send', { codebaseId: PROJECT, message: 'Hello' })
+    assert.deepEqual(await drafts(mounted), {})
+    await mounted.worker.deactivate()
+  })
+
+  test('is kept when the send was not accepted', async () => {
+    const stage = sendScene()
+    stage.archon.answer(`${DEFAULT}/api/conversations/${CONVERSATION}/message`, json({ error: 'Busy' }, 400))
+    const mounted = await stage.mount({})
+    await write(mounted, `conversation:${CONVERSATION}`, 'Still here')
+    await mounted.worker.request('chat.send', { conversationId: CONVERSATION, message: 'Still here' })
+    assert.deepEqual(await drafts(mounted), { [`conversation:${CONVERSATION}`]: 'Still here' })
     await mounted.worker.deactivate()
   })
 })
