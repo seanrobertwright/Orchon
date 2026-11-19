@@ -6,9 +6,12 @@ import {
   atom,
   Badge,
   Button,
+  Callout,
   Collapsible,
   env,
   KeyValue,
+  List,
+  ListItem,
   plugin,
   read,
   RelativeTime,
@@ -29,8 +32,8 @@ import { cutAt } from './cutter'
 import { formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
-import { RUN_ID_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type Step } from './run-detail-view'
-import { STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
+import { RUN_ID_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type Step, type ChildRow, type Waiting } from './run-detail-view'
+import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { worktreeLine } from './worktree-line'
@@ -44,6 +47,8 @@ export const RUN_DETAIL_GAP_MS = 1_000
  */
 const openRun = atom<unknown>('openRun', null, { persist: 'workspace' })
 const loaded = atom<RunDetail | null>(null)
+/** Set when Archon answered that the open run does not exist. */
+const gone = atom(false)
 
 /** The open run's id, or null when the runs table shows. */
 export function openRunId(): string | null {
@@ -71,7 +76,13 @@ function apply(answer: RunDetailAnswer | null): void {
   if (answer === null) return
   hooks?.keep(answer.connection)
   const { run } = answer
-  if (run.kind === 'ready' && run.detail.id === openRunId()) set(loaded, run.detail)
+  if (run.kind === 'ready' && run.detail.id === openRunId()) {
+    set(loaded, run.detail)
+    set(gone, false)
+  } else if (run.kind === 'gone') {
+    set(loaded, null)
+    set(gone, true)
+  }
 }
 
 /** Starts the view's fetch rules for this panel run. They stop when the panel closes. */
@@ -142,6 +153,7 @@ export function hintRunDetail(hint: RunsHint): void {
 function back(): void {
   set(openRun, null)
   set(loaded, null)
+  resetView()
   hooks?.back()
 }
 
@@ -246,6 +258,7 @@ const shown = atom<'steps' | 'artifacts'>('steps')
 
 /** A run opens as it first shows: both folds shut, Steps chosen, every loop open and no step selected. */
 function resetView(): void {
+  set(gone, false)
   set(factsOpen, false)
   set(messageOpen, false)
   set(flipped, [])
@@ -326,12 +339,68 @@ function chooseShown(value: string): void {
   if (value === 'steps' || value === 'artifacts') set(shown, value)
 }
 
+/** A wait's time in the person's locale, or null when Archon's did not parse. */
+const untilText = (until: number | null): string | null => {
+  const text = until === null ? '' : formatDateTime(until, env.locale)
+  return text === '' ? null : text
+}
+
+/** One sub-run a parent waits on: a row that opens it, and holds no other control. */
+function childRow(child: ChildRow): OrcaNode {
+  const title = child.workflow === null ? child.id.slice(0, 8) : `${child.status === null ? '' : `${STATUS_GLYPH[child.status]} `}${child.workflow}`
+  return (
+    <ListItem
+      key={child.id}
+      title={title}
+      description={child.status === null ? 'State not known' : STATUS_WORD[child.status]}
+      onPress={() => openRunDetail(child.id)}
+    />
+  )
+}
+
+/** The waiting callout: what a run waits for, besides a question. */
+function waitingCallout(waiting: Waiting | null): OrcaNode {
+  if (waiting === null) return null
+  if (waiting.kind === 'children') {
+    const count = waiting.children.length + waiting.more
+    return (
+      <Callout tone="warning">
+        <Stack gap="xs">
+          <Text>{count === 1 ? 'Waiting for a sub-run.' : `Waiting for ${String(count)} sub-runs.`}</Text>
+          <List label="Sub-runs">{waiting.children.map(childRow)}</List>
+          {waiting.more > 0 ? (
+            <Text muted size="sm">
+              {`and ${String(waiting.more)} more`}
+            </Text>
+          ) : null}
+        </Stack>
+      </Callout>
+    )
+  }
+  const until = untilText(waiting.until)
+  const sentence =
+    waiting.kind === 'time'
+      ? until === null
+        ? 'Waiting until a set time.'
+        : `Waiting until ${until}.`
+      : until === null
+        ? `Waiting for the event ${waiting.event}.`
+        : `Waiting for the event ${waiting.event}, until ${until} at the latest.`
+  return (
+    <Callout tone="warning">
+      <Text>{sentence}</Text>
+    </Callout>
+  )
+}
+
 function body(detail: RunDetail): OrcaNode {
   const showing = read(shown)
-  // The answer block or waiting callout and the action row go above the folds, and the row of
-  // small buttons (Open graph, Open workflow in builder, Open conversation) under them.
+  // The answer block, which takes the waiting callout's place for a question, and the action row
+  // go above the folds; the row of small buttons (Open graph, Open workflow in builder, Open
+  // conversation) goes under them.
   return (
     <>
+      {waitingCallout(detail.waiting)}
       {factsFold(detail)}
       {messageFold(detail)}
       <Select
@@ -355,7 +424,7 @@ export function runDetailSection(): OrcaNode {
   return (
     <Stack gap="sm">
       {header(detail)}
-      {detail === null ? <Spinner label="Loading the run…" /> : body(detail)}
+      {read(gone) ? <Text>This run no longer exists.</Text> : detail === null ? <Spinner label="Loading the run…" /> : body(detail)}
     </Stack>
   )
 }

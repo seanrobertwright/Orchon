@@ -3,7 +3,7 @@
 import { afterEach, assert, describe, mockHost, mount, test, type TestPanel, type TreeSnapshot } from 'orca/testing'
 import { answeringRun, busyRuns, sampleDetail } from '../scripts/runs-samples.ts'
 import * as panelModule from './panel'
-import type { RunDetailRequest, RunDetailView } from './run-detail-view'
+import type { RunDetail, RunDetailRequest, RunDetailView } from './run-detail-view'
 import type { RunsRequest, RunsView } from './runs-view'
 
 const TABLE = { type: 'Table', label: 'Runs' }
@@ -237,5 +237,79 @@ describe('the step tree', () => {
     assert.equal(view.find(FACTS)?.props.open, false)
     assert.equal(view.valueOf(SHOW), 'steps')
     assert.equal(view.findAll({ type: 'Badge' }).length, 1)
+  })
+})
+
+/** A wait's time, as the panel writes it in the tests' locale. Noon UTC is the same day everywhere. */
+const UNTIL = Date.UTC(2026, 10, 19, 12, 0, 0)
+const waitingOn = (waiting: RunDetail['waiting']) => (): RunDetailView => ({ kind: 'ready', detail: sampleDetail(1, { waiting }) })
+
+describe('what a run waits for', () => {
+  test('a time wait reads "Waiting until" and the time, above the folds', async () => {
+    const view = await openOn(waitingOn({ kind: 'time', until: UNTIL }))
+    const line = view.find({ type: 'Text', text: /^Waiting until / })
+    assert.match(line?.text ?? '', /^Waiting until Nov 19, 2026, \d{2}:\d{2} [AP]M\.$/)
+    assert.deepEqual(
+      order(view, ['Callout', 'Collapsible']).filter((type, index, all) => all.indexOf(type) === index),
+      ['Callout', 'Collapsible']
+    )
+  })
+
+  test('an event wait names the event and its latest time', async () => {
+    const view = await openOn(waitingOn({ kind: 'event', event: 'deploy-done', until: UNTIL }))
+    assert.match(
+      view.find({ type: 'Text', text: /^Waiting for the event/ })?.text ?? '',
+      /^Waiting for the event deploy-done, until Nov 19, 2026, \d{2}:\d{2} [AP]M at the latest\.$/
+    )
+  })
+
+  test('a time that did not parse is dropped and the sentence kept', async () => {
+    const timed = await openOn(waitingOn({ kind: 'time', until: null }))
+    assert.ok(timed.find({ type: 'Text', text: 'Waiting until a set time.' }))
+    await timed.unmount()
+    panel = undefined
+    const evented = await openOn(waitingOn({ kind: 'event', event: 'deploy-done', until: null }))
+    assert.ok(evented.find({ type: 'Text', text: 'Waiting for the event deploy-done.' }))
+  })
+
+  test('a parent waiting on sub-runs lists them, each with its workflow and state, then "and N more"', async () => {
+    const children = [
+      { id: 'run-7', workflow: 'child-flow', status: 'running' as const },
+      { id: 'run-8', workflow: null, status: null }
+    ]
+    const view = await openOn(waitingOn({ kind: 'children', children, more: 5 }))
+    const rows = view.findAll({ type: 'ListItem' })
+    assert.deepEqual(
+      rows.map((row) => [row.label, row.props.description]),
+      [
+        ['● child-flow', 'Running'],
+        ['run-8', 'State not known']
+      ]
+    )
+    assert.ok(view.find({ type: 'Text', text: 'and 5 more' }))
+    clean(view)
+  })
+
+  test('a sub-run row opens that run', async () => {
+    const children = [{ id: 'run-7', workflow: 'workflow-7', status: 'running' as const }]
+    const detail = (request: RunDetailRequest): RunDetailView =>
+      request.runId === 'run-1'
+        ? { kind: 'ready', detail: sampleDetail(1, { waiting: { kind: 'children', children, more: 0 } }) }
+        : readyDetail(request)
+    const view = await openOn(detail)
+    await view.press({ type: 'ListItem', label: '● workflow-7' })
+    assert.deepEqual(requests(view, 'run.read').at(-1), { runId: 'run-7', open: true })
+    assert.ok(view.find({ type: 'Text', text: 'workflow-7' }))
+  })
+})
+
+describe('a run that is gone', () => {
+  test('shows "This run no longer exists." with the way back', async () => {
+    const view = await openOn(() => ({ kind: 'gone' }))
+    assert.ok(view.find({ type: 'Text', text: 'This run no longer exists.' }))
+    assert.equal(view.find(STEPS), null)
+    await view.press(BACK)
+    assert.ok(view.find(TABLE))
+    clean(view)
   })
 })
