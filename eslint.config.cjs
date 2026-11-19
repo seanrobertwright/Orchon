@@ -12,6 +12,8 @@ const CONFIG_FILE = 'eslint.config.cjs'
 /** The one module that may load `node:fs` among the files Orca loads, and the one that may use `fetch`. */
 const DISK_MODULE = 'src/disk.ts'
 const CLIENT_MODULE = 'src/client.ts'
+/** The one date helper: the only file Orca loads that may use `Date` and `Intl.DateTimeFormat`. */
+const DATE_MODULE = 'src/dates.ts'
 /** The one file that may load `node:module`, to hand the gates their development dependencies. */
 const LOADER_MODULE = 'scripts/tooling.ts'
 
@@ -80,17 +82,39 @@ const moduleBans = ({ disk, loader }) => {
   }
 }
 
-const fetchProperties = ['globalThis', 'window', 'self'].map((object) => ({
-  object,
-  property: 'fetch',
-  message: `Only the client module (${CLIENT_MODULE}) uses fetch.`
-}))
+const FETCH_MESSAGE = `Only the client module (${CLIENT_MODULE}) uses fetch.`
+const DATE_MESSAGE = `Only the date helper (${DATE_MODULE}) reads the clock, parses a date or formats one.`
+
+const GLOBAL_OBJECTS = ['globalThis', 'window', 'self']
+const fetchProperties = GLOBAL_OBJECTS.map((object) => ({ object, property: 'fetch', message: FETCH_MESSAGE }))
+const dateProperties = [
+  ...GLOBAL_OBJECTS.map((object) => ({ object, property: 'Date', message: DATE_MESSAGE })),
+  { property: 'DateTimeFormat', message: DATE_MESSAGE }
+]
 
 const BUILTIN_MODULE_PROPERTY = {
   object: 'process',
   property: 'getBuiltinModule',
   message: 'process.getBuiltinModule would load a module past the import bans.'
 }
+
+/**
+ * The globals one group of files may not use. `fetch` and `dates` say whether the group is let
+ * past the fetch ban and the date ban.
+ */
+const globalBans = ({ fetch, dates }) => ({
+  'no-restricted-globals': [
+    'error',
+    ...(fetch ? [] : [{ name: 'fetch', message: FETCH_MESSAGE }]),
+    ...(dates ? [] : [{ name: 'Date', message: DATE_MESSAGE }])
+  ],
+  'no-restricted-properties': [
+    'error',
+    ...(fetch ? [] : fetchProperties),
+    ...(dates ? [] : dateProperties),
+    BUILTIN_MODULE_PROPERTY
+  ]
+})
 
 module.exports = tseslint.config(
   // Every gate skips these: installed packages, Orca's generated files and the implement
@@ -121,11 +145,7 @@ module.exports = tseslint.config(
       'no-implied-eval': 'error',
       'no-new-func': 'error',
       ...moduleBans({ disk: false, loader: false }),
-      'no-restricted-globals': [
-        'error',
-        { name: 'fetch', message: `Only the client module (${CLIENT_MODULE}) uses fetch.` }
-      ],
-      'no-restricted-properties': ['error', ...fetchProperties, BUILTIN_MODULE_PROPERTY]
+      ...globalBans({ fetch: false, dates: false })
     }
   },
 
@@ -133,16 +153,17 @@ module.exports = tseslint.config(
   { files: [DISK_MODULE], rules: moduleBans({ disk: true, loader: false }) },
 
   // The client module may use fetch.
-  {
-    files: [CLIENT_MODULE],
-    rules: {
-      'no-restricted-globals': 'off',
-      'no-restricted-properties': ['error', BUILTIN_MODULE_PROPERTY]
-    }
-  },
+  { files: [CLIENT_MODULE], rules: globalBans({ fetch: true, dates: false }) },
 
-  // The tooling may load node:fs: the gates and the tests read the repository's files.
-  { files: TOOLING, rules: moduleBans({ disk: true, loader: false }) },
+  // The date helper may use Date and Intl.DateTimeFormat.
+  { files: [DATE_MODULE], rules: globalBans({ fetch: false, dates: true }) },
+
+  // The tooling may load node:fs: the gates and the tests read the repository's files. It may
+  // also use dates: a test builds the instants it expects, and a script stamps what it records.
+  {
+    files: TOOLING,
+    rules: { ...moduleBans({ disk: true, loader: false }), ...globalBans({ fetch: false, dates: true }) }
+  },
 
   // The loader may also load node:module.
   { files: [LOADER_MODULE], rules: moduleBans({ disk: true, loader: true }) },
