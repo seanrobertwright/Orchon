@@ -5,7 +5,7 @@ import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
-import { clearLaunch, launchHasData, launchNotices, launchSection, openLaunch, restartLaunch, startLaunchSection } from './launch-section'
+import { clearLaunch, launchHasData, launchNotices, launchSection, openLaunch, rerunLaunch, restartLaunch, startLaunchSection } from './launch-section'
 import { liveOffLine } from './live-line'
 import { startNotificationsGroup } from './notifications-group'
 import { hintRunDetail, openRunDetail, startRunDetail } from './run-detail-section'
@@ -195,7 +195,12 @@ export function setup(ctx: PanelContext): void {
     connection: () => read(connection),
     showing: () => parseSection(read(section)) === 'runs',
     keep: keepNewest,
-    back: restartRuns
+    back: restartRuns,
+    // Re-run fills the launcher first, so the section opens on the run's draft.
+    async rerun(runId) {
+      await rerunLaunch(runId)
+      show('launch')
+    }
   })
   startScope(ctx, {
     connection: () => read(connection),
