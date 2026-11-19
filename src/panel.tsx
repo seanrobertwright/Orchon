@@ -1,12 +1,24 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
 import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
-import type { Connected, ConnectionAnswer, ConnectionView } from './connection-view'
+import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
 import { liveOffLine } from './live-line'
 import { hintRunDetail, startRunDetail } from './run-detail-section'
-import { clearRuns, hintRuns, refreshRuns, rescopeRuns, restartRuns, restartRunsView, runsHaveData, runsSection, startRunsSection } from './runs-section'
+import {
+  clearRuns,
+  hintRuns,
+  refreshRuns,
+  rescopeRuns,
+  restartRuns,
+  restartRunsView,
+  runsHaveData,
+  runsSection,
+  showNeedsYou,
+  startRunsSection
+} from './runs-section'
+import type { ConnectionReadAnswer, ShowRuns } from './hint-view'
 import { startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
@@ -67,10 +79,30 @@ function readConnection(): void {
   connectionFetch?.restart()
 }
 
+/**
+ * The press of "Orchon: Show runs" this workspace's panel last applied, kept because Orca unmounts
+ * a hidden panel and the worker hands a remembered press to every connection read for a minute.
+ */
+const showRunsApplied = atom<unknown>('showRunsApplied', null, { persist: 'workspace' })
+
+/**
+ * A press of "Orchon: Show runs": shows Runs and, when runs needed you, the "Needs you" filter.
+ * A press is applied once; one with no time, as an older worker posted, always shows Runs.
+ */
+function applyShowRuns(press: ShowRuns | null): void {
+  if (press !== null) {
+    if (read(showRunsApplied) === press.at) return
+    set(showRunsApplied, press.at)
+    if (press.needsYou) showNeedsYou()
+  }
+  show('runs')
+}
+
 /** A connection read or retry answered: the worker answers, and the state it carries is kept. */
-function connectionAnswered(answer: ConnectionAnswer): void {
+function connectionAnswered(answer: ConnectionReadAnswer): void {
   set(connectionTrouble, null)
   keepNewest(answer.connection)
+  if (answer.showRuns !== undefined) applyShowRuns(answer.showRuns)
 }
 
 /** A connection read or retry failed. A rate-limited one has no trouble to tell, and changes nothing. */
@@ -155,14 +187,15 @@ export function setup(ctx: PanelContext): void {
     keep: keepNewest,
     changed: rescopeRuns
   })
-  ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
+  ctx.subscriptions.push(plugin.on('show-runs', applyShowRuns))
+  ctx.subscriptions.push(plugin.on('needs-you.changed', refreshRuns))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
   ctx.subscriptions.push(plugin.on('runs.changed', hintRuns))
   ctx.subscriptions.push(plugin.on('runs.changed', hintRunDetail))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
   startFormGroups(ctx, { keep: keepNewest })
   // The first read, then one on the safety refetch: a worker that did not answer is tried again.
-  const fetch = createViewFetch<ConnectionAnswer>({
+  const fetch = createViewFetch<ConnectionReadAnswer>({
     load: (signal) => plugin.request('connection.read', undefined, { signal }),
     apply: connectionAnswered,
     fail: (_error, trouble) => connectionFailed(trouble),

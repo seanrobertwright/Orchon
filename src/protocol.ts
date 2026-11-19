@@ -1,8 +1,10 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
+import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
-import type { RunsHint } from './hint-view'
+import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
+import type { RunControlAnswer, RunControlRequest } from './run-control-view'
 import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
@@ -12,14 +14,23 @@ import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 
 declare module 'orca' {
   interface PluginRequests {
-    /** The connection state. Neither request takes an input. */
-    'connection.read': { output: ConnectionAnswer }
+    /**
+     * The connection state. Neither request takes an input. The read also carries the last press
+     * of "Orchon: Show runs" while the worker remembers it, for a panel that mounts after it.
+     */
+    'connection.read': { output: ConnectionReadAnswer }
     /** "Try again": in Not found and Unsupported, runs discovery at once. */
     'connection.retry': { output: ConnectionAnswer }
     /** The runs table: the counts and rows 0 to N of one status filter, in one answer. */
     'runs.read': { input: RunsRequest; output: RunsAnswer }
     /** Run detail: one run's facts, its steps and what it waits for, in one answer. */
     'run.read': { input: RunDetailRequest; output: RunDetailAnswer }
+    /** A run's artifacts: one folder's entries, or the paths a filter matches, at most 200. */
+    'artifacts.read': { input: ArtifactsRequest; output: ArtifactsAnswer }
+    /** One artifact the run's list holds: its facts and, when it is text within 256 KiB, its contents. */
+    'artifact.read': { input: ArtifactRequest; output: ArtifactAnswer }
+    /** Cancel, Abandon, Resume or Try now on one run: sent once, never tried again. */
+    'run.control': { input: RunControlRequest; output: RunControlAnswer }
     /** The project scope of the focused workspace. It takes no input. */
     'scope.read': { output: ScopeAnswer }
     /** Links the focused Orca project to an Archon project Archon lists, or changes its link. */
@@ -62,14 +73,19 @@ declare module 'orca' {
     'graph.read': { input: GraphRequest; output: GraphAnswer }
   }
   interface PluginPanelEvents {
-    /** A hint that the person asked to see runs. It carries no data. */
-    'show-runs': null
+    /**
+     * A hint that the person asked to see runs: when, and whether runs needed you then. It carries
+     * no run data. Null is read as a press with no runs that need you.
+     */
+    'show-runs': ShowRuns | null
     /** A hint that the focused workspace changed, so the project scope may have. It carries no data. */
     'scope.changed': null
     /** The connection state, posted each time it changes. */
     'connection.changed': ConnectionView
     /** A hint that runs changed in Archon, at most one a second. It carries no run data. */
     'runs.changed': RunsHint
+    /** A hint that the snapshot of runs that need you changed. It carries no data. */
+    'needs-you.changed': null
     /** The System group, posted when a read that no request waits for has ended. */
     'system.changed': SystemView
     /** The editable groups, posted when a save or a read that no request waits for has ended. */

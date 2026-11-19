@@ -8,6 +8,7 @@ import type { FetchAnswer, FetchInit, FetchLike, Timers } from '../src/client.ts
 import type { ConnectionView } from '../src/connection-view.ts'
 import { DEFAULT_BASE_URL } from '../src/discovery.ts'
 import type { Disk, DiskEntry, FolderState, TextFile, WriteOutcome } from '../src/disk.ts'
+import { ATTENTION_PATH, RUNNING_PATH } from '../src/needs-you.ts'
 import { OPENAPI_PATH } from '../src/path-check.ts'
 import { start } from '../src/worker.ts'
 import { readRepoText } from './repo-files.ts'
@@ -158,16 +159,26 @@ export type ScriptedCall = { url: string; method: string; redirect: string; head
 
 export type ScriptedArchon = {
   fetch: FetchLike
-  /** Every request that reached the transport, in order, except the opens of a stream. */
+  /**
+   * Every request that reached the transport, in order, except the opens of a stream and the
+   * snapshot's reads.
+   */
   calls: ScriptedCall[]
   /** Every open of a stream (a path under `/api/stream/`), in order. */
   streams: ScriptedCall[]
   /**
-   * Sets what one URL answers from now on. A URL never set refuses the connection, with two
+   * Every read of the snapshot of runs that need you (`/api/runs/attention` and
+   * `/api/dashboard/runs?limit=1`), in order. The worker sends them by itself while Connected.
+   */
+  snapshots: ScriptedCall[]
+  /**
+   * Sets what one URL answers from now on. A URL never set refuses the connection, with three
    * exceptions. A path list: an Archon is the floor release unless told otherwise, so
-   * `/api/openapi.json` answers the recorded document of 0.12.1. And a stream: it takes the
+   * `/api/openapi.json` answers the recorded document of 0.12.1. A stream: it takes the
    * connection and sends nothing until told otherwise, so a test that is not about live
-   * updates sees no frame and no hint.
+   * updates sees no frame and no hint. And the two reads of the snapshot of runs that need you,
+   * which the worker sends by itself while Connected: they answer the floor's recorded empty
+   * queue and empty run list, so a test that is not about them sees nothing waiting.
    */
   answer(url: string, scripted: Scripted | ((call: ScriptedCall) => Scripted)): void
   /** How many body chunks the caller took from the last answer, and whether it closed the body. */
@@ -235,11 +246,28 @@ function floorPathListAnswer(): Scripted {
   return floorPathList
 }
 
+/** The snapshot's two paths, with the floor's recorded answers when nothing waits and nothing runs. */
+const SNAPSHOT_PATHS = new Map<string, () => Scripted>([
+  [ATTENTION_PATH, () => recorded('0.12.1', 'attention-empty')],
+  [RUNNING_PATH, () => recorded('0.12.1', 'dashboard-runs-empty', 1)]
+])
+const snapshotAnswers = new Map<string, Scripted>()
+
+/** The floor's recorded answer to one of the snapshot's reads, or undefined for any other path. */
+function snapshotAnswer(pathAndQuery: string): Scripted | undefined {
+  const make = SNAPSHOT_PATHS.get(pathAndQuery)
+  if (make === undefined) return undefined
+  const answer = snapshotAnswers.get(pathAndQuery) ?? make()
+  snapshotAnswers.set(pathAndQuery, answer)
+  return answer
+}
+
 export function scriptArchon(): ScriptedArchon {
   const answers = new Map<string, Scripted | ((call: ScriptedCall) => Scripted)>()
   const archon: ScriptedArchon = {
     calls: [],
     streams: [],
+    snapshots: [],
     lastBody: { taken: 0, closed: false },
     answer(url, scripted) {
       answers.set(url, scripted)
@@ -247,11 +275,14 @@ export function scriptArchon(): ScriptedArchon {
     fetch(url: string, init: FetchInit): Promise<FetchAnswer> {
       const call: ScriptedCall = { url, method: init.method, redirect: init.redirect, headers: init.headers }
       if (init.body !== undefined) call.body = init.body
-      const { pathname } = new URL(url)
+      const { pathname, search } = new URL(url)
       const stream = pathname.startsWith('/api/stream/')
       if (stream) archon.streams.push(call)
+      else if (SNAPSHOT_PATHS.has(`${pathname}${search}`)) archon.snapshots.push(call)
       else archon.calls.push(call)
-      const found = answers.get(url) ?? (pathname === OPENAPI_PATH ? floorPathListAnswer() : stream ? HANG : REFUSE)
+      const found =
+        answers.get(url) ??
+        (pathname === OPENAPI_PATH ? floorPathListAnswer() : stream ? HANG : (snapshotAnswer(`${pathname}${search}`) ?? REFUSE))
       const scripted = typeof found === 'function' ? found(call) : found
       if (scripted.kind === 'refuse') {
         return Promise.reject(new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } }))

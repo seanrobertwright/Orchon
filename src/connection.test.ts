@@ -20,6 +20,7 @@ import {
 } from '../scripts/scripted-archon.ts'
 import { REASONS } from './connection-settings'
 import { SILENCE_MS } from './live'
+import { SNAPSHOT_SAFETY_MS } from './needs-you'
 
 /** Records the clock time of every health call to the default address, which is refused. */
 function timedRefusals(stage: Scene): number[] {
@@ -48,10 +49,11 @@ describe('the connection state', () => {
       features: { metrics: false },
       live: true
     })
-    // Connected waits only on the dashboard stream: once the status bar item is told, the one
-    // timer left is the stream's watchdog. The scripted stream sends nothing, so it stays not live.
+    // Connected waits only on the dashboard stream and the snapshot: once the status bar item is
+    // told, the timers left are the snapshot's safety read and the stream's watchdog. The scripted
+    // stream sends nothing, so it stays not live.
     await stage.clock.advance(1_000)
-    assert.deepEqual(stage.clock.waiting(), [SILENCE_MS - 1_000])
+    assert.deepEqual(stage.clock.waiting(), [SNAPSHOT_SAFETY_MS - 1_000, SILENCE_MS - 1_000])
   })
 
   test('on a cold start the first failed pass goes straight to Not found', async () => {
@@ -127,8 +129,9 @@ describe('the connection state', () => {
     const calls = stage.archon.calls.length
     await stage.clock.advance(120_000)
     assert.equal(stage.archon.calls.length, calls)
-    // Only the watchdog of the silent stream waits; it reopened the stream at 75 seconds.
-    assert.deepEqual(stage.clock.waiting(), [2 * SILENCE_MS - 120_000])
+    // Only the snapshot's safety read and the watchdog of the silent stream wait; the watchdog
+    // reopened the stream at 75 seconds.
+    assert.deepEqual(stage.clock.waiting(), [SNAPSHOT_SAFETY_MS, 2 * SILENCE_MS - 120_000])
   })
 
   test('posts Not found again when what it would say has changed', async () => {
@@ -267,10 +270,11 @@ describe('the connection state', () => {
     await mounted.orca.settings.set('baseUrl', 'http://127.0.0.1:4000')
     await stage.clock.advance(0)
     assert.deepEqual(kinds(mounted), ['searching', 'not-found', 'searching', 'connected'])
-    // Only the status bar item's timer and the stream's watchdog are left: nothing looks again.
-    assert.deepEqual(stage.clock.waiting(), [1_000, SILENCE_MS])
+    // Only the status bar item's timer, the snapshot's safety read and the stream's watchdog are
+    // left: nothing looks again.
+    assert.deepEqual(stage.clock.waiting(), [1_000, SNAPSHOT_SAFETY_MS, SILENCE_MS])
     await stage.clock.advance(1_000)
-    assert.deepEqual(stage.clock.waiting(), [SILENCE_MS - 1_000])
+    assert.deepEqual(stage.clock.waiting(), [SNAPSHOT_SAFETY_MS - 1_000, SILENCE_MS - 1_000])
   })
 
   test('a settings change while Connected looks again, and a refused value disconnects', async () => {
@@ -325,8 +329,8 @@ describe('the connection state', () => {
     const posted = mounted.posted().length
     await stage.clock.advance(60_000)
     assert.equal(mounted.posted().length, posted)
-    // Only the watchdog of the silent stream waits.
-    assert.deepEqual(stage.clock.waiting(), [SILENCE_MS - 60_000])
+    // Only the watchdog of the silent stream and the snapshot's safety read wait.
+    assert.deepEqual(stage.clock.waiting(), [SILENCE_MS - 60_000, SNAPSHOT_SAFETY_MS])
   })
 
   test('keeps looking, and says so in the log, when the settings cannot be read', async () => {

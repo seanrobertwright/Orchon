@@ -75,7 +75,9 @@ describe('the runs table request', () => {
             workingPath: '<project-path>'
           }
         ],
-        unreadable: 0
+        unreadable: 0,
+        // Nothing waits in the scripted Archon's attention queue.
+        needsYou: { kind: 'ready', total: 0, rows: [], unreadable: 0 }
       })
     })
 
@@ -88,7 +90,9 @@ describe('the runs table request', () => {
         counts: { all: 0, running: 0, paused: 0, pending: 0, completed: 0, failed: 0, cancelled: 0 },
         total: 0,
         rows: [],
-        unreadable: 0
+        unreadable: 0,
+        // Nothing waits in the scripted Archon's attention queue.
+        needsYou: { kind: 'ready', total: 0, rows: [], unreadable: 0 }
       })
     })
   }
@@ -262,7 +266,7 @@ describe('what a frame may send', () => {
     null,
     'all',
     { status: 'all' },
-    { status: 'needs-you', rows: 25 },
+    { status: 'waiting', rows: 25 },
     { status: 'all', rows: 0 },
     { status: 'all', rows: 501 },
     { status: 'all', rows: 2.5 },

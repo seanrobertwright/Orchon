@@ -1,7 +1,8 @@
 // Run detail, the second level of the Runs section: what one run is and how far it got. It draws
 // only the worker's view model and fetches it under the shared per-view fetch rules, refetching
-// on a hint that names the run, at most once a second, and on the safety refetch. The answer
-// block, the action row and the row of small buttons come with their own tickets.
+// on a hint that names the run, at most once a second, and on the safety refetch. The action row
+// is drawn by `run-actions.tsx`; the answer block and the row of small buttons come with their
+// own tickets.
 import {
   atom,
   Badge,
@@ -26,12 +27,14 @@ import {
   type OrcaNode,
   type PanelContext
 } from 'orca'
+import { artifactsBody, openArtifacts, resetArtifacts, startArtifactsView } from './artifacts-section'
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import { formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
-import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type Step, type ChildRow, type Waiting } from './run-detail-view'
+import { actionRow, outcomeCallout, resetRunActions, runActionsRead, type RunActionHooks } from './run-actions'
+import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type StalledCall, type Step, type ChildRow, type Waiting } from './run-detail-view'
 import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
@@ -92,6 +95,7 @@ function apply(answer: RunDetailAnswer | null): void {
   if (run.kind === 'ready' && run.detail.id === openRunId()) {
     set(loaded, run.detail)
     set(graphOff, answer.graphOff ?? null)
+    runActionsRead(run.detail)
     set(gone, false)
     set(problem, null)
     set(lastGood, now())
@@ -129,6 +133,7 @@ export function startRunDetail(ctx: PanelContext, given: RunDetailHooks): void {
     timers: frameTimers
   })
   fetcher = view
+  startArtifactsView(ctx)
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -290,6 +295,8 @@ function resetView(): void {
   set(flipped, [])
   set(selectedStep, null)
   set(shown, 'steps')
+  resetArtifacts()
+  resetRunActions()
 }
 
 function toggle(tree: StepTree, key: string, expanded: boolean): void {
@@ -355,7 +362,12 @@ function stepsBody(detail: RunDetail): OrcaNode {
 }
 
 function chooseShown(value: string): void {
-  if (value === 'steps' || value === 'artifacts') set(shown, value)
+  if (value !== 'steps' && value !== 'artifacts') return
+  const before = read(shown)
+  set(shown, value)
+  // The list is asked for only when Artifacts is chosen.
+  const runId = openRunId()
+  if (value === 'artifacts' && before !== 'artifacts' && runId !== null) openArtifacts(runId)
 }
 
 /** A wait's time in the person's locale, or null when Archon's did not parse. */
@@ -377,39 +389,110 @@ function childRow(child: ChildRow): OrcaNode {
   )
 }
 
-/** The waiting callout: what a run waits for, besides a question. */
+/** What a waiting callout says when Orchon cannot tell more: a pointer to Archon's console. */
+const CONSOLE_POINTER = "Open Archon's console to look at it."
+
+/** A warning callout holding its lines. */
+const warningCallout = (lines: OrcaNode): OrcaNode => (
+  <Callout tone="warning">
+    <Stack gap="xs">{lines}</Stack>
+  </Callout>
+)
+
+/** "and N more" under a capped list, or nothing. */
+const moreLine = (more: number): OrcaNode =>
+  more > 0 ? (
+    <Text muted size="sm">
+      {`and ${String(more)} more`}
+    </Text>
+  ) : null
+
+/** One stalled tool call: its name and title, and how long it has not answered. */
+function stalledRow(call: StalledCall, index: number): OrcaNode {
+  const silent = formatDuration(call.stalledForMs)
+  return (
+    <ListItem
+      key={`${String(index)}:${call.name}`}
+      title={call.title === null ? call.name : `${call.name}: ${call.title}`}
+      description={silent === '' ? 'No answer yet' : `No answer for ${silent}`}
+    />
+  )
+}
+
+/** The waiting callout: what a run waits for with nothing to answer (#14, part 7). */
 function waitingCallout(waiting: Waiting | null): OrcaNode {
   if (waiting === null) return null
-  if (waiting.kind === 'children') {
-    const count = waiting.children.length + waiting.more
-    return (
-      <Callout tone="warning">
-        <Stack gap="xs">
-          <Text>{count === 1 ? 'Waiting for a sub-run.' : `Waiting for ${String(count)} sub-runs.`}</Text>
+  switch (waiting.kind) {
+    case 'children': {
+      const count = waiting.children.length + waiting.more
+      return warningCallout(
+        <>
+          <Text>{count === 1 ? 'Waiting on 1 sub-run. Answer it in its own run.' : `Waiting on ${String(count)} sub-runs. Answer each one in its own run.`}</Text>
           <List label="Sub-runs">{waiting.children.map(childRow)}</List>
-          {waiting.more > 0 ? (
-            <Text muted size="sm">
-              {`and ${String(waiting.more)} more`}
-            </Text>
-          ) : null}
-        </Stack>
-      </Callout>
-    )
+          {moreLine(waiting.more)}
+        </>
+      )
+    }
+    case 'usage-limit':
+      return warningCallout(
+        waiting.resumeAt === null ? (
+          <Text>Paused on a provider usage limit. Archon tries again by itself.</Text>
+        ) : (
+          <Text>
+            Paused on a provider usage limit. Archon tries again by itself <RelativeTime at={waiting.resumeAt} />.
+          </Text>
+        )
+      )
+    case 'unreadable':
+      return warningCallout(
+        <>
+          <Text>{`Orchon cannot read what this run waits for. ${CONSOLE_POINTER}`}</Text>
+          {waiting.detail === '' ? null : <Text muted>{waiting.detail}</Text>}
+        </>
+      )
+    case 'stalled': {
+      const count = waiting.calls.length + waiting.more
+      return warningCallout(
+        <>
+          <Text>{count === 1 ? '1 tool call has not returned.' : `${String(count)} tool calls have not returned.`}</Text>
+          <List label="Tool calls that have not returned">{waiting.calls.map(stalledRow)}</List>
+          {moreLine(waiting.more)}
+        </>
+      )
+    }
+    case 'unknown':
+      return warningCallout(<Text>{`This run is waiting in a way this version of Orchon does not know. ${CONSOLE_POINTER}`}</Text>)
+    case 'time':
+    case 'event': {
+      const until = untilText(waiting.until)
+      const sentence =
+        waiting.kind === 'time'
+          ? until === null
+            ? 'Waiting until a set time.'
+            : `Waiting until ${until}.`
+          : until === null
+            ? `Waiting for the event ${waiting.event}.`
+            : `Waiting for the event ${waiting.event}, until ${until} at the latest.`
+      return (
+        <Callout tone="warning">
+          <Text>{sentence}</Text>
+        </Callout>
+      )
+    }
   }
-  const until = untilText(waiting.until)
-  const sentence =
-    waiting.kind === 'time'
-      ? until === null
-        ? 'Waiting until a set time.'
-        : `Waiting until ${until}.`
-      : until === null
-        ? `Waiting for the event ${waiting.event}.`
-        : `Waiting for the event ${waiting.event}, until ${until} at the latest.`
-  return (
-    <Callout tone="warning">
-      <Text>{sentence}</Text>
-    </Callout>
-  )
+}
+
+/** What the action row reaches in run detail. */
+const actionHooks: RunActionHooks = {
+  openRunId,
+  restart: restartRunDetail,
+  openRun: openRunDetail,
+  gone() {
+    set(loaded, null)
+    set(gone, true)
+    set(problem, null)
+  },
+  keep: (view) => hooks?.keep(view)
 }
 
 /** What a press of Open graph says when the worker itself does not answer. */
@@ -451,14 +534,16 @@ function graphRow(detail: RunDetail): OrcaNode {
   )
 }
 
-function body(detail: RunDetail): OrcaNode {
+function body(detail: RunDetail, writable: boolean): OrcaNode {
   const showing = read(shown)
-  // The answer block, which takes the waiting callout's place for a question, and the action row
-  // go above the folds; the row of small buttons goes under them: Open graph, and with their own
+  // The answer block, which takes the waiting callout's place for a question, goes above the
+  // action row; the row of small buttons goes under the folds: Open graph, and with their own
   // tickets Open workflow in builder and Open conversation.
   return (
     <>
       {waitingCallout(detail.waiting)}
+      {actionRow(detail, writable, actionHooks)}
+      {outcomeCallout(detail, actionHooks)}
       {factsFold(detail)}
       {messageFold(detail)}
       {graphRow(detail)}
@@ -472,18 +557,28 @@ function body(detail: RunDetail): OrcaNode {
         ]}
         onChange={chooseShown}
       />
-      {showing === 'steps' ? stepsBody(detail) : <Text muted>Artifacts are not shown in this version of Orchon.</Text>}
+      {showing === 'steps' ? stepsBody(detail) : artifactsBody(detail.id)}
     </>
   )
 }
 
-/** Run detail while connected or under the Searching banner. It has no control that writes yet. */
-export function runDetailSection(): OrcaNode {
+/** Run detail while connected or under the Searching banner. `writable` is false when its controls that write are off. */
+export function runDetailSection(writable: boolean): OrcaNode {
   const detail = read(loaded)
   const held = read(problem)
   let content: OrcaNode
-  if (read(gone)) content = <Text>This run no longer exists.</Text>
-  else if (detail !== null) content = body(detail)
+  if (read(gone)) {
+    content = (
+      <Stack gap="xs">
+        <Text>This run no longer exists.</Text>
+        <Row>
+          <Button size="sm" variant="outline" onPress={back}>
+            Back to runs
+          </Button>
+        </Row>
+      </Stack>
+    )
+  } else if (detail !== null) content = body(detail, writable)
   else content = held === null ? <Spinner label="Loading the run…" /> : null
   return (
     <Stack gap="sm">

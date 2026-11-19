@@ -16,6 +16,12 @@ export const STEP_ROWS_CAP = 500
 /** How many sub-runs a waiting parent lists before "and N more". */
 export const CHILD_ROWS_CAP = 20
 
+/** How many stalled tool calls a running run lists before "and N more". */
+export const STALLED_CALLS_CAP = 10
+
+/** Where Archon's detail of an unreadable run is cut. */
+export const UNREADABLE_DETAIL_CAP = 2_000
+
 /**
  * What a panel sends: the run, and `open` when run detail has just been opened, which looks up
  * the sub-runs it waits on at once. Other reads look them up at most every 30 seconds.
@@ -49,12 +55,23 @@ export type Step = {
 /** A sub-run a waiting parent lists. The workflow and status are null until they are looked up. */
 export type ChildRow = { id: string; workflow: string | null; status: RunStatus | null }
 
+/** A tool call that has not returned: its name, Archon's title for it or null, and for how long. */
+export type StalledCall = { name: string; title: string | null; stalledForMs: number }
+
 /** What a run waits for, besides a question. Times are null when Archon's time does not parse. */
 export type Waiting =
   | { kind: 'time'; until: number | null }
   | { kind: 'event'; event: string; until: number | null }
   /** Rows of at most `CHILD_ROWS_CAP` sub-runs, and how many more it waits on. */
   | { kind: 'children'; children: ChildRow[]; more: number }
+  /** Paused on a provider usage limit: Archon tries again by itself at `resumeAt`. */
+  | { kind: 'usage-limit'; resumeAt: number | null }
+  /** Archon cannot read what the run waits for. `detail` is its text, cut at `UNREADABLE_DETAIL_CAP`. */
+  | { kind: 'unreadable'; detail: string }
+  /** A running run whose tool calls have not returned: at most `STALLED_CALLS_CAP`, and how many more. */
+  | { kind: 'stalled'; calls: StalledCall[]; more: number }
+  /** An `attention` kind this version of Orchon does not know. Nothing else is read from it. */
+  | { kind: 'unknown' }
 
 export type RunDetail = {
   id: string
@@ -86,6 +103,8 @@ export type RunDetail = {
   /** How many of Archon's steps could not be read and are not shown. */
   unreadableSteps: number
   waiting: Waiting | null
+  /** Set when Archon's `owner_observation` says the run's owner is unreachable. Left out otherwise. */
+  ownerUnreachable?: true
 }
 
 export type RunDetailView =
