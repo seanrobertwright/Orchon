@@ -13,9 +13,10 @@ import { loadPackage, MissingTooling } from './tooling.ts'
 /**
  * Editor TypeScript that only the tests load, so it has no JavaScript: the test fixtures and the
  * test helpers copied with Archon's builder logic (editors/builder/archon/UPSTREAM.md).
- * tsconfig.editors.json leaves out the same paths.
+ * tsconfig.editors.json leaves out the same paths, and check-editor-output.test.ts holds the two
+ * lists equal.
  */
-const TEST_ONLY_EDITOR_SOURCES = {
+export const TEST_ONLY_EDITOR_SOURCES = {
   folders: ['editors/builder/archon/fixtures/'],
   files: ['editors/builder/archon/validation/test-helpers.ts']
 }

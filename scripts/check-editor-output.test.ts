@@ -5,9 +5,10 @@ import {
   compareEditorOutput,
   compileEditors,
   isTestOnlyEditorSource,
+  TEST_ONLY_EDITOR_SOURCES,
   readCommittedEditorJavaScript
 } from './check-editor-output.ts'
-import { listRepoFiles } from './repo-files.ts'
+import { listRepoFiles, readRepoText } from './repo-files.ts'
 import { INSTALL_HINT, withTooling } from './tooling.ts'
 
 const expected = new Map([
@@ -58,6 +59,16 @@ describe('the editor output check', () => {
     assert.equal(isTestOnlyEditorSource('editors/builder/archon/validation/structural.ts'), false)
     assert.equal(isTestOnlyEditorSource('editors/builder/archon/fixtures.ts'), false)
     assert.equal(isTestOnlyEditorSource('editors/shared/fixtures/index.ts'), false)
+  })
+
+  test('tsconfig.editors.json leaves out exactly the test-only editor sources, besides tests and declarations', () => {
+    const { exclude } = JSON.parse(readRepoText('tsconfig.editors.json')) as { exclude: string[] }
+    assert.deepEqual(exclude, [
+      'editors/**/*.test.ts',
+      'editors/**/*.d.ts',
+      ...TEST_ONLY_EDITOR_SOURCES.folders.map((folder) => `${folder}**`),
+      ...TEST_ONLY_EDITOR_SOURCES.files
+    ])
   })
 
   test('reads every JavaScript file under editors/ and none outside it', () => {
