@@ -16,7 +16,7 @@ import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph } from "../shared/graph-layout.js";
 import { isRecord } from "../shared/records.js";
 import { VARIANTS, VARIANT_REGISTRY } from "./archon/variants/index.js";
-import { DEFINITION_CAP_BYTES, mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
+import { BUILDER_DRAFT_SEND_PAUSE_MS, DEFINITION_CAP_BYTES, mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
 import { openSession } from "./edit-session.js";
 import { fieldControl, option } from "./field-control.js";
 import { formFields } from "./node-form.js";
@@ -52,6 +52,14 @@ export const WRITE_SAVING = 'A save is waiting for Archon.';
 export const WRITE_VALIDATING = 'Archon is validating this workflow.';
 export const TOO_LARGE_TO_SEND = `This workflow is over ${mib(DEFINITION_CAP_BYTES)}, the most the builder sends, so nothing was sent.`;
 export const SHOWN_CHANGED = 'This workflow changed outside the builder while the tab was away. The builder now shows the copy Archon serves.';
+export const DRAFT_RESTORED = 'Your unsaved changes from before are restored from a draft.';
+export const NEW_DRAFT_LINE = 'This new workflow is not in Archon yet: the first Save writes it.';
+export const KEPT_AS_DRAFT = 'Your changes are kept as a draft.';
+export const OTHER_ARCHON_LINE = 'This draft was made on a different Archon.';
+export const DRAFT_BASE_CHANGED = 'This workflow changed outside the builder since your draft was made. Your draft is kept until you choose.';
+export const DRAFT_BASE_REMOVED = 'Archon no longer serves this workflow here: it was removed or replaced outside the builder since your draft was made. Your draft is kept until you choose.';
+export const NEW_TAKEN = 'Archon now holds a workflow of this name here, made outside the builder since your draft was. Your draft is kept until you choose.';
+export const NEW_DISCARDED = 'This new workflow was discarded. Nothing was written to Archon.';
 const NOT_CONNECTED_BANNER = 'Orchon is not connected to Archon. What is shown was read before.';
 const PICK_A_NODE = 'Choose a node on the canvas or in the outline to see it here.';
 const capped = (value, cap) => typeof value === 'string' && value !== '' && value.length <= cap;
@@ -87,6 +95,18 @@ function writeAnswer(value, key) {
         return null;
     const outcome = value[key];
     return isRecord(outcome) && typeof outcome.kind === 'string' ? { connection: value.connection, outcome: outcome } : null;
+}
+/** The draft in a read's answer, or null when there is none or it is not in the shape the tab draws. */
+function draftOf(answer) {
+    const value = answer.draft;
+    if (!isRecord(value) || !isRecord(value.definition) || typeof value.file !== 'string')
+        return null;
+    if (typeof value.isNew !== 'boolean' || typeof value.otherArchon !== 'boolean')
+        return null;
+    const base = value.base;
+    if (base !== null && !(isRecord(base) && typeof base.source === 'string' && isRecord(base.authored)))
+        return null;
+    return value;
 }
 const encoder = new TextEncoder();
 /** A definition's size as the worker measures it: its JSON text in UTF-8. */
@@ -170,9 +190,13 @@ export function startBuilderTab(ports) {
     const changePrompt = el('section', undefined, 'outside-change');
     changePrompt.setAttribute('aria-label', 'The workflow changed');
     changePrompt.hidden = true;
+    /** The notice over a restored draft, with its Discard. */
+    const draftNotice = el('section', undefined, 'draft-notice');
+    draftNotice.setAttribute('aria-label', 'Draft');
+    draftNotice.hidden = true;
     const content = el('main', undefined, 'content builder-content');
     content.appendChild(el('p', 'Loading the workflow…', 'muted'));
-    ports.app.replaceChildren(top, banners, changePrompt, content);
+    ports.app.replaceChildren(top, banners, changePrompt, draftNotice, content);
     // The layout of #28, made once and kept while the tab is open.
     const layout = el('div', undefined, 'builder-layout');
     const canvasPane = el('section', undefined, 'canvas-pane');
@@ -348,18 +372,107 @@ export function startBuilderTab(ports) {
     /** Whether the last answer found Archon: a post that it is found again reads once more. */
     let connected = false;
     let stopped = false;
+    /** A new workflow never saved: Archon is not expected to hold it. */
+    let isNew = false;
+    /** The draft was made on a different Archon from the one connected now: Save stays off and it is never saved here. */
+    let otherArchon = false;
+    /** Whether the worker keeps a draft of this workflow, so a copy with no unsaved changes discards it. */
+    let draftKept = false;
+    /** Why the worker did not keep the last draft sent, or null. */
+    let draftRefused = null;
+    /** The pause before the copy as it stands goes to the worker as a draft. */
+    let draftTimer;
+    /** The Try again the banner offers while Archon is away with a copy shown, or null. */
+    let bannerAction = null;
     const subscriptions = [];
     /** The banners: the connection's lines, then connect mode's. */
     function showBanners() {
-        const lines = [...connectionLines, ...writeLines];
+        const lines = [...connectionLines, ...(otherArchon && session !== null ? [OTHER_ARCHON_LINE] : []), ...(draftRefused === null ? [] : [draftRefused]), ...writeLines];
         const from = connecting === null ? undefined : facts?.nodes[connecting];
         if (from !== undefined)
             lines.push(`Connecting from ${nodeLabel(from)}: choose the node that runs after it. Esc cancels.`);
-        banners.replaceChildren(...lines.map((line) => el('p', line, 'banner')));
+        banners.replaceChildren(...lines.map((line) => el('p', line, 'banner')), ...(bannerAction === null ? [] : [bannerAction]));
     }
-    function setBanners(lines) {
+    function setBanners(lines, tryAgain = false) {
         connectionLines = [...lines];
+        bannerAction = tryAgain ? button('Try again', retry) : null;
         showBanners();
+    }
+    /** Asks the worker to look for Archon again, then reads. */
+    function retry() {
+        void ports
+            .request('connection.retry')
+            .catch(() => null)
+            .then(() => load());
+    }
+    /** The draft notice: shown over a restored draft or a new workflow, with Discard; hidden otherwise. */
+    function showDraftNotice(visible) {
+        draftNotice.hidden = !visible;
+        if (!visible) {
+            draftNotice.replaceChildren();
+            return;
+        }
+        draftNotice.replaceChildren(el('p', isNew ? NEW_DRAFT_LINE : DRAFT_RESTORED), named('Discard', 'Discard the draft', discardDraft));
+    }
+    /** The copy as it stands goes to the worker after a pause, so a burst of edits is one write. */
+    function scheduleDraft() {
+        if (draftTimer !== undefined)
+            ports.timers.clear(draftTimer);
+        draftTimer = ports.timers.set(sendDraft, BUILDER_DRAFT_SEND_PAUSE_MS);
+    }
+    /** Hands the copy as it stands to the worker as a draft; a copy with no unsaved changes discards the draft. */
+    function sendDraft() {
+        if (draftTimer !== undefined)
+            ports.timers.clear(draftTimer);
+        draftTimer = undefined;
+        if (session === null || identity === null || !editable || shown?.kind !== 'ready')
+            return;
+        if (!session.dirty() && !isNew) {
+            if (draftKept)
+                dropDraft();
+            return;
+        }
+        const definition = definitionNow();
+        if (definition === null)
+            return;
+        draftKept = true;
+        void ports.request('builder.draft.write', { ...identity, definition, base, file: shown.header.file }).then((answer) => {
+            if (stopped)
+                return;
+            const refused = isRecord(answer) && answer.kept === false && typeof answer.reason === 'string' ? answer.reason : null;
+            if (refused !== null)
+                draftKept = false;
+            if (refused !== draftRefused) {
+                draftRefused = refused;
+                showBanners();
+            }
+        }, () => { });
+    }
+    /** Tells the worker to delete the draft. */
+    function dropDraft() {
+        if (draftTimer !== undefined)
+            ports.timers.clear(draftTimer);
+        draftTimer = undefined;
+        draftKept = false;
+        draftRefused = null;
+        if (identity !== null)
+            void ports.request('builder.draft.discard', identity).catch(() => null);
+    }
+    /** Discard: the draft is deleted and the copy Archon serves is read; a new workflow's tab has nothing left to show. */
+    function discardDraft() {
+        dropDraft();
+        showDraftNotice(false);
+        closePrompt();
+        if (isNew) {
+            isNew = false;
+            shown = null;
+            session = null;
+            facts = null;
+            dropCanvas();
+            drawMessage(NEW_DISCARDED, false);
+            return;
+        }
+        readFor('reload-discard');
     }
     /** What Save or Validate says, under the connection's lines. */
     function setWrite(lines) {
@@ -415,6 +528,8 @@ export function startBuilderTab(ports) {
     }
     /** Why Save and Validate cannot act now, or null when they can. */
     function whyNoWrite() {
+        if (otherArchon)
+            return OTHER_ARCHON_LINE;
         if (!connected)
             return WRITE_NOT_CONNECTED;
         if (writing === 'save')
@@ -511,6 +626,12 @@ export function startBuilderTab(ports) {
         opened = definition;
         keptOver = null;
         session?.markSaved();
+        // The worker deleted the draft with the save; an edit made while it waited goes to a new one.
+        draftKept = false;
+        isNew = false;
+        showDraftNotice(false);
+        if (draftTimer !== undefined)
+            sendDraft();
         drawEditState();
         if (identity !== null && source !== '' && source !== identity.scope) {
             identity = { ...identity, scope: source };
@@ -696,6 +817,8 @@ export function startBuilderTab(ports) {
     function finish(changed, options = {}) {
         if (session === null)
             return;
+        if (changed)
+            scheduleDraft();
         if (options.typing !== true) {
             burst = null;
             connecting = null;
@@ -1080,17 +1203,27 @@ export function startBuilderTab(ports) {
             group.appendChild(el('p', `${String(serverCheck.more)} more ${serverCheck.more === 1 ? 'sentence is' : 'sentences are'} not shown.`, 'muted'));
         return [group];
     }
-    /** Opens a read workflow for editing, in place of whatever copy was held. */
-    function openView(view) {
+    /**
+     * Opens a read workflow for editing, in place of whatever copy was held, or, with `restored`,
+     * a draft of it: then the copy its edit started from is what a save expects and what Unsaved
+     * changes compares with. Opening what Archon serves over a draft lets the draft go.
+     */
+    function openView(view, restored) {
         shown = view;
-        opened = view.definition;
-        base = { source: view.header.source, authored: view.definition };
+        if (restored === undefined) {
+            if (draftKept || draftTimer !== undefined)
+                dropDraft();
+            isNew = false;
+            showDraftNotice(false);
+        }
+        opened = restored === undefined ? view.definition : (restored.base?.authored ?? null);
+        base = restored === undefined ? { source: view.header.source, authored: view.definition } : restored.base;
         keptOver = null;
         serverCheck = null;
         writeLines = [];
         closePrompt();
         editable = !view.header.viewOnly;
-        session = openSession(view.definition);
+        session = restored === undefined ? openSession(view.definition) : openSession(view.definition, restored.base?.authored ?? null);
         connecting = null;
         selectedEdge = null;
         burst = null;
@@ -1174,33 +1307,90 @@ export function startBuilderTab(ports) {
         const size = view.bytes === null ? `over ${mib(view.cap)}` : mib(view.bytes);
         content.replaceChildren(el('p', `This workflow's definition is ${size}. The builder opens definitions of at most ${mib(view.cap)}, so it does not open this one.`));
     }
-    /** Draws what is shown again with banner lines over it. The copy being edited is kept as it is. */
-    function drawShown(lines) {
+    /** Draws what is shown again with banner lines over it, and Try again when `tryAgain` holds. The copy being edited is kept as it is. */
+    function drawShown(lines, tryAgain = false) {
         if (shown === null)
             return;
         if (shown.kind === 'ready') {
             drawHeader(shown.header);
-            setBanners(lines);
+            setBanners(lines, tryAgain);
             drawEditState();
         }
         else
             drawTooLarge(shown, lines);
     }
+    /** The banner while Archon is away: the status sentence, and that edits go to the draft while the copy can be edited. */
+    const awayLines = (sentence) => (editable && session !== null ? [sentence, KEPT_AS_DRAFT] : [sentence]);
+    /** The banner of a state that is not Connected, and whether it offers Try again, or null when Connected. */
+    function awayOf(answer) {
+        const { connection } = answer;
+        if (connection.kind === 'screen')
+            return { lines: awayLines(connection.screen.title), tryAgain: connection.screen.tryAgain };
+        if (connection.kind === 'searching')
+            return { lines: awayLines(connection.banner), tryAgain: false };
+        if (answer.builder.kind === 'not-connected')
+            return { lines: awayLines(NOT_CONNECTED_BANNER), tryAgain: false };
+        return null;
+    }
+    /**
+     * Opens the draft the worker keeps, before anything else is drawn. With Archon connected, a
+     * draft whose copy it started from is not what Archon serves now goes to the three choices of an
+     * outside change; nothing is overwritten unasked. A draft made on another Archon is only edited.
+     */
+    function restore(draft, answer) {
+        if (identity === null)
+            return;
+        const { builder, connection } = answer;
+        const served = connection.kind === 'connected' && builder.kind === 'ready' ? builder : null;
+        const header = served?.header ?? { name: identity.name, source: draft.base?.source ?? identity.scope, file: draft.file, viewOnly: false, openYaml: false };
+        isNew = draft.isNew;
+        draftKept = true;
+        drawHeader(header);
+        openView({ kind: 'ready', header, definition: draft.definition }, draft);
+        showDraftNotice(true);
+        const away = awayOf(answer);
+        const lines = away?.lines ?? (builder.kind === 'failed' ? [builder.message] : []);
+        setBanners(lines, away?.tryAgain === true);
+        drawEditState();
+        if (otherArchon || away !== null)
+            return;
+        if (served !== null) {
+            const current = { source: served.header.source, authored: served.definition };
+            if (base === null || base.source !== current.source || !sameDefinition(base.authored, current.authored)) {
+                keptOver = served.definition;
+                askAfterChange(draft.isNew ? NEW_TAKEN : DRAFT_BASE_CHANGED, current);
+            }
+        }
+        else if (builder.kind === 'gone' && base !== null)
+            askAfterChange(DRAFT_BASE_REMOVED, null);
+    }
     function apply(answer, reason) {
         const tabConnection = answer.connection;
         const { builder } = answer;
         connected = tabConnection.kind === 'connected';
+        const draft = draftOf(answer);
+        // The store id on return decides whether the draft may be saved here.
+        if (connected)
+            otherArchon = draft?.otherArchon === true;
+        // A draft the worker holds is known kept; one it no longer holds is let go by the tab's own discard or save only, which do no harm twice.
+        if (draft !== null)
+            draftKept = true;
+        if (shown === null && draft !== null) {
+            restore(draft, answer);
+            return;
+        }
+        const away = awayOf(answer);
         if (tabConnection.kind === 'screen') {
             // The builder keeps what it shows under a banner; with nothing shown it draws the state screen.
             if (shown !== null)
-                drawShown([tabConnection.screen.title]);
+                drawShown(away?.lines ?? [], away?.tryAgain === true);
             else
                 drawScreen(tabConnection.screen);
             return;
         }
         if (tabConnection.kind === 'searching') {
             if (shown !== null)
-                drawShown([tabConnection.banner]);
+                drawShown(away?.lines ?? []);
             else {
                 drawHeader(null);
                 setBanners([]);
@@ -1211,7 +1401,7 @@ export function startBuilderTab(ports) {
         switch (builder.kind) {
             case 'not-connected':
                 if (shown !== null)
-                    drawShown([NOT_CONNECTED_BANNER]);
+                    drawShown(away?.lines ?? []);
                 return;
             case 'failed':
                 if (shown !== null)
@@ -1220,6 +1410,11 @@ export function startBuilderTab(ports) {
                     drawMessage(builder.message, true);
                 return;
             case 'gone':
+                // A new workflow is not in Archon until its first Save, so there is nothing to say.
+                if (isNew && base === null && session !== null) {
+                    drawShown([]);
+                    return;
+                }
                 // Unsaved changes are kept under the sentence; with none, the workflow is let go.
                 if (editing()) {
                     drawShown([builder.message]);
@@ -1362,6 +1557,9 @@ export function startBuilderTab(ports) {
     });
     return {
         stop() {
+            // An edit still waiting for the pause goes to the worker now, so closing the tab loses nothing.
+            if (draftTimer !== undefined)
+                sendDraft();
             stopped = true;
             canvas?.stop();
             for (const subscription of subscriptions)

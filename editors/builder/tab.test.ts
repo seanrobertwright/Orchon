@@ -380,13 +380,13 @@ describe('a tab reopened with nothing to show', () => {
 })
 
 describe('when Archon is lost with a workflow shown', () => {
-  test('the builder keeps its canvas under the banner, in the polite live region', async () => {
+  test('the builder keeps its canvas under the banner, in the polite live region, which says the changes are kept as a draft', async () => {
     const stage = await open(readyAnswer)
     stage.answer.value = { connection: { kind: 'searching', banner: 'Archon stopped answering at 12:00. Reconnecting…', label: 'Looking for Archon…' }, builder: { kind: 'not-connected' } }
     await stage.post('connection.changed', { kind: 'searching' })
     const region = find(stage.app, (element) => element.getAttribute('aria-live') === 'polite')
     assert.ok(region)
-    assert.deepEqual(texts(region, 'p'), ['Archon stopped answering at 12:00. Reconnecting…'])
+    assert.deepEqual(texts(region, 'p'), ['Archon stopped answering at 12:00. Reconnecting…', 'Your changes are kept as a draft.'])
     assert.equal(withClass(stage.app, 'step').length, 4)
     stage.answer.value = readyAnswer
     await stage.post('connection.changed', { kind: 'connected' })
