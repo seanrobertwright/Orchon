@@ -60,7 +60,7 @@ import {
 } from './launch-view'
 import type { ArchonProject } from './project-match'
 import type { FocusedWorkspace } from './project-scope'
-import { NOT_LISTED } from './project-scope'
+import { NOT_LISTED, storeKey } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, errorText, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { SERVER_TEXT_CAP } from './run-control-view'
@@ -97,9 +97,6 @@ export const RERUN_GONE = 'This run no longer exists.'
 /** The notice when the run's workflow is gone from the project's list. */
 export const workflowGoneNote = (workflow: string): string =>
   `The workflow ${workflow} is no longer listed for this project, so no workflow is chosen. Choose one.`
-
-/** What saved data is stored under: the server's store id, or its base URL when it reports none. */
-const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
 
 /**
  * The ids of the conversations the launcher created for this Archon store, as it keeps them in
@@ -972,7 +969,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     draft.message = built.message
     // The kept inputs fill the form's fields, so Start sends them; Re-run never fills a binding.
     clearChoices(draft)
-    draft.values = Object.fromEntries(built.inputs.map((input) => [input.name, input.value]))
+    draft.values = Object.fromEntries(built.inputs.map((filled) => [filled.name, filled.value]))
     draft.inputs = built.inputs
     draft.notes = notes
     delete draft.error
