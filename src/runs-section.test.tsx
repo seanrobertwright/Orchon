@@ -79,6 +79,8 @@ describe('the Runs section', () => {
     assert.ok(select)
     assert.deepEqual(select.props.options, [
       { value: 'all', label: 'All (120)' },
+      // This answer carries no snapshot of runs that need you, so that option has no count.
+      { value: 'needs-you', label: 'Needs you' },
       { value: 'running', label: 'Running (18)' },
       { value: 'paused', label: 'Paused (17)' },
       { value: 'pending', label: 'Queued (17)' },

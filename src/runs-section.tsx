@@ -1,11 +1,13 @@
-// The Runs section of the panel: a filter row, the runs table, a count line and a read-only
-// preview of the selected run. It draws only the worker's view model and fetches it under the
-// shared per-view fetch rules, under the project scope of `scope-section.tsx`. The "Needs you"
-// option, the callout, New run and run detail come with their own tickets.
+// The Runs section of the panel: a filter row, the "runs need you" callout, the runs table, a
+// count line and a read-only preview of the selected run. It draws only the worker's view model
+// and fetches it under the shared per-view fetch rules, under the project scope of
+// `scope-section.tsx`. The callout and the "Needs you" filter come from the worker's snapshot, in
+// the same answer as the table. New run comes with its own ticket.
 import {
   atom,
   Badge,
   Button,
+  Callout,
   Card,
   EmptyState,
   IconButton,
@@ -36,7 +38,18 @@ import type { RunsHint } from './hint-view'
 import { clearRunDetail, openRunDetail, openRunId, restartRunDetail, runDetailHasData, runDetailSection } from './run-detail-section'
 import { worktreeLine } from './worktree-line'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
-import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
+import {
+  CALLOUT_CAP,
+  ROWS_CAP,
+  ROWS_STEP,
+  type NeedsYouView,
+  type RunRow,
+  type RunsAnswer,
+  type RunsRequest,
+  type RunsView,
+  type TableFilter,
+  type Waiting
+} from './runs-view'
 import { restartScope, scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { problemLine, type ReadProblem } from './view-notices'
@@ -44,7 +57,7 @@ import { offersTryAgain, troubleText } from './worker-words'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
 
-const filter = atom<StatusFilter>('all')
+const filter = atom<TableFilter>('all')
 /** How many rows the table asks for: rows 0 to N. */
 const requested = atom<number>(ROWS_STEP)
 const loaded = atom<Ready | null>(null)
@@ -151,6 +164,11 @@ export function refreshRuns(): void {
   fetcher?.refresh()
 }
 
+/** Sets the filter to "Needs you", as the callout's last row and a press of "Orchon: Show runs" do. */
+export function showNeedsYou(): void {
+  chooseFilter('needs-you')
+}
+
 /** Reads the whole Runs view again: the project scope, then the table under it. */
 export function restartRunsView(): void {
   restartScope()
@@ -239,6 +257,7 @@ function preview(run: RunRow): OrcaNode {
             </Text>
           )}
         </Row>
+        {run.waiting === undefined ? null : <Text>{waitingText(run.waiting)}</Text>}
         {run.message === '' ? null : <Text>{run.message}</Text>}
         <KeyValue label="Run facts" items={facts} />
         {worktreeLine(run)}
@@ -252,7 +271,56 @@ function preview(run: RunRow): OrcaNode {
   )
 }
 
-function table(runs: Ready, status: StatusFilter): OrcaNode {
+function emptyText(status: TableFilter): string {
+  if (status === 'all') return 'No runs.'
+  if (status === 'needs-you') return 'No runs need you.'
+  return `No ${filterWord(status).toLowerCase()} runs.`
+}
+
+/** What a run that needs you waits for, on one line: its question, or where to look. */
+function waitingText(waiting: Waiting): string {
+  return waiting.kind === 'unreadable' ? "Needs a look in Archon's console" : waiting.question
+}
+
+const runsNeedYou = (count: number): string => (count === 1 ? '1 run needs you' : `${String(count)} runs need you`)
+
+/**
+ * The "runs need you" callout: a row per run in Archon's order, at most `CALLOUT_CAP`, then a
+ * last row that sets the filter to "Needs you". A row opens the run. Hidden when nothing needs
+ * you, when the count is unavailable, and while the filter is "Needs you".
+ */
+function needsYouCallout(needsYou: NeedsYouView | undefined, status: TableFilter): OrcaNode {
+  if (needsYou?.kind !== 'ready' || needsYou.total === 0 || status === 'needs-you') return null
+  const allProjects = scopeChoice() === 'all'
+  const shown = needsYou.rows.slice(0, CALLOUT_CAP)
+  const more = needsYou.total - shown.length
+  return (
+    <Callout tone="warning" icon="bell" title={runsNeedYou(needsYou.total)}>
+      <Stack gap="sm">
+        {shown.map((run) => (
+          <Stack key={run.id} gap="none">
+            <Row gap="sm" wrap align="center">
+              <Link onPress={() => openRunDetail(run.id)}>{run.workflow}</Link>
+              {allProjects && run.project !== null ? (
+                <Text muted size="sm">
+                  {run.project}
+                </Text>
+              ) : null}
+            </Row>
+            {run.waiting === undefined ? null : (
+              <Text truncate size="sm">
+                {waitingText(run.waiting)}
+              </Text>
+            )}
+          </Stack>
+        ))}
+        {more > 0 ? <Link onPress={showNeedsYou}>{`and ${String(more)} more`}</Link> : null}
+      </Stack>
+    </Callout>
+  )
+}
+
+function table(runs: Ready, status: TableFilter): OrcaNode {
   const wanted = read(requested)
   const chosen = read(selected)
   const run = chosen === null ? undefined : runs.rows.find((row) => row.id === chosen)
@@ -267,7 +335,7 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
         selected={run === undefined ? [] : [run.id]}
         hasMore={hasMore}
         maxHeight="lg"
-        emptyText={status === 'all' ? 'No runs.' : `No ${filterWord(status).toLowerCase()} runs.`}
+        emptyText={emptyText(status)}
         onSelectionChange={({ keys }) => set(selected, keys[0] ?? null)}
         onRowAction={({ key }) => openRunDetail(key)}
         onLoadMore={loadMore}
@@ -287,10 +355,15 @@ export function runsSection(state: Connected, writable: boolean): OrcaNode {
   const runs = read(loaded)
   const held = read(problem)
   const counts = runs?.counts
-  const options = FILTER_ORDER.map((value) => ({
-    value,
-    label: counts === undefined ? filterWord(value) : `${filterWord(value)} (${String(counts[value])})`
-  }))
+  const needsYou = runs?.needsYou
+  const options = FILTER_ORDER.map((value) => {
+    if (value === 'needs-you') {
+      // The count comes from the snapshot; without it the option has no count.
+      const label = needsYou?.kind === 'ready' ? `${filterWord(value)} (${String(needsYou.total)})` : filterWord(value)
+      return { value, label }
+    }
+    return { value, label: counts === undefined ? filterWord(value) : `${filterWord(value)} (${String(counts[value])})` }
+  })
   const openConsole = (): void => {
     shell.openExternal(`${state.baseUrl}/console`).catch(() => {})
   }
@@ -307,6 +380,7 @@ export function runsSection(state: Connected, writable: boolean): OrcaNode {
         <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />
       </Row>
       {held === null ? null : problemLine(held, runs !== null, () => restartRuns())}
+      {needsYouCallout(needsYou, status)}
       {body}
       {runs !== null && runs.unreadable > 0 ? (
         <Text muted size="sm">
