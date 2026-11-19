@@ -9,6 +9,7 @@ import type {
   SettingsView,
   Unsupported
 } from '../src/connection-view.ts'
+import type { RunsAnswer, RunsView } from '../src/runs-view.ts'
 
 export const HOME = '/home/ada/.archon'
 export const OTHER_HOME = '/srv/archon-home'
@@ -105,9 +106,31 @@ export const unsupportedAtSetting: Unsupported = {
   version: null
 }
 
-/** A stand-in for the worker that answers every connection request with one state. */
+/** No runs at all, as the worker answers the runs table of an Archon that has run nothing. */
+const NO_RUNS: RunsView = {
+  kind: 'ready',
+  counts: { all: 0, running: 0, paused: 0, pending: 0, completed: 0, failed: 0, cancelled: 0 },
+  total: 0,
+  rows: [],
+  unreadable: 0
+}
+
+/**
+ * A stand-in for the worker that answers every connection request with one state, and the runs
+ * table with no runs.
+ */
 export function answering(connection: ConnectionView): {
-  requests: { 'connection.read': { connection: ConnectionView }; 'connection.retry': { connection: ConnectionView } }
+  requests: {
+    'connection.read': { connection: ConnectionView }
+    'connection.retry': { connection: ConnectionView }
+    'runs.read': RunsAnswer
+  }
 } {
-  return { requests: { 'connection.read': { connection }, 'connection.retry': { connection } } }
+  return {
+    requests: {
+      'connection.read': { connection },
+      'connection.retry': { connection },
+      'runs.read': { connection, runs: NO_RUNS }
+    }
+  }
 }

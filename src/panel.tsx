@@ -3,6 +3,7 @@ import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, Text, update, ty
 import { connectionGroup } from './connection-group'
 import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
+import { runsSection, startRunsSection, type RunsSection } from './runs-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { stateScreen, type StateScreenActions } from './state-screen'
 
@@ -18,9 +19,21 @@ const section = atom<unknown>('section', DEFAULT_SECTION, { persist: 'workspace'
  */
 const connection = atom<ConnectionView | null>(null)
 
+/** The Runs section's fetch rules, for this panel run. */
+let runs: RunsSection | undefined
+
 /** Keeps the newest state: an answer and a post can arrive in either order. */
 function keepNewest(next: ConnectionView): void {
-  update(connection, (held) => (held === null || next.since > held.since ? next : held))
+  const held = read(connection)
+  update(connection, (current) => (current === null || next.since > current.since ? next : current))
+  // On return to Connected every view that is showing fetches again.
+  if (next.kind === 'connected' && held?.kind !== 'connected' && (held === null || next.since > held.since)) runs?.restart()
+}
+
+/** Shows a section. Coming back to Runs always reads the table again. */
+function show(id: SectionId): void {
+  set(section, id)
+  if (id === 'runs') runs?.restart()
 }
 
 /** Sends a connection request and keeps the state its answer carries. A failed request changes nothing. */
@@ -38,7 +51,12 @@ const actions: StateScreenActions = {
 
 /** Runs once before the first render; what it pushes to `subscriptions` ends with the panel. */
 export function setup(ctx: PanelContext): void {
-  ctx.subscriptions.push(plugin.on('show-runs', () => set(section, 'runs')))
+  runs = startRunsSection(ctx, {
+    connection: () => read(connection),
+    showing: () => parseSection(read(section)) === 'runs',
+    keep: keepNewest
+  })
+  ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
   ask('connection.read')
 }
@@ -58,7 +76,9 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
   if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
     return <EmptyState title={label} description={metricsMissing(state)} />
   }
-  return stateScreen(state, actions) ?? placeholder
+  const screen = stateScreen(state, actions)
+  if (screen !== null || state?.kind !== 'connected') return screen
+  return id === 'runs' ? runsSection(state) : placeholder
 }
 
 export default function Panel() {
@@ -67,7 +87,7 @@ export default function Panel() {
     <Tabs
       label="Orchon sections"
       value={parseSection(read(section))}
-      onChange={(value) => set(section, parseSection(value))}
+      onChange={(value) => show(parseSection(value))}
     >
       {SECTIONS.map(({ id, label }) => (
         <Tab key={id} value={id} label={label}>
