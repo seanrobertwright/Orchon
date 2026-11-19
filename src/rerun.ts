@@ -38,17 +38,22 @@ export type RerunDraft = { message: string; inputs: DraftInput[]; notes: string[
 
 /**
  * The draft's message and inputs, and the notices beside them. `declared` is the inputs the
- * chosen workflow declares now, or null when no workflow is chosen: then no input is filled and
- * no input notice is said, because the workflow's own notice covers it.
+ * chosen workflow declares now; `'unread'` when the project's workflow list could not be read, so
+ * no input is filled and the recorded names are listed in a notice; or null when no workflow is
+ * chosen: then no input is filled and no input notice is said, because the workflow's own notice
+ * covers it.
  */
-export function rerunDraft(source: RerunSource, declared: readonly DeclaredInput[] | null): RerunDraft {
+export function rerunDraft(source: RerunSource, declared: readonly DeclaredInput[] | 'unread' | null): RerunDraft {
   const notes: string[] = []
   const message = cutAt(source.message, MESSAGE_CAP)
   if (message.length < source.message.length) {
     notes.push(`The run's message is longer than ${MESSAGE_CAP.toLocaleString('en-US')} characters, so it was cut to fit.`)
   }
   const inputs: DraftInput[] = []
-  if (declared !== null && source.inputs !== null) {
+  if (declared === 'unread') {
+    const recorded = source.inputs === null ? [] : Object.keys(source.inputs)
+    if (recorded.length > 0) notes.push(`Not filled, because the project's workflow list could not be read: ${namesLine(recorded)}.`)
+  } else if (declared !== null && source.inputs !== null) {
     const recorded = source.inputs
     const names = new Set(declared.map((input) => input.name))
     const dropped = Object.keys(recorded).filter((name) => !names.has(name))

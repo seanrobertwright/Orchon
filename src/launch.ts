@@ -656,11 +656,12 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     const draft = draftOf(workspaceKey(focused))
     // A launch being posted keeps its draft: Re-run fills nothing until it is answered.
     if (draft.posting) return answer({})
-    const built = rerunDraft(rerunSourceOf(fetched.value), listed?.inputs ?? null)
-    const notes = list.kind === 'ready' && listed === undefined ? [workflowGoneNote(run.workflow), ...built.notes] : built.notes
+    const workflowGone = list.kind === 'ready' && listed === undefined
+    const built = rerunDraft(rerunSourceOf(fetched.value), list.kind === 'ready' ? (listed?.inputs ?? null) : 'unread')
+    const notes = workflowGone ? [workflowGoneNote(run.workflow), ...built.notes] : built.notes
     draft.codebaseId = project.id
     // A list that could not be read keeps the name, so the workflow is chosen once it is read.
-    draft.workflow = list.kind === 'ready' && listed === undefined ? null : run.workflow
+    draft.workflow = workflowGone ? null : run.workflow
     draft.message = built.message
     draft.inputs = built.inputs
     draft.notes = notes

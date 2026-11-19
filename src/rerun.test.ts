@@ -127,6 +127,25 @@ describe('Re-run', () => {
     await mounted.worker.deactivate()
   })
 
+  test('keeps the workflow, fills no input and names the recorded inputs in a notice when the workflow list cannot be read', async () => {
+    const stage = rerunScene()
+    const id = RECORDED['0.12.1'].completed
+    stage.archon.answer(workflowsUrl(RECORDED_CWD), json({ error: 'down' }, 500))
+    stage.archon.answer(
+      `${RUN_PATH}${id}`,
+      changedRun('0.12.1', (run) => {
+        ;(run['metadata'] as Record<string, unknown>)['inputs'] = { item: 'the item', other: 'x' }
+      })
+    )
+    const mounted = await stage.mount(orcaWith('ws-local'))
+    const view = ready((await rerun(mounted, id)).launch)
+    assert.equal(view.codebaseId, RECORDED['0.12.1'].project)
+    assert.equal(view.message, RECORDED_MESSAGE)
+    assert.equal(view.inputs, undefined)
+    assert.deepEqual(view.rerunNotes, ["Not filled, because the project's workflow list could not be read: item, other."])
+    await mounted.worker.deactivate()
+  })
+
   test('cuts a message over 16,000 characters to fit, with a notice', async () => {
     const stage = rerunScene()
     const id = RECORDED['0.12.1'].completed
