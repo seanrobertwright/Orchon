@@ -21,7 +21,7 @@ import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail
 import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
 import { answeringWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
 import { answeringChats, sampleChats } from '../scripts/chat-samples.ts'
-import { answeringThread, sampleThread } from '../scripts/chat-thread-samples.ts'
+import { answeringThread, sampleDispatch, sampleResult, sampleThread, sampleThreadWith } from '../scripts/chat-thread-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 import type { RunsRequest } from './runs-view'
 
@@ -155,15 +155,7 @@ export default defineCheck({
     persisted: { workspace: { section: 'chat', openChat: 'web-chat-0' } }
   },
   'chat thread with a workflow dispatch and its result': {
-    ...answeringThread((request) => {
-      const view = sampleThread(4, request)
-      if (view.kind !== 'ready') return view
-      const [newest, ...rest] = view.thread.messages
-      if (newest === undefined) return view
-      const result = { ...newest, id: 'msg-result', blocks: ['The site is **live**.'], result: { workflow: 'deploy-site', runId: 'run-5' } }
-      const dispatch = { ...newest, id: 'msg-dispatch', blocks: [], dispatch: { workflow: 'deploy-site', workerId: 'web-worker-5' } }
-      return { ...view, thread: { ...view.thread, messages: [result, dispatch, ...rest] } }
-    }),
+    ...answeringThread(sampleThreadWith(3, sampleResult(), sampleDispatch('web-worker-5'))),
     persisted: { workspace: { section: 'chat', openChat: 'web-chat-0' } }
   },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },

@@ -4,7 +4,7 @@
 // dispatch row and result card: which section shows, what opens there and which requests go.
 import { mock } from 'node:test'
 import { afterEach, assert, describe, mockHost, mount, test, type TestPanel, type TreeSnapshot } from 'orca/testing'
-import { answeringThread, sampleMessage, sampleThread } from '../scripts/chat-thread-samples.ts'
+import { answeringThread, sampleDispatch, sampleResult, sampleThread, sampleThreadWith } from '../scripts/chat-thread-samples.ts'
 import { connected } from '../scripts/connection-samples.ts'
 import { sampleDetail } from '../scripts/runs-samples.ts'
 import type { ChatRunRequest, ChatRunView } from './chat-run-view'
@@ -101,33 +101,13 @@ describe('Open conversation in run detail', () => {
   })
 })
 
-/** A thread whose newest messages are `messages`, over the sample ones. */
-const threadWith =
-  (...messages: ThreadMessage[]) =>
-  (request: ThreadRequest): ThreadView => {
-    const view = sampleThread(2, request)
-    if (view.kind !== 'ready') return view
-    return { ...view, thread: { ...view.thread, messages: [...messages, ...view.thread.messages] } }
-  }
+const threadWith = (...messages: ThreadMessage[]) => sampleThreadWith(2, ...messages)
 
-const dispatchMessage = (workerId: string | null): ThreadMessage => ({
-  ...sampleMessage(0),
-  id: 'msg-dispatch',
-  blocks: [],
-  dispatch: { workflow: 'deploy-site', workerId }
-})
-
-const resultMessage: ThreadMessage = {
-  ...sampleMessage(0),
-  id: 'msg-result',
-  blocks: ['The site is **live**.'],
-  notShown: 1_500,
-  result: { workflow: 'deploy-site', runId: 'run-5' }
-}
+const resultMessage = sampleResult({ notShown: 1_500 })
 
 describe('a dispatch row in the thread', () => {
   test('shows a "Started workflow" badge, the workflow and Open run, and none of its content', async () => {
-    const view = await mountLinks({ thread: threadWith(dispatchMessage('web-worker-9')) }, { section: 'chat', openChat: 'web-chat-0' })
+    const view = await mountLinks({ thread: threadWith(sampleDispatch('web-worker-9')) }, { section: 'chat', openChat: 'web-chat-0' })
     assert.ok(view.find({ type: 'Badge', text: 'Started workflow' }))
     assert.ok(view.find({ type: 'Text', text: 'deploy-site' }))
     assert.ok(view.find({ type: 'Button', text: 'Open run' }))
@@ -136,7 +116,7 @@ describe('a dispatch row in the thread', () => {
 
   test("Open run finds the run by the worker conversation and opens its detail in the Runs section", async () => {
     const view = await mountLinks(
-      { thread: threadWith(dispatchMessage('web-worker-9')), findRun: () => ({ kind: 'found', runId: 'run-4' }) },
+      { thread: threadWith(sampleDispatch('web-worker-9')), findRun: () => ({ kind: 'found', runId: 'run-4' }) },
       { section: 'chat', openChat: 'web-chat-0' }
     )
     await view.press({ type: 'Button', text: 'Open run' })
@@ -149,7 +129,7 @@ describe('a dispatch row in the thread', () => {
 
   test('when Archon has no run yet, the row says so and the panel stays on the thread', async () => {
     const view = await mountLinks(
-      { thread: threadWith(dispatchMessage('web-worker-9')), findRun: () => ({ kind: 'not-created' }) },
+      { thread: threadWith(sampleDispatch('web-worker-9')), findRun: () => ({ kind: 'not-created' }) },
       { section: 'chat', openChat: 'web-chat-0' }
     )
     await view.press({ type: 'Button', text: 'Open run' })
@@ -161,7 +141,7 @@ describe('a dispatch row in the thread', () => {
 
   test("a failed lookup says the worker's sentence on the row", async () => {
     const view = await mountLinks(
-      { thread: threadWith(dispatchMessage('web-worker-9')), findRun: () => ({ kind: 'failed', message: 'Archon did not answer in time.' }) },
+      { thread: threadWith(sampleDispatch('web-worker-9')), findRun: () => ({ kind: 'failed', message: 'Archon did not answer in time.' }) },
       { section: 'chat', openChat: 'web-chat-0' }
     )
     await view.press({ type: 'Button', text: 'Open run' })
@@ -170,7 +150,7 @@ describe('a dispatch row in the thread', () => {
   })
 
   test('a dispatch that names no worker conversation has no Open run, and says why', async () => {
-    const view = await mountLinks({ thread: threadWith(dispatchMessage(null)) }, { section: 'chat', openChat: 'web-chat-0' })
+    const view = await mountLinks({ thread: threadWith(sampleDispatch(null)) }, { section: 'chat', openChat: 'web-chat-0' })
     assert.ok(view.find({ type: 'Badge', text: 'Started workflow' }))
     assert.equal(view.find({ type: 'Button', text: 'Open run' }), null)
     assert.ok(view.find({ type: 'Text', text: "Archon did not say which run it started." }))
@@ -204,8 +184,8 @@ describe('the draw cost the worker bounds its answer by', () => {
   afterEach(() => mock.timers.reset())
 
   const cases: [string, ThreadMessage][] = [
-    ['a dispatch row with its line', dispatchMessage('web-worker-9')],
-    ['a dispatch row with no worker conversation', dispatchMessage(null)],
+    ['a dispatch row with its line', sampleDispatch('web-worker-9')],
+    ['a dispatch row with no worker conversation', sampleDispatch(null)],
     ['a result card with a cut summary', { ...resultMessage, blocks: ['Part one\n\n', 'Part two'] }]
   ]
   for (const [what, message] of cases) {
