@@ -135,13 +135,13 @@ declare module 'orca' {
     'chat.projects': { input: ChatProjectsRequest; output: ChatProjectsAnswer }
     /** Open run on a dispatch row: the run that works in the worker conversation the dispatch named, once. */
     'chat.findRun': { input: ChatRunRequest; output: ChatRunAnswer }
-    /** The unsent drafts the worker keeps in plugin storage, by key, at most 20. It takes no input. */
+    /** The unsent drafts the worker keeps in plugin storage, by key, at most `DRAFTS_KEPT`. It takes no input. */
     'chat.drafts.read': { output: ChatDraftsAnswer }
     /** Changes one draft, where empty text removes it. Plugin storage is written after a pause. */
     'chat.draft.write': { input: ChatDraftWrite; output: null }
     /** Delete: deletes one conversation in Archon. Sent once, never tried again. */
     'chat.delete': { input: ChatDeleteRequest; output: ChatDeleteAnswer }
-    /** The thread as the worker last read it, held in memory while its reads hold their 60 second lease, or null. */
+    /** The thread as the worker last read it, held in memory while its reads hold their `THREAD_LEASE_MS` lease, or null. */
     'chat.last': { input: ChatLastRequest; output: ChatLastAnswer }
   }
   interface PluginPanelEvents {

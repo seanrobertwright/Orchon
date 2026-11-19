@@ -1,8 +1,9 @@
 // Chat drafts in the worker: the unsent text of each open conversation, and of a new chat per
 // project, kept in plugin storage so it survives the panel unmounting and Orca restarting. The
 // worker holds them in memory and writes them to storage after a pause, because `storage.set`
-// rewrites the whole file. Only the 20 most recently edited are kept, each within the 32 KiB cap
-// of a message; that holds for what is read from storage as well as for what a frame writes.
+// rewrites the whole file. Only the `DRAFTS_KEPT` most recently edited are kept, each within a
+// message's `CHAT_MESSAGE_CAP`; that holds for what is read from storage as well as for what a
+// frame writes.
 // No other message text is ever stored.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import { CHAT_MESSAGE_CAP, messageBytes } from './chat-send-view'
