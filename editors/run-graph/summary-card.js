@@ -4,6 +4,7 @@
 // frame's boundary: a field of the wrong type is dropped and read as not reported.
 import { elementMaker } from "../shared/dom.js";
 import { holdsPhrase } from "../shared/graph-draw.js";
+import { isRecord, own } from "../shared/records.js";
 export const PANEL_LINE = 'Tool calls and agent text are in the Orchon panel.';
 const OUTPUT_LINES = {
     whole: null,
@@ -13,18 +14,17 @@ const OUTPUT_LINES = {
 const NO_OUTPUT = 'This step has no output.';
 const NOT_REPORTED = 'Not reported';
 const NO_COST = 'No cost reported';
-const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 const SHOWN = ['whole', 'cut', 'withheld'];
 /** The worker's summary of a step, or null when it sent none or it is not a summary. */
 export function parseSummary(value) {
     if (!isRecord(value))
         return null;
     const text = (key) => {
-        const field = Object.hasOwn(value, key) ? value[key] : undefined;
+        const field = own(value, key);
         return typeof field === 'string' && field !== '' ? field : null;
     };
-    const output = Object.hasOwn(value, 'output') ? value.output : undefined;
-    const shown = Object.hasOwn(value, 'outputShown') ? value.outputShown : undefined;
+    const output = own(value, 'output');
+    const shown = own(value, 'outputShown');
     return {
         duration: text('duration'),
         cost: text('cost'),

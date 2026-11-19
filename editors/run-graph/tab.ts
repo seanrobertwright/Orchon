@@ -6,6 +6,7 @@ import { createCanvas, type Canvas, type ObserveSize } from '../shared/canvas.ts
 import { elementMaker } from '../shared/dom.ts'
 import { drawGraph, type DrawStep } from '../shared/graph-draw.ts'
 import { layoutGraph, layoutInOrder, type Direction, type Layout } from '../shared/graph-layout.ts'
+import { isRecord } from '../shared/records.ts'
 import type { GraphAnswer, GraphEdge, GraphHeader, GraphStep, GraphView, TabConnection, TabScreen } from './graph-view.ts'
 import { createRefetch, type TabTimers } from './refetch.ts'
 import { createSummaryCard, parseSummary, type CardStep } from './summary-card.ts'
@@ -59,8 +60,6 @@ export async function readPointer(): Promise<string | null> {
     return null
   }
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** The run id a pointer file names, or null: `{ "orchon": "run-graph", "runId": ... }` and nothing else. */
 export function parsePointer(text: string | null): string | null {

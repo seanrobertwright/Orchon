@@ -4,6 +4,7 @@
 // frame's boundary: a field of the wrong type is dropped and read as not reported.
 import { elementMaker } from '../shared/dom.ts'
 import { holdsPhrase } from '../shared/graph-draw.ts'
+import { isRecord, own } from '../shared/records.ts'
 import type { GraphOutputShown, GraphStepSummary } from './graph-view.ts'
 
 export const PANEL_LINE = 'Tool calls and agent text are in the Orchon panel.'
@@ -29,18 +30,17 @@ export type CardStep = {
   summary: GraphStepSummary | null
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const SHOWN: readonly GraphOutputShown[] = ['whole', 'cut', 'withheld']
 
 /** The worker's summary of a step, or null when it sent none or it is not a summary. */
 export function parseSummary(value: unknown): GraphStepSummary | null {
   if (!isRecord(value)) return null
   const text = (key: string): string | null => {
-    const field = Object.hasOwn(value, key) ? value[key] : undefined
+    const field = own(value, key)
     return typeof field === 'string' && field !== '' ? field : null
   }
-  const output = Object.hasOwn(value, 'output') ? value.output : undefined
-  const shown = Object.hasOwn(value, 'outputShown') ? value.outputShown : undefined
+  const output = own(value, 'output')
+  const shown = own(value, 'outputShown')
   return {
     duration: text('duration'),
     cost: text('cost'),
