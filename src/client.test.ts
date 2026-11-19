@@ -384,3 +384,29 @@ describe('a stream through the client', () => {
     assert.equal(await collect(badOpen.text).end, 'broke')
   })
 })
+
+describe('reading bytes', () => {
+  const FILE = `${BASE}/api/artifacts/run/notes.md`
+  const bytesCall = (maxBytes: number) => ({ baseUrl: BASE, path: '/api/artifacts/run/notes.md', timeout: 'read' as const, maxBytes })
+
+  test('answers the bytes of any content type, asking for any, with redirects off', async () => {
+    const { archon, client } = scripted()
+    archon.answer(FILE, html())
+    const answer = await client.bytes(bytesCall(1024))
+    assert.ok(answer.ok)
+    assert.equal(new TextDecoder().decode(answer.bytes), '<!doctype html><html><body>Archon</body></html>')
+    assert.deepEqual(archon.calls, [{ url: FILE, method: 'GET', redirect: 'manual', headers: { accept: '*/*' } }])
+  })
+
+  test('stops at the cap with too-large, and a status outside 200 to 299 is a status', async () => {
+    const { archon, client } = scripted()
+    archon.answer(FILE, { kind: 'chunks', chunks: [new Uint8Array(4), new Uint8Array(4), new Uint8Array(4)] })
+    assert.deepEqual(await client.bytes(bytesCall(12)), { ok: true, bytes: new Uint8Array(12) })
+    assert.deepEqual(await client.bytes(bytesCall(7)), { ok: false, failure: { kind: 'too-large' } })
+    assert.deepEqual(archon.lastBody, { taken: 2, closed: true })
+    archon.answer(FILE, json({ error: 'Artifact file not found' }, 404))
+    assert.deepEqual(await client.bytes(bytesCall(8)), { ok: false, failure: { kind: 'status', status: 404 } })
+    archon.answer(FILE, REFUSE)
+    assert.deepEqual(await client.bytes(bytesCall(8)), { ok: false, failure: { kind: 'refused' } })
+  })
+})

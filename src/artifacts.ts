@@ -7,15 +7,20 @@ import {
   ARTIFACT_FILTER_CAP,
   ARTIFACT_PATH_CAP,
   ARTIFACT_ROWS_CAP,
+  ARTIFACT_TEXT_CAP_BYTES,
+  type ArtifactAnswer,
+  type ArtifactContent,
   type ArtifactEntry,
   type ArtifactFile,
   type ArtifactFolder,
+  type ArtifactRequest,
   type ArtifactsAnswer,
   type ArtifactsRequest,
   type ArtifactsView
 } from './artifacts-view'
 import type { Client } from './client'
 import type { Connected, ConnectionView } from './connection-view'
+import { cutMarkdown, cutText } from './cutter'
 import { parseInstant } from './dates'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, own, refuseRequest } from './records'
@@ -49,6 +54,19 @@ export function parseArtifactsRequest(input: unknown): ArtifactsRequest {
     if (!['runId', 'open', 'folder', 'filter'].includes(key)) refuseRequest(`The artifacts request does not take ${key}.`)
   }
   return request
+}
+
+/** A frame's file request, or a refusal: a run id and a path of text. */
+export function parseArtifactRequest(input: unknown): ArtifactRequest {
+  if (!isRecord(input)) refuseRequest('The artifact request takes a run id and a path.')
+  const runId = own(input, 'runId')
+  if (!isCappedText(runId, RUN_ID_CAP)) refuseRequest(cappedTextRefusal('The run id', RUN_ID_CAP))
+  const path = own(input, 'path')
+  if (!isCappedText(path, ARTIFACT_PATH_CAP)) refuseRequest(cappedTextRefusal('The path', ARTIFACT_PATH_CAP))
+  for (const key of Object.keys(input)) {
+    if (key !== 'runId' && key !== 'path') refuseRequest(`The artifact request does not take ${key}.`)
+  }
+  return { runId, path }
 }
 
 /** Whether a path is one this module can fetch: parts of text, none empty, `.` or `..`. */
@@ -151,6 +169,30 @@ function matchesView(list: ArtifactList, filter: string): ArtifactsView {
   return { kind: 'matches', filter, files, matches, notShown: matches - files.length, total: list.byPath.size, unreadable: list.unreadable }
 }
 
+/** Whether a file is drawn as Markdown: its name ends in `.md` or `.mdx`, in any case. */
+const isMarkdown = (name: string): boolean => /\.mdx?$/i.test(name)
+
+/**
+ * What a file's bytes show: text, unchanged and cut into blocks, or `not-text` when they hold a
+ * NUL byte or are not valid UTF-8. A byte order mark is kept, as the file holds it.
+ */
+export function contentOf(name: string, bytes: Uint8Array): ArtifactContent {
+  if (bytes.includes(0)) return { kind: 'not-text' }
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
+  } catch {
+    return { kind: 'not-text' }
+  }
+  const markdown = isMarkdown(name)
+  const cut = markdown ? cutMarkdown(text, text.length) : cutText(text, text.length)
+  return { kind: markdown ? 'markdown' : 'text', blocks: cut.blocks.map((block) => block.text) }
+}
+
+/** The address of a file's contents, with the run id and each part of the path encoded. */
+export const artifactFilePath = (runId: string, path: string): string =>
+  `/api/artifacts/${encodeURIComponent(runId)}/${path.split('/').map(encodeURIComponent).join('/')}`
+
 export type ArtifactsPorts = {
   client: Client
   /** The connection state now, once the settings were first read. */
@@ -183,7 +225,40 @@ export function startArtifacts(orca: OrcaWorkerApi, ports: ArtifactsPorts): Disp
     return { ok: true, list }
   }
 
-  return orca.panels.handle('artifacts.read', async (input, context): Promise<ArtifactsAnswer> => {
+  /** One file the run's list holds, read up to the cap. A path the list does not hold is never fetched. */
+  async function readFile(server: Connected, request: ArtifactRequest, signal: AbortSignal): Promise<ArtifactAnswer['artifact']> {
+    // A kept list may be older than the file, so a path it lacks is looked up in a fresh one.
+    const kept = lists.has(request.runId)
+    let listed = await listOf(server, request.runId, false, signal)
+    if (kept && listed.ok && !listed.list.byPath.has(request.path)) listed = await listOf(server, request.runId, true, signal)
+    if (!listed.ok) return listed.view
+    const file = listed.list.byPath.get(request.path)
+    if (file === undefined) return { kind: 'not-listed' }
+    if (file.size > ARTIFACT_TEXT_CAP_BYTES) return { kind: 'ready', file, content: { kind: 'too-large' } }
+    const answer = await ports.client.bytes({
+      baseUrl: server.baseUrl,
+      path: artifactFilePath(request.runId, file.path),
+      timeout: 'read',
+      maxBytes: ARTIFACT_TEXT_CAP_BYTES,
+      signal
+    })
+    if (!answer.ok) {
+      if (answer.failure.kind === 'too-large') return { kind: 'ready', file, content: { kind: 'too-large' } }
+      if (answer.failure.kind === 'status' && answer.failure.status === 404) return { kind: 'gone' }
+      return { kind: 'failed', message: readFailureText(answer.failure) }
+    }
+    return { kind: 'ready', file, content: contentOf(file.name, answer.bytes) }
+  }
+
+  const fileHandler = orca.panels.handle('artifact.read', async (input, context): Promise<ArtifactAnswer> => {
+    const request = parseArtifactRequest(input)
+    const connection = await ports.current()
+    if (connection.kind !== 'connected') return { connection, artifact: { kind: 'not-connected' } }
+    const artifact = await readFile(connection, request, context.signal)
+    return { connection: await ports.current(), artifact }
+  })
+
+  const listHandler = orca.panels.handle('artifacts.read', async (input, context): Promise<ArtifactsAnswer> => {
     const request = parseArtifactsRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, artifacts: { kind: 'not-connected' } }
@@ -195,4 +270,12 @@ export function startArtifacts(orca: OrcaWorkerApi, ports: ArtifactsPorts): Disp
         : matchesView(listed.list, request.filter)
     return { connection: await ports.current(), artifacts }
   })
+
+  return {
+    dispose() {
+      fileHandler.dispose()
+      listHandler.dispose()
+      lists.clear()
+    }
+  }
 }

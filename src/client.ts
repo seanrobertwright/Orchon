@@ -98,8 +98,19 @@ export type StreamFailure =
 
 export type StreamResult = { ok: true; text: StreamText } | { ok: false; failure: StreamFailure }
 
+/** A body read as bytes, whatever its content type. */
+export type BytesResult = { ok: true; bytes: Uint8Array } | { ok: false; failure: ClientFailure }
+
+/** A call for bytes: the same as a request, with no JSON body and no error body. */
+export type BytesCall = Omit<ClientCall, 'method' | 'body' | 'errorBody'> & { maxBytes: number }
+
 export type Client = {
   request(call: ClientCall): Promise<ClientResult>
+  /**
+   * Reads a body as bytes, such as an artifact's contents. It stops reading, with `too-large`,
+   * once the body passes `maxBytes`, and keeps nothing partial.
+   */
+  bytes(call: BytesCall): Promise<BytesResult>
   /** Opens a Server-Sent Events stream, such as Archon's dashboard stream. */
   stream(call: StreamCall): Promise<StreamResult>
 }
@@ -178,6 +189,25 @@ async function readCapped(body: AsyncIterable<Uint8Array> | null, maxBytes: numb
   return rest === null ? { kind: 'not-json' } : text + rest
 }
 
+/** The body's bytes, or `too-large` once they pass `maxBytes`. Leaving the loop closes the body. */
+async function readBytes(body: AsyncIterable<Uint8Array> | null, maxBytes: number): Promise<Uint8Array | ClientFailure> {
+  if (body === null) return new Uint8Array(0)
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of body) {
+    size += chunk.byteLength
+    if (size > maxBytes) return { kind: 'too-large' }
+    chunks.push(chunk)
+  }
+  const bytes = new Uint8Array(size)
+  let at = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, at)
+    at += chunk.byteLength
+  }
+  return bytes
+}
+
 function parseJson(text: string): ClientResult {
   try {
     return { ok: true, value: JSON.parse(text) as unknown }
@@ -217,7 +247,20 @@ export function createClient(ports: ClientPorts): Client {
     return typeof text === 'string' ? parseJson(text) : requestFailed(text)
   }
 
-  async function send(call: ClientCall): Promise<ClientResult> {
+  async function bytesExchange(url: string, call: BytesCall, signal: AbortSignal): Promise<BytesResult> {
+    const init: FetchInit = { method: 'GET', headers: { accept: '*/*' }, redirect: 'manual', signal }
+    const answer = await ports.fetch(url, init)
+    if (answer.status < 200 || answer.status > 299) return { ok: false, failure: { kind: 'status', status: answer.status } }
+    const bytes = await readBytes(answer.body, call.maxBytes)
+    return bytes instanceof Uint8Array ? { ok: true, bytes } : { ok: false, failure: bytes }
+  }
+
+  /** One call, bounded in time and ended by its caller's signal, whatever its transport does. */
+  async function send<C extends ClientCall | BytesCall, R extends ClientResult | BytesResult>(
+    call: C,
+    exchangeOf: (url: string, call: C, signal: AbortSignal) => Promise<R>
+  ): Promise<R | { ok: false; failure: ClientFailure }> {
+    const requestFailed = (failure: ClientFailure): { ok: false; failure: ClientFailure } => ({ ok: false, failure })
     const url = loopbackUrl(call.baseUrl, call.path)
     if (url === null) return requestFailed({ kind: 'not-loopback' })
     if (call.signal?.aborted === true) return requestFailed({ kind: 'cancelled' })
@@ -226,7 +269,7 @@ export function createClient(ports: ClientPorts): Client {
     const controller = new AbortController()
     let ended: ClientFailure | undefined
     // The transport may ignore the signal, so the call itself also ends when it is aborted.
-    const aborted = new Promise<ClientResult>((resolve) => {
+    const aborted = new Promise<{ ok: false; failure: ClientFailure }>((resolve) => {
       controller.signal.addEventListener('abort', () => resolve(requestFailed(ended ?? { kind: 'cancelled' })))
     })
     const end = (failure: ClientFailure): void => {
@@ -238,7 +281,7 @@ export function createClient(ports: ClientPorts): Client {
     call.signal?.addEventListener('abort', cancel)
     try {
       return await Promise.race([
-        exchange(url, call, controller.signal).catch(() => requestFailed(ended ?? { kind: 'refused' })),
+        exchangeOf(url, call, controller.signal).catch(() => requestFailed(ended ?? { kind: 'refused' })),
         aborted
       ])
     } finally {
@@ -269,7 +312,13 @@ export function createClient(ports: ClientPorts): Client {
     },
 
     async request(call) {
-      const result = await send(call)
+      const result = await send(call, exchange)
+      if (!result.ok && result.failure.kind !== 'cancelled') ports.failed?.(call, result.failure)
+      return result
+    },
+
+    async bytes(call) {
+      const result = await send(call, bytesExchange)
       if (!result.ok && result.failure.kind !== 'cancelled') ports.failed?.(call, result.failure)
       return result
     }
