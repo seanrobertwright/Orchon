@@ -47,7 +47,7 @@ There is no bundler. Orca loads `src/worker.ts` and `src/panel.tsx` as written. 
 | `npm run check:editors` | The committed editor JavaScript equals the compiler's output, and every JavaScript file under `editors/` has a TypeScript source. |
 | `npm run lint` | ESLint: unused code, the module bans below, and accessibility rules for the editors' HTML. |
 | `npm run lint:md` | markdownlint on every Markdown file. |
-| `npm test` | `orca plugin test`: the worker, the panel, the editors and the gates' own rules. |
+| `npm test` | `orca plugin test`: the worker, the panel, the editors, the text cutter and the gates' own rules. |
 | `npm run check:panel` | `orca plugin check`: renders the panel in each scenario of `src/panel.check.ts` and reads every file the editors load. |
 | `npm run validate` | `orca plugin validate`: the manifest and the host calls, as Orca loads them. |
 | `npm run check:limits` | Orca's install limits: 2,000 files, 50 MiB, and 1 MiB for each file Orca transpiles. |
@@ -88,6 +88,8 @@ orca plugin dev load .
 ```
 
 `fixtures/pointers/` holds one sample pointer file for each editor tab.
+
+`fixtures/markdown/` holds the long Markdown file of the run detail prototype, which the text cutter's tests cut. It is kept as the prototype wrote it and does not pass markdownlint, so its name ends in `.md.txt`: markdownlint reads every `.md` file.
 
 ## Licence
 
