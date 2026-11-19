@@ -3,7 +3,16 @@
 // development tooling: Orca never loads it.
 import type { ConnectionView } from '../src/connection-view.ts'
 import type { RunDetail, RunDetailAnswer, RunDetailRequest, RunDetailView, Step } from '../src/run-detail-view.ts'
-import { EMPTY_COUNTS, type RunRow, type RunStatus, type RunsRequest, type RunsView, type StatusCounts } from '../src/runs-view.ts'
+import {
+  CALLOUT_CAP,
+  EMPTY_COUNTS,
+  type NeedsYouView,
+  type RunRow,
+  type RunStatus,
+  type RunsRequest,
+  type RunsView,
+  type StatusCounts
+} from '../src/runs-view.ts'
 import { answeringRuns, connected } from './connection-samples.ts'
 export { answeringRuns, noRuns } from './connection-samples.ts'
 
@@ -114,4 +123,22 @@ export function answeringRun(
       'run.read': (request: RunDetailRequest): RunDetailAnswer => ({ connection, run: detail(request) })
     }
   }
+}
+
+/** The Nth sample run, paused at a gate with its own question, as the snapshot gives it. */
+export function waitingRun(index: number): RunRow {
+  return { ...sampleRun(index, 'paused'), waiting: { kind: 'gate', question: `Approve the plan of run ${String(index)}?` } }
+}
+
+/**
+ * A busy list of `total` runs whose answer also carries `needing` runs that need you: the
+ * callout's first ten rows, and the "Needs you" filter's rows, as the worker answers them.
+ */
+export function busyRunsNeedingYou(total: number, needing: number, request: RunsRequest): RunsView {
+  const waiting = Array.from({ length: needing }, (_, index) => waitingRun(index))
+  const needsYou: NeedsYouView = { kind: 'ready', total: needing, rows: waiting.slice(0, CALLOUT_CAP) }
+  const busy = busyRuns(total, request.status === 'needs-you' ? { ...request, status: 'all' } : request)
+  if (busy.kind !== 'ready') return busy
+  if (request.status === 'needs-you') return { ...busy, total: needing, rows: waiting.slice(0, request.rows), needsYou }
+  return { ...busy, needsYou }
 }

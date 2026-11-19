@@ -17,7 +17,7 @@ import {
   unsupported
 } from '../scripts/connection-samples.ts'
 import { formsWithEdits } from '../scripts/forms-samples.ts'
-import { answeringRun, answeringRuns, busyRuns, sampleDetail } from '../scripts/runs-samples.ts'
+import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail } from '../scripts/runs-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 import type { RunsRequest } from './runs-view'
 
@@ -75,6 +75,14 @@ export default defineCheck({
   connected: answering(connected),
   'runs, empty': answering(connected),
   'runs, busy': answeringRuns((request) => busyRuns(140, request, 2)),
+  'runs, busy with attention': answeringRuns((request) => busyRunsNeedingYou(140, 13, request)),
+  // A press of "Orchon: Show runs" the worker remembers: the panel opens on the "Needs you" filter.
+  'runs, needs you filter': {
+    requests: {
+      ...answeringRuns((request) => busyRunsNeedingYou(140, 13, request)).requests,
+      'connection.read': { connection: connected, showRuns: { at: 1, needsYou: true } }
+    }
+  },
   'runs, this project': answeringScope(() => matchedWeb, (request) => busyRuns(40, request)),
   'runs, unmatched project': answeringScope(() => unmatchedGit, (request) => busyRuns(40, request)),
   'run detail': { ...runDetail, ...onRun },
