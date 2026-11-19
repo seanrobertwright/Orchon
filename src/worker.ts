@@ -3,6 +3,7 @@
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
 import { startBuilder } from './builder'
+import { startBuilderSave } from './builder-save'
 import { startChatList } from './chat-list'
 import { startChatSend } from './chat-send'
 import { startChatRun } from './chat-run'
@@ -62,6 +63,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
   const builder = startBuilder(orca, { client: connection.client, current: connection.current, workspaces: projectScope.workspaces, platform: ports.platform })
+  const builderSave = startBuilderSave(orca, { client: connection.client, current: connection.current })
   // One reader per conversation stream, shared by the launch tracker and chat.
   const streams = createConversationStreams({ client: connection.client, log: (message) => orca.log(message) })
   const launch = startLaunch(orca, {
@@ -99,6 +101,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     wideTabs.dispose()
     runGraph.dispose()
     builder.dispose()
+    builderSave.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()
