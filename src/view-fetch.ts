@@ -6,6 +6,7 @@
 // (#22, part 9): a read rejected as `rate_limited` waits `retryAfterMs` and is sent once more,
 // and `consent_required` sets no timer. It is pure logic on the clock and timers it is given.
 import type { Timers } from './client'
+import type { ConnectionView } from './connection-view'
 
 export type ViewFetchOptions<T> = {
   /** Fetches the view once. The signal aborts when a newer fetch supersedes it or the view closes. */
@@ -93,6 +94,14 @@ export function troubleText(trouble: WorkerTrouble): string {
 
 /** Whether the view offers "Try again": never when Orca asks for consent. */
 export const offersTryAgain = (trouble: WorkerTrouble): boolean => trouble.kind !== 'consent'
+
+/**
+ * Whether a view's controls that write are enabled: only while Connected and while its worker
+ * answers. Searching, every state screen and Worker unreachable turn them off; reads stay on.
+ */
+export function canWrite(connection: ConnectionView['kind'] | null, trouble: WorkerTrouble | null): boolean {
+  return connection === 'connected' && trouble === null
+}
 
 export function createViewFetch<T>(options: ViewFetchOptions<T>): ViewFetch {
   /** Rises with every fetch started: an answer is applied only when it carries the newest number. */

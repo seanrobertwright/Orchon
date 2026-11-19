@@ -2,7 +2,7 @@
 // the scripted clock, and loads the test settles by hand.
 import { assert, describe, hostError, test } from 'orca/testing'
 import { createClock, settle } from '../scripts/scripted-archon.ts'
-import { createViewFetch, type ViewFetch } from './view-fetch'
+import { canWrite, createViewFetch, type ViewFetch } from './view-fetch'
 
 /** A load the test answers by hand, recording when each one started and whether it was aborted. */
 type Pending = { at: number; signal: AbortSignal; answer(value: string): void; reject(error: unknown): void }
@@ -224,5 +224,16 @@ describe('the per-view fetch rules', () => {
     view.restart()
     assert.equal(loads.length, 2)
     view.stop()
+  })
+})
+
+describe('whether a view lets the person write', () => {
+  test('only while Connected and while its worker answers', () => {
+    assert.equal(canWrite('connected', null), true)
+    for (const kind of ['searching', 'not-found', 'bad-setting', 'unsupported', null] as const) {
+      assert.equal(canWrite(kind, null), false, String(kind))
+    }
+    assert.equal(canWrite('connected', { kind: 'unreachable', inARow: 1 }), false)
+    assert.equal(canWrite('connected', { kind: 'consent' }), false)
   })
 })

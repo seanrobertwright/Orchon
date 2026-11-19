@@ -1,7 +1,7 @@
 // The frame seam for outages: src/panel.tsx mounted on a scripted worker. These tests cover what
 // the panel draws while Archon is away or its own worker does not answer, and what survives it.
 import { afterEach, assert, describe, hostError, mockHost, mount, test, type MockRequests, type TestPanel } from 'orca/testing'
-import { answeringRuns, connected } from '../scripts/connection-samples.ts'
+import { answeringRuns, connected, notRunning, searching } from '../scripts/connection-samples.ts'
 import { busyRuns } from '../scripts/runs-samples.ts'
 import * as panelModule from './panel'
 
@@ -11,6 +11,7 @@ const CONSENT = "Orchon is turned off or needs approval in Orca's Settings."
 const TRY_AGAIN = { type: 'Button', text: 'Try again' }
 const TABLE = { type: 'Table', label: 'Runs' }
 const REFRESH = { type: 'IconButton', label: 'Refresh runs' }
+const FILTER = { type: 'Select', label: 'Status' }
 
 /** How many runs reads the panel sent. */
 const runsRequests = (view: TestPanel): number =>
@@ -120,3 +121,59 @@ describe('a rate-limited read', () => {
     assert.equal(runsRequests(view), 2)
   })
 })
+
+describe('Searching', () => {
+  test('with data keeps it under the banner, with the time Archon stopped answering', async () => {
+    const view = await mountWith({})
+    await view.post('connection.changed', { ...searching, since: Date.UTC(2026, 10, 18, 14, 32) })
+    assert.equal(view.rowsOf(TABLE).length, 3)
+    assert.equal(view.findAll({ type: 'Spinner' }).length, 0)
+    const banner = view.find({ type: 'Callout' })
+    assert.equal(banner?.props.tone, 'warning')
+    assert.match(
+      banner?.text ?? '',
+      /^Archon stopped answering at \d{1,2}:\d{2}(?:\s?[AP]M)?\. Reconnecting… Changes are turned off until it answers\.$/
+    )
+    // Back to Connected: the banner goes and the view reads again.
+    const before = runsRequests(view)
+    await view.post('connection.changed', { ...connected, since: Date.UTC(2026, 10, 18, 14, 33) })
+    assert.equal(view.findAll({ type: 'Callout' }).length, 0)
+    assert.equal(runsRequests(view), before + 1)
+  })
+
+  test('with nothing loaded shows the spinner and no banner', async () => {
+    panel = await mount(panelModule, { host: mockHost(answeringRuns((request) => busyRuns(3, request), searching)) })
+    assert.equal(panel.find({ type: 'Spinner' })?.label, 'Looking for Archon…')
+    assert.equal(panel.findAll({ type: 'Callout' }).length, 0)
+  })
+})
+
+describe('a state screen', () => {
+  /** Mounts on Runs, narrows to running runs and opens one. */
+  async function narrowed(): Promise<TestPanel> {
+    const view = await mountWith({})
+    await view.select(FILTER, 'running')
+    await view.selectRows(TABLE, ['run-0'])
+    assert.ok(view.find({ type: 'Card' }))
+    return view
+  }
+
+  test('replaces the section, and the filter and the open run survive it', async () => {
+    const view = await narrowed()
+    await view.post('connection.changed', { ...notRunning, since: 100 })
+    assert.equal(view.findAll(TABLE).length, 0)
+    assert.match(view.find({ type: 'EmptyState' })?.label ?? '', /^Archon is not running\./)
+    await view.post('connection.changed', { ...connected, since: 200 })
+    assert.equal(view.valueOf(FILTER), 'running')
+    assert.equal(view.find({ type: 'Card' })?.props.title, 'workflow-0')
+  })
+
+  test('a changed store id on return clears the filter and the open run', async () => {
+    const view = await narrowed()
+    await view.post('connection.changed', { ...notRunning, since: 100 })
+    await view.post('connection.changed', { ...connected, since: 200, storeId: 'another-store' })
+    assert.equal(view.valueOf(FILTER), 'all')
+    assert.equal(view.findAll({ type: 'Card' }).length, 0)
+  })
+})
+

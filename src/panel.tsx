@@ -1,15 +1,15 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
 import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
-import type { ConnectionAnswer, ConnectionView } from './connection-view'
+import type { Connected, ConnectionAnswer, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
-import { restartRuns, runsSection, startRunsSection } from './runs-section'
+import { clearRuns, restartRuns, runsHaveData, runsSection, startRunsSection } from './runs-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
 import type { SystemView } from './system-view'
 import { createViewFetch, nextTrouble, SAFETY_REFETCH_MS, type ViewFetch, type WorkerTrouble } from './view-fetch'
-import { frameTimers, troubleLine } from './view-notices'
+import { frameTimers, searchingBanner, troubleLine } from './view-notices'
 
 /**
  * The section showing, kept per workspace because Orca unmounts a hidden panel. It is stored as
@@ -23,10 +23,21 @@ const section = atom<unknown>('section', DEFAULT_SECTION, { persist: 'workspace'
  */
 const connection = atom<ConnectionView | null>(null)
 
+/**
+ * The last Connected state, kept through every other state: Searching draws the data it loaded
+ * under its banner, and a return with another store id clears what the sections held.
+ */
+const lastConnected = atom<Connected | null>(null)
+
 /** Keeps the newest state: an answer and a post can arrive in either order. */
 function keepNewest(next: ConnectionView): void {
   const held = read(connection)
   if (held !== null && next.since <= held.since) return
+  if (next.kind === 'connected') {
+    const before = read(lastConnected)
+    if (before !== null && before.storeId !== next.storeId) clearRuns()
+    set(lastConnected, next)
+  }
   set(connection, next)
   // On return to Connected every view that is showing fetches again.
   if (next.kind === 'connected' && held?.kind !== 'connected') restartRuns()
@@ -152,6 +163,16 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
   // Without its paths the Metrics section says which release it needs, and asks Archon nothing.
   if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
     return <EmptyState title={label} description={metricsMissing(state)} />
+  }
+  // Searching keeps what a section loaded on screen, under the banner, with nothing that writes.
+  const kept = read(lastConnected)
+  if (id === 'runs' && state?.kind === 'searching' && kept !== null && runsHaveData()) {
+    return (
+      <Stack gap="sm">
+        {searchingBanner(state.since)}
+        {runsSection(kept)}
+      </Stack>
+    )
   }
   const screen = stateScreen(state, actions)
   if (screen !== null || state?.kind !== 'connected') return screen

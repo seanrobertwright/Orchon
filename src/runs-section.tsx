@@ -107,6 +107,21 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
   })
 }
 
+/** Whether the table holds an answer to show, as Searching keeps it under its banner. */
+export function runsHaveData(): boolean {
+  return read(loaded) !== null
+}
+
+/** A different Archon store: what the section held, chosen and loaded belongs to the old one. */
+export function clearRuns(): void {
+  set(filter, 'all')
+  set(requested, ROWS_STEP)
+  set(loaded, null)
+  set(problem, null)
+  set(lastGood, null)
+  set(selected, null)
+}
+
 /** Reads the table again at once, as a person's action does. Nothing happens before the section starts. */
 export function restartRuns(): void {
   fetcher?.restart()

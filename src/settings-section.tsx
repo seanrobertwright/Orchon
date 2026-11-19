@@ -1,12 +1,12 @@
 // The Settings section: its groups in their fixed order, under one line saying that every value
 // here is install-wide. It takes no scope: the values apply to the whole install.
-import { Callout, Code, Collapsible, env, Stack, Text, type OrcaNode } from 'orca'
+import { Code, Collapsible, Stack, Text, type OrcaNode } from 'orca'
 import { accessGroup } from './access-group'
 import { connectionGroup } from './connection-group'
 import type { ConnectionView } from './connection-view'
-import { formatClock } from './dates'
 import { systemGroup } from './system-group'
 import type { SystemView } from './system-view'
+import { searchingBanner } from './view-notices'
 
 export type SettingsActions = {
   /** Reads health and the update check again. */
@@ -19,17 +19,6 @@ function notBuilt(title: string): OrcaNode {
     <Collapsible key={title} title={title}>
       <Text muted>This group is not built yet.</Text>
     </Collapsible>
-  )
-}
-
-/** The Searching banner over data, with the time Archon stopped answering. */
-function searchingBanner(since: number): OrcaNode {
-  const at = formatClock(since, env.locale)
-  const stopped = at === '' ? 'Archon stopped answering.' : `Archon stopped answering at ${at}.`
-  return (
-    <Callout tone="warning">
-      <Text>{`${stopped} Reconnecting… Changes are turned off until it answers.`}</Text>
-    </Callout>
   )
 }
 
