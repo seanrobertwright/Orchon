@@ -10,6 +10,7 @@ import type {
   Unsupported
 } from '../src/connection-view.ts'
 import type { FormsAnswer, FormsView } from '../src/forms-view.ts'
+import type { LaunchAnswer, LaunchView } from '../src/launch-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
 import type { ScopeAnswer } from '../src/scope-view.ts'
 import type { SystemAnswer, SystemView } from '../src/system-view.ts'
@@ -158,6 +159,19 @@ type Answers = {
   'forms.discard': FormsAnswer
   'forms.save': FormsAnswer
   'forms.resolve': FormsAnswer
+  'launch.read': LaunchAnswer
+}
+
+/** The launcher of an Archon with no projects: nothing to choose, nothing typed. */
+export const noProjectsLaunch: LaunchView = {
+  kind: 'ready',
+  projects: { rows: [], more: 0, unreadable: 0 },
+  codebaseId: null,
+  workflows: { kind: 'none' },
+  workflow: null,
+  description: '',
+  message: '',
+  posting: false
 }
 
 /**
@@ -186,7 +200,8 @@ export function answeringRuns(
       'forms.edit': formsAnswer,
       'forms.discard': formsAnswer,
       'forms.save': formsAnswer,
-      'forms.resolve': formsAnswer
+      'forms.resolve': formsAnswer,
+      'launch.read': { connection, launch: connection.kind === 'connected' ? noProjectsLaunch : { kind: 'not-connected' }, notices: [] }
     }
   }
 }

@@ -1,8 +1,9 @@
 // The Runs section of the panel: a filter row, the "runs need you" callout, the runs table, a
-// count line and a read-only preview of the selected run. It draws only the worker's view model
-// and fetches it under the shared per-view fetch rules, under the project scope of
+// count line and a read-only preview of the selected run. The filter row's New run opens the
+// Launch section. It draws only the worker's view model and fetches it under the shared per-view
+// fetch rules, under the project scope of
 // `scope-section.tsx`. The callout and the "Needs you" filter come from the worker's snapshot, in
-// the same answer as the table. New run comes with its own ticket.
+// the same answer as the table.
 import {
   atom,
   Badge,
@@ -71,10 +72,13 @@ export type RunsSectionHooks = {
   showing(): boolean
   /** Keeps the connection state a data answer carries. */
   keep(view: ConnectionView): void
+  /** New run: shows the Launch section. */
+  newRun?(): void
 }
 
 /** The section's fetch rules for this panel run: the one handle every restart goes through. */
 let fetcher: ViewFetch | undefined
+let newRun: (() => void) | undefined
 
 function report(message: string, tryAgain = true): void {
   set(problem, { message, lastGood: read(lastGood), tryAgain })
@@ -120,6 +124,7 @@ export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): vo
     timers: frameTimers
   })
   fetcher = view
+  newRun = given.newRun
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -383,6 +388,11 @@ export function runsSection(state: Connected, writable: boolean): OrcaNode {
       <Row gap="sm" align="center">
         <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
         <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />
+        {newRun === undefined ? null : (
+          <Button size="sm" variant="outline" onPress={newRun}>
+            New run
+          </Button>
+        )}
       </Row>
       {held === null ? null : problemLine(held, runs !== null, () => restartRuns())}
       {needsYouCallout(needsYou, status)}
