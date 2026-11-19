@@ -17,6 +17,7 @@ import {
   unsupported
 } from '../scripts/connection-samples.ts'
 import { answeringRuns, busyRuns } from '../scripts/runs-samples.ts'
+import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
@@ -25,6 +26,9 @@ export default defineCheck({
   connected: answering(connected),
   'runs, empty': answering(connected),
   'runs, busy': answeringRuns((request) => busyRuns(140, request, 2)),
+  'runs, this project': answeringScope(() => matchedWeb, (request) => busyRuns(40, request)),
+  'runs, unmatched project': answeringScope(() => unmatchedGit, (request) => busyRuns(40, request)),
+  'runs, remote workspace': answeringScope(() => remote, (request) => busyRuns(40, request)),
   'connected, reopened on settings': { ...answering(connected), ...onSettings },
   'searching with nothing loaded': answering(searching),
   'not found, Archon is not running': answering(notRunning),

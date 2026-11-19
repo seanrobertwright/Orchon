@@ -182,7 +182,9 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
     const row = (await workspaces()).find((entry) => entry.id === workspaceId)
     if (row === undefined || !localAndWritable(row, ports.platform)) return { kind: 'remote' }
     let project: OrcaProject | undefined
-    if (row.projectId !== null) {
+    // `project.list` needs Orca 1.4.259, newer than the oldest Orca the manifest allows. Without
+    // it the workspace is matched on its own folder, with no remote and no Register.
+    if (row.projectId !== null && orca.host.has('project.list')) {
       let answer: unknown
       try {
         answer = await orca.host.call('project.list')
