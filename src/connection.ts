@@ -30,6 +30,14 @@ export const UNSUPPORTED_RETRY_MS = 30_000
 /** A state before it is stamped with the time it was entered. */
 type Entering = ConnectionView extends infer View ? (View extends ConnectionView ? Omit<View, 'since'> : never) : never
 
+/**
+ * Not found and Unsupported wait on a timer for discovery to run again. They keep their screen
+ * while it runs, and "Try again" runs it at once.
+ */
+function waitsToLookAgain(view: ConnectionView): boolean {
+  return view.kind === 'not-found' || view.kind === 'unsupported'
+}
+
 const NO_SETTINGS: SettingsView = { baseUrl: '', archonHome: '', homeFolder: null }
 
 /** A JSON value as text with its keys in order, so two values with the same content compare equal. */
@@ -139,8 +147,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
         enter({ kind: 'bad-setting', settings, refused: parsed.refused })
         return
       }
-      const keepsScreen = view.kind === 'not-found' || view.kind === 'unsupported'
-      if (!keepsScreen || canonical(view.settings) !== canonical(settings)) {
+      if (!waitsToLookAgain(view) || canonical(view.settings) !== canonical(settings)) {
         enter({ kind: 'searching', settings })
       }
       settingsRead()
@@ -211,7 +218,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
 
     async retry() {
       await ready
-      if (view.kind === 'not-found' || view.kind === 'unsupported') {
+      if (waitsToLookAgain(view)) {
         retryDelay = FIRST_RETRY_MS
         enter({ kind: 'searching', settings: view.settings })
         void look()
