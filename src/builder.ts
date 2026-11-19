@@ -10,20 +10,27 @@ import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
 import { LOCALE } from './run-graph'
 import { tabConnection } from './tab-screen'
-import type { BuilderAnswer, BuilderHeader, BuilderIdentity, BuilderRequest, BuilderView, YamlOpenAnswer } from '../editors/builder/builder-view'
+import {
+  DEFINITION_CAP_BYTES,
+  mib,
+  SCOPE_CAP,
+  WORKFLOW_NAME_CAP,
+  type BuilderAnswer,
+  type BuilderHeader,
+  type BuilderIdentity,
+  type BuilderRequest,
+  type BuilderView,
+  type YamlOpenAnswer
+} from '../editors/builder/builder-view'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, errorText, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { PROJECT_ID_CAP } from './scope-view'
 import { WORKFLOWS_PATH } from './workflows-list'
 
-/** The most characters of a workflow name the builder's requests take. */
-export const WORKFLOW_NAME_CAP = 200
-
-/** The largest definition the builder opens, in bytes of its JSON text (#16). */
-export const DEFINITION_CAP_BYTES = 1024 * 1024
-
-export const PROJECT_GONE = 'Archon no longer lists that project.'
-export const goneText = (name: string): string => `Archon has no workflow named ${name} here.`
+const PROJECT_GONE = 'Archon no longer lists that project.'
+const goneText = (name: string): string => `Archon has no workflow named ${name} here.`
+const shadowedText = (name: string, served: string, scope: string): string =>
+  `Archon serves the ${served} workflow named ${name} here in place of the ${scope} one, so the builder cannot open the ${scope} one.`
 
 /** A workflow name of 1 to the cap and a project id or null, with no other key, or a refusal. */
 export function parseWorkflowIdentity(input: unknown, what: string, extra: readonly string[] = []): { name: string; codebaseId: string | null } {
@@ -76,7 +83,7 @@ export function parseWorkflowFile(value: unknown): WorkflowFile | null {
 }
 
 /** The folder Archon reads a project's workflows from, or why there is none. */
-export async function projectFolder(
+async function projectFolder(
   client: Client,
   server: Connected,
   codebaseId: string,
@@ -91,7 +98,7 @@ export async function projectFolder(
 }
 
 /** Reads one workflow, for a project's folder or with none. */
-export async function readWorkflowFile(client: Client, server: Connected, name: string, cwd: string | null, signal?: AbortSignal): Promise<WorkflowRead> {
+async function readWorkflowFile(client: Client, server: Connected, name: string, cwd: string | null, signal?: AbortSignal): Promise<WorkflowRead> {
   const query = cwd === null ? '' : `?cwd=${encodeURIComponent(cwd)}`
   const answer = await client.request({
     baseUrl: server.baseUrl,
@@ -108,11 +115,38 @@ export async function readWorkflowFile(client: Client, server: Connected, name: 
   return file === null ? { kind: 'failed', message: unreadableAnswerText(server.version) } : { kind: 'found', file }
 }
 
-/** The most characters of a scope the builder's requests take. */
-export const SCOPE_CAP = 40
-
 export const NOT_IN_WORKSPACE = 'This workflow file is not inside a workspace on this computer that Orca lists.'
-export const TOO_LARGE_TO_READ = "This workflow's definition is over 1 MiB, so the builder cannot open it."
+const TOO_LARGE_TO_READ = `This workflow's definition is over ${mib(DEFINITION_CAP_BYTES)}, so the builder cannot open it.`
+
+/** A workflow Archon serves, with the project folder it was asked for, or the one sentence that says why there is none. */
+export type ResolvedWorkflow = { kind: 'found'; file: WorkflowFile; cwd: string | null } | { kind: 'gone' | 'failed'; message: string }
+
+/**
+ * The workflow Archon serves by this name for the project, or none: the project or the workflow
+ * is gone, the read failed or passed the client's cap, or, when `scope` is given, Archon serves
+ * another scope's workflow of that name in its place (the one Archon reads first shadows it).
+ */
+export async function resolveWorkflow(
+  client: Client,
+  server: Connected,
+  identity: { name: string; codebaseId: string | null; scope?: string },
+  signal?: AbortSignal
+): Promise<ResolvedWorkflow> {
+  let cwd: string | null = null
+  if (identity.codebaseId !== null) {
+    const folder = await projectFolder(client, server, identity.codebaseId, signal)
+    if (folder.kind === 'gone') return { kind: 'gone', message: PROJECT_GONE }
+    if (folder.kind === 'failed') return folder
+    cwd = folder.cwd
+  }
+  const read = await readWorkflowFile(client, server, identity.name, cwd, signal)
+  if (read.kind === 'gone') return { kind: 'gone', message: goneText(identity.name) }
+  if (read.kind === 'failed') return read
+  if (read.kind === 'too-large') return { kind: 'failed', message: TOO_LARGE_TO_READ }
+  const { source } = read.file
+  if (identity.scope !== undefined && source !== identity.scope) return { kind: 'gone', message: shadowedText(identity.name, source, identity.scope) }
+  return { kind: 'found', file: read.file, cwd }
+}
 const NOT_CONNECTED = 'Orchon is not connected to Archon.'
 
 /** A workflow identity: a name, a project id or null, and a scope, with the keys `extra` names too. */
@@ -173,18 +207,9 @@ type NotFound = Extract<BuilderView, { kind: 'gone' | 'failed' }>
 export function startBuilder(orca: OrcaWorkerApi, ports: BuilderPorts): Disposable {
   /** The workflow and where its file is, or why there is none. */
   async function find(server: Connected, identity: BuilderIdentity, signal?: AbortSignal): Promise<Found | NotFound> {
-    let cwd: string | null = null
-    if (identity.codebaseId !== null) {
-      const folder = await projectFolder(ports.client, server, identity.codebaseId, signal)
-      if (folder.kind === 'gone') return { kind: 'gone', message: PROJECT_GONE }
-      if (folder.kind === 'failed') return folder
-      cwd = folder.cwd
-    }
-    const read = await readWorkflowFile(ports.client, server, identity.name, cwd, signal)
-    if (read.kind === 'gone') return { kind: 'gone', message: goneText(identity.name) }
-    if (read.kind === 'failed') return read
-    if (read.kind === 'too-large') return { kind: 'failed', message: TOO_LARGE_TO_READ }
-    const { file } = read
+    const resolved = await resolveWorkflow(ports.client, server, identity, signal)
+    if (resolved.kind !== 'found') return resolved
+    const { file, cwd } = resolved
     const path = file.source === 'project' && cwd !== null && file.filename !== null ? workflowFileIn(cwd, file.filename) : null
     const target = path === null ? null : yamlTarget(path, await ports.workspaces(), ports.platform)
     return { kind: 'found', file, path, target }

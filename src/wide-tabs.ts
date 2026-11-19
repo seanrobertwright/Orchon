@@ -9,10 +9,11 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import type { ConnectionView } from './connection-view'
 import type { Disk } from './disk'
-import { goneText, parseWorkflowIdentity, PROJECT_GONE, projectFolder, readWorkflowFile, TOO_LARGE_TO_READ } from './builder'
+import { SCOPE_CAP } from '../editors/builder/builder-view'
+import { parseWorkflowIdentity, resolveWorkflow } from './builder'
 import { builderPointerName, builderPointerText, GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan } from './pointer-files'
 import type { FocusedWorkspace } from './project-scope'
-import { errorText, parseOneText } from './records'
+import { cappedTextRefusal, errorText, isCappedText, own, parseOneText, refuseRequest } from './records'
 import { readRun } from './run-detail'
 import { RUN_ID_CAP } from './run-detail-view'
 import { REMOTE_WORKSPACE } from './scope-view'
@@ -54,9 +55,13 @@ export type WideTabs = Disposable & {
   builderOff(): Promise<string | null>
 }
 
-/** Open in builder's input, or a refusal: a workflow name and a project id or null, and nothing else. */
+/** Open in builder's input, or a refusal: a workflow name, a project id or null, an optional source, and nothing else. */
 export function parseBuilderOpenRequest(input: unknown): BuilderOpenRequest {
-  return parseWorkflowIdentity(input, 'Open in builder')
+  const identity = parseWorkflowIdentity(input, 'Open in builder', ['source'])
+  if (!Object.hasOwn(input as Record<string, unknown>, 'source')) return identity
+  const source = own(input as Record<string, unknown>, 'source')
+  if (!isCappedText(source, SCOPE_CAP)) refuseRequest(cappedTextRefusal('The source', SCOPE_CAP))
+  return { ...identity, source }
 }
 
 export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTabs {
@@ -142,7 +147,7 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     return { opened: true }
   }
 
-  /** Open in builder: Archon is asked for the workflow, so its scope names the file. */
+  /** Open in builder: Archon is asked for the workflow, so its scope names the file. A row's own source must be the one Archon serves. */
   async function openBuilder(request: BuilderOpenRequest, signal: AbortSignal): Promise<BuilderOpenAnswer> {
     const refused = (reason: string): BuilderOpenAnswer => ({ opened: false, reason })
     const connection = await ports.current()
@@ -151,18 +156,10 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     if (focused.kind !== 'local') return refused(focused.kind === 'none' ? NO_WORKSPACE_TAB : REMOTE_WORKSPACE)
     const held = off.get(focused.workspaceId)
     if (held !== undefined) return refused(held)
-    let cwd: string | null = null
-    if (request.codebaseId !== null) {
-      const folder = await projectFolder(ports.client, connection, request.codebaseId, signal)
-      if (folder.kind === 'gone') return refused(PROJECT_GONE)
-      if (folder.kind === 'failed') return refused(folder.message)
-      cwd = folder.cwd
-    }
-    const read = await readWorkflowFile(ports.client, connection, request.name, cwd, signal)
-    if (read.kind === 'gone') return refused(goneText(request.name))
-    if (read.kind === 'too-large') return refused(TOO_LARGE_TO_READ)
-    if (read.kind === 'failed') return refused(read.message)
-    const scope = read.file.source
+    const { source, ...identity } = request
+    const resolved = await resolveWorkflow(ports.client, connection, source === undefined ? identity : { ...identity, scope: source }, signal)
+    if (resolved.kind !== 'found') return refused(resolved.message)
+    const scope = resolved.file.source
     return openPointer(focused, builderPointerName(scope, request.name), builderPointerText({ name: request.name, codebaseId: request.codebaseId, scope }))
   }
 

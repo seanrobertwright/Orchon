@@ -101,9 +101,26 @@ describe('Open in builder', () => {
     await worker.deactivate()
   })
 
-  test('refuses a request that is not a workflow name and a project id or null', async () => {
+  test("opens the row's own scope, and refuses when Archon serves another scope's workflow of that name in its place", async () => {
+    const stage = stageFor()
+    stage.archon.answer(workflowUrl('archon-plan'), recorded('0.12.1', 'workflows/archon-plan'))
+    const { worker, host, answer } = await openIn(stage, { name: 'archon-plan', codebaseId: PROJECT, source: 'global' })
+    assert.deepEqual(answer, {
+      opened: false,
+      reason: 'Archon serves the bundled workflow named archon-plan here in place of the global one, so the builder cannot open the global one.'
+    })
+    assert.deepEqual(stage.disk.writes, [])
+    assert.deepEqual(host.callsOf('editor.open'), [])
+    const own = (await worker.request('builder.open', { name: 'archon-plan', codebaseId: PROJECT, source: 'bundled' })) as BuilderOpenAnswer
+    assert.deepEqual(own, { opened: true })
+    assert.ok(stage.disk.files.has(`${FOLDER}/bundled-archon-plan.orchonflow`))
+    await worker.deactivate()
+  })
+
+  test('refuses a request that is not a workflow name, a project id or null, and an optional source', async () => {
     const { worker } = await stageFor().mount(orcaWith('ws-web'))
-    for (const input of [{}, { name: '', codebaseId: null }, { name: 'x'.repeat(201), codebaseId: null }, { name: 'x' }, { name: 'x', codebaseId: 7 }, { name: 'x', codebaseId: null, more: 1 }]) {
+    const bad = [{}, { name: '', codebaseId: null }, { name: 'x'.repeat(201), codebaseId: null }, { name: 'x' }, { name: 'x', codebaseId: 7 }, { name: 'x', codebaseId: null, more: 1 }]
+    for (const input of [...bad, { name: 'x', codebaseId: null, source: '' }, { name: 'x', codebaseId: null, source: 'x'.repeat(41) }]) {
       await assert.rejects(worker.request('builder.open', input as never), (error: unknown) => (error as { code?: string }).code === 'invalid_params')
     }
     await worker.deactivate()

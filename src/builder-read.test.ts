@@ -165,6 +165,15 @@ describe('the builder read', () => {
     })
   })
 
+  test("a tab whose scope Archon no longer serves under that name, another scope's workflow in its place, is gone", async () => {
+    const stage = stageFor('0.12.1', [webProject])
+    stage.archon.answer(workflowUrl('plan', WEB_FOLDER), subfolderWorkflow())
+    assert.deepEqual((await readIn(stage, { name: 'plan', codebaseId: WEB, scope: 'global' })).builder, {
+      kind: 'gone',
+      message: 'Archon serves the project workflow named plan here in place of the global one, so the builder cannot open the global one.'
+    })
+  })
+
   test('while not connected the tab gets the state screen and Archon is not asked', async () => {
     const stage = scene()
     const answer = await readIn(stage, { name: 'plan', codebaseId: null, scope: 'global' })

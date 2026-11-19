@@ -168,14 +168,14 @@ describe('Open in builder', () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
     for (const name of ['ship-it', 'tidy', 'deliver', 'acme/pack:review']) assert.equal(view.find(openButton(name))?.disabled, false, name)
     await view.press(openButton('deliver'))
-    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'deliver', codebaseId: 'cb-web' }])
+    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'deliver', codebaseId: 'cb-web', source: 'bundled' }])
     clean(view)
   })
 
   test('with no project, opens it with none', async () => {
     const view = await mountWorkflows({ workflows: () => unscopedWorkflows, scope: () => unmatchedGit })
     await view.press(openButton('tidy'))
-    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'tidy', codebaseId: null }])
+    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'tidy', codebaseId: null, source: 'global' }])
   })
 
   test('is disabled, with the reason the worker gives, when no local workspace is focused', async () => {

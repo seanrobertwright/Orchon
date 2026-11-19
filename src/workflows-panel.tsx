@@ -160,7 +160,7 @@ export function clearWorkflows(): void {
 /** Open in builder: the worker writes the tab's file and opens it. A refusal is said under the project select. */
 function openInBuilder(view: Ready, row: SectionWorkflow): void {
   set(openRefused, null)
-  plugin.request('builder.open', { name: row.name, codebaseId: view.codebaseId }).then(
+  plugin.request('builder.open', { name: row.name, codebaseId: view.codebaseId, source: row.source }).then(
     (answer) => set(openRefused, answer.opened ? null : answer.reason),
     () => set(openRefused, BUILDER_UNANSWERED)
   )
