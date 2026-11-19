@@ -15,10 +15,10 @@ export type ViewFetchOptions<T> = {
   /** The least time between the starts of two fetches that were not asked for by the person. */
   minGapMs: number
   /**
-   * The view fetches again this long after its last fetch ended, whatever else happened. A
-   * function is asked each time the timer is set, so the wait can follow whether live updates are on.
+   * How long after its last fetch ended the view fetches again, whatever else happened. It is
+   * asked each time the timer is set, so the wait can follow whether live updates are on.
    */
-  safetyMs: number | (() => number)
+  safetyMs(): number
   now(): number
   timers: Timers
 }
@@ -86,7 +86,7 @@ export function createViewFetch<T>(options: ViewFetchOptions<T>): ViewFetch {
         safetyTimer = options.timers.set(() => {
           safetyTimer = undefined
           refresh()
-        }, typeof options.safetyMs === 'number' ? options.safetyMs : options.safetyMs())
+        }, options.safetyMs())
         if (queued) {
           queued = false
           refresh()

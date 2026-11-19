@@ -3,8 +3,8 @@
 // tells the connection when the stream is open and when the server refused it. Nothing here
 // waits on a frame: every promise is caught, since an unhandled rejection would stop the worker.
 import type { Client, Timers } from './client'
-import type { HintType, RunsHint } from './hint-view'
-import { createFrameParser, HINT_TYPES, readDashboardFrame } from './stream-frames'
+import { HINT_TYPES, type HintType, type RunsHint } from './hint-view'
+import { createFrameParser, readDashboardFrame } from './stream-frames'
 
 /** Archon's dashboard stream. It is not in the path list, so the path check does not cover it. */
 export const DASHBOARD_STREAM_PATH = '/api/stream/__dashboard__'
@@ -46,15 +46,20 @@ function createHints(ports: LivePorts) {
   let lastPost: number | undefined
   let timer: unknown
 
+  /** Forgets what is waiting to be posted. */
+  function reset(): void {
+    types.clear()
+    runs.clear()
+    many = false
+  }
+
   function post(): void {
     timer = undefined
     if (types.size === 0) return
     lastPost = ports.now()
     // Listed in a fixed order, so the same frames always make the same hint.
     ports.hint({ types: HINT_TYPES.filter((type) => types.has(type)), runs: many ? 'many' : [...runs] })
-    types.clear()
-    runs.clear()
-    many = false
+    reset()
   }
 
   function schedule(): void {
@@ -84,9 +89,7 @@ function createHints(ports: LivePorts) {
     stop(): void {
       if (timer !== undefined) ports.timers.clear(timer)
       timer = undefined
-      types.clear()
-      runs.clear()
-      many = false
+      reset()
     }
   }
 }

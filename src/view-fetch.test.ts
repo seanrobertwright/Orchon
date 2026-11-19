@@ -7,7 +7,7 @@ import { createViewFetch, type ViewFetch } from './view-fetch'
 /** A load the test answers by hand, recording when each one started and whether it was aborted. */
 type Pending = { at: number; signal: AbortSignal; answer(value: string): void; reject(error: unknown): void }
 
-function harness(options: { minGapMs?: number; safetyMs?: number | (() => number) } = {}) {
+function harness(options: { minGapMs?: number; safetyMs?: () => number } = {}) {
   const clock = createClock(0)
   const loads: Pending[] = []
   const applied: string[] = []
@@ -20,7 +20,7 @@ function harness(options: { minGapMs?: number; safetyMs?: number | (() => number
     apply: (value) => applied.push(value),
     fail: (error) => failed.push(error),
     minGapMs: options.minGapMs ?? 2_000,
-    safetyMs: options.safetyMs ?? 30_000,
+    safetyMs: options.safetyMs ?? (() => 30_000),
     now: clock.now,
     timers: clock.timers
   })

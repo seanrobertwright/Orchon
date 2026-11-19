@@ -1,6 +1,6 @@
 // The frame parser: reads Server-Sent Events by hand from the text of a `fetch` body, since the
 // worker has no `EventSource`, and reads the data of one dashboard frame. It is pure logic.
-import type { HintType } from './hint-view'
+import { HINT_TYPES, type HintType } from './hint-view'
 import { isRecord, own } from './records'
 
 /** One dispatched event: its name (`message` unless the stream named one) and its data lines joined. */
@@ -67,9 +67,6 @@ export function createFrameParser(): FrameParser {
     }
   }
 }
-
-/** The two dashboard frames the plugin acts on, the same two Archon's console acts on. */
-export const HINT_TYPES: readonly HintType[] = ['workflow_status', 'dag_node']
 
 /** The longest run id the plugin takes from a frame. */
 const RUN_ID_CAP = 200

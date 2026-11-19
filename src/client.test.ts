@@ -323,7 +323,7 @@ describe('a stream through the client', () => {
     archon.answer(STREAM, openStream({ status: 404 }))
     assert.deepEqual(await open(client), { ok: false, failure: { kind: 'status', status: 404 } })
     archon.answer(STREAM, openStream({ contentType: 'text/html' }))
-    assert.deepEqual(await open(client), { ok: false, failure: { kind: 'not-json' } })
+    assert.deepEqual(await open(client), { ok: false, failure: { kind: 'not-event-stream' } })
   })
 
   test('ends the stream when its caller aborts, even while nothing arrives', async () => {
