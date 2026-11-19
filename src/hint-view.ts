@@ -13,3 +13,10 @@ export type RunsHint = {
   types: HintType[]
   runs: string[] | 'many'
 }
+
+/**
+ * A press of the status bar item, or of "Orchon: Show runs" in the palette: when it was pressed,
+ * and whether runs needed you then, so a panel sets the "Needs you" filter. A panel applies one
+ * press once, telling presses apart by `at`.
+ */
+export type ShowRuns = { at: number; needsYou: boolean }

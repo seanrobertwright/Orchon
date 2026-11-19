@@ -3,6 +3,7 @@
 // and these tests assert the calls made to Archon, the status bar item and what a frame is told.
 import { assert, describe, test } from 'orca/testing'
 import {
+  ARCHON_HOME,
   DEFAULT,
   DEFAULT_HEALTH,
   DEFAULT_OPENAPI,
@@ -19,7 +20,7 @@ import {
 import { field } from '../scripts/shape.ts'
 import { READ_CAP_BYTES } from './client'
 import { DASHBOARD_STREAM_PATH } from './live'
-import { SNAPSHOT_GAP_MS, SNAPSHOT_SAFETY_MS } from './needs-you'
+import { SHOW_RUNS_MEMORY_MS, SNAPSHOT_GAP_MS, SNAPSHOT_SAFETY_MS } from './needs-you'
 
 const ATTENTION = `${DEFAULT}/api/runs/attention`
 const RUNNING = `${DEFAULT}/api/dashboard/runs?limit=1`
@@ -211,5 +212,47 @@ describe('when the snapshot is read', () => {
     await stage.clock.advance(5 * SNAPSHOT_SAFETY_MS)
     assert.equal(reads(stage), 1)
     assert.deepEqual(stage.clock.waiting(), [])
+  })
+})
+
+describe('the "Orchon: Show runs" command', () => {
+  test('returns the status sentence and where to go, and posts a show-runs hint saying runs need you', async () => {
+    const stage = connectedTo('0.14.0', 'attention-gate')
+    const mounted = await stage.mount()
+    await stage.clock.advance(1_000)
+    const sentence = await mounted.worker.command('show-runs')
+    assert.match(String(sentence), /^1 run needs you on Archon 0\.14\.0 at http:\/\/127\.0\.0\.1:3090\. Open the Orchon panel in the right sidebar\.$/)
+    assert.deepEqual(
+      mounted.worker.posts.filter((post) => post.event === 'show-runs').map((post) => post.payload),
+      [{ at: stage.clock.now(), needsYou: true }]
+    )
+    // It never toggles the sidebar, nor calls any command of Orca's.
+    assert.deepEqual(mounted.host.callsOf('commands.run'), [])
+  })
+
+  test("in a state other than Connected, returns that state's sentence and says nothing needs you", async () => {
+    const stage = scene()
+    stage.disk.folders.add(ARCHON_HOME)
+    const mounted = await stage.mount()
+    await stage.clock.advance(1_000)
+    assert.equal(await mounted.worker.command('show-runs'), `Archon is not running at ${DEFAULT}.`)
+    assert.deepEqual(
+      mounted.worker.posts.filter((post) => post.event === 'show-runs').map((post) => post.payload),
+      [{ at: stage.clock.now(), needsYou: false }]
+    )
+  })
+
+  test('is remembered for 60 seconds: a panel that reads the connection then hears of the press', async () => {
+    const stage = connectedTo('0.14.0', 'attention-gate')
+    const mounted = await stage.mount()
+    await stage.clock.advance(1_000)
+    const before = await mounted.worker.request('connection.read')
+    assert.equal(Object.hasOwn(before, 'showRuns'), false)
+    await mounted.worker.command('show-runs')
+    const pressedAt = stage.clock.now()
+    await stage.clock.advance(SHOW_RUNS_MEMORY_MS - 1)
+    assert.deepEqual((await mounted.worker.request('connection.read')).showRuns, { at: pressedAt, needsYou: true })
+    await stage.clock.advance(1)
+    assert.equal(Object.hasOwn(await mounted.worker.request('connection.read'), 'showRuns'), false)
   })
 })

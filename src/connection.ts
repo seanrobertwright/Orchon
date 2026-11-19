@@ -431,7 +431,10 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     orca.settings.onDidChange(() => void connection.settingsChanged()),
     orca.panels.handle('connection.read', async (input) => {
       refuseInput(input)
-      return { connection: await connection.read() }
+      const view = await connection.read()
+      // A press remembered for a panel that mounts after it.
+      const showRuns = needsYou.pressed()
+      return showRuns === undefined ? { connection: view } : { connection: view, showRuns }
     }),
     orca.panels.handle('connection.retry', async (input) => {
       refuseInput(input)

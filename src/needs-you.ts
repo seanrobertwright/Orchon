@@ -7,7 +7,7 @@ import type { Client, Timers } from './client'
 import type { Connected } from './connection-view'
 import { cutAt } from './cutter'
 import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage, parseRun } from './dashboard-runs'
-import type { RunsHint } from './hint-view'
+import type { RunsHint, ShowRuns } from './hint-view'
 import { isRecord, own } from './records'
 import { CALLOUT_CAP, ROWS_CAP, type NeedsYouView, type RunRow, type Waiting } from './runs-view'
 import type { StatusCounts } from './status-bar'
@@ -20,6 +20,8 @@ export const RUNNING_PATH = `${DASHBOARD_RUNS_PATH}?limit=1`
 export const SNAPSHOT_GAP_MS = 2_000
 /** The safety read, whether or not a panel is open. */
 export const SNAPSHOT_SAFETY_MS = 30_000
+/** How long a press of "Orchon: Show runs" is remembered for a panel that mounts after it. */
+export const SHOW_RUNS_MEMORY_MS = 60_000
 /** How much of a question the snapshot keeps: one line of a callout row or a preview. */
 export const QUESTION_CAP = 200
 
@@ -94,6 +96,10 @@ export type NeedsYou = {
   rows(count: number, codebaseId?: string): RunRow[] | null
   /** What a run waits for from the person, when it needs you. */
   waiting(runId: string): Waiting | undefined
+  /** Remembers a press of "Orchon: Show runs" and returns it. */
+  press(): ShowRuns
+  /** The last press, while it is remembered. */
+  pressed(): ShowRuns | undefined
   stop(): void
 }
 
@@ -107,6 +113,7 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
   let lastStart: number | undefined
   let gapTimer: unknown
   let safetyTimer: unknown
+  let lastPress: ShowRuns | undefined
 
   const clear = (timer: unknown): undefined => {
     if (timer !== undefined) ports.timers.clear(timer)
@@ -228,6 +235,13 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
     },
     waiting(runId) {
       return held?.kind === 'counted' ? held.entries.find((entry) => entry.row.id === runId)?.row.waiting : undefined
+    },
+    press() {
+      lastPress = { at: ports.now(), needsYou: held?.kind === 'counted' && held.entries.length > 0 }
+      return lastPress
+    },
+    pressed() {
+      return lastPress !== undefined && ports.now() < lastPress.at + SHOW_RUNS_MEMORY_MS ? lastPress : undefined
     },
     stop() {
       halt()

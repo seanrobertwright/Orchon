@@ -5,12 +5,13 @@ import { readRepoText } from '../scripts/repo-files.ts'
 import { scene } from '../scripts/scripted-archon.ts'
 import * as main from './worker'
 
-test('activates and answers the status bar press with a show-runs hint', async () => {
-  const { worker } = await scene().mount()
-  assert.equal(await worker.command('show-runs'), 'Orchon')
+test('activates and answers the status bar press with the status sentence and a show-runs hint', async () => {
+  const stage = scene()
+  const { worker } = await stage.mount()
+  assert.equal(await worker.command('show-runs'), 'Looking for Archon.')
   assert.deepEqual(
     worker.posts.filter((post) => post.event === 'show-runs'),
-    [{ event: 'show-runs', payload: null }]
+    [{ event: 'show-runs', payload: { at: stage.clock.now(), needsYou: false } }]
   )
   assert.deepEqual(worker.refusals, [])
   await worker.deactivate()
