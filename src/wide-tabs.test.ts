@@ -140,6 +140,21 @@ describe('the sweep of .orchon/', () => {
     await worker.deactivate()
   })
 
+  test('when no workspace is focused on start, sweeps a workspace once it is focused', async () => {
+    const stage = runScene()
+    seeded(stage, [1, 8, 30])
+    let focused: string | null = null
+    const options = orcaWith(null)
+    const context = () => (focused === null ? null : { workspaceId: focused, branch: 'main', displayName: focused, terminals: [] })
+    const { worker } = await stage.mount({ ...options, results: { ...options.results, 'workspace.readContext': context } })
+    assert.equal(pointerFiles(stage).length, 3)
+    focused = 'ws-web'
+    await worker.emit('workspace.changed', { context: context() })
+    assert.deepEqual(pointerFiles(stage), [`${FOLDER}/flow-00000000.orchonrun`])
+    assert.equal(stage.disk.files.get(`${FOLDER}/notes.txt`), 'mine')
+    await worker.deactivate()
+  })
+
   test('on each write, keeps at most the newest 20, the one just written included', async () => {
     const stage = runScene()
     seeded(stage, Array.from({ length: 22 }, (_, index) => index / 10))

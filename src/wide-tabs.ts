@@ -1,7 +1,8 @@
 // The wide tabs in the worker (#33, "The panel shell"): when one may open, and the pointer files
 // behind it. The worker writes only inside `.orchon/` at the root of the focused local workspace,
 // through the disk module opened on that folder alone: the folder, its `.gitignore` and its own
-// pointer files. On start and on each write it sweeps the focused workspace's folder; it touches nothing else there.
+// pointer files. It sweeps a workspace's folder the first time that workspace is focused after the
+// worker starts, and again on each write there; it touches nothing else there.
 // A write that fails turns the wide tabs off for that workspace, with the reason, until the
 // worker starts again.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
@@ -63,13 +64,26 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     }
   }
 
-  /** The start sweep: the focused workspace's folder, when it is local. */
+  /** The workspaces whose folder this worker has swept since it started, by id. */
+  const swept = new Set<string>()
+
+  /**
+   * The start sweep: the focused workspace's folder, when it is local and not yet swept since the
+   * worker started. It runs on start and on each change of focus, so a workspace focused after
+   * start, or none focused at start, is swept once it is focused.
+   */
   async function sweepFocused(): Promise<void> {
     const focused = await ports.focused()
-    if (focused.kind !== 'local') return
+    if (focused.kind !== 'local' || swept.has(focused.workspaceId)) return
+    swept.add(focused.workspaceId)
     const folder = folderOf(focused.root)
     await sweep(ports.openDisk([folder]), folder)
   }
+
+  const sweepLogged = (): Promise<void> =>
+    sweepFocused().catch((error: unknown) => {
+      orca.log(`Orchon could not sweep its tab files: ${error instanceof Error ? error.message : String(error)}`)
+    })
 
   async function offReason(): Promise<string | null> {
     const focused = await ports.focused()
@@ -116,17 +130,18 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     return { opened: true }
   }
 
-  void sweepFocused().catch((error: unknown) => {
-    orca.log(`Orchon could not sweep its tab files: ${error instanceof Error ? error.message : String(error)}`)
-  })
+  void sweepLogged()
 
-  const subscription = orca.panels.handle('graph.open', (input, context) => openGraph(parseGraphOpenRequest(input), context.signal))
+  const subscriptions = [
+    orca.panels.handle('graph.open', (input, context) => openGraph(parseGraphOpenRequest(input), context.signal)),
+    orca.events.on('workspace.changed', sweepLogged)
+  ]
   return {
     async graphOff(hasProject) {
       return (await offReason()) ?? (hasProject ? null : NO_PROJECT_GRAPH)
     },
     dispose() {
-      subscription.dispose()
+      for (const subscription of subscriptions) subscription.dispose()
     }
   }
 }
