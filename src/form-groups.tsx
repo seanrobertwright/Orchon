@@ -1,4 +1,4 @@
-// The editable groups of the Settings section, in the panel: Defaults and Model tiers, each a
+// The editable groups of the Settings section, in the panel: Defaults, Model tiers and Aliases, each a
 // closed group with its fields one per line, Save and Discard. It draws the worker's view model
 // only; the worker holds the unsaved form, so a typed value is sent to it, after a short pause
 // that keeps the panel inside Orca's request budget, and before any Save or Discard.
@@ -110,8 +110,23 @@ export const EMPTY_CHOICE = 'orchon-empty-choice'
 const toOption = (value: string): string => (value === '' ? EMPTY_CHOICE : value)
 const fromOption = (value: string): string => (value === EMPTY_CHOICE ? '' : value)
 
+/**
+ * Text drawn struck through. Orca's Text has no strikethrough style, so each character carries the
+ * combining long stroke overlay; the words beside it say the same, so no state rests on the look.
+ */
+export const struck = (text: string): string => [...text].map((character) => `${character}̶`).join('')
+
 function fieldNode(group: FormGroupId, field: FormField, disabled: boolean): OrcaNode {
   if (field.kind === 'unreadable') return <Text key={field.id}>{`${field.label}: Unreadable`}</Text>
+  if (field.kind === 'fixed') return <Text key={field.id}>{`${field.label}: ${field.value}`}</Text>
+  if (field.kind === 'struck') return <Text key={field.id}>{`${field.label}: ${struck(field.value)} (removed on Save)`}</Text>
+  if (field.kind === 'button') {
+    return (
+      <Button key={field.id} variant="outline" disabled={disabled || field.disabled} onPress={() => chose(group, field.id, field.value)}>
+        {field.text}
+      </Button>
+    )
+  }
   const control =
     field.kind === 'select' ? (
       <Select
@@ -224,11 +239,11 @@ const waiting = (title: string): OrcaNode => (
 )
 
 /**
- * Defaults and Model tiers. `writable` is false in Searching: every field, Save and Discard are
- * then disabled, and what the worker holds is kept.
+ * Defaults, Model tiers and Aliases. `writable` is false in Searching: every field, button, Save
+ * and Discard are then disabled, and what the worker holds is kept.
  */
 export function formGroups(writable: boolean): OrcaNode {
   const view = read(forms)
-  if (view === null) return [waiting('Defaults'), waiting('Model tiers')]
-  return [groupNode(view.defaults, view.failure, writable), groupNode(view.tiers, view.failure, writable)]
+  if (view === null) return [waiting('Defaults'), waiting('Model tiers'), waiting('Aliases')]
+  return [groupNode(view.defaults, view.failure, writable), groupNode(view.tiers, view.failure, writable), groupNode(view.aliases, view.failure, writable)]
 }

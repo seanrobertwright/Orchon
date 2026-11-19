@@ -4,8 +4,8 @@
 // It is types only, so the panel and the worker read one contract and no code crosses between them.
 import type { ConnectionView } from './connection-view'
 
-/** The editable groups. Aliases joins them with its own ticket. */
-export type FormGroupId = 'defaults' | 'tiers'
+/** The editable groups. */
+export type FormGroupId = 'defaults' | 'tiers' | 'aliases'
 
 export type FieldOption = { value: string; label: string }
 
@@ -15,6 +15,15 @@ export type FormField =
   | { kind: 'text'; id: string; label: string; value: string; placeholder: string; maxLength: number; error: string | null }
   /** A saved value that failed validation: shown by its key and never sent. */
   | { kind: 'unreadable'; id: string; label: string }
+  /** A saved value shown read-only, such as a saved alias's name. */
+  | { kind: 'fixed'; id: string; label: string; value: string }
+  /** A saved value that Save removes, drawn struck through and in words. */
+  | { kind: 'struck'; id: string; label: string; value: string }
+  /**
+   * A button that sets the field `id` to `value` through `forms.edit`, such as Remove, Undo and
+   * "Add alias". `text` is its visible text and its name.
+   */
+  | { kind: 'button'; id: string; text: string; value: string; disabled: boolean }
 
 /** A line under the group: Archon's refusal, the outcome of a save, or a failed read. */
 export type FormNotice = { tone: 'success' | 'warning' | 'danger'; text: string }
@@ -55,6 +64,7 @@ export type FormsView = {
   providers: ProviderView[]
   defaults: FormView
   tiers: FormView
+  aliases: FormView
 }
 
 /** What every forms request answers. */

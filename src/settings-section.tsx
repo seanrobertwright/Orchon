@@ -32,7 +32,6 @@ function archonGroups(connection: ConnectionView | null, system: SystemView | nu
     <>
       {systemGroup(system, refresh)}
       {formGroups(refresh !== null)}
-      {notBuilt('Aliases')}
     </>
   )
   if (connection?.kind === 'connected') return groups(actions.refresh)
