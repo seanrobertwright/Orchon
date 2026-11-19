@@ -310,12 +310,22 @@ describe('when the thread is read', () => {
     clean(view)
   })
 
-  test('when the conversation no longer exists the thread says so and offers the way back to the list', async () => {
+  test('when the conversation no longer exists the list opens, quietly, and is read again', async () => {
     const view = await openFirst(() => ({ kind: 'gone' }))
-    assert.ok(view.find({ type: 'Text', text: 'This conversation no longer exists in Archon.' }))
-    await view.press({ type: 'Button', text: 'Back to conversations' })
     assert.ok(view.find({ type: 'List', label: 'Conversations' }))
+    assert.equal(view.find({ text: /no longer exists/ }), null)
+    assert.equal(view.host.callsOf('plugin.request').filter((params) => (params as { name: string }).name === 'chats.read').length, 2)
     clean(view)
+  })
+
+  test('a remembered conversation that was deleted opens the list when the panel mounts again', async () => {
+    panel = await mount(panelModule, {
+      host: mockHost(answeringThread(() => ({ kind: 'gone' }), { chats: (request) => sampleChats(4, request) })),
+      persisted: { workspace: { section: 'chat', openChat: 'web-chat-9' } }
+    })
+    assert.ok(panel.find({ type: 'List', label: 'Conversations' }))
+    assert.equal(panel.persisted.workspace.openChat, null)
+    clean(panel)
   })
 
   test('Searching keeps the loaded thread under its banner', async () => {
