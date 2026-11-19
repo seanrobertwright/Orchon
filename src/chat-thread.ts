@@ -212,20 +212,25 @@ function messageView(message: SavedMessage, withToolCalls: boolean): ThreadMessa
 }
 
 /**
- * What the messages of one answer may take, so it stays inside Orca's limits on a request's
- * answer (1 MiB and 10,000 objects) with room for the rest of it.
+ * What the messages of one answer may take. Orca relays an answer of at most 1 MiB and 10,000
+ * objects, and one render of the panel draws at most 512 KiB and 5,000 nodes, so the messages
+ * keep inside the tighter of each with room for the rest of the panel.
  */
-const ANSWER_BYTES = 768 * 1024
-const ANSWER_OBJECTS = 8_000
+const ANSWER_BYTES = 384 * 1024
+const ANSWER_NODES = 3_500
 
 const encoder = new TextEncoder()
 
-/** How many objects and lists a value holds, itself included: what Orca's object limit counts. */
-function objectCount(value: unknown): number {
-  if (typeof value !== 'object' || value === null) return 0
-  let count = 1
-  for (const item of Object.values(value)) count += objectCount(item)
-  return count
+/**
+ * The nodes the panel draws for one message, as `chat-thread-section.tsx` draws it, counted
+ * high. It is never less than the objects the message's view model holds, so it bounds those too.
+ */
+function drawCost(view: ThreadMessage): number {
+  let cost = 6 + view.blocks.length + (view.notShown > 0 ? 1 : 0)
+  if (view.files !== undefined) cost += 2
+  if (view.error !== undefined) cost += 3
+  if (view.toolCalls !== undefined) cost += 2 + 8 * view.toolCalls.calls.length
+  return cost
 }
 
 /** One read of Archon, parsed: the value, or the view the thread shows in its place. */
@@ -269,7 +274,7 @@ export async function readThread(client: Client, server: Connected, request: Thr
   // when the answer to the panel is full, counting the older messages it leaves out.
   const messages: ThreadMessage[] = []
   let bytes = 0
-  let objects = 0
+  let nodes = 0
   let cut = 0
   for (let index = list.value.rows.length - 1; index >= 0; index -= 1) {
     const message = list.value.rows[index] as SavedMessage
@@ -280,13 +285,13 @@ export async function readThread(client: Client, server: Connected, request: Thr
     }
     const view = messageView(message, request.toolCalls === true)
     const size = encoder.encode(JSON.stringify(view)).length
-    const count = objectCount(view)
-    if (bytes + size > ANSWER_BYTES || objects + count > ANSWER_OBJECTS) {
+    const cost = drawCost(view)
+    if (bytes + size > ANSWER_BYTES || nodes + cost > ANSWER_NODES) {
       cut = 1
       continue
     }
     bytes += size
-    objects += count
+    nodes += cost
     messages.push(view)
   }
   const full = list.value.sent >= request.limit && cut === 0

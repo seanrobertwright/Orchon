@@ -313,7 +313,8 @@ describe("the relay's limit on one answer", () => {
     stage.archon.answer(messagesUrl(id), json(rows))
     const mounted = await stage.mount({})
     const answer = (await mounted.worker.request('chat.read', { conversationId: id, limit: 50 })) as ThreadAnswer
-    assert.ok(new TextEncoder().encode(JSON.stringify(answer)).length <= 1024 * 1024)
+    // Within the relay's 1 MiB, and within the 512 KiB one render of the panel may draw.
+    assert.ok(new TextEncoder().encode(JSON.stringify(answer)).length <= 512 * 1024)
     const thread = ready(answer.thread)
     assert.ok(thread.messages.length > 0 && thread.messages.length < 50)
     assert.equal(thread.messages[0]?.id, 'm-49')
@@ -321,6 +322,19 @@ describe("the relay's limit on one answer", () => {
     assert.equal(thread.messages.at(-1)?.id, `m-${String(thread.cut)}`)
     assert.equal(thread.earlier, false)
     await mounted.worker.deactivate()
+  })
+
+  test('five hundred messages of fifty tool calls each are cut to what one render of the panel can draw in its 5,000 nodes', async () => {
+    const calls = Array.from({ length: 50 }, (_, index) => ({ name: `Tool${String(index)}`, input: { n: index }, output: 'ok' }))
+    const rows = Array.from({ length: 500 }, (_, index) => likeRecorded('0.14.0', `m-${String(index)}`, { role: 'assistant', content: 'Done.', metadata: { toolCalls: calls } }))
+    const { view } = await readRows('0.14.0', rows, { limit: 500, toolCalls: true })
+    const thread = ready(view)
+    // A drawn message takes at least four nodes and a drawn tool call at least five.
+    const drawn = thread.messages.reduce((sum, message) => sum + 4 + 5 * (message.toolCalls?.calls.length ?? 0), 0)
+    assert.ok(drawn <= 5_000, `${String(drawn)} nodes`)
+    assert.equal(thread.messages[0]?.id, 'm-499')
+    assert.equal(thread.cut, 500 - thread.messages.length)
+    assert.equal(thread.atArchonCap, false)
   })
 
   test('a thread within the limit cuts nothing', async () => {
