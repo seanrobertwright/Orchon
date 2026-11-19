@@ -9,6 +9,7 @@ import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
 import { checkPaths } from './path-check'
 import { createStatusBar, STATUS_ITEM_ID, statusItem } from './status-bar'
+import { createSystem } from './system'
 
 /** What the worker reaches outside itself: the real things in Orca, scripted ones in the tests. */
 export type WorkerPorts = {
@@ -68,6 +69,8 @@ export type Connection = {
   retry(): Promise<ConnectionView>
   /** A setting changed: parses both again, and runs discovery at once when either one differs. */
   settingsChanged(): Promise<void>
+  /** The state as it is now, with nothing checked or waited for. */
+  current(): ConnectionView
   stop(): void
 }
 
@@ -242,6 +245,10 @@ export function createConnection(ports: ConnectionPorts): Connection {
       await look(parsed)
     },
 
+    current() {
+      return view
+    },
+
     stop() {
       generation += 1
       inFlight.abort()
@@ -270,10 +277,11 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
       })
     }
   })
+  const client = createClient({ fetch: ports.fetch, timers: ports.timers })
   const connection = createConnection({
     readSettings: () => orca.settings.get(),
     homeDir: ports.homeDir,
-    client: createClient({ fetch: ports.fetch, timers: ports.timers }),
+    client,
     openDisk: ports.openDisk,
     now: ports.now,
     timers: ports.timers,
@@ -282,6 +290,14 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
       orca.panels.post('connection.changed', view)
       statusBar.show(statusItem(view))
     }
+  })
+
+  const system = createSystem({
+    client,
+    connection: () => connection.current(),
+    now: ports.now,
+    timers: ports.timers,
+    changed: (view) => orca.panels.post('system.changed', view)
   })
 
   const subscriptions = [
@@ -293,6 +309,21 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
     orca.panels.handle('connection.retry', async (input) => {
       refuseInput(input)
       return { connection: await connection.retry() }
+    }),
+    orca.panels.handle('system.open', async (input) => {
+      refuseInput(input)
+      const view = await system.open()
+      return { connection: connection.current(), system: view }
+    }),
+    orca.panels.handle('system.refresh', async (input) => {
+      refuseInput(input)
+      const view = await system.refresh()
+      return { connection: connection.current(), system: view }
+    }),
+    orca.panels.handle('system.close', (input) => {
+      refuseInput(input)
+      system.close()
+      return null
     })
   ]
   statusBar.show(statusItem({ kind: 'searching', since: ports.now(), settings: NO_SETTINGS }))
@@ -301,6 +332,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
   return () => {
     for (const subscription of subscriptions) subscription.dispose()
     connection.stop()
+    system.stop()
     statusBar.stop()
   }
 }
