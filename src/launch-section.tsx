@@ -29,6 +29,7 @@ import {
   LOOKING_TEXT,
   MESSAGE_CAP,
   QUEUED_TEXT,
+  RECORDS_CAP,
   WORKFLOWS_CAP,
   type LaunchAnswer,
   type LaunchEdit,
@@ -62,6 +63,8 @@ const notices = atom<LaunchNotice[]>([])
  * unmounts a hidden panel: a panel that mounts again asks for the callouts only then.
  */
 const pending = atom<unknown>('launch-pending', false, { persist: 'workspace' })
+/** The callouts dismissed in this panel run, so an answer sent before the dismiss cannot bring one back. */
+const dismissed = atom<readonly string[]>([])
 
 /** How long the panel waits after the last keystroke before it gives the worker the draft. */
 export const DRAFT_PAUSE_MS = 500
@@ -88,6 +91,16 @@ let hooks: LaunchSectionHooks | undefined
 /** The next read asks the worker to read Archon again: the section opened, or Refresh. */
 let reload = true
 let draftTimer: unknown
+let searchTimer: unknown
+
+/** A search or filter typed: the section is read again after a pause, so a keystroke is not a request. */
+function searchAfterPause(): void {
+  if (searchTimer !== undefined) frameTimers.clear(searchTimer)
+  searchTimer = frameTimers.set(() => {
+    searchTimer = undefined
+    fetcher?.restart()
+  }, DRAFT_PAUSE_MS)
+}
 
 function report(message: string, tryAgain = true): void {
   set(problem, { message, lastGood: read(lastGood), tryAgain })
@@ -124,10 +137,7 @@ function readNotices(): void {
 }
 
 function dismiss(launchId: string): void {
-  set(
-    notices,
-    read(notices).filter((notice) => notice.launchId !== launchId)
-  )
+  set(dismissed, [...read(dismissed), launchId].slice(-RECORDS_CAP))
   plugin.request('launch.dismiss', { launchId }).then(keepNotices, () => {})
 }
 
@@ -168,7 +178,9 @@ export function startLaunchSection(ctx: PanelContext, given: LaunchSectionHooks)
     dispose() {
       view.stop()
       if (draftTimer !== undefined) frameTimers.clear(draftTimer)
+      if (searchTimer !== undefined) frameTimers.clear(searchTimer)
       draftTimer = undefined
+      searchTimer = undefined
       if (fetcher === view) fetcher = undefined
     }
   })
@@ -280,7 +292,7 @@ function workflowPart(view: Ready): OrcaNode {
           maxLength={200}
           onChange={(value) => {
             set(filter, value)
-            fetcher?.refresh()
+            searchAfterPause()
           }}
         />
       ) : null}
@@ -323,7 +335,7 @@ function form(view: Ready, writable: boolean): OrcaNode {
         maxLength={200}
         onChange={(value) => {
           set(search, value)
-          fetcher?.refresh()
+          searchAfterPause()
         }}
       />
       <Select
@@ -433,7 +445,8 @@ export function launchNotices(): OrcaNode {
   const view = read(loaded)
   // The run its Starting view shows opens there, so it needs no callout.
   const showing = hooks?.showing() === true && view?.kind === 'ready' ? view.starting?.launchId : undefined
-  const shown = read(notices).filter((notice) => notice.launchId !== showing)
+  const gone = read(dismissed)
+  const shown = read(notices).filter((notice) => notice.launchId !== showing && !gone.includes(notice.launchId))
   if (shown.length === 0) return null
   return (
     <Stack gap="xs">

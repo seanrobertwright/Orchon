@@ -2,8 +2,13 @@
 // the Launch requests, the scope and the runs table. These tests cover what the form, the
 // Starting view and the callout draw, and which requests the panel sends.
 import { afterEach, assert, describe, mockHost, mount, test, type MountOptions, type TestPanel } from 'orca/testing'
-import { answeringLaunch, emptyForm, webForm, type LaunchScript } from '../scripts/launch-samples.ts'
-import type { LaunchStart, LaunchView } from './launch-view'
+import { connected } from '../scripts/connection-samples.ts'
+import { answeringLaunch, deliver, emptyForm, review, webForm, type LaunchScript } from '../scripts/launch-samples.ts'
+import { sampleDetail } from '../scripts/runs-samples.ts'
+import { remote, unmatchedGit } from '../scripts/scope-samples.ts'
+import { LOOKING_TEXT, QUEUED_TEXT, type LaunchNotice, type LaunchStart, type LaunchView } from './launch-view'
+import type { RunDetailAnswer } from './run-detail-view'
+import { DRAFT_PAUSE_MS } from './launch-section'
 import * as panelModule from './panel'
 
 let panel: TestPanel | undefined
@@ -94,12 +99,202 @@ describe('the launch form', () => {
   })
 })
 
+describe('the draft', () => {
+  test("the message goes to the worker's draft once typing pauses, not on every keystroke", async () => {
+    const view = await mountLaunch({ launch: () => webForm })
+    await view.type(MESSAGE, 'Half')
+    await view.type(MESSAGE, ' a thought')
+    assert.deepEqual(sent(view, 'launch.edit'), [])
+    await new Promise((resolve) => setTimeout(resolve, DRAFT_PAUSE_MS + 100))
+    await view.settled()
+    assert.deepEqual(sent(view, 'launch.edit'), [{ message: 'Half a thought' }])
+    clean(view)
+  })
+
+  test('choosing a project or a workflow changes the draft at once', async () => {
+    const view = await mountLaunch({ launch: () => webForm })
+    await view.select(PROJECT, 'cb-api')
+    await view.select(WORKFLOW, 'review')
+    assert.deepEqual(sent(view, 'launch.edit'), [{ codebaseId: 'cb-api' }, { workflow: 'review' }])
+    clean(view)
+  })
+})
+
 describe('the section bar', () => {
   test('New run in the Runs filter row opens the Launch section', async () => {
     const view = await mountLaunch({ launch: () => webForm }, { persisted: { workspace: { section: 'runs' } } })
     await view.press(button('New run'))
     assert.equal(view.valueOf(SECTION_BAR), 'launch')
     assert.ok(view.find(MESSAGE))
+    clean(view)
+  })
+})
+
+/** A host whose worker also answers run detail, for a found run that opens. */
+function withRun(script: LaunchScript): ReturnType<typeof answeringLaunch> {
+  const host = answeringLaunch(script)
+  const run = (): RunDetailAnswer => ({ connection: connected, run: { kind: 'ready', detail: sampleDetail(1, { id: 'run-found' }) } })
+  return { ...host, requests: { ...host.requests, 'run.read': run } }
+}
+
+describe('Start and its outcomes', () => {
+  test('a second press while posting is ignored', async () => {
+    const draft = { ...webForm, message: 'Go.' }
+    /** What Start looked like while the worker held its answer. */
+    let whilePosting: { disabled: boolean | undefined; reason: boolean } | undefined
+    panel = await mount(panelModule, {
+      host: mockHost({
+        requests: {
+          ...answeringLaunch({ launch: () => draft }).requests,
+          // The worker holds the press's answer a moment, and the test looks at Start meanwhile.
+          'launch.start': () =>
+            new Promise((resolve) => {
+              setTimeout(() => {
+                whilePosting = { disabled: panel?.find(START)?.disabled, reason: panel?.find({ type: 'Text', text: 'Starting…' }) !== null }
+                resolve({ connection: connected, launch: starting(webForm), notices: [] })
+              }, 20)
+            })
+        }
+      }),
+      persisted: { workspace: { section: 'launch' } }
+    })
+    await panel.press(START)
+    assert.deepEqual(whilePosting, { disabled: true, reason: true })
+    assert.equal(sent(panel, 'launch.start').length, 1)
+    clean(panel)
+  })
+
+  test("a 400 shows on the form in Archon's words, with every value kept", async () => {
+    const view = await mountLaunch({
+      launch: () => webForm,
+      start: (input) => ({ ...webForm, workflow: input.workflow, message: input.message, error: 'message must be a non-empty string' })
+    })
+    await view.select(WORKFLOW, 'review')
+    await view.type(MESSAGE, 'Look at it.')
+    await view.press(START)
+    assert.ok(view.find({ type: 'Text', text: 'message must be a non-empty string' }))
+    assert.equal(view.valueOf(MESSAGE), 'Look at it.')
+    assert.equal(view.valueOf(PROJECT), 'cb-web')
+    clean(view)
+  })
+
+  test('the Starting view says a queued launch waits for a slot, and a timed out one that the worker is looking for the run', async () => {
+    for (const [state, words] of [
+      ['queued', QUEUED_TEXT],
+      ['looking', LOOKING_TEXT]
+    ] as const) {
+      const view = await mountLaunch({ launch: () => starting(webForm, { state }) })
+      assert.equal(view.find({ type: 'Spinner' })?.label, words)
+      clean(view)
+      await view.unmount()
+    }
+  })
+
+  test('with no run after 60 seconds it offers "Keep waiting" and "Launch another"', async () => {
+    let launch = starting(webForm, { late: true })
+    const view = await mountLaunch({ launch: () => launch })
+    assert.ok(view.find({ type: 'Text', text: 'Archon has not shown the run after a minute.' }))
+    await view.press(button('Keep waiting'))
+    assert.deepEqual(sent(view, 'launch.wait'), [{ launchId: 'launch-1' }])
+    launch = webForm
+    await view.press(button('Launch another'))
+    assert.deepEqual(sent(view, 'launch.another'), [null])
+    assert.ok(view.find(MESSAGE))
+    clean(view)
+  })
+
+  test('a run found while the Starting view shows opens its detail, with no callout', async () => {
+    let launch = starting(webForm)
+    let notices: LaunchNotice[] = []
+    panel = await mount(panelModule, {
+      host: mockHost(withRun({ launch: () => launch, notices: () => notices })),
+      persisted: { workspace: { section: 'launch' } }
+    })
+    launch = starting(webForm, { state: 'found', runId: 'run-found' })
+    notices = [{ launchId: 'launch-1', workflow: 'deliver', runId: 'run-found' }]
+    await panel.post('launch.changed', null)
+    assert.equal(panel.valueOf(SECTION_BAR), 'runs')
+    assert.deepEqual(sent(panel, 'run.read').at(-1), { runId: 'run-found', open: true })
+    assert.deepEqual(sent(panel, 'launch.dismiss'), [{ launchId: 'launch-1' }])
+    assert.equal(panel.find({ type: 'Callout', text: /Your run of/ }), null)
+    clean(panel)
+  })
+
+  test('a run found after the Starting view stopped showing is an info callout at the top, with Open run and dismiss', async () => {
+    let notices: LaunchNotice[] = []
+    panel = await mount(panelModule, {
+      host: mockHost(withRun({ launch: () => starting(webForm), notices: () => notices })),
+      persisted: { workspace: { section: 'runs' } }
+    })
+    notices = [{ launchId: 'launch-1', workflow: 'deliver', runId: 'run-found' }]
+    await panel.post('launch.changed', null)
+    assert.ok(panel.find({ type: 'Callout', text: /Your run of deliver has started/ }))
+    assert.ok(panel.find({ type: 'IconButton', label: 'Dismiss: your run of deliver has started' }))
+    await panel.press(button('Open run'))
+    assert.deepEqual(sent(panel, 'run.read').at(-1), { runId: 'run-found', open: true })
+    assert.deepEqual(sent(panel, 'launch.dismiss'), [{ launchId: 'launch-1' }])
+    clean(panel)
+  })
+
+  test('a panel that mounts again after a launch asks for the callouts', async () => {
+    const notices = [{ launchId: 'launch-1', workflow: 'deliver', runId: 'run-found' }]
+    panel = await mount(panelModule, {
+      host: mockHost(withRun({ launch: () => webForm, notices: () => notices })),
+      persisted: { workspace: { section: 'runs', 'launch-pending': true } }
+    })
+    assert.ok(panel.find({ type: 'Callout', text: /Your run of deliver has started/ }))
+    await panel.press({ type: 'IconButton', label: 'Dismiss: your run of deliver has started' })
+    assert.deepEqual(sent(panel, 'launch.dismiss'), [{ launchId: 'launch-1' }])
+    clean(panel)
+  })
+})
+
+describe('the project scope in the Launch section', () => {
+  test('an unmatched workspace shows the notice with Link and Register, and the form with an empty project select', async () => {
+    const view = await mountLaunch({ launch: () => emptyForm, scope: () => unmatchedGit })
+    assert.ok(view.find(button('Link to an existing Archon project')))
+    assert.ok(view.find(button('Register with Archon')))
+    assert.equal(view.valueOf(PROJECT), '')
+    assert.deepEqual(sent(view, 'launch.read')[0], { reload: true })
+    clean(view)
+  })
+
+  test('a remote workspace has no launcher', async () => {
+    const view = await mountLaunch({ launch: () => ({ kind: 'remote' }), scope: () => remote })
+    assert.ok(view.find({ type: 'Callout', text: 'This workspace is on another host. Orchon works with the Archon on this computer.' }))
+    assert.equal(view.find(PROJECT), null)
+    assert.equal(view.find(START), null)
+    clean(view)
+  })
+})
+
+describe('the workflow select', () => {
+  const many = Array.from({ length: 21 }, (_, index) => ({ ...review, name: `wf-${String(index).padStart(2, '0')}` }))
+
+  test('lists recommended workflows as such, and shows a filter above 20 workflows that filters in the worker', async () => {
+    const view = await mountLaunch({
+      launch: () => ({ ...webForm, workflows: { kind: 'ready', rows: [deliver, ...many], total: 22, matching: 22, unreadable: 0 } })
+    })
+    assert.equal((view.find(WORKFLOW)?.props.options as { label: string }[])[0]?.label, 'deliver (recommended)')
+    await view.type({ type: 'Input', label: 'Filter workflows' }, 'wf-1')
+    // The filter is sent after a pause in typing.
+    await new Promise((resolve) => setTimeout(resolve, DRAFT_PAUSE_MS + 100))
+    await view.settled()
+    assert.equal((sent(view, 'launch.read').at(-1) as { filter?: string }).filter, 'wf-1')
+    clean(view)
+  })
+
+  test('with 20 workflows or fewer there is no filter', async () => {
+    const view = await mountLaunch({ launch: () => webForm })
+    assert.equal(view.find({ type: 'Input', label: 'Filter workflows' }), null)
+    clean(view)
+  })
+
+  test('a workflow list too large to read says so and offers nothing to choose', async () => {
+    const view = await mountLaunch({ launch: () => ({ ...webForm, workflows: { kind: 'too-large' }, workflow: null, description: '' }) })
+    assert.ok(view.find({ type: 'Text', text: "Archon's workflow list for this project is too large to show." }))
+    assert.equal(view.find(WORKFLOW), null)
+    assert.equal(view.find(START)?.disabled, true)
     clean(view)
   })
 })
