@@ -126,4 +126,9 @@ export type RunDetailAnswer = ConnectionAnswer & {
    * remote, the run has no project, or a write failed there. Left out when it is on.
    */
   graphOff?: string
+  /**
+   * Set when run detail offers Re-run: a completed or cancelled run whose project Archon still
+   * lists, outside a remote workspace. Left out otherwise.
+   */
+  rerun?: true
 }

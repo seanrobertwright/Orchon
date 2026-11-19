@@ -4,6 +4,7 @@
 import { assert, describe, test, type MockHostOptions } from 'orca/testing'
 import { DEFAULT, DEFAULT_HEALTH, health, json, recorded, RELEASES, scene, type MountedScene, type Release, type Scene } from '../scripts/scripted-archon.ts'
 import type { LaunchAnswer, LaunchView } from './launch-view'
+import type { RunDetailAnswer } from './run-detail-view'
 
 const CODEBASES = `${DEFAULT}/api/codebases`
 const RUN_PATH = `${DEFAULT}/api/workflows/runs/`
@@ -175,3 +176,29 @@ describe('Re-run', () => {
     await mounted.worker.deactivate()
   })
 })
+
+describe('Re-run in run detail', () => {
+  test('is offered on completed and cancelled runs with a project Archon lists, and not on a failed run, with no project, an unlisted project or in a remote workspace', async () => {
+    const release: Release = '0.12.1'
+    const id = RECORDED[release].completed
+    const cases: { name: string; focused: string | null; answer: ReturnType<typeof json>; runId: string; offered: boolean }[] = [
+      { name: 'completed', focused: 'ws-local', answer: recorded(release, 'run-detail') as ReturnType<typeof json>, runId: id, offered: true },
+      { name: 'completed, no workspace focused', focused: null, answer: recorded(release, 'run-detail') as ReturnType<typeof json>, runId: id, offered: true },
+      { name: 'cancelled', focused: 'ws-local', answer: recorded(release, 'run-failed', 16) as ReturnType<typeof json>, runId: RECORDED[release].failed, offered: true },
+      { name: 'failed', focused: 'ws-local', answer: recorded(release, 'run-failed', 8) as ReturnType<typeof json>, runId: RECORDED[release].failed, offered: false },
+      { name: 'no project', focused: 'ws-local', answer: changedRun(release, (run) => (run['codebase_id'] = null)), runId: id, offered: false },
+      { name: 'not listed', focused: 'ws-local', answer: changedRun(release, (run) => (run['codebase_id'] = 'not-a-listed-project')), runId: id, offered: false },
+      { name: 'remote', focused: 'ws-ssh', answer: recorded(release, 'run-detail') as ReturnType<typeof json>, runId: id, offered: false }
+    ]
+    for (const entry of cases) {
+      const stage = rerunScene(release)
+      stage.archon.answer(`${RUN_PATH}${entry.runId}`, entry.answer)
+      const mounted = await stage.mount(orcaWith(entry.focused))
+      const answer = (await mounted.worker.request('run.read', { runId: entry.runId, open: true })) as RunDetailAnswer
+      assert.equal(answer.run.kind, 'ready', entry.name)
+      assert.equal(answer.rerun, entry.offered ? true : undefined, entry.name)
+      await mounted.worker.deactivate()
+    }
+  })
+})
+

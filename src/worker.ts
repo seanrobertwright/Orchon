@@ -42,7 +42,14 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   // The question run detail last read for each run, which an answer is checked against.
   const questions = createQuestionMemory()
-  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, graphOff: wideTabs.graphOff, questionRead: questions.read, now: ports.now })
+  const runDetail = startRunDetail(orca, {
+    ...connection,
+    workspaces: projectScope.workspaces,
+    graphOff: wideTabs.graphOff,
+    remote: async () => (await projectScope.focused()).kind === 'remote',
+    questionRead: questions.read,
+    now: ports.now
+  })
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
