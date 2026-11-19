@@ -31,7 +31,7 @@ const drawSteps = new Map<string, DrawStep>([
 
 function drawn(): { svg: FakeElement; laid: ReturnType<typeof layoutGraph> } {
   const doc = fakeDocument()
-  const laid = layoutGraph(layoutSteps, edges, 'TB')
+  const laid = layoutGraph(layoutSteps, edges)
   const svg = drawGraph(doc as unknown as Document, laid, drawSteps, { label: 'Steps of archon-deliver-block', idPrefix: 'g1' }) as unknown as FakeElement
   return { svg, laid }
 }
@@ -73,7 +73,7 @@ describe('the graph drawing', () => {
   test('cuts a long name on the box and keeps the whole name in its label and title', () => {
     const doc = fakeDocument()
     const long = 'a'.repeat(NAME_CAP + 10)
-    const laid = layoutGraph([{ id: 'x', group: null, isGroup: false, conditional: false }], [], 'TB')
+    const laid = layoutGraph([{ id: 'x', group: null, isGroup: false, conditional: false }], [])
     const svg = drawGraph(doc as unknown as Document, laid, new Map([facts('x', long, 'completed', '✓ Completed')]), { label: 'g', idPrefix: 'g2' }) as unknown as FakeElement
     const [box] = withClass(svg, 'step')
     assert.ok(box !== undefined)

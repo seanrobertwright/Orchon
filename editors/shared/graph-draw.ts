@@ -1,8 +1,8 @@
 // The graph drawn as the plugin's own SVG, shared by the run graph and the builder (#11): a frame
 // per loop group, an edge per routed edge with an arrowhead, dashed into a conditional step, and
 // a box per step with its name and its state as a glyph and a word. Outside text is set through
-// `textContent` only. Colours are classes; editor.css maps them to the theme and to the plugin's
-// own run-state colours.
+// `textContent` only. Colours are classes; editor.css maps them to the theme, and run-graph.css
+// holds the plugin's own run-state colours.
 import type { Layout } from './graph-layout.ts'
 
 const SVG = 'http://www.w3.org/2000/svg'

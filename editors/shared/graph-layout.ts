@@ -16,8 +16,6 @@ const GROUP_LABEL = 22
 const ORDER_GAP = 16
 const MARGIN = 16
 
-export type Direction = 'TB' | 'LR'
-
 /** A step as the layout reads it. */
 export type LayoutStep = { id: string; group: string | null; isGroup: boolean; conditional: boolean }
 export type LayoutEdge = { from: string; to: string }
@@ -59,8 +57,8 @@ function endsOf(
   return (ends.length === 0 ? [...inside] : ends).flatMap((child) => endsOf(child, side, framed, children, edges, seen))
 }
 
-/** Lays the graph out with dagre, top to bottom or left to right. */
-export function layoutGraph(steps: readonly LayoutStep[], edges: readonly LayoutEdge[], direction: Direction): Layout {
+/** Lays the graph out with dagre, top to bottom. */
+export function layoutGraph(steps: readonly LayoutStep[], edges: readonly LayoutEdge[]): Layout {
   const children = childrenOf(steps)
   /** The groups drawn as frames: those holding at least one step. An empty one is drawn as a step. */
   const framed = new Set(steps.filter((step) => step.isGroup && (children.get(step.id)?.length ?? 0) > 0).map((step) => step.id))
@@ -68,7 +66,7 @@ export function layoutGraph(steps: readonly LayoutStep[], edges: readonly Layout
   const conditional = new Set(steps.filter((step) => step.conditional).map((step) => step.id))
 
   const graph = new Graph({ compound: true, multigraph: false })
-  graph.setGraph({ rankdir: direction, nodesep: 28, ranksep: 44, marginx: MARGIN, marginy: MARGIN })
+  graph.setGraph({ rankdir: 'TB', nodesep: 28, ranksep: 44, marginx: MARGIN, marginy: MARGIN })
   graph.setDefaultEdgeLabel(() => ({}))
   for (const step of steps) {
     graph.setNode(step.id, framed.has(step.id) ? { width: 0, height: 0 } : { width: STEP_WIDTH, height: STEP_HEIGHT })

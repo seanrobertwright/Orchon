@@ -97,16 +97,14 @@ export function startTab(ports) {
             return;
         }
         const meta = [`Run ${header.shortId}`, header.state, header.started === '' ? null : `Started ${header.started}`].filter((part) => part !== null).join(' · ');
-        const refresh = el('button', 'Refresh');
-        refresh.setAttribute('type', 'button');
-        refresh.addEventListener('click', () => fetcher.restart());
+        const refresh = button('Refresh', () => fetcher.restart());
         top.replaceChildren(el('h1', header.workflow), el('p', meta, 'meta'), ...(header.finished ? [el('p', ARROWS_LINE, 'muted')] : []), refresh);
     }
-    function tryAgainButton() {
-        const button = el('button', 'Try again');
-        button.setAttribute('type', 'button');
-        button.addEventListener('click', () => fetcher.restart());
-        return button;
+    function button(text, onClick) {
+        const made = el('button', text);
+        made.setAttribute('type', 'button');
+        made.addEventListener('click', onClick);
+        return made;
     }
     function drawScreen(screen) {
         drawHeader(null);
@@ -120,15 +118,12 @@ export function startTab(ports) {
         parts.push(...screen.after.map(withCode));
         const actions = el('p', undefined, 'actions');
         if (screen.tryAgain) {
-            const button = el('button', 'Try again');
-            button.setAttribute('type', 'button');
-            button.addEventListener('click', () => {
+            actions.appendChild(button('Try again', () => {
                 void ports
                     .request('connection.retry')
                     .catch(() => null)
                     .then(() => fetcher.restart());
-            });
-            actions.appendChild(button);
+            }));
         }
         if (screen.install !== null && /^https:\/\//.test(screen.install)) {
             const url = screen.install;
@@ -152,7 +147,7 @@ export function startTab(ports) {
         const key = JSON.stringify([view.mismatch, view.steps.map((step) => [step.id, step.group, step.isGroup, step.conditional]), view.edges]);
         if (laidOut?.key !== key) {
             const layout = view.mismatch === null
-                ? layoutGraph(view.steps, view.edges, 'TB')
+                ? layoutGraph(view.steps, view.edges)
                 : layoutInOrder(view.steps.map((step) => step.id));
             laidOut = { key, layout };
         }
@@ -217,7 +212,7 @@ export function startTab(ports) {
             else {
                 drawHeader(null);
                 banners.replaceChildren();
-                content.replaceChildren(el('p', message), tryAgainButton());
+                content.replaceChildren(el('p', message), button('Try again', () => fetcher.restart()));
             }
             return;
         }

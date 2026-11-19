@@ -27,7 +27,7 @@ const overlap = (a: { x: number; y: number; width: number; height: number }, b: 
 
 describe('the graph layout', () => {
   test('places every step that is not a group as a box of the step size, none on another', () => {
-    const laid = layoutGraph(steps, edges, 'TB')
+    const laid = layoutGraph(steps, edges)
     assert.deepEqual(laid.steps.map((box) => box.id).sort(), ['forge', 'report', 'rounds.implement', 'rounds.pr', 'rounds.review'])
     for (const box of laid.steps) assert.deepEqual([box.width, box.height], [STEP_WIDTH, STEP_HEIGHT])
     for (const a of laid.steps) for (const b of laid.steps) if (a !== b) assert.ok(!overlap(a, b), `${a.id} lies on ${b.id}`)
@@ -35,7 +35,7 @@ describe('the graph layout', () => {
   })
 
   test('frames a loop group around its own steps', () => {
-    const laid = layoutGraph(steps, edges, 'TB')
+    const laid = layoutGraph(steps, edges)
     const [group] = laid.groups
     assert.equal(group?.id, 'rounds')
     for (const id of ['rounds.implement', 'rounds.pr', 'rounds.review']) {
@@ -46,7 +46,7 @@ describe('the graph layout', () => {
   })
 
   test("an edge into a loop group attaches to its first steps and an edge out of it leaves from its last; dagre's routed points are kept", () => {
-    const laid = layoutGraph(steps, edges, 'TB')
+    const laid = layoutGraph(steps, edges)
     assert.deepEqual(
       laid.edges.map((edge) => `${edge.from} → ${edge.to}`),
       ['forge → rounds.implement', 'rounds.implement → rounds.pr', 'rounds.pr → rounds.review', 'rounds.review → report']
@@ -61,7 +61,7 @@ describe('the graph layout', () => {
   })
 
   test('an edge into a conditional step is dashed, and only such an edge', () => {
-    const laid = layoutGraph(steps, edges, 'TB')
+    const laid = layoutGraph(steps, edges)
     assert.deepEqual(
       laid.edges.filter((edge) => edge.dashed).map((edge) => edge.to),
       ['rounds.pr', 'report']
@@ -70,19 +70,19 @@ describe('the graph layout', () => {
 
   test('an edge into a conditional loop group is dashed at each of its first steps', () => {
     const conditionalGroup = steps.map((one) => (one.id === 'rounds' ? { ...one, conditional: true } : one))
-    const laid = layoutGraph(conditionalGroup, edges, 'TB')
+    const laid = layoutGraph(conditionalGroup, edges)
     assert.equal(laid.edges.find((edge) => edge.from === 'forge')?.dashed, true)
   })
 
   test('an empty loop group is drawn as a step, so an edge to it still has an end', () => {
-    const laid = layoutGraph([step('a'), step('empty', { isGroup: true })], [{ from: 'a', to: 'empty' }], 'LR')
+    const laid = layoutGraph([step('a'), step('empty', { isGroup: true })], [{ from: 'a', to: 'empty' }])
     assert.deepEqual(laid.steps.map((box) => box.id).sort(), ['a', 'empty'])
     assert.deepEqual(laid.groups, [])
     assert.deepEqual(laid.edges.map((edge) => `${edge.from} → ${edge.to}`), ['a → empty'])
   })
 
   test('an edge to a step it does not know is left out', () => {
-    const laid = layoutGraph([step('a')], [{ from: 'a', to: 'nowhere' }], 'TB')
+    const laid = layoutGraph([step('a')], [{ from: 'a', to: 'nowhere' }])
     assert.deepEqual(laid.edges, [])
   })
 })
