@@ -12,7 +12,9 @@ import type { HintType } from './hint-view'
 import {
   CONVERSATIONS_KEPT,
   DESCRIPTION_CAP,
+  LAUNCH_ID_CAP,
   MESSAGE_CAP,
+  NO_MESSAGE,
   PROJECTS_CAP,
   RECORDS_CAP,
   SEARCH_CAP,
@@ -60,7 +62,6 @@ const LAST_WORKFLOWS_KEPT = 500
 /** The worker's own refusals, said on the form. */
 export const NO_LOCAL_WORKSPACE = 'Focus a local workspace in Orca to launch a run.'
 export const WORKFLOW_NOT_LISTED = 'Archon does not list that workflow for this project. Refresh and choose another.'
-export const NO_MESSAGE = 'Type a message.'
 export const NOT_ACCEPTED = 'Archon did not accept the launch.'
 
 /** What saved data is stored under: the server's store id, or its base URL when it reports none. */
@@ -98,7 +99,17 @@ type LaunchRecord = {
 }
 
 type Listed = { projects: ArchonProject[]; unreadable: number }
+type ProjectsResult = { kind: 'ready'; listed: Listed } | { kind: 'failed'; message: string }
 type ListResult = { kind: 'ready'; list: WorkflowList } | { kind: 'too-large' } | { kind: 'failed'; message: string }
+
+/** Drops a map's oldest entries, by insertion order, until it holds at most `cap`. */
+function capOldest(map: Map<string, unknown>, cap: number): void {
+  while (map.size > cap) {
+    const oldest = map.keys().next().value
+    if (oldest === undefined) break
+    map.delete(oldest)
+  }
+}
 
 const refuseInput = (input: unknown): void => {
   if (input !== undefined && input !== null) refuseRequest('This request takes no input.')
@@ -152,7 +163,7 @@ export function parseLaunchEdit(input: unknown): LaunchEdit {
   return edit
 }
 
-/** Start's input, or a refusal: a project, a workflow and a message of 1 to 16,000 characters. */
+/** Start's input, or a refusal: a project, a workflow and a message of 1 to `MESSAGE_CAP` characters. */
 export function parseLaunchStart(input: unknown): LaunchStart {
   if (!isRecord(input)) refuseRequest('Start takes a project, a workflow and a message.')
   refuseOtherKeys(input, ['codebaseId', 'workflow', 'message'], 'Start')
@@ -170,7 +181,7 @@ function parseLaunchId(input: unknown, name: string): string {
   if (!isRecord(input)) refuseRequest(`${name} takes a launch id.`)
   refuseOtherKeys(input, ['launchId'], name)
   const id = input['launchId']
-  if (!isCappedText(id, 64)) refuseRequest(cappedTextRefusal('The launch id', 64))
+  if (!isCappedText(id, LAUNCH_ID_CAP)) refuseRequest(cappedTextRefusal('The launch id', LAUNCH_ID_CAP))
   return id
 }
 
@@ -217,11 +228,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       draft = { message: '', posting: false }
       drafts.set(workspace, draft)
       // One draft per workspace, and at most `DRAFTS_CAP` workspaces: the oldest goes first.
-      while (drafts.size > DRAFTS_CAP) {
-        const oldest = drafts.keys().next().value
-        if (oldest === undefined) break
-        drafts.delete(oldest)
-      }
+      capOldest(drafts, DRAFTS_CAP)
     }
     return draft
   }
@@ -229,15 +236,15 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   /** The draft's key: the focused local workspace, or the one key for none. */
   const workspaceKey = (focused: FocusedWorkspace): string => (focused.kind === 'local' ? `ws:${focused.workspaceId}` : 'none')
 
-  async function readProjects(server: Connected, reload: boolean): Promise<Listed | string> {
+  async function readProjects(server: Connected, reload: boolean): Promise<ProjectsResult> {
     const store = storeKey(server)
-    if (!reload && projects?.store === store) return projects.listed
+    if (!reload && projects?.store === store) return { kind: 'ready', listed: projects.listed }
     const answer = await ports.client.request({ baseUrl: server.baseUrl, path: CODEBASES_PATH, timeout: 'read' })
-    if (!answer.ok) return readFailureText(answer.failure)
+    if (!answer.ok) return { kind: 'failed', message: readFailureText(answer.failure) }
     const listed = parseCodebases(answer.value)
-    if (listed === null) return unreadableAnswerText(server.version)
+    if (listed === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
     projects = { store, listed }
-    return listed
+    return { kind: 'ready', listed }
   }
 
   async function readList(server: Connected, project: ArchonProject, reload: boolean): Promise<ListResult> {
@@ -258,11 +265,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     }
     lists.delete(key)
     lists.set(key, result)
-    while (lists.size > LISTS_CAP) {
-      const oldest = lists.keys().next().value
-      if (oldest === undefined) break
-      lists.delete(oldest)
-    }
+    capOldest(lists, LISTS_CAP)
     return result
   }
 
@@ -357,8 +360,9 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     const focused = await ports.focused()
     if (focused.kind === 'remote') return { kind: 'remote' }
     const draft = draftOf(workspaceKey(focused))
-    const listed = await readProjects(connection, reload)
-    if (typeof listed === 'string') return { kind: 'failed', message: listed }
+    const read = await readProjects(connection, reload)
+    if (read.kind === 'failed') return read
+    const { listed } = read
     const byName = [...listed.projects].sort((first, second) => first.name.localeCompare(second.name) || first.id.localeCompare(second.id))
     const search = request.search ?? ''
     const found = search === '' ? byName : byName.filter((project) => contains(project.name, search))
@@ -500,8 +504,9 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     draft.posting = true
     delete draft.error
     try {
-      const listed = await readProjects(connection, true)
-      if (typeof listed === 'string') return await refuse(listed)
+      const read = await readProjects(connection, true)
+      if (read.kind === 'failed') return await refuse(read.message)
+      const { listed } = read
       const project = listed.projects.find((entry) => entry.id === input.codebaseId)
       if (project === undefined) return await refuse(NOT_LISTED)
       const list = await readList(connection, project, false)

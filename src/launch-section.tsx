@@ -28,8 +28,11 @@ import {
   FILTER_FROM,
   LOOKING_TEXT,
   MESSAGE_CAP,
+  MESSAGE_TOO_LONG,
+  NO_MESSAGE,
   QUEUED_TEXT,
   RECORDS_CAP,
+  SEARCH_CAP,
   WORKFLOWS_CAP,
   type LaunchAnswer,
   type LaunchEdit,
@@ -263,14 +266,19 @@ function startReason(view: Ready, message: string, writable: boolean): string | 
   if (!writable) return NOT_CONNECTED_TEXT
   if (view.codebaseId === null) return 'Choose a project.'
   if (view.workflow === null) return 'Choose a workflow.'
-  if (message.trim() === '') return 'Type a message.'
-  if (message.length > MESSAGE_CAP) return 'The message is longer than 16,000 characters.'
+  if (message.trim() === '') return NO_MESSAGE
+  if (message.length > MESSAGE_CAP) return MESSAGE_TOO_LONG
   if (read(posting) || view.posting) return 'Starting…'
   return null
 }
 
 function plural(count: number, one: string, many: string): string {
   return count === 1 ? `1 ${one}` : `${String(count)} ${many}`
+}
+
+/** "<count> <what> is not shown.", or "are" for any count but one. */
+function notShown(count: number, one: string, many: string): string {
+  return `${plural(count, one, many)} ${count === 1 ? 'is' : 'are'} not shown.`
 }
 
 function workflowPart(view: Ready): OrcaNode {
@@ -289,7 +297,7 @@ function workflowPart(view: Ready): OrcaNode {
           label="Filter workflows"
           type="search"
           value={read(filter)}
-          maxLength={200}
+          maxLength={SEARCH_CAP}
           onChange={(value) => {
             set(filter, value)
             searchAfterPause()
@@ -310,12 +318,12 @@ function workflowPart(view: Ready): OrcaNode {
       )}
       {hidden > 0 ? (
         <Text muted size="sm">
-          {`${plural(hidden, 'more workflow matches', 'more workflows match')} and ${hidden === 1 ? 'is' : 'are'} not shown. Filter to narrow the list.`}
+          {`${notShown(hidden, 'more workflow matches and', 'more workflows match and')} Filter to narrow the list.`}
         </Text>
       ) : null}
       {workflows.unreadable > 0 ? (
         <Text muted size="sm">
-          {`${plural(workflows.unreadable, 'workflow', 'workflows')} could not be read and ${workflows.unreadable === 1 ? 'is' : 'are'} not shown.`}
+          {notShown(workflows.unreadable, 'workflow could not be read and', 'workflows could not be read and')}
         </Text>
       ) : null}
     </Stack>
@@ -332,7 +340,7 @@ function form(view: Ready, writable: boolean): OrcaNode {
         label="Search projects"
         type="search"
         value={read(search)}
-        maxLength={200}
+        maxLength={SEARCH_CAP}
         onChange={(value) => {
           set(search, value)
           searchAfterPause()
@@ -347,12 +355,12 @@ function form(view: Ready, writable: boolean): OrcaNode {
       />
       {projects.more > 0 ? (
         <Text muted size="sm">
-          {`${plural(projects.more, 'more Archon project is', 'more Archon projects are')} not shown. Search to find one.`}
+          {`${notShown(projects.more, 'more Archon project', 'more Archon projects')} Search to find one.`}
         </Text>
       ) : null}
       {projects.unreadable > 0 ? (
         <Text muted size="sm">
-          {`${plural(projects.unreadable, 'Archon project', 'Archon projects')} could not be read and ${projects.unreadable === 1 ? 'is' : 'are'} not shown.`}
+          {notShown(projects.unreadable, 'Archon project could not be read and', 'Archon projects could not be read and')}
         </Text>
       ) : null}
       {workflowPart(view)}
@@ -439,7 +447,7 @@ export function launchSection(_state: Connected, writable: boolean, notice: Orca
 
 /**
  * The callouts at the top of the panel: one per run a launch started after its Starting view
- * stopped showing, with Open run and dismiss. At most the worker's 20 launch records.
+ * stopped showing, with Open run and dismiss. At most the worker's `RECORDS_CAP` launch records.
  */
 export function launchNotices(): OrcaNode {
   const view = read(loaded)

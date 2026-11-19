@@ -27,6 +27,9 @@ export const WORKFLOW_NAME_CAP = 200
 /** How much of a workflow's description the form shows under the select. */
 export const DESCRIPTION_CAP = 1_000
 
+/** The most characters of a launch id in a frame's request. */
+export const LAUNCH_ID_CAP = 64
+
 /** The most launch records the worker keeps in memory. */
 export const RECORDS_CAP = 20
 
@@ -143,6 +146,10 @@ export type LaunchEdit = {
 
 /** What Start sends. */
 export type LaunchStart = { codebaseId: string; workflow: string; message: string }
+
+/** Why Start does not launch a message, said by the panel and the worker alike. */
+export const NO_MESSAGE = 'Type a message.'
+export const MESSAGE_TOO_LONG = `The message is longer than ${MESSAGE_CAP.toLocaleString('en-US')} characters.`
 
 /** The words of the Starting view and the callout, shared by the panel's tests. */
 export const QUEUED_TEXT = 'Queued by Archon, waiting for a free slot'
