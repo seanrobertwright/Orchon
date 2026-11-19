@@ -1,8 +1,29 @@
-// `orca plugin check` renders the panel once per scenario, with the worker on a fresh stand-in
-// host. Orca itself never loads this file.
+// `orca plugin check` renders the panel once per scenario. Orca itself never loads this file.
+//
+// Every scenario scripts the worker's connection answer. Check also starts the real worker, which
+// looks for Archon on the machine it runs on: without a scripted answer, what a scenario drew
+// would depend on whether an Archon happens to be running there.
 import { defineCheck } from 'orca/testing'
+import {
+  answering,
+  connected,
+  noHome,
+  notRunning,
+  oneBadSetting,
+  searching,
+  twoBadSettings
+} from '../scripts/connection-samples.ts'
+
+const onSettings = { persisted: { workspace: { section: 'settings' } } }
 
 export default defineCheck({
-  empty: {},
-  'reopened on settings': { persisted: { workspace: { section: 'settings' } } }
+  connected: answering(connected),
+  'connected, reopened on settings': { ...answering(connected), ...onSettings },
+  'searching with nothing loaded': answering(searching),
+  'not found, Archon is not running': answering(notRunning),
+  'not found, no Archon home folder': answering(noHome),
+  'bad setting, one refused': answering(oneBadSetting),
+  'bad setting, two refused': answering(twoBadSettings),
+  'settings while not found': { ...answering(notRunning), ...onSettings },
+  'settings with two refused settings': { ...answering(twoBadSettings), ...onSettings }
 })

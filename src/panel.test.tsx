@@ -1,6 +1,11 @@
 // The frame seam for the panel: src/panel.tsx mounted with Orca's runtime and checks.
-import { afterEach, assert, mount, test, type TestPanel } from 'orca/testing'
+// The worker is scripted to answer Connected, so each section shows its own content.
+import { afterEach, assert, mockHost, mount as mountOn, test, type MountOptions, type TestPanel } from 'orca/testing'
+import { answering, connected } from '../scripts/connection-samples.ts'
 import * as panelModule from './panel'
+
+const mount = (module: typeof panelModule, options: MountOptions = {}): Promise<TestPanel> =>
+  mountOn(module, { host: mockHost(answering(connected)), ...options })
 
 const SECTION_BAR = { label: 'Orchon sections' }
 const SECTIONS = [

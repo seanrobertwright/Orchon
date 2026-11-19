@@ -6,11 +6,21 @@ Orchon is a plugin for [Orca](https://github.com/stablyai/orca). It brings the c
 
 ## Status
 
-This repository holds the plugin's skeleton. Nothing in it talks to Archon yet.
+Orchon finds the Archon on this computer and says whether it is connected. It shows none of Archon's data yet.
 
-- A sidebar panel named Orchon with a section bar: Runs, Launch, Workflows, Chat, Metrics and Settings. Each section is an empty placeholder. The panel reopens on the section last shown in a workspace.
-- A status bar item that reads "Orchon". Pressing it runs the command "Orchon: Show runs", which makes an open panel show Runs.
+- A sidebar panel named Orchon with a section bar: Runs, Launch, Workflows, Chat, Metrics and Settings. While Orchon is connected, each section is an empty placeholder. While it is not, each section says why: Orchon is looking for Archon, Archon is not running (with the command that starts it), there is no Archon home folder, or a connection setting is not valid. Settings always shows a read-only Connection group with the state, the connected address and both connection settings. The panel reopens on the section last shown in a workspace.
+- A status bar item that reads "Archon", "Archon…", "Archon off" or "Archon setup" by connection state, with one sentence as its tooltip. Pressing it runs the command "Orchon: Show runs", which makes an open panel show Runs.
 - An editor tab for each kind of pointer file: "Orchon run graph" for `.orchonrun` files and "Orchon workflow builder" for `.orchonflow` files. Each shows a placeholder page.
+
+### How Orchon finds Archon
+
+Orchon talks only to this computer's loopback address, and counts an address as Archon only once `GET /api/health` there answers JSON with `status: "ok"`. Each time it looks, it tries one address: the first of these that applies.
+
+1. The Base URL setting, when it is set.
+2. The address in `server.json` in the Archon home folder. The folder is `~/.archon` unless the Archon home folder setting names another.
+3. `http://127.0.0.1:3090`.
+
+When nothing answers, Orchon looks again after 2 seconds and then at longer intervals, up to one try every 30 seconds, until Archon answers. It never starts or stops Archon. Both settings are changed in Orca's Settings, and Orchon looks again as soon as one changes.
 
 ## Requirements
 
@@ -63,6 +73,7 @@ ESLint fails the build on any of these. A module counts as loaded by `import`, `
 - Loading `node:child_process`, `node:net`, `node:http`, `node:https`, `node:tls`, `node:dgram` or `node:worker_threads`, in any file.
 - Loading `node:fs` outside the disk module `src/disk.ts`. The gates' scripts and the tests are the exception: they may read files.
 - A use of `fetch` outside the client module `src/client.ts`.
+- A use of `Date` or `Intl.DateTimeFormat` outside the date helper `src/dates.ts`, so that every clock read, date parse and formatted time goes through one file. The gates' scripts and the tests are the exception.
 - `eval`, `new Function`, and an `import()` or `require()` whose target is not a literal string.
 - The ways around those rules: `require()` outside `eslint.config.cjs`, `node:module` outside `scripts/tooling.ts`, and `process.getBuiltinModule` in any file.
 

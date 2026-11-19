@@ -49,6 +49,7 @@ const BANNED_EVERYWHERE = ['child_process', 'net', 'http', 'https', 'tls', 'dgra
 const CONFIG = 'eslint.config.cjs'
 const DISK = 'src/disk.ts'
 const CLIENT = 'src/client.ts'
+const DATES = 'src/dates.ts'
 const LOADER = 'scripts/tooling.ts'
 
 /** Files Orca loads or the editors ship, with one of every code extension. */
@@ -57,6 +58,7 @@ const SHIPPED = [
   'src/panel.tsx',
   CLIENT,
   DISK,
+  DATES,
   'src/late.mts',
   'src/helper.cts',
   'src/helper.js',
@@ -202,6 +204,35 @@ describe('the lint config', () => {
         await refused(eslint, path, keep(path, expression), rule)
       }
       await allowed(eslint, CLIENT, keep(CLIENT, expression))
+    }
+  })
+
+  test('lets only the date helper, among the files Orca loads, read the clock or parse or format a date', async (t) => {
+    const eslint = await linterOrSkip(t)
+    if (eslint === undefined) return
+    const uses: [expression: string, rule: string][] = [
+      ['Date.now()', 'no-restricted-globals'],
+      ["new Date('2026-11-18T10:00:00Z')", 'no-restricted-globals'],
+      ["Date.parse('2026-11-18T10:00:00Z')", 'no-restricted-globals'],
+      ['Date.UTC(2026, 10, 18)', 'no-restricted-globals'],
+      ['Date', 'no-restricted-globals'],
+      ['globalThis.Date.now()', 'no-restricted-properties'],
+      ['new window.Date()', 'no-restricted-properties'],
+      ["new Intl.DateTimeFormat('en-GB')", 'no-restricted-properties'],
+      ["new globalThis.Intl.DateTimeFormat('en-GB')", 'no-restricted-properties']
+    ]
+    assert.ok(SHIPPED.includes(DATES), `${DATES} is not among the shipped files tried`)
+    for (const [expression, rule] of uses) {
+      for (const path of SHIPPED.filter((file) => file !== DATES)) {
+        await refused(eslint, path, keep(path, expression), rule)
+      }
+      for (const path of [DATES, ...TOOLING]) await allowed(eslint, path, keep(path, expression))
+    }
+    // The helper is let past the date ban alone, and the client past the fetch ban alone.
+    await refused(eslint, DATES, keep(DATES, "fetch('http://127.0.0.1:3090/api/health')"), 'no-restricted-globals')
+    await refused(eslint, CLIENT, keep(CLIENT, 'Date.now()'), 'no-restricted-globals')
+    for (const path of [DATES, CLIENT, ...TOOLING]) {
+      await refused(eslint, path, keep(path, "process.getBuiltinModule('node:fs')"), 'no-restricted-properties')
     }
   })
 
