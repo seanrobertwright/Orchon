@@ -31,9 +31,9 @@ import {
   type TableColumn,
   type TableRow
 } from 'orca'
-import type { Timers } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { formatClock, formatDuration, now } from './dates'
+import { frameTimers } from './frame-timers'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
 import { scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
@@ -59,11 +59,6 @@ export type RunsSectionHooks = {
   showing(): boolean
   /** Keeps the connection state a data answer carries. */
   keep(view: ConnectionView): void
-}
-
-const frameTimers: Timers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>)
 }
 
 /** The section's fetch rules for this panel run: the one handle every restart goes through. */

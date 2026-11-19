@@ -3,9 +3,9 @@
 // view, reads it under the shared per-view fetch rules, and tells the Runs section when the
 // project its table is filtered by changes.
 import { atom, Button, Callout, Code, plugin, RadioGroup, read, Row, Select, set, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
-import type { Timers } from './client'
 import type { ConnectionView } from './connection-view'
 import { now } from './dates'
+import { frameTimers } from './frame-timers'
 import { REMOTE_WORKSPACE, type LinkChoices, type ScopeAnswer, type ScopeView } from './scope-view'
 import { createViewFetch, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 
@@ -55,11 +55,6 @@ export function scopedProjectId(): string | undefined {
 /** Whether the runs table may read yet: once the scope is known, so it reads the right project. */
 export function scopeSettled(): boolean {
   return read(settled)
-}
-
-const frameTimers: Timers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>)
 }
 
 let fetcher: ViewFetch | undefined
