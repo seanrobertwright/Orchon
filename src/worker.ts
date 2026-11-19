@@ -3,7 +3,9 @@
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
 import { startBuilder } from './builder'
+import { startChatDelete } from './chat-delete'
 import { startChatDrafts } from './chat-drafts'
+import { conversationDraftKey } from './chat-drafts-view'
 import { startChatList } from './chat-list'
 import { startChatSend } from './chat-send'
 import { startChatRun } from './chat-run'
@@ -88,6 +90,11 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
   const chatDrafts = startChatDrafts(orca, { timers: ports.timers })
   const chatSend = startChatSend(orca, { client: connection.client, current: connection.current, accepted: (key) => chatDrafts.clear(key) })
+  const chatDelete = startChatDelete(orca, {
+    client: connection.client,
+    current: connection.current,
+    removed: (conversationId) => chatDrafts.clear(conversationDraftKey(conversationId))
+  })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
@@ -97,6 +104,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     chatThread.dispose()
     chatSend.dispose()
     chatRun.dispose()
+    chatDelete.dispose()
     chatDrafts.dispose()
     forms.dispose()
     wideTabs.dispose()

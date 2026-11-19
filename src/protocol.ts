@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
+import type { ChatDeleteAnswer, ChatDeleteRequest } from './chat-delete-view'
 import type { ChatDraftsAnswer, ChatDraftWrite } from './chat-drafts-view'
 import type { ChatRunAnswer, ChatRunRequest } from './chat-run-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
@@ -137,6 +138,8 @@ declare module 'orca' {
     'chat.drafts.read': { output: ChatDraftsAnswer }
     /** Changes one draft, where empty text removes it. Plugin storage is written after a pause. */
     'chat.draft.write': { input: ChatDraftWrite; output: null }
+    /** Delete: deletes one conversation in Archon. Sent once, never tried again. */
+    'chat.delete': { input: ChatDeleteRequest; output: ChatDeleteAnswer }
   }
   interface PluginPanelEvents {
     /**
