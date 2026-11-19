@@ -16,10 +16,10 @@ export const DECLARED_INPUTS_CAP = 50
  * One declared input: its name, whether it is required, its description, and its default as text:
  * a string as it is, any other value as its JSON text, and empty when it declares none.
  */
-export type DeclaredInput = { name: string; required: boolean; description: string; placeholder: string }
+export type DeclaredInput = { name: string; required: boolean; description: string; defaultText: string }
 
 /** A declared default as the form shows it. */
-function defaultText(value: unknown): string {
+function asDefaultText(value: unknown): string {
   if (value === undefined) return ''
   if (typeof value === 'string') return value
   try {
@@ -55,7 +55,7 @@ function parseInputs(value: unknown): { inputs: DeclaredInput[]; count: number }
       name,
       required: own(fields, 'required') === true,
       description: typeof description === 'string' ? description : '',
-      placeholder: defaultText(own(fields, 'default'))
+      defaultText: asDefaultText(own(fields, 'default'))
     })
   }
   return { inputs, count: names.length }

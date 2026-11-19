@@ -20,7 +20,10 @@ import {
   missingRequired,
   missingRequiredText,
   undeclaredInputText,
-  type Binding
+  copyBindings,
+  copyForm,
+  type Binding,
+  type LaunchForm
 } from './launch-form'
 import {
   CONVERSATIONS_KEPT,
@@ -38,6 +41,7 @@ import {
   SEARCH_CAP,
   WORKFLOW_NAME_CAP,
   WORKFLOWS_CAP,
+  isNotStarted,
   tooManyInputsText,
   type InputsView,
   type LaunchAnswer,
@@ -56,7 +60,7 @@ import type { ArchonProject } from './project-match'
 import type { FocusedWorkspace } from './project-scope'
 import { NOT_LISTED } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
+import { cappedTextRefusal, errorText, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { SERVER_TEXT_CAP } from './run-control-view'
 import { PROJECT_ID_CAP, REMOTE_WORKSPACE } from './scope-view'
 import { NOT_CONNECTED_TEXT } from './worker-words'
@@ -87,13 +91,10 @@ export const NOT_ACCEPTED = 'Archon did not accept the launch.'
 /** What saved data is stored under: the server's store id, or its base URL when it reports none. */
 const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
 
-type Draft = {
+type Draft = LaunchForm & {
   /** Undefined: not chosen, so the panel's project is the default. Null: chosen empty. */
   codebaseId?: string | null
   workflow?: string | null
-  message: string
-  values: Record<string, string>
-  bindings: Binding[]
   error?: string
   posting: boolean
   /** The launch the Starting view shows. */
@@ -116,7 +117,7 @@ type LaunchRecord = {
   /** Archon's words for a refused or failed launch. */
   reason?: string
   /** The form as it was sent, for "Edit and try again". */
-  form: { message: string; values: Record<string, string>; bindings: Binding[] }
+  form: LaunchForm
   /** The conversation's stream while it is held; null once lost, given up, or never opened. */
   hold: StreamHold | null
   /** A `workflow_dispatch` frame or a saved dispatch message was seen: Archon started a run. */
@@ -280,7 +281,7 @@ function inputsOf(workflow: ListedWorkflow | undefined): InputsView {
       name: input.name,
       required: input.required,
       description: cutAt(input.description, DESCRIPTION_CAP),
-      placeholder: cutAt(input.placeholder, DESCRIPTION_CAP)
+      placeholder: cutAt(input.defaultText, DESCRIPTION_CAP)
     }))
   }
 }
@@ -559,9 +560,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       workflow,
       description: cutAt(listedWorkflow?.description ?? '', DESCRIPTION_CAP),
       inputs: inputsOf(listedWorkflow),
-      message: draft.message,
-      values: { ...draft.values },
-      bindings: draft.bindings.map((binding) => ({ ...binding })),
+      ...copyForm(draft),
       posting: draft.posting
     }
     if (draft.error !== undefined) view.error = draft.error
@@ -582,7 +581,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   // ---- The tracker: finding the run a launch started. ----
 
   /** Whether a launch has ended with no run: Archon refused it or failed it. */
-  const givenUp = (record: LaunchRecord): boolean => record.state === 'refused' || record.state === 'failed'
+  const givenUp = (record: LaunchRecord): boolean => isNotStarted(record.state)
 
   const tracking = (record: LaunchRecord): boolean => record.tracked && record.runId === undefined && !record.late && !givenUp(record)
 
@@ -618,10 +617,17 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       if (frame.type === 'text') record.lastText = frame.content
       else if (frame.type === 'workflow_dispatch') {
         record.dispatched = true
-        if (record.tracked) void look([record])
+        if (record.tracked) lookAfterFrame(record)
       } else if (frame.type === 'error') giveUp(record, 'failed', frame.message)
       else if (!frame.locked && !record.dispatched) giveUp(record, 'refused', record.lastText ?? NO_REASON_TEXT)
     }
+  }
+
+  /** A look a stream frame asked for: its rejection is logged, never left unhandled. */
+  function lookAfterFrame(record: LaunchRecord): void {
+    look([record]).catch((error: unknown) => {
+      orca.log(`Orchon could not look for a launch's run: ${errorText(error)}`)
+    })
   }
 
   /** On a miss with the stream lost: the conversation's last saved messages, read by the rules of #15's last amendment. */
@@ -736,11 +742,9 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     if (draft.posting) return answer(request)
     draft.codebaseId = input.codebaseId
     draft.workflow = input.workflow
-    draft.message = input.message
-    const values = input.inputs ?? {}
-    const bindings = input.bindings ?? []
-    draft.values = { ...values }
-    draft.bindings = bindings.map((binding) => ({ ...binding }))
+    const form: LaunchForm = { message: input.message, values: input.inputs ?? {}, bindings: input.bindings ?? [] }
+    const { values, bindings } = form
+    Object.assign(draft, copyForm(form))
     const refuse = (text: string): Promise<LaunchAnswer> => {
       draft.error = text
       return answer(request)
@@ -795,7 +799,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
         conversationId,
         conversationDbId,
         state: 'started',
-        form: { message: input.message, values: { ...values }, bindings: bindings.map((binding) => ({ ...binding })) },
+        form: copyForm(form),
         hold: null,
         dispatched: false,
         lastText: null,
@@ -872,7 +876,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     }
     if (input.message !== undefined) draft.message = input.message
     if (input.inputs !== undefined) draft.values = { ...input.inputs }
-    if (input.bindings !== undefined) draft.bindings = input.bindings.map((binding) => ({ ...binding }))
+    if (input.bindings !== undefined) draft.bindings = copyBindings(input.bindings)
     return answer({})
   }
 
@@ -919,9 +923,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
       if (record !== undefined) {
         draft.codebaseId = record.codebaseId
         draft.workflow = record.workflow
-        draft.message = record.form.message
-        draft.values = { ...record.form.values }
-        draft.bindings = record.form.bindings.map((binding) => ({ ...binding }))
+        Object.assign(draft, copyForm(record.form))
         delete draft.error
         record.dismissed = true
       }

@@ -26,11 +26,12 @@ import {
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
-import { BINDING_TEXT_CAP, BINDINGS_CAP, bindingsProblem, missingRequired, missingRequiredText, type Binding } from './launch-form'
+import { BINDING_TEXT_CAP, BINDINGS_CAP, bindingsProblem, missingRequired, missingRequiredText, valueOf, type Binding } from './launch-form'
 import {
   COULD_NOT_START_TEXT,
   FILTER_FROM,
   INPUT_VALUE_CAP,
+  isNotStarted,
   LOOKING_TEXT,
   MESSAGE_CAP,
   MESSAGE_TOO_LONG,
@@ -218,11 +219,9 @@ export function startLaunchSection(ctx: PanelContext, given: LaunchSectionHooks)
   ctx.subscriptions.push({
     dispose() {
       view.stop()
-      if (draftTimer !== undefined) frameTimers.clear(draftTimer)
+      dropPendingEdit()
       if (searchTimer !== undefined) frameTimers.clear(searchTimer)
-      draftTimer = undefined
       searchTimer = undefined
-      pendingEdit = {}
       if (fetcher === view) fetcher = undefined
       // A panel that closes on the Launch section tells the worker; one Orca closed with no word runs out its lease.
       if (given.showing()) hideLaunch()
@@ -280,12 +279,18 @@ function editAfterPause(change: LaunchEdit): void {
   }, DRAFT_PAUSE_MS)
 }
 
-/** A choice of project or workflow: what was waiting goes with it, and another workflow's inputs and bindings are cleared. */
-function choose(change: LaunchEdit): void {
+/** Cancels the edit waiting out its pause, and gives back what it held. */
+function dropPendingEdit(): LaunchEdit {
   if (draftTimer !== undefined) frameTimers.clear(draftTimer)
   draftTimer = undefined
-  const { message } = pendingEdit
+  const dropped = pendingEdit
   pendingEdit = {}
+  return dropped
+}
+
+/** A choice of project or workflow: what was waiting goes with it, and another workflow's inputs and bindings are cleared. */
+function choose(change: LaunchEdit): void {
+  const { message } = dropPendingEdit()
   set(typedValues, null)
   set(bindingsTyped, false)
   edit(message === undefined ? change : { ...change, message })
@@ -321,9 +326,7 @@ function changeBindings(rows: BindingRow[]): void {
 /** Start: sent once. A press while one is posted is ignored. */
 function start(view: Ready, message: string): void {
   if (read(posting) || view.codebaseId === null || view.workflow === null) return
-  if (draftTimer !== undefined) frameTimers.clear(draftTimer)
-  draftTimer = undefined
-  pendingEdit = {}
+  dropPendingEdit()
   set(posting, true)
   const input: LaunchStart = { codebaseId: view.codebaseId, workflow: view.workflow, message }
   const values = valuesOf(view)
@@ -379,7 +382,7 @@ function startReason(view: Ready, message: string, writable: boolean): string | 
 
 function inputField(view: Ready, input: LaunchInput): OrcaNode {
   const values = valuesOf(view)
-  const value = Object.hasOwn(values, input.name) ? (values[input.name] ?? '') : ''
+  const value = valueOf(values, input.name)
   return (
     <Field key={input.name} label={input.name} required={input.required} description={input.description === '' ? undefined : input.description}>
       <Input
@@ -590,7 +593,7 @@ function notStartedView(starting: StartingView): OrcaNode {
 }
 
 function startingView(starting: StartingView): OrcaNode {
-  if (starting.state === 'refused' || starting.state === 'failed') return notStartedView(starting)
+  if (isNotStarted(starting.state)) return notStartedView(starting)
   let line: OrcaNode
   if (starting.state === 'found') line = <Text>The run has started.</Text>
   else if (starting.late) line = <Text>Archon has not shown the run after a minute.</Text>

@@ -15,6 +15,18 @@ export const TIER_NAMES = ['small', 'medium', 'large'] as const
 /** One row of the "Model bindings" group: a tier or alias name and the model it is bound to. */
 export type Binding = { name: string; model: string }
 
+/** What a launch's form holds besides its project and workflow: the message, the input values and the model bindings. */
+export type LaunchForm = { message: string; values: Record<string, string>; bindings: Binding[] }
+
+/** Bindings copied row by row, so no copy shares a row with its source. */
+export const copyBindings = (bindings: readonly Binding[]): Binding[] => bindings.map((binding) => ({ ...binding }))
+
+/** A form copied deep enough that no copy shares its values or a binding row with its source. */
+export const copyForm = (form: Readonly<LaunchForm>): LaunchForm => ({ message: form.message, values: { ...form.values }, bindings: copyBindings(form.bindings) })
+
+/** An input's typed value, or empty when none is typed. */
+export const valueOf = (values: Readonly<Record<string, string>>, name: string): string => (Object.hasOwn(values, name) ? (values[name] ?? '') : '')
+
 /** Whether a value counts as filled. A value of only spaces is not, so the declared default applies. */
 export const isFilled = (value: string): boolean => value.trim() !== ''
 
@@ -26,8 +38,8 @@ export function filledInputs(values: Readonly<Record<string, string>>): Record<s
 }
 
 /** The required inputs that are not filled, in declared order. */
-export function missingRequired(inputs: readonly LaunchInput[], values: Readonly<Record<string, string>>): string[] {
-  return inputs.filter((input) => input.required && !isFilled(Object.hasOwn(values, input.name) ? (values[input.name] ?? '') : '')).map((input) => input.name)
+export function missingRequired(inputs: readonly Pick<LaunchInput, 'name' | 'required'>[], values: Readonly<Record<string, string>>): string[] {
+  return inputs.filter((input) => input.required && !isFilled(valueOf(values, input.name))).map((input) => input.name)
 }
 
 /** Why Start is off while required inputs are empty, naming them. */

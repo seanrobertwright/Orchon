@@ -6,6 +6,7 @@
 import type { ConnectionAnswer } from './connection-view'
 import type { Binding } from './launch-form'
 import type { ProjectRef } from './scope-view'
+import { DECLARED_INPUTS_CAP } from './workflows-list'
 
 /** The most characters a launch message may have. It is sent as typed. */
 export const MESSAGE_CAP = 16_000
@@ -65,7 +66,7 @@ export type WorkflowsView =
   | { kind: 'failed'; message: string }
 
 /** The most declared inputs the form draws. A workflow that declares more cannot be launched here. */
-export const INPUTS_CAP = 50
+export const INPUTS_CAP = DECLARED_INPUTS_CAP
 
 /** One declared input as the form draws it: a text field. */
 export type LaunchInput = {
@@ -101,6 +102,9 @@ export type StartingState =
   | 'refused'
   /** Archon sent an `error` frame: `reason` is its text. */
   | 'failed'
+
+/** Whether a launch ended with no run: Archon refused it or failed it. */
+export const isNotStarted = (state: StartingState): boolean => state === 'refused' || state === 'failed'
 
 export type StartingView = {
   launchId: string
