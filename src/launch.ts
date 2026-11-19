@@ -98,9 +98,18 @@ type LaunchRecord = {
   looking: boolean
 }
 
-type Listed = { projects: ArchonProject[]; unreadable: number }
-type ProjectsResult = { kind: 'ready'; listed: Listed } | { kind: 'failed'; message: string }
-type ListResult = { kind: 'ready'; list: WorkflowList } | { kind: 'too-large' } | { kind: 'failed'; message: string }
+export type Listed = { projects: ArchonProject[]; unreadable: number }
+export type ProjectsResult = { kind: 'ready'; listed: Listed } | { kind: 'failed'; message: string }
+export type ListResult = { kind: 'ready'; list: WorkflowList } | { kind: 'too-large' } | { kind: 'failed'; message: string }
+
+/**
+ * The launcher's kept reads of Archon's projects and of each project's trimmed workflow list,
+ * which the Workflows section shares so neither is read twice. `reload` reads Archon again.
+ */
+export type LaunchLists = {
+  projects(server: Connected, reload: boolean): Promise<ProjectsResult>
+  list(server: Connected, project: ArchonProject, reload: boolean): Promise<ListResult>
+}
 
 /** Drops a map's oldest entries, by insertion order, until it holds at most `cap`. */
 function capOldest(map: Map<string, unknown>, cap: number): void {
@@ -214,7 +223,7 @@ export type LaunchPorts = {
   timers: { set(run: () => void, ms: number): unknown; clear(handle: unknown): void }
 }
 
-export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable {
+export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable & { lists: LaunchLists } {
   const drafts = new Map<string, Draft>()
   const records: LaunchRecord[] = []
   const lists = new Map<string, ListResult>()
@@ -642,6 +651,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
   ]
 
   return {
+    lists: { projects: readProjects, list: readList },
     dispose() {
       stopped = true
       for (const record of records) if (record.timer !== undefined) ports.timers.clear(record.timer)

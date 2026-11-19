@@ -13,6 +13,7 @@ import { startRunGraph } from './run-graph'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
 import { startWideTabs } from './wide-tabs'
+import { startWorkflowsSection } from './workflows-section'
 
 /**
  * Everything the worker does, on the ports it is given: the real ones in Orca, scripted ones in
@@ -54,9 +55,16 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     now: ports.now,
     timers: ports.timers
   })
+  const workflows = startWorkflowsSection(orca, {
+    client: connection.client,
+    current: connection.current,
+    focused: projectScope.focused,
+    lists: launch.lists
+  })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
+    workflows.dispose()
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()

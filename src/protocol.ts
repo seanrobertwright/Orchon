@@ -14,6 +14,7 @@ import type { SystemAnswer, SystemView } from './system-view'
 import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
 import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer } from './launch-view'
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
+import type { DeleteAnswer, WorkflowDelete, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
 
 declare module 'orca' {
   interface PluginRequests {
@@ -94,6 +95,10 @@ declare module 'orca' {
     'launch.notices': { output: NoticesAnswer }
     /** Dismisses a callout, or a run the Starting view opened. */
     'launch.dismiss': { input: { launchId: string }; output: NoticesAnswer }
+    /** The Workflows section: the projects, the chosen project's workflows and where each comes from. */
+    'workflows.read': { input: WorkflowsRequest; output: WorkflowsAnswer }
+    /** Deletes one project or global workflow, once, then reads the list again. */
+    'workflows.delete': { input: WorkflowDelete; output: DeleteAnswer }
   }
   interface PluginPanelEvents {
     /**
