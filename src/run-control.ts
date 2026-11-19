@@ -1,4 +1,5 @@
-// Run control: the worker's side of Cancel, Abandon, Resume and Try now. The worker is the
+// Run control: the worker's side of Cancel, Abandon, Resume and Try now, and of an answer to a
+// question, whose checks are in `run-answer.ts`. The worker is the
 // boundary, so it checks every request itself before anything reaches Archon, sends each write
 // once with the write timeout, and never tries one again. The outcomes follow the table of the
 // run control decision (#14, part 8).
@@ -7,6 +8,7 @@ import type { Client, ClientResult } from './client'
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import { isRecord, isText, own, refuseRequest } from './records'
+import { answerWrite, parseRunAnswerRequest, STALE_ANSWER_TEXT, type QuestionMemory } from './run-answer'
 import { RUN_PATH } from './run-detail'
 import { RUN_ACTIONS, SERVER_TEXT_CAP, type RunControlAnswer, type RunControlOutcome, type RunControlRequest } from './run-control-view'
 
@@ -69,33 +71,62 @@ export const WRITE_IN_FLIGHT_TEXT = 'Another change to this run is still waiting
 export type RunControlPorts = {
   client: Client
   current(): Promise<ConnectionView>
+  /** The question run detail last read for each run, which an answer must be written for. No answer is taken when left out. */
+  questions?: QuestionMemory
 }
 
-/** Answers the frames' `run.control`. */
+/** What a write sends to a run: the route after the run's path and the body, when it has one. */
+type RunWrite = { route: string; body?: Record<string, unknown> }
+
+/** Answers the frames' `run.control` and `run.answer`, one write per run at a time across both. */
 export function startRunControl(orca: OrcaWorkerApi, ports: RunControlPorts): Disposable {
   /** The runs with a write in flight. A run is in it from the check to the answer. */
   const writing = new Set<string>()
-  return orca.panels.handle('run.control', async (input): Promise<RunControlAnswer> => {
-    const request = parseRunControlRequest(input)
-    if (writing.has(request.runId)) {
+  /**
+   * Sends one write to a run, under the one-write-per-run rule, once connected. `build` gives the
+   * write, or the text of the worker's own refusal, which is answered without calling Archon.
+   */
+  async function guardedWrite(runId: string, build: () => RunWrite | string): Promise<RunControlAnswer> {
+    if (writing.has(runId)) {
       return { connection: await ports.current(), outcome: { kind: 'refused', status: null, message: WRITE_IN_FLIGHT_TEXT } }
     }
-    writing.add(request.runId)
+    writing.add(runId)
     try {
       const connection = await ports.current()
       if (connection.kind !== 'connected') return { connection, outcome: { kind: 'not-connected' } }
-      // Cancel, abandon and resume take no body at the floor, so none is sent: nothing the
-      // frame sent is passed through.
+      const write = build()
+      if (typeof write === 'string') return { connection, outcome: { kind: 'refused', status: null, message: write } }
+      const { route, body } = write
       const result = await ports.client.request({
         baseUrl: connection.baseUrl,
-        path: `${RUN_PATH}${encodeURIComponent(request.runId)}/${request.action}`,
+        path: `${RUN_PATH}${encodeURIComponent(runId)}/${route}`,
         method: 'POST',
+        ...(body === undefined ? {} : { body }),
         timeout: 'write',
         errorBody: true
       })
       return { connection: await ports.current(), outcome: controlOutcome(result) }
     } finally {
-      writing.delete(request.runId)
+      writing.delete(runId)
     }
+  }
+  const answers = orca.panels.handle('run.answer', async (input): Promise<RunControlAnswer> => {
+    const request = parseRunAnswerRequest(input)
+    return guardedWrite(
+      request.runId,
+      () => answerWrite(request, ports.questions?.lastRead(request.runId)) ?? STALE_ANSWER_TEXT
+    )
   })
+  const controls = orca.panels.handle('run.control', async (input): Promise<RunControlAnswer> => {
+    const request = parseRunControlRequest(input)
+    // Cancel, abandon and resume take no body at the floor, so none is sent: nothing the frame
+    // sent is passed through.
+    return guardedWrite(request.runId, () => ({ route: request.action }))
+  })
+  return {
+    dispose() {
+      answers.dispose()
+      controls.dispose()
+    }
+  }
 }

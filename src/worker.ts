@@ -6,6 +6,7 @@ import { startConnection, type WorkerPorts } from './connection'
 import { startLaunch } from './launch'
 import { realPorts } from './ports'
 import { startProjectScope } from './project-scope'
+import { createQuestionMemory } from './run-answer'
 import { startRunControl } from './run-control'
 import { startRunDetail } from './run-detail'
 import { startRunGraph } from './run-graph'
@@ -39,9 +40,11 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     openDisk: ports.openDisk,
     now: ports.now
   })
-  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, graphOff: wideTabs.graphOff, now: ports.now })
+  // The question run detail last read for each run, which an answer is checked against.
+  const questions = createQuestionMemory()
+  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, graphOff: wideTabs.graphOff, questionRead: questions.read, now: ports.now })
   const artifacts = startArtifacts(orca, connection)
-  const runControl = startRunControl(orca, connection)
+  const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
   const launch = startLaunch(orca, {
     client: connection.client,

@@ -2,9 +2,13 @@
 // the run's id from the file, asks the worker for the run on its workflow as it is now, and draws
 // a header, the banners and the graph in its own HTML. It is read-only: it never edits its file
 // and holds no control that writes. Every piece of outside text is set through `textContent`.
+import { createCanvas } from "../shared/canvas.js";
+import { elementMaker } from "../shared/dom.js";
 import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph, layoutInOrder } from "../shared/graph-layout.js";
+import { isRecord } from "../shared/records.js";
 import { createRefetch } from "./refetch.js";
+import { createSummaryCard, parseSummary } from "./summary-card.js";
 /** The least time between two reads nobody asked for, as run detail's. */
 export const GAP_MS = 1_000;
 /** How often the tab reads again by itself, and how often while live updates are off. */
@@ -33,7 +37,6 @@ export async function readPointer() {
         return null;
     }
 }
-const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 /** The run id a pointer file names, or null: `{ "orchon": "run-graph", "runId": ... }` and nothing else. */
 export function parsePointer(text) {
     if (text === null)
@@ -55,16 +58,21 @@ function isAnswer(value) {
     return isRecord(value) && isRecord(value.connection) && isRecord(value.graph) && typeof value.graph.kind === 'string' && typeof value.connection.kind === 'string';
 }
 let drawings = 0;
+/** The drawn steps of a graph drawing, in the order drawn. */
+function stepBoxes(root) {
+    const found = [];
+    const visit = (element) => {
+        if (element.getAttribute('data-step') !== null)
+            found.push(element);
+        for (const child of Array.from(element.children))
+            visit(child);
+    };
+    visit(root);
+    return found;
+}
 export function startTab(ports) {
     const { doc } = ports;
-    const el = (tag, text, className) => {
-        const element = doc.createElement(tag);
-        if (text !== undefined)
-            element.textContent = text;
-        if (className !== undefined)
-            element.setAttribute('class', className);
-        return element;
-    };
+    const el = elementMaker(doc);
     /** A sentence in which each word between backticks is code. */
     const withCode = (sentence) => {
         const line = el('p');
@@ -90,6 +98,11 @@ export function startTab(ports) {
     /** The layout of the graph last drawn, kept while the graph's shape does not change. */
     let laidOut;
     const prefix = `run-graph-${String((drawings += 1))}`;
+    /** The canvas, made with the first graph and kept while the tab is open, with what it shows. */
+    let area;
+    let direction = 'TB';
+    /** Whether loop groups are drawn with their steps; they start collapsed. */
+    let expanded = false;
     const subscriptions = [];
     function drawHeader(header) {
         if (header === null) {
@@ -142,16 +155,157 @@ export function startTab(ports) {
             section.appendChild(part);
         content.replaceChildren(section);
     }
-    /** The layout for a ready graph, made again only when its shape changed. */
-    function layoutOf(view) {
-        const key = JSON.stringify([view.mismatch, view.steps.map((step) => [step.id, step.group, step.isGroup, step.conditional]), view.edges]);
+    /** The steps and edges drawn: with loop groups collapsed, only the steps at the top, each group saying how many it holds. */
+    function drawnPart(view) {
+        const holds = new Map();
+        if (expanded)
+            return { steps: view.steps, edges: view.edges, holds };
+        const parent = new Map(view.steps.map((step) => [step.id, step.group]));
+        for (const step of view.steps) {
+            const seen = new Set();
+            for (let group = step.group; group !== null && !seen.has(group); group = parent.get(group) ?? null) {
+                seen.add(group);
+                holds.set(group, (holds.get(group) ?? 0) + 1);
+            }
+        }
+        const steps = view.steps.filter((step) => step.group === null);
+        const shown = new Set(steps.map((step) => step.id));
+        return { steps, edges: view.edges.filter((edge) => shown.has(edge.from) && shown.has(edge.to)), holds };
+    }
+    /** The layout for a ready graph, made again only when its shape, the direction or the loop switch changed. */
+    function layoutOf(view, part) {
+        const key = JSON.stringify([view.mismatch, direction, part.steps.map((step) => [step.id, step.group, step.isGroup, step.conditional]), part.edges]);
         if (laidOut?.key !== key) {
             const layout = view.mismatch === null
-                ? layoutGraph(view.steps, view.edges)
-                : layoutInOrder(view.steps.map((step) => step.id));
+                ? layoutGraph(part.steps, part.edges, direction)
+                : layoutInOrder(part.steps.map((step) => step.id), direction);
             laidOut = { key, layout };
         }
         return laidOut.layout;
+    }
+    /** The canvas with the tab's own tools after its own: the direction and the loop switch. */
+    function makeArea(label) {
+        const canvas = createCanvas({
+            doc,
+            label,
+            idPrefix: prefix,
+            onStep: (id) => openCard(id),
+            ...(ports.observeSize === undefined ? {} : { observeSize: ports.observeSize })
+        });
+        const set = el('fieldset', undefined, 'direction');
+        set.appendChild(el('legend', 'Direction'));
+        for (const [value, text] of [
+            ['TB', 'Top to bottom'],
+            ['LR', 'Left to right']
+        ]) {
+            const radio = el('input');
+            radio.setAttribute('type', 'radio');
+            radio.setAttribute('name', `${prefix}-direction`);
+            radio.id = `${prefix}-direction-${value}`;
+            radio.value = value;
+            radio.checked = value === direction;
+            radio.addEventListener('change', () => {
+                if (!radio.checked || direction === value)
+                    return;
+                direction = value;
+                redraw(true);
+            });
+            const label = el('label', text);
+            label.setAttribute('for', radio.id);
+            set.append(radio, label);
+        }
+        const loops = button('Show loop steps', () => {
+            expanded = !expanded;
+            loops.setAttribute('aria-pressed', String(expanded));
+            redraw(true);
+        });
+        loops.setAttribute('aria-pressed', 'false');
+        loops.setAttribute('class', 'tool');
+        canvas.tools.append(set, loops);
+        return { canvas, loops, drawn: '', boxes: new Map() };
+    }
+    /** Each drawn step as the card shows it, by id, from the last graph drawn. */
+    let cardSteps = new Map();
+    /** The step whose card is open, or null. */
+    let selected = null;
+    const card = createSummaryCard(doc, `${prefix}-card`, () => closeCard());
+    /** Marks which step's card is open, on every drawn step. */
+    function markSelected() {
+        for (const [id, box] of area?.boxes ?? []) {
+            box.setAttribute('aria-expanded', String(id === selected));
+            box.setAttribute('aria-controls', card.root.id);
+        }
+    }
+    /** Opens a step's card over the canvas, or shows another step on the open card. The focus stays where it is. */
+    function openCard(id) {
+        const step = cardSteps.get(id);
+        if (step === undefined || area === undefined)
+            return;
+        selected = id;
+        card.show(step);
+        if (card.root.parentElement !== area.canvas.root)
+            area.canvas.root.appendChild(card.root);
+        markSelected();
+    }
+    /** Closes the card. When the focus was in it, it goes back to the step the card was for, as it would otherwise be lost. */
+    function closeCard() {
+        if (selected === null)
+            return;
+        const had = card.root.contains(doc.activeElement);
+        const box = area?.boxes.get(selected);
+        selected = null;
+        card.root.parentElement?.removeChild(card.root);
+        markSelected();
+        if (had && box !== undefined)
+            box.focus();
+    }
+    ports.app.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || selected === null)
+            return;
+        event.preventDefault();
+        closeCard();
+    });
+    /** Draws the last ready graph again after a change of direction or of the loop switch, and fits it. */
+    function redraw(fit) {
+        if (shown?.kind === 'ready')
+            drawReady(shown, fit);
+    }
+    /** Draws a ready graph on the canvas. Nothing is laid out or drawn again while what it shows is unchanged. */
+    function drawReady(view, fit = false) {
+        const label = `Steps of ${view.header.workflow}`;
+        area ??= makeArea(label);
+        area.canvas.viewport.setAttribute('aria-label', label);
+        area.loops.hidden = !view.steps.some((step) => step.isGroup && view.steps.some((inner) => inner.group === step.id));
+        if (content.children[0] !== area.canvas.root)
+            content.replaceChildren(area.canvas.root);
+        const part = drawnPart(view);
+        const steps = new Map();
+        cardSteps = new Map();
+        for (const step of part.steps) {
+            const holds = part.holds.get(step.id);
+            const shared = { name: step.name, kind: step.kind, stateText: `${step.glyph} ${step.word}`, note: step.note, ...(holds === undefined ? {} : { holds }) };
+            steps.set(step.id, { ...shared, state: step.state });
+            cardSteps.set(step.id, { ...shared, summary: parseSummary(step.summary) });
+        }
+        const laid = layoutOf(view, part);
+        const drawn = JSON.stringify([laidOut?.key, label, [...steps]]);
+        if (drawn !== area.drawn) {
+            area.drawn = drawn;
+            // A step with the focus is drawn again with it, so a refetch does not take it away.
+            const focused = [...area.boxes].find(([, box]) => box === doc.activeElement)?.[0];
+            const svg = drawGraph(doc, laid, steps, { label, idPrefix: prefix });
+            area.boxes = new Map(stepBoxes(svg).map((box) => [box.getAttribute('data-step') ?? '', box]));
+            area.canvas.show(svg, laid, new Map(part.steps.map((step) => [step.id, step.state])), { fit });
+            if (focused !== undefined)
+                area.boxes.get(focused)?.focus();
+        }
+        if (selected !== null) {
+            if (cardSteps.has(selected))
+                openCard(selected);
+            else
+                closeCard();
+        }
+        markSelected();
     }
     /** Draws what the tab shows, with banners first: the Searching banner, a mismatch, a failed read. */
     function drawShown(view, lines) {
@@ -173,11 +327,7 @@ export function startTab(ports) {
             content.replaceChildren(el('p', `This run has ${String(view.count)} steps. One graph lays out at most ${String(view.cap)}, so this one is not drawn. Its steps are listed in run detail in the Orchon panel.`));
         }
         else {
-            const steps = new Map(view.steps.map((step) => [step.id, { name: step.name, kind: step.kind, state: step.state, stateText: `${step.glyph} ${step.word}`, note: step.note }]));
-            const svg = drawGraph(doc, layoutOf(view), steps, { label: `Steps of ${view.header.workflow}`, idPrefix: prefix });
-            const canvas = el('div', undefined, 'canvas');
-            canvas.appendChild(svg);
-            content.replaceChildren(canvas);
+            drawReady(view);
         }
     }
     function apply(answer) {
@@ -260,6 +410,7 @@ export function startTab(ports) {
         stop() {
             stopped = true;
             fetcher.stop();
+            area?.canvas.stop();
             for (const subscription of subscriptions)
                 subscription.dispose();
         }

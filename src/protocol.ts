@@ -4,6 +4,8 @@ import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
 import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
+import type { NotificationsTestAnswer, NotificationsView } from './notifications-view'
+import type { RunAnswerRequest } from './run-answer-view'
 import type { RunControlAnswer, RunControlRequest } from './run-control-view'
 import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
@@ -32,6 +34,8 @@ declare module 'orca' {
     'artifact.read': { input: ArtifactRequest; output: ArtifactAnswer }
     /** Cancel, Abandon, Resume or Try now on one run: sent once, never tried again. */
     'run.control': { input: RunControlRequest; output: RunControlAnswer }
+    /** Answers a gate through `respond` or an attention wait through `answer`, guarded by the question it was written for: sent once, never tried again. */
+    'run.answer': { input: RunAnswerRequest; output: RunControlAnswer }
     /** The project scope of the focused workspace. It takes no input. */
     'scope.read': { output: ScopeAnswer }
     /** Links the focused Orca project to an Archon project Archon lists, or changes its link. */
@@ -68,6 +72,10 @@ declare module 'orca' {
     'forms.save': { input: { group: FormGroupId }; output: FormsAnswer }
     /** Settles a save stopped by an outside change: load, overwrite or keep editing. */
     'forms.resolve': { input: { group: FormGroupId; choice: ConflictChoice }; output: FormsAnswer }
+    /** The Notifications setting as the worker last read it. It takes no input. */
+    'notifications.read': { output: NotificationsView }
+    /** Send test notification: one notification naming no run, and whether Orca delivered it. It takes no input. */
+    'notifications.test': { output: NotificationsTestAnswer }
     /** Open graph: writes the run's pointer file into `.orchon/` and opens it in a wide tab. */
     'graph.open': { input: GraphOpenRequest; output: GraphOpenAnswer }
     /** A run graph tab: the run on its workflow as it is now, and the connection as the tab draws it. */
@@ -103,6 +111,8 @@ declare module 'orca' {
     'needs-you.changed': null
     /** The System group, posted when a read that no request waits for has ended. */
     'system.changed': SystemView
+    /** The Notifications setting, posted when it changes. */
+    'notifications.changed': NotificationsView
     /** The editable groups, posted when a save or a read that no request waits for has ended. */
     'forms.changed': FormsView
     /** A hint that a launch changed: its run was found, or it waited 60 seconds. It carries no data. */

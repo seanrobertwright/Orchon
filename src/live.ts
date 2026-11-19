@@ -4,6 +4,7 @@
 // waits on a frame: every promise is caught, since an unhandled rejection would stop the worker.
 import type { Client, Timers } from './client'
 import { HINT_TYPES, type HintType, type RunsHint } from './hint-view'
+import { errorText } from './records'
 import { createFrameParser, readDashboardFrame } from './stream-frames'
 
 /** Archon's dashboard stream. It is not in the path list, so the path check does not cover it. */
@@ -24,6 +25,8 @@ export type LivePorts = {
   timers: Timers
   /** Posts a hint to every open frame. */
   hint(hint: RunsHint): void
+  /** A `workflow_status` frame named this run, as it arrived and before any folding. */
+  status?(runId: string): void
   /** The stream opened (true) or was found down (false). Connected is entered taking it as live. */
   live(live: boolean): void
   /** Nothing took the stream's connection: the server is gone. */
@@ -144,7 +147,7 @@ export function createLive(ports: LivePorts): Live {
 
   function attemptNow(): void {
     attempt().catch((error: unknown) => {
-      ports.log(`Orchon could not read Archon's stream: ${error instanceof Error ? error.message : String(error)}`)
+      ports.log(`Orchon could not read Archon's stream: ${errorText(error)}`)
     })
   }
 
@@ -186,7 +189,9 @@ export function createLive(ports: LivePorts): Live {
         if (frames === null) break
         for (const frame of frames) {
           const read = readDashboardFrame(frame)
-          if (read !== null) hints.add(read.type, read.runId)
+          if (read === null) continue
+          hints.add(read.type, read.runId)
+          if (read.type === 'workflow_status') ports.status?.(read.runId)
         }
       }
       if (mine === generation) dropped = true
