@@ -109,11 +109,12 @@ describe('the Runs section', () => {
     ])
   })
 
-  test('columns appear as the panel widens: Run and Started always, Status from 360 px, Ran for from 480 px', async () => {
+  test('columns appear as the panel widens: Run and Started always, Status from 360 px, Project and Ran for from 480 px', async () => {
+    // With no workspace focused the section shows all projects, so the table names each run's project.
     const view = await mountWith(busy)
     assert.deepEqual(view.columnsOf(TABLE, { width: 220 }), ['run', 'started'])
     assert.deepEqual(view.columnsOf(TABLE, { width: 360 }), ['run', 'status', 'started'])
-    assert.deepEqual(view.columnsOf(TABLE, { width: 480 }), ['run', 'status', 'started', 'ranFor'])
+    assert.deepEqual(view.columnsOf(TABLE, { width: 480 }), ['run', 'status', 'started', 'project', 'ranFor'])
   })
 
   test('a row is the glyph and the workflow name, the status as a glyph and a word, and its times', async () => {
@@ -126,6 +127,7 @@ describe('the Runs section', () => {
         run: '● workflow-0',
         status: '● Running',
         started: { type: 'relative', at: sampleRun(0).startedAt, format: 'short' },
+        project: 'acme/web',
         ranFor: { type: 'relative', at: sampleRun(0).startedAt, format: 'duration' }
       }
     })
@@ -133,6 +135,7 @@ describe('the Runs section', () => {
       run: '✕ workflow-1',
       status: '✕ Failed',
       started: { type: 'relative', at: sampleRun(1).startedAt, format: 'short' },
+      project: 'acme/api',
       ranFor: '1m 15s'
     })
     assert.equal(rows[2]?.cells['status'], '○ Queued')

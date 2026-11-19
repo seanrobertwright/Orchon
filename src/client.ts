@@ -51,6 +51,11 @@ export type ClientCall = {
   /** Sent as JSON. The worker builds it; nothing from a frame is passed through. */
   body?: unknown
   maxBytes?: number
+  /**
+   * Keeps the JSON body of an answer outside 200 to 299, such as Archon's message on a refused
+   * write. It is read under the same cap; one that is not JSON is left out.
+   */
+  errorBody?: boolean
   /** Aborts the call when its caller no longer wants the answer. */
   signal?: AbortSignal
 }
@@ -66,8 +71,8 @@ export type ClientFailure =
   | { kind: 'too-large' }
   /** No JSON content type, or a body that is not JSON. From a `200` it means the feature is missing. */
   | { kind: 'not-json' }
-  /** A status outside 200 to 299, a redirect included. */
-  | { kind: 'status'; status: number }
+  /** A status outside 200 to 299, a redirect included. `body` only when the call asked for it. */
+  | { kind: 'status'; status: number; body?: unknown }
   /** The caller aborted the call. */
   | { kind: 'cancelled' }
 
@@ -181,7 +186,17 @@ function parseJson(text: string): ClientResult {
   }
 }
 
-export function createClient(ports: { fetch: FetchLike; timers: Timers }): Client {
+export type ClientPorts = {
+  fetch: FetchLike
+  timers: Timers
+  /**
+   * Told of every request that gave no value, apart from one its caller cancelled. A stream is
+   * not reported: its caller decides what its failures mean.
+   */
+  failed?(call: ClientCall, failure: ClientFailure): void
+}
+
+export function createClient(ports: ClientPorts): Client {
   async function exchange(url: string, call: ClientCall, signal: AbortSignal): Promise<ClientResult> {
     const headers: Record<string, string> = { accept: 'application/json' }
     const init: FetchInit = { method: call.method ?? 'GET', headers, redirect: 'manual', signal }
@@ -190,10 +205,48 @@ export function createClient(ports: { fetch: FetchLike; timers: Timers }): Clien
       init.body = JSON.stringify(call.body)
     }
     const answer = await ports.fetch(url, init)
-    if (answer.status < 200 || answer.status > 299) return requestFailed({ kind: 'status', status: answer.status })
-    if (!JSON_CONTENT_TYPE.test(answer.headers.get('content-type')?.trim() ?? '')) return requestFailed({ kind: 'not-json' })
+    const json = JSON_CONTENT_TYPE.test(answer.headers.get('content-type')?.trim() ?? '')
+    if (answer.status < 200 || answer.status > 299) {
+      if (call.errorBody !== true || !json) return requestFailed({ kind: 'status', status: answer.status })
+      const text = await readCapped(answer.body, call.maxBytes ?? READ_CAP_BYTES)
+      const parsed = typeof text === 'string' ? parseJson(text) : null
+      return requestFailed(parsed?.ok === true ? { kind: 'status', status: answer.status, body: parsed.value } : { kind: 'status', status: answer.status })
+    }
+    if (!json) return requestFailed({ kind: 'not-json' })
     const text = await readCapped(answer.body, call.maxBytes ?? READ_CAP_BYTES)
     return typeof text === 'string' ? parseJson(text) : requestFailed(text)
+  }
+
+  async function send(call: ClientCall): Promise<ClientResult> {
+    const url = loopbackUrl(call.baseUrl, call.path)
+    if (url === null) return requestFailed({ kind: 'not-loopback' })
+    if (call.signal?.aborted === true) return requestFailed({ kind: 'cancelled' })
+
+    const timeoutMs = TIMEOUT_MS[call.timeout]
+    const controller = new AbortController()
+    let ended: ClientFailure | undefined
+    // The transport may ignore the signal, so the call itself also ends when it is aborted.
+    const aborted = new Promise<ClientResult>((resolve) => {
+      controller.signal.addEventListener('abort', () => resolve(requestFailed(ended ?? { kind: 'cancelled' })))
+    })
+    const end = (failure: ClientFailure): void => {
+      ended ??= failure
+      controller.abort()
+    }
+    const timer = ports.timers.set(() => end({ kind: 'timeout', timeoutMs }), timeoutMs)
+    const cancel = (): void => end({ kind: 'cancelled' })
+    call.signal?.addEventListener('abort', cancel)
+    try {
+      return await Promise.race([
+        exchange(url, call, controller.signal).catch(() => requestFailed(ended ?? { kind: 'refused' })),
+        aborted
+      ])
+    } finally {
+      ports.timers.clear(timer)
+      call.signal?.removeEventListener('abort', cancel)
+      // Lets go of a body the client stopped reading.
+      controller.abort()
+    }
   }
 
   return {
@@ -216,35 +269,9 @@ export function createClient(ports: { fetch: FetchLike; timers: Timers }): Clien
     },
 
     async request(call) {
-      const url = loopbackUrl(call.baseUrl, call.path)
-      if (url === null) return requestFailed({ kind: 'not-loopback' })
-      if (call.signal?.aborted === true) return requestFailed({ kind: 'cancelled' })
-
-      const timeoutMs = TIMEOUT_MS[call.timeout]
-      const controller = new AbortController()
-      let ended: ClientFailure | undefined
-      // The transport may ignore the signal, so the call itself also ends when it is aborted.
-      const aborted = new Promise<ClientResult>((resolve) => {
-        controller.signal.addEventListener('abort', () => resolve(requestFailed(ended ?? { kind: 'cancelled' })))
-      })
-      const end = (failure: ClientFailure): void => {
-        ended ??= failure
-        controller.abort()
-      }
-      const timer = ports.timers.set(() => end({ kind: 'timeout', timeoutMs }), timeoutMs)
-      const cancel = (): void => end({ kind: 'cancelled' })
-      call.signal?.addEventListener('abort', cancel)
-      try {
-        return await Promise.race([
-          exchange(url, call, controller.signal).catch(() => requestFailed(ended ?? { kind: 'refused' })),
-          aborted
-        ])
-      } finally {
-        ports.timers.clear(timer)
-        call.signal?.removeEventListener('abort', cancel)
-        // Lets go of a body the client stopped reading.
-        controller.abort()
-      }
+      const result = await send(call)
+      if (!result.ok && result.failure.kind !== 'cancelled') ports.failed?.(call, result.failure)
+      return result
     }
   }
 }

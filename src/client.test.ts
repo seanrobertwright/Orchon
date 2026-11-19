@@ -186,6 +186,21 @@ describe('the client', () => {
     })
   })
 
+  test("keeps an error status's JSON body only when the call asks for it", async () => {
+    const { archon, client } = scripted()
+    archon.answer(HEALTH, json({ error: 'Unknown provider' }, 400))
+    assert.deepEqual(await client.request(read('/api/health', { errorBody: true })), {
+      ok: false,
+      failure: { kind: 'status', status: 400, body: { error: 'Unknown provider' } }
+    })
+    // A body that is not JSON is left out; the status is still reported.
+    archon.answer(HEALTH, html(400))
+    assert.deepEqual(await client.request(read('/api/health', { errorBody: true })), {
+      ok: false,
+      failure: { kind: 'status', status: 400 }
+    })
+  })
+
   test('stops reading at the cap and reports the answer as too large', async () => {
     const { archon, client } = scripted()
     const chunk = new Uint8Array(4).fill(0x20)

@@ -200,37 +200,38 @@ describe('the System group', () => {
   })
 
   test('asks the worker to read when the section shows, and to stop when it is left', async () => {
-    // Opened on Runs, the panel also reads the runs table once connected.
+    // Opened on Runs, the panel also reads the project scope, then the runs table, once connected.
     const view = await mountOn(connected, systemRead, 'runs')
-    assert.deepEqual(requests(view), ['connection.read', 'runs.read'])
+    assert.deepEqual(requests(view), ['connection.read', 'scope.read', 'runs.read'])
     await view.select(SECTION_BAR, 'settings')
-    assert.deepEqual(requests(view), ['connection.read', 'runs.read', 'system.open'])
+    assert.deepEqual(requests(view), ['connection.read', 'scope.read', 'runs.read', 'forms.read', 'system.open'])
     await view.select(SECTION_BAR, 'chat')
-    assert.deepEqual(requests(view), ['connection.read', 'runs.read', 'system.open', 'system.close'])
+    assert.deepEqual(requests(view), ['connection.read', 'scope.read', 'runs.read', 'forms.read', 'system.open', 'system.close'])
     await view.select(SECTION_BAR, 'metrics')
-    assert.deepEqual(requests(view), ['connection.read', 'runs.read', 'system.open', 'system.close'])
+    assert.deepEqual(requests(view), ['connection.read', 'scope.read', 'runs.read', 'forms.read', 'system.open', 'system.close'])
     clean(view)
   })
 
   test('opened on Settings, it asks at once, and closing the panel stops the reads', async () => {
     const view = await mountOn(connected, systemRead)
-    assert.deepEqual(requests(view), ['connection.read', 'system.open'])
+    assert.deepEqual(requests(view), ['connection.read', 'forms.read', 'system.open'])
     await view.unmount()
     panel = undefined
-    assert.deepEqual(requests(view), ['connection.read', 'system.open', 'system.close'])
+    assert.deepEqual(requests(view), ['connection.read', 'forms.read', 'system.open', 'system.close'])
   })
 
   test('the show-runs hint leaves Settings, and the reads stop', async () => {
     const view = await mountOn(connected, systemRead)
     await view.post('show-runs', null)
-    // Coming to Runs reads the runs table.
-    assert.deepEqual(requests(view), ['connection.read', 'system.open', 'runs.read', 'system.close'])
+    // Coming to Runs reads the project scope, then the runs table.
+    assert.deepEqual(requests(view), ['connection.read', 'forms.read', 'system.open', 'scope.read', 'system.close', 'runs.read'])
   })
 
   test('Refresh asks the worker to read again, and a posted view replaces the one shown', async () => {
     const view = await mountOn(connected, systemRead)
     await view.press({ type: 'Button', text: 'Refresh' })
-    assert.deepEqual(requests(view), ['connection.read', 'system.open', 'system.refresh'])
+    // Refresh also reads the config and the providers of the editable groups.
+    assert.deepEqual(requests(view), ['connection.read', 'forms.read', 'system.open', 'forms.read', 'system.refresh'])
     await view.post('system.changed', { ...systemRead, since: 100, updates: { kind: 'unavailable' } })
     assert.equal(updatesRow(view), 'Updates: Update check unavailable')
     // An older view arriving late changes nothing.

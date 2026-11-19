@@ -7,6 +7,7 @@ import {
   CLOCK_START,
   DEFAULT,
   DEFAULT_HEALTH,
+  HANG,
   health,
   kinds,
   openStream,
@@ -18,8 +19,10 @@ import {
   type ScriptedStream
 } from '../scripts/scripted-archon.ts'
 import type { FetchAnswer, FetchLike } from './client'
+import { DASHBOARD_RUNS_PATH } from './dashboard-runs'
 
 const STREAM = `${DEFAULT}/api/stream/__dashboard__`
+const RUNS_PAGE = `${DEFAULT}${DASHBOARD_RUNS_PATH}?limit=50&offset=0`
 
 /** A connected scene whose dashboard stream answers each open with a fresh held-open stream. */
 function connectedScene(): { stage: Scene; streams: ScriptedStream[] } {
@@ -217,6 +220,23 @@ describe('keeping the stream open', () => {
     await mounted.worker.deactivate()
   })
 
+  test('a refused connection on the stream from a server that has stopped keeps the grace before Not found', async () => {
+    const stage = scene()
+    stage.archon.answer(DEFAULT_HEALTH, health())
+    stage.archon.answer(STREAM, () => {
+      stage.archon.answer(DEFAULT_HEALTH, REFUSE)
+      return REFUSE
+    })
+    const mounted = await stage.mount()
+    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching'])
+    // Discovery looks every 2 seconds and the state stays Searching for 20 seconds, as for any refused call.
+    await stage.clock.advance(19_999)
+    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching'])
+    await stage.clock.advance(1)
+    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching', 'not-found'])
+    await mounted.worker.deactivate()
+  })
+
   test('a server that answers health and keeps refusing the stream is asked at the pace of discovery, not in a loop', async () => {
     const stage = scene()
     stage.archon.answer(DEFAULT_HEALTH, health())
@@ -240,11 +260,14 @@ describe('keeping the stream open', () => {
       return openStream({ status: 503 })
     })
     const mounted = await stage.mount()
-    await stage.clock.advance(10_000)
+    // A runs read that hangs times out at 10 seconds, and the health check it sends finds another
+    // store there: discovery connects afresh.
+    stage.archon.answer(RUNS_PAGE, HANG)
+    void mounted.worker.request('runs.read', { status: 'all', rows: 25 })
+    await stage.clock.advance(9_999)
     assert.deepEqual(times, [0, 1_000, 3_000, 7_000])
-    // A check finds another store there: discovery connects afresh.
     stage.archon.answer(DEFAULT_HEALTH, health({ storeId: 'store-b' }))
-    await mounted.read()
+    await stage.clock.advance(1)
     assert.deepEqual(kinds(mounted), ['searching', 'connected', 'connected', 'searching', 'connected', 'connected'])
     assert.deepEqual(times, [0, 1_000, 3_000, 7_000, 10_000])
     await stage.clock.advance(1_000)
