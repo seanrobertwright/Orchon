@@ -9,6 +9,7 @@ import { DRAFT_SEND_PAUSE_MS } from './chat-drafts-view'
 import { CHAT_MESSAGE_CAP, COMPOSER_CHARACTER_CAP, messageBytes, type ChatSendAnswer, type ChatSendOutcome, type ChatSendRequest } from './chat-send-view'
 import type { Thread, ThreadMessage } from './chat-thread-view'
 import type { ConnectionView } from './connection-view'
+import { streamBusy, workingLabel } from './chat-working'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
 import { isRecord } from './records'
@@ -77,9 +78,9 @@ const ownTurn = (conversationId: string): Turn | undefined => {
   return Object.hasOwn(all, conversationId) ? all[conversationId] : undefined
 }
 
-/** Whether a turn is in flight for the conversation, as far as the panel can tell. */
+/** Whether a turn is in flight for the conversation: as the stream says while the worker reads it, else as inferred. */
 export function chatBusy(conversationId: string): boolean {
-  return ownTurn(conversationId) !== undefined
+  return streamBusy(conversationId, ownTurn(conversationId)?.since)
 }
 
 /** A message was accepted: the conversation is busy from now until its reply is saved. */
@@ -310,7 +311,7 @@ export function composer(target: ComposerTarget, options: { writable: boolean; h
           {GAVE_UP_NOTE}
         </Text>
       ) : null}
-      {busy ? <Spinner label="Working…" /> : null}
+      {busy ? <Spinner label={workingLabel(target.conversationId)} /> : null}
     </Stack>
   )
 }

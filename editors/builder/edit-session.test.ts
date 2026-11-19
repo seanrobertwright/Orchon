@@ -112,6 +112,20 @@ describe('Unsaved changes', () => {
     edit(session, 0, 'prompt', 'Plan it')
     assert.equal(session.dirty(), false)
   })
+
+  test('a save makes the copy as it stands the one later edits are told apart from, and undo still steps back past it', () => {
+    const session = open(SMALL)
+    edit(session, 0, 'prompt', 'Plan it well')
+    session.markSaved()
+    assert.equal(session.dirty(), false)
+    edit(session, 0, 'prompt', 'Plan it')
+    assert.equal(session.dirty(), true)
+    assert.ok(session.undo())
+    assert.equal(session.dirty(), false)
+    assert.ok(session.undo())
+    assert.equal(nodesOf(session)[0]?.prompt, 'Plan it')
+    assert.equal(session.dirty(), true)
+  })
 })
 
 describe('undo and redo', () => {

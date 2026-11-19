@@ -136,4 +136,17 @@ describe('reading a conversation frame', () => {
     // A type only inherited is no type.
     assert.equal(read('{"__proto__":{"type":"workflow_dispatch"}}'), null)
   })
+
+  // The shapes `WebAdapter` writes in Archon 0.12.1 (`packages/server/src/adapters/web.ts` and
+  // `web/persistence.ts`); no recording holds a tool call, a tool result or a warning.
+  test("reads a tool call for its tool's name alone, a tool result and a warning for their type alone", () => {
+    const call = { type: 'tool_call', toolCallId: 'call-1', name: 'Bash', input: { command: 'ls' }, timestamp: 1 }
+    assert.deepEqual(read(JSON.stringify(call)), { type: 'tool_call', name: 'Bash' })
+    const result = { type: 'tool_result', toolCallId: 'call-1', name: 'Bash', output: 'README.md', status: 'completed', duration: 4, timestamp: 2 }
+    assert.deepEqual(read(JSON.stringify(result)), { type: 'tool_result' })
+    assert.deepEqual(read(JSON.stringify({ type: 'warning', message: 'Assistant response could not be saved to history', timestamp: 3 })), { type: 'warning' })
+    for (const data of ['{"type":"tool_call","name":""}', '{"type":"tool_call","name":7}', '{"type":"thinking","content":"hm"}']) {
+      assert.equal(read(data), null, data)
+    }
+  })
 })

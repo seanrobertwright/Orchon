@@ -51,7 +51,7 @@ function clean(view: TestPanel): void {
 describe('opening a thread', () => {
   test('a row opens its thread: a back control and the Show tool calls switch, the title, the project and its folder', async () => {
     const view = await openFirst((request) => sampleThread(3, request))
-    assert.deepEqual(sent(view), [{ conversationId: 'web-chat-0', limit: 50 }])
+    assert.deepEqual(sent(view), [{ conversationId: 'web-chat-0', limit: 50, open: true }])
     assert.ok(view.find({ type: 'Button', text: 'Chats' }))
     const toggle = view.find({ type: 'Switch', label: 'Show tool calls' })
     assert.equal(toggle?.props.checked, false)
@@ -354,7 +354,7 @@ describe('when the thread is read', () => {
       host: mockHost(answeringThread((request) => sampleThread(2, request))),
       persisted: { workspace: { section: 'chat', openChat: 'web-chat-3' } }
     })
-    assert.deepEqual(sent(panel), [{ conversationId: 'web-chat-3', limit: 50 }])
+    assert.deepEqual(sent(panel), [{ conversationId: 'web-chat-3', limit: 50, open: true }])
     assert.ok(panel.find({ type: 'Heading', text: 'Question 0' }))
     clean(panel)
   })
@@ -373,7 +373,7 @@ describe('when the thread is read', () => {
     })
     assert.ok(panel.find({ type: 'Heading', text: 'As the worker last read it' }))
     assert.ok(panel.find({ type: 'Callout', text: /Archon answered with an error \(500\)\./ }))
-    assert.deepEqual(sent(panel), [{ conversationId: 'web-chat-3', limit: 50 }])
+    assert.deepEqual(sent(panel), [{ conversationId: 'web-chat-3', limit: 50, open: true }])
     clean(panel)
   })
 

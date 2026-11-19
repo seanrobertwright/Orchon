@@ -1,7 +1,8 @@
 // A chat thread's request: a frame sends a conversation id and how many of its newest messages to
 // read, and the worker reads the conversation, its project and its saved messages from Archon and
 // answers once. The frame gets the trimmed view model of `chat-thread-view.ts`, never Archon's
-// JSON. It reads saved messages only: no stream is opened here.
+// JSON. It reads saved messages only. Each read renews the lease of `chat-stream.ts` on the
+// conversation's stream, and the answer carries what that stream said of the turn, never its text.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import {
   ARCHON_MESSAGES_CAP,
@@ -23,6 +24,7 @@ import {
   type ThreadView,
   WORKFLOW_NAME_CAP
 } from './chat-thread-view'
+import type { ChatStreams } from './chat-stream'
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
@@ -36,7 +38,7 @@ import { RUN_ID_CAP } from './run-detail-view'
 /** A frame's request, or a refusal. */
 export function parseThreadRequest(input: unknown): ThreadRequest {
   if (!isRecord(input)) refuseRequest('The chat thread request takes a conversation id and a limit.')
-  refuseOtherKeys(input, ['conversationId', 'limit', 'toolCalls'], 'The chat thread request')
+  refuseOtherKeys(input, ['conversationId', 'limit', 'toolCalls', 'open'], 'The chat thread request')
   const conversationId = own(input, 'conversationId')
   if (!isConversationId(conversationId)) {
     refuseRequest(`${cappedTextRefusal('The conversation id', CONVERSATION_ID_CAP)} It may hold only letters, digits, _ and -.`)
@@ -50,6 +52,10 @@ export function parseThreadRequest(input: unknown): ThreadRequest {
     const toolCalls = own(input, 'toolCalls')
     if (typeof toolCalls !== 'boolean') refuseRequest('Tool calls must be true or false.')
     if (toolCalls) request.toolCalls = true
+  }
+  if (Object.hasOwn(input, 'open')) {
+    if (own(input, 'open') !== true) refuseRequest('Open must be true when it is given.')
+    request.open = true
   }
   return request
 }
@@ -349,6 +355,8 @@ export type ChatThreadPorts = {
   client: Client
   /** The connection state now, once the settings were first read. */
   current(): Promise<ConnectionView>
+  /** The conversations' streams: each read of a thread is their lease. */
+  chatStreams?: ChatStreams
   /** A read of the thread was answered from Archon. */
   answered?(conversationId: string, view: ThreadView): void
 }
@@ -359,7 +367,10 @@ export function startChatThread(orca: OrcaWorkerApi, ports: ChatThreadPorts): Di
     const request = parseThreadRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, thread: { kind: 'not-connected' } }
+    ports.chatStreams?.lease(connection.baseUrl, request.conversationId, request.open === true)
     const thread = await readThread(ports.client, connection, request, context.signal)
+    const live = ports.chatStreams?.live(connection.baseUrl, request.conversationId) ?? null
+    if (thread.kind === 'ready' && live !== null) thread.thread.live = live
     ports.answered?.(request.conversationId, thread)
     return { connection: await ports.current(), thread }
   })
