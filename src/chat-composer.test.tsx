@@ -6,6 +6,7 @@ import { mock } from 'node:test'
 import { afterEach, assert, beforeEach, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
 import { sampleChats } from '../scripts/chat-samples.ts'
 import { searching } from '../scripts/connection-samples.ts'
+import { unmatchedGit } from '../scripts/scope-samples.ts'
 import { answeringThread, sampleMessage, sampleThread } from '../scripts/chat-thread-samples.ts'
 import type { ChatProjectsRequest, ChatProjectsView, ChatSendOutcome, ChatSendRequest } from './chat-send-view'
 import type { ThreadMessage, ThreadRequest, ThreadView } from './chat-thread-view'
@@ -321,6 +322,92 @@ describe('drafts', () => {
     await view.press({ type: 'Button', text: 'Chats' })
     await view.press({ type: 'ListItem', label: /^Question 0/ })
     assert.equal(view.valueOf(MESSAGE), 'Half a thought')
+    clean(view)
+  })
+})
+
+const NEW_CHAT = { type: 'Button', text: 'New chat' }
+const ABOUT = "Archon chat talks to Archon's agent about this project. It can start workflows, and it works in the project folder named in the header, not in this workspace's terminal."
+
+describe('New chat', () => {
+  test('opens an empty thread: the project and its folder, the composer, and an empty state that says what Archon chat is', async () => {
+    const view = await mountChat()
+    assert.equal(view.find(NEW_CHAT)?.props.disabled, undefined)
+    await view.press(NEW_CHAT)
+    assert.deepEqual(sent(view, 'chat.projects'), [{ codebaseId: 'cb-web' }])
+    assert.ok(view.find({ type: 'Heading', text: 'New chat' }))
+    assert.ok(view.find({ text: 'acme/web' }))
+    assert.ok(view.find({ text: '/home/someone/code/acme-web' }))
+    assert.ok(view.find(MESSAGE))
+    assert.equal(view.find({ type: 'EmptyState' })?.props.description, ABOUT)
+    assert.equal(view.find({ type: 'List', label: 'Conversations' }), null)
+    assert.deepEqual(sent(view, 'chat.read'), [])
+    await view.press({ type: 'Button', text: 'Chats' })
+    assert.ok(view.find({ type: 'List', label: 'Conversations' }))
+    clean(view)
+  })
+
+  test("the first send creates the conversation in the panel's project, then its thread opens, busy", async () => {
+    const view = await mountChat({ send: () => ({ kind: 'sent', conversationId: 'web-new-1' }), thread: (request) => sampleThread(0, request, { messages: [question('q1', 0)] }) })
+    await view.press(NEW_CHAT)
+    await view.type(MESSAGE, '/help')
+    await view.submit(MESSAGE)
+    assert.deepEqual(sent(view, 'chat.send'), [{ codebaseId: 'cb-web', message: '/help' }])
+    assert.deepEqual(sent(view, 'chat.read'), [{ conversationId: 'web-new-1', limit: 50 }])
+    assert.ok(view.find(WORKING))
+    assert.equal(view.find(MESSAGE)?.props.value, '')
+    clean(view)
+  })
+
+  test('under "All projects" the composer has its own project select with nothing chosen, and Send waits for a choice', async () => {
+    const view = await mountChat({ scope: () => unmatchedGit, send: () => ({ kind: 'sent', conversationId: 'web-new-2' }) })
+    await view.press(NEW_CHAT)
+    assert.deepEqual(sent(view, 'chat.projects').at(-1), {})
+    const select = view.find({ type: 'Select', label: 'Project' })
+    assert.ok(select)
+    assert.equal(select.props.value, undefined)
+    assert.deepEqual(
+      (select.props.options as { value: string; label: string }[]).map((option) => option.value),
+      ['cb-api', 'cb-web']
+    )
+    await view.type(MESSAGE, 'Hello')
+    assert.equal(view.find(SEND)?.props.disabled, true)
+    await view.select({ type: 'Select', label: 'Project' }, 'cb-api')
+    assert.ok(view.find({ text: '/home/someone/code/acme-api' }))
+    assert.equal(view.find(SEND)?.props.disabled, false)
+    await view.press(SEND)
+    assert.deepEqual(sent(view, 'chat.send'), [{ codebaseId: 'cb-api', message: 'Hello' }])
+    clean(view)
+  })
+
+  test('a project Archon does not list now cannot start a chat, and a line says so', async () => {
+    const view = await mountChat({ projects: () => ({ kind: 'ready', chosen: null, projects: [OTHER], more: 0, unreadable: 0 }) })
+    await view.press(NEW_CHAT)
+    await view.type(MESSAGE, 'Hello')
+    assert.equal(view.find(SEND)?.props.disabled, true)
+    assert.ok(view.find({ text: 'Archon does not list this project now, so a chat cannot start in it.' }))
+    clean(view)
+  })
+
+  test('a first send that timed out is not sent again: the text stays and a note says to look in the list first', async () => {
+    const view = await mountChat({ send: () => ({ kind: 'timeout', timeoutMs: 30_000 }) })
+    await view.press(NEW_CHAT)
+    await view.type(MESSAGE, 'Hello')
+    await view.press(SEND)
+    assert.equal(view.valueOf(MESSAGE), 'Hello')
+    assert.ok(view.find({ text: /^Archon did not answer within 30 seconds\. The message may have arrived/ }))
+    assert.ok(view.find({ text: 'The chat may have been created: look in the list before you send again.' }))
+    assert.equal(sent(view, 'chat.send').length, 1)
+    clean(view)
+  })
+
+  test('the new chat draft is kept while the panel is open', async () => {
+    const view = await mountChat()
+    await view.press(NEW_CHAT)
+    await view.type(MESSAGE, 'Draft')
+    await view.press({ type: 'Button', text: 'Chats' })
+    await view.press(NEW_CHAT)
+    assert.equal(view.valueOf(MESSAGE), 'Draft')
     clean(view)
   })
 })
