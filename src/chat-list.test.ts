@@ -189,7 +189,7 @@ describe("Archon's answer", () => {
     const stage = chatScene('0.12.1')
     const mounted = await stage.mount(host())
     for (const input of [{ codebaseId: '' }, { codebaseId: 5 }, { search: 'x' }, 'cb-web']) {
-      await assert.rejects(mounted.worker.request('chats.read', input))
+      await assert.rejects(mounted.worker.request('chats.read', input as never))
     }
     assert.equal(stage.archon.calls.filter((call) => call.url.includes('/api/conversations')).length, 0)
     await mounted.worker.deactivate()

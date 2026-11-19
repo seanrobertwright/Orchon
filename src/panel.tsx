@@ -1,5 +1,6 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
 import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
+import { chatSection, chatsHaveData, clearChats, restartChats, startChatSection } from './chat-section'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
@@ -21,7 +22,7 @@ import {
   startRunsSection
 } from './runs-section'
 import type { ConnectionReadAnswer, ShowRuns } from './hint-view'
-import { scopedProjectId, scopeNotice, scopeSettled, startScope } from './scope-section'
+import { restartScope, scopedProjectId, scopeNotice, scopeSettled, startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
@@ -57,6 +58,7 @@ function keepNewest(next: ConnectionView): void {
     if (before !== null && before.storeId !== next.storeId) {
       clearRuns()
       clearLaunch()
+      clearChats()
     }
     set(lastConnected, next)
   }
@@ -65,6 +67,7 @@ function keepNewest(next: ConnectionView): void {
   // On return to Connected every view that is showing fetches again.
   if (held?.kind !== 'connected') {
     restartRunsView()
+    restartChats()
     // The section's own first read is sent when it shows, so only a return to Connected reads again.
     if (held !== null && parseSection(read(section)) === 'settings') readForms()
   } else if (held.live !== next.live) {
@@ -157,6 +160,11 @@ function show(next: SectionId): void {
   const before = parseSection(read(section))
   set(section, next)
   if (next === 'runs') restartRunsView()
+  // Showing the Chat section reads the scope and its list again.
+  if (next === 'chat') {
+    restartScope()
+    restartChats()
+  }
   if (before === next) return
   // Opening the Launch section reads Archon's projects and the workflow list again.
   if (next === 'launch') openLaunch()
@@ -191,15 +199,16 @@ export function setup(ctx: PanelContext): void {
   })
   startScope(ctx, {
     connection: () => read(connection),
-    // The Launch section's default project is the scope's, so it reads the scope too.
+    // The Launch section's default project is the scope's, and the chat list follows it, so they read the scope too.
     showing: () => {
       const showing = parseSection(read(section))
-      return showing === 'runs' || showing === 'launch'
+      return showing === 'runs' || showing === 'launch' || showing === 'chat'
     },
     keep: keepNewest,
     changed: () => {
       rescopeRuns()
       restartLaunch()
+      restartChats()
     }
   })
   startLaunchSection(ctx, {
@@ -212,6 +221,11 @@ export function setup(ctx: PanelContext): void {
       show('runs')
       openRunDetail(runId)
     }
+  })
+  startChatSection(ctx, {
+    connection: () => read(connection),
+    showing: () => parseSection(read(section)) === 'chat',
+    keep: keepNewest
   })
   ctx.subscriptions.push(plugin.on('show-runs', applyShowRuns))
   ctx.subscriptions.push(plugin.on('needs-you.changed', refreshRuns))
@@ -258,7 +272,8 @@ export function setup(ctx: PanelContext): void {
  */
 const DATA_VIEWS: Partial<Record<SectionId, DataView>> = {
   runs: { hasData: runsHaveData, draw: runsSection },
-  launch: { hasData: launchHasData, draw: (state, writable) => launchSection(state, writable, scopeNotice(writable)) }
+  launch: { hasData: launchHasData, draw: (state, writable) => launchSection(state, writable, scopeNotice(writable)) },
+  chat: { hasData: chatsHaveData, draw: chatSection }
 }
 
 /** What one section shows below the section bar. */
