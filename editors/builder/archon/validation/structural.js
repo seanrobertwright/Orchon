@@ -95,7 +95,9 @@ function fieldReport(nodeId, issues) {
     const push = (rule) => (field, message) => {
         issues.push(makeIssue({
             rule,
-            severity: 'error',
+            // Orchon: a warning, where upstream has an error. Only the four graph
+            // rules block a save; the server's validation on save is final.
+            severity: 'warning',
             source: 'client-instant',
             message,
             path: { nodeId, field },

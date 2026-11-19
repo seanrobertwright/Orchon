@@ -162,7 +162,9 @@ function checkWhen(node, upstream) {
         return [
             makeIssue({
                 rule: 'content.when.parse',
-                severity: 'error',
+                // Orchon: a warning, where upstream has an error. Only the four graph
+                // rules block a save; the server's validation on save is final.
+                severity: 'warning',
                 source: 'client-debounced',
                 message: `node '${node.id}': invalid when expression — ${result.error}`,
                 path: { nodeId: node.id, field: 'when' },

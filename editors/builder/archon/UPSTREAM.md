@@ -79,6 +79,11 @@ is React and React Flow, and the plugin draws its own screens.
 - `editor/align.ts`: `distributeH` and `distributeV` assert that the first and last rectangles
   exist (`sorted[0]!`), which the plugin's `noUncheckedIndexedAccess` setting requires. Both
   already return early below three rectangles.
+- `validation/structural.ts` and `validation/content.ts`: `structural.field.missing`,
+  `structural.field.invalid` and `content.when.parse` are warnings, where upstream has errors.
+  Only `structural.id.empty`, `structural.id.duplicate`, `graph.ref.unknown` and `graph.cycle`
+  are errors, and only they block a save (`../save-blockers.ts`). `content.var.unknown` is a
+  warning upstream too.
 - `validation/structural.ts`: the wait timestamp check reads the calendar from the digits (month
   length, leap years, hours to 23, minutes and seconds to 59) in place of a round-trip through
   `new Date(value)`. The plugin reads dates only in its date helper. It accepts and refuses the
