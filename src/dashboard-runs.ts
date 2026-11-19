@@ -5,7 +5,7 @@
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
 import { isRecord } from './records'
-import { RUN_STATUSES, type RunRow, type RunStatus, type StatusCounts } from './runs-view'
+import { EMPTY_COUNTS, RUN_STATUSES, type RunRow, type RunStatus, type StatusCounts } from './runs-view'
 
 export const DASHBOARD_RUNS_PATH = '/api/dashboard/runs'
 
@@ -70,7 +70,7 @@ function parseCounts(value: unknown): StatusCounts | null {
   if (!isRecord(value)) return null
   const all = own(value, 'all')
   if (!isCount(all)) return null
-  const counts: StatusCounts = { all, running: 0, paused: 0, pending: 0, completed: 0, failed: 0, cancelled: 0 }
+  const counts: StatusCounts = { ...EMPTY_COUNTS, all }
   for (const status of RUN_STATUSES) {
     const count = own(value, status)
     if (!isCount(count)) return null

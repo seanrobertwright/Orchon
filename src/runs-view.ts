@@ -23,6 +23,9 @@ export type RunsRequest = { status: StatusFilter; rows: number }
 /** How many runs Archon holds of each status, whatever the filter, and in all. */
 export type StatusCounts = Record<StatusFilter, number>
 
+/** Every count at zero. */
+export const EMPTY_COUNTS: Readonly<StatusCounts> = { all: 0, running: 0, paused: 0, pending: 0, completed: 0, failed: 0, cancelled: 0 }
+
 /** One run, trimmed to what the table and the preview show. Times are milliseconds since the epoch. */
 export type RunRow = {
   id: string

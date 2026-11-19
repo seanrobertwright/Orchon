@@ -1,9 +1,8 @@
 // The runs table as the worker would answer it, for the panel's tests and for the scenarios of
 // `orca plugin check`. These are view models, the worker's output, never Archon's JSON. It is
 // development tooling: Orca never loads it.
-import type { ConnectionView } from '../src/connection-view.ts'
-import type { RunRow, RunStatus, RunsAnswer, RunsRequest, RunsView, StatusCounts } from '../src/runs-view.ts'
-import { connected } from './connection-samples.ts'
+import { EMPTY_COUNTS, type RunRow, type RunStatus, type RunsRequest, type RunsView, type StatusCounts } from '../src/runs-view.ts'
+export { answeringRuns, noRuns } from './connection-samples.ts'
 
 /** When the sample runs are set: noon UTC on 18 November 2026. */
 export const SAMPLE_NOW = Date.UTC(2026, 10, 18, 12, 0, 0)
@@ -27,10 +26,6 @@ export function sampleRun(index: number, status: RunStatus = 'completed'): RunRo
   }
 }
 
-export const EMPTY_COUNTS: StatusCounts = { all: 0, running: 0, paused: 0, pending: 0, completed: 0, failed: 0, cancelled: 0 }
-
-/** No runs at all. */
-export const noRuns: Extract<RunsView, { kind: 'ready' }> = { kind: 'ready', counts: EMPTY_COUNTS, total: 0, rows: [], unreadable: 0 }
 
 /** The counts of a busy list of `total` runs, as `busyRun` spreads the statuses. */
 export function busyCounts(total: number): StatusCounts {
@@ -57,25 +52,5 @@ export function busyRuns(total: number, request: RunsRequest, unreadable = 0): R
     total: matching.length,
     rows: matching.slice(0, request.rows),
     unreadable
-  }
-}
-
-/** A stand-in for the worker that is connected and answers the runs table as `runs` says. */
-export function answeringRuns(
-  runs: RunsView | ((request: RunsRequest) => RunsView),
-  connection: ConnectionView = connected
-): {
-  requests: {
-    'connection.read': { connection: ConnectionView }
-    'connection.retry': { connection: ConnectionView }
-    'runs.read': (request: RunsRequest) => RunsAnswer
-  }
-} {
-  return {
-    requests: {
-      'connection.read': { connection },
-      'connection.retry': { connection },
-      'runs.read': (request) => ({ connection, runs: typeof runs === 'function' ? runs(request) : runs })
-    }
   }
 }
