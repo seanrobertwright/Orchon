@@ -4,6 +4,7 @@
 import type { Client, ClientFailure, Timers } from './client'
 import type { ConnectionView } from './connection-view'
 import { HEALTH_PATH } from './discovery'
+import { readFailureText } from './read-failure'
 import { isRecord, own } from './records'
 import type { HealthFacts, Platforms, SystemView, Updates } from './system-view'
 
@@ -84,21 +85,15 @@ export function parseUpdates(value: unknown): Updates {
 /** An answer that does not validate. */
 const UNREADABLE = "Orchon could not read Archon's answer."
 
-/** Why a read gave no answer, in the words of the failed-read table. */
+/** Why a read gave no answer: the shared failed-read sentences, apart from a call that never reached Archon. */
 function failureText(failure: ClientFailure): string {
   switch (failure.kind) {
-    case 'timeout':
-      return `Archon did not answer within ${failure.timeoutMs / 1_000} seconds.`
-    case 'too-large':
-      return "Archon's answer was too large to read."
-    case 'status':
-      return `Archon answered with an error (${failure.status}).`
-    case 'not-json':
-      return 'This Archon does not have this feature.'
     case 'refused':
     case 'not-loopback':
     case 'cancelled':
       return 'Archon did not answer.'
+    default:
+      return readFailureText(failure)
   }
 }
 
