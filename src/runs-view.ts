@@ -13,6 +13,11 @@ export type StatusFilter = 'all' | RunStatus
 
 export const STATUS_FILTERS: readonly StatusFilter[] = ['all', ...RUN_STATUSES]
 
+/** The table's filters: a status filter, or the runs that need you from the worker's snapshot. */
+export type TableFilter = StatusFilter | 'needs-you'
+
+export const TABLE_FILTERS: readonly TableFilter[] = [...STATUS_FILTERS, 'needs-you']
+
 /** How many rows the panel asks for at a time, and where it stops. */
 export const ROWS_STEP = 25
 export const ROWS_CAP = 500
@@ -21,7 +26,7 @@ export const ROWS_CAP = 500
  * What a panel sends: the filter, and how many of the newest runs it wants, rows 0 to N. Under
  * "This project" it also sends the Archon project's id; under "All projects" it leaves it out.
  */
-export type RunsRequest = { status: StatusFilter; rows: number; codebaseId?: string }
+export type RunsRequest = { status: TableFilter; rows: number; codebaseId?: string }
 
 /** How many runs Archon holds of each status, whatever the filter, and in all. */
 export type StatusCounts = Record<StatusFilter, number>
@@ -86,6 +91,8 @@ export type RunsView =
       rows: RunRow[]
       /** How many of the runs read could not be read and are not shown. */
       unreadable: number
+      /** The runs that need you under the same scope, from the worker's snapshot. */
+      needsYou?: NeedsYouView
     }
   /** The read failed. The message is one sentence for the person. */
   | { kind: 'failed'; message: string }

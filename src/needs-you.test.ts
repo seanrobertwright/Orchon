@@ -20,7 +20,8 @@ import {
 import { field } from '../scripts/shape.ts'
 import { READ_CAP_BYTES } from './client'
 import { DASHBOARD_STREAM_PATH } from './live'
-import { SHOW_RUNS_MEMORY_MS, SNAPSHOT_GAP_MS, SNAPSHOT_SAFETY_MS } from './needs-you'
+import { NEEDS_YOU_UNAVAILABLE, SHOW_RUNS_MEMORY_MS, SNAPSHOT_GAP_MS, SNAPSHOT_SAFETY_MS } from './needs-you'
+import type { RunsAnswer, RunsRequest, RunsView } from './runs-view'
 
 const ATTENTION = `${DEFAULT}/api/runs/attention`
 const RUNNING = `${DEFAULT}/api/dashboard/runs?limit=1`
@@ -254,5 +255,108 @@ describe('the "Orchon: Show runs" command', () => {
     assert.deepEqual((await mounted.worker.request('connection.read')).showRuns, { at: pressedAt, needsYou: true })
     await stage.clock.advance(1)
     assert.equal(Object.hasOwn(await mounted.worker.request('connection.read'), 'showRuns'), false)
+  })
+})
+
+describe('the runs table answered from the snapshot', () => {
+  const FIRST_PAGE = `${DEFAULT}/api/dashboard/runs?limit=50&offset=0`
+
+  /** The recorded gate run of a release as the snapshot holds it, read off the fixture by hand. */
+  const GATE: Record<Release, { id: string; codebaseId: string }> = {
+    '0.12.1': { id: 'e7678067-ddb7-44b2-9bec-2d9a049e9c5e', codebaseId: 'cd8c6f17a56a08ff6e8c24143751f5c4' },
+    '0.13.2': { id: '122e7550-1d38-43f0-92eb-67ed11e0cd37', codebaseId: '6feec5b110ac5147f1d58ffa49d2790c' },
+    '0.14.0': { id: '092f196c-66fc-4beb-9d61-256cb682234e', codebaseId: '4fb57f7e8043f7efd57270977e68c598' }
+  }
+
+  async function read(stage: Scene, input: RunsRequest): Promise<RunsView> {
+    const mounted = await stage.mount()
+    await stage.clock.advance(0)
+    return ((await mounted.worker.request('runs.read', input)) as RunsAnswer).runs
+  }
+
+  for (const release of RELEASES) {
+    test(`${release}: the answer carries the runs that need you, with the gate's question on one line`, async () => {
+      const stage = connectedTo(release, 'attention-gate')
+      stage.archon.answer(FIRST_PAGE, recorded(release, 'dashboard-runs'))
+      const runs = await read(stage, { status: 'all', rows: 25 })
+      assert.equal(runs.kind, 'ready')
+      if (runs.kind !== 'ready') return
+      assert.equal(runs.needsYou?.kind, 'ready')
+      if (runs.needsYou?.kind !== 'ready') return
+      assert.equal(runs.needsYou.total, 1)
+      const [row] = runs.needsYou.rows
+      assert.equal(row?.id, GATE[release].id)
+      assert.equal(row?.workflow, 'orchon-recorder-gate')
+      assert.equal(row?.project, 'orchon-recorder/throwaway-project')
+      assert.deepEqual(row?.waiting, { kind: 'gate', question: 'Recorded gate: approve to go on.' })
+    })
+
+    test(`${release}: an attention wait carries its question`, async () => {
+      const stage = connectedTo(release, 'attention-wait')
+      stage.archon.answer(FIRST_PAGE, recorded(release, 'dashboard-runs'))
+      const runs = await read(stage, { status: 'all', rows: 25 })
+      assert.deepEqual(runs.kind === 'ready' && runs.needsYou?.kind === 'ready' ? runs.needsYou.rows[0]?.waiting : null, {
+        kind: 'wait',
+        question: 'Recorded question: pick one.'
+      })
+    })
+
+    test(`${release}: the "Needs you" filter lists the snapshot's runs under the project asked for`, async () => {
+      const stage = connectedTo(release, 'attention-gate')
+      const { codebaseId, id } = GATE[release]
+      stage.archon.answer(`${DEFAULT}/api/dashboard/runs?codebaseId=${codebaseId}&limit=50&offset=0`, recorded(release, 'dashboard-runs', 2))
+      stage.archon.answer(`${DEFAULT}/api/dashboard/runs?codebaseId=other&limit=50&offset=0`, recorded(release, 'dashboard-runs-empty'))
+      const mine = await read(stage, { status: 'needs-you', rows: 25, codebaseId })
+      assert.equal(mine.kind === 'ready' ? mine.total : null, 1)
+      assert.deepEqual(mine.kind === 'ready' ? mine.rows.map((row) => row.id) : null, [id])
+      const mounted = await stage.mount()
+      await stage.clock.advance(0)
+      const other = ((await mounted.worker.request('runs.read', { status: 'needs-you', rows: 25, codebaseId: 'other' })) as RunsAnswer).runs
+      assert.equal(other.kind === 'ready' ? other.total : null, 0)
+      assert.deepEqual(other.kind === 'ready' ? other.needsYou : null, { kind: 'ready', total: 0, rows: [] })
+    })
+  }
+
+  test('the callout holds at most 10 rows in Archon\'s order, with the total beside them', async () => {
+    const stage = connectedTo('0.12.1', 'attention-gate')
+    stage.archon.answer(ATTENTION, queueOf('0.12.1', Array.from({ length: 12 }, () => KINDS.gate)))
+    stage.archon.answer(FIRST_PAGE, recorded('0.12.1', 'dashboard-runs'))
+    const runs = await read(stage, { status: 'all', rows: 25 })
+    const needsYou = runs.kind === 'ready' ? runs.needsYou : undefined
+    assert.equal(needsYou?.kind === 'ready' ? needsYou.total : null, 12)
+    assert.deepEqual(
+      needsYou?.kind === 'ready' ? needsYou.rows.map((row) => row.id) : null,
+      Array.from({ length: 10 }, (_, index) => `run-${String(index)}`)
+    )
+  })
+
+  test('an unreadable run says so in place of a question', async () => {
+    const stage = connectedTo('0.12.1', 'attention-gate')
+    stage.archon.answer(ATTENTION, queueOf('0.12.1', [KINDS.unreadable]))
+    stage.archon.answer(FIRST_PAGE, recorded('0.12.1', 'dashboard-runs'))
+    const runs = await read(stage, { status: 'all', rows: 25 })
+    assert.deepEqual(runs.kind === 'ready' && runs.needsYou?.kind === 'ready' ? runs.needsYou.rows[0]?.waiting : null, { kind: 'unreadable' })
+  })
+
+  test('a table row of a run that needs you carries its question, for the preview', async () => {
+    const stage = connectedTo('0.12.1', 'attention-gate')
+    const page = recorded('0.12.1', 'dashboard-runs')
+    if (page.kind !== 'json') throw new Error('The recorded runs answer is not JSON.')
+    const [run] = field(page.value, 'runs') as Record<string, unknown>[]
+    stage.archon.answer(FIRST_PAGE, { ...page, value: { ...(page.value as Record<string, unknown>), runs: [{ ...run, id: GATE['0.12.1'].id }] } })
+    const runs = await read(stage, { status: 'all', rows: 25 })
+    assert.deepEqual(runs.kind === 'ready' ? runs.rows[0]?.waiting : null, { kind: 'gate', question: 'Recorded gate: approve to go on.' })
+  })
+
+  test('when the snapshot is unavailable the answer says so and the filter fails with one sentence', async () => {
+    const stage = connectedTo('0.12.1', 'attention-gate')
+    stage.archon.answer(ATTENTION, json({ error: 'Failed' }, 500))
+    stage.archon.answer(FIRST_PAGE, recorded('0.12.1', 'dashboard-runs'))
+    const all = await read(stage, { status: 'all', rows: 25 })
+    assert.deepEqual(all.kind === 'ready' ? all.needsYou : null, { kind: 'unavailable' })
+    const mounted = await stage.mount()
+    await stage.clock.advance(0)
+    const filtered = ((await mounted.worker.request('runs.read', { status: 'needs-you', rows: 25 })) as RunsAnswer).runs
+    assert.deepEqual(filtered, { kind: 'failed', message: NEEDS_YOU_UNAVAILABLE })
   })
 })

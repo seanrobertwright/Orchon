@@ -20,6 +20,8 @@ export const RUNNING_PATH = `${DASHBOARD_RUNS_PATH}?limit=1`
 export const SNAPSHOT_GAP_MS = 2_000
 /** The safety read, whether or not a panel is open. */
 export const SNAPSHOT_SAFETY_MS = 30_000
+/** What the "Needs you" filter says when the waiting runs could not be read. */
+export const NEEDS_YOU_UNAVAILABLE = 'Orchon could not read the runs that need you from Archon.'
 /** How long a press of "Orchon: Show runs" is remembered for a panel that mounts after it. */
 export const SHOW_RUNS_MEMORY_MS = 60_000
 /** How much of a question the snapshot keeps: one line of a callout row or a preview. */
@@ -96,6 +98,8 @@ export type NeedsYou = {
   rows(count: number, codebaseId?: string): RunRow[] | null
   /** What a run waits for from the person, when it needs you. */
   waiting(runId: string): Waiting | undefined
+  /** Waits for a read in flight, so a frame's first answer after connecting has the snapshot. */
+  settled(): Promise<void>
   /** Remembers a press of "Orchon: Show runs" and returns it. */
   press(): ShowRuns
   /** The last press, while it is remembered. */
@@ -114,6 +118,7 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
   let gapTimer: unknown
   let safetyTimer: unknown
   let lastPress: ShowRuns | undefined
+  let current: Promise<void> = Promise.resolve()
 
   const clear = (timer: unknown): undefined => {
     if (timer !== undefined) ports.timers.clear(timer)
@@ -150,7 +155,7 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
     inFlight = true
     lastStart = ports.now()
     const mine = generation
-    readOnce(target, controller.signal)
+    current = readOnce(target, controller.signal)
       .then((next) => {
         if (mine === generation) keep(next)
       })
@@ -235,6 +240,9 @@ export function createNeedsYou(ports: NeedsYouPorts): NeedsYou {
     },
     waiting(runId) {
       return held?.kind === 'counted' ? held.entries.find((entry) => entry.row.id === runId)?.row.waiting : undefined
+    },
+    settled() {
+      return current
     },
     press() {
       lastPress = { at: ports.now(), needsYou: held?.kind === 'counted' && held.entries.length > 0 }

@@ -8,21 +8,22 @@ import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage } from './dashboard-runs'
 import type { WorkspaceRow } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, refuseRequest } from './records'
-import { ROWS_CAP, STATUS_FILTERS, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
+import { NEEDS_YOU_UNAVAILABLE, type NeedsYou } from './needs-you'
+import { ROWS_CAP, TABLE_FILTERS, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type TableFilter } from './runs-view'
 import { PROJECT_ID_CAP } from './scope-view'
 import { normalisePath } from './workspaces'
 
 /** How many runs the worker asks Archon for at a time. */
 export const PAGE_SIZE = 50
 
-const isFilter = (value: unknown): value is StatusFilter => STATUS_FILTERS.some((filter) => filter === value)
+const isFilter = (value: unknown): value is TableFilter => TABLE_FILTERS.some((filter) => filter === value)
 
 /** A frame's request, or a refusal: a known filter, and a whole number of rows from 1 to the cap. */
 export function parseRunsRequest(input: unknown): RunsRequest {
   if (!isRecord(input)) refuseRequest('The runs request takes a status and a number of rows.')
   const status = Object.hasOwn(input, 'status') ? input['status'] : undefined
   const rows = Object.hasOwn(input, 'rows') ? input['rows'] : undefined
-  if (!isFilter(status)) refuseRequest(`The status must be one of ${STATUS_FILTERS.join(', ')}.`)
+  if (!isFilter(status)) refuseRequest(`The status must be one of ${TABLE_FILTERS.join(', ')}.`)
   if (typeof rows !== 'number' || !Number.isSafeInteger(rows) || rows < 1 || rows > ROWS_CAP) {
     refuseRequest(`The number of rows must be a whole number from 1 to ${String(ROWS_CAP)}.`)
   }
@@ -71,6 +72,33 @@ export type RunsTablePorts = {
   current(): Promise<ConnectionView>
   /** Orca's workspaces, so a run whose folder Orca lists can be opened there. None when left out. */
   workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
+  /** The snapshot of runs that need you: the callout, the "Needs you" filter and each row's question. */
+  needsYou?: NeedsYou
+}
+
+/**
+ * Answers the table from the snapshot as well: the "Needs you" filter lists the snapshot's runs
+ * under the scope, every answer carries the callout, and a row of a run that needs you carries
+ * what it waits for, so the table, the callout and the status bar item cannot disagree.
+ */
+async function readWithSnapshot(client: Client, server: Connected, request: RunsRequest, signal: AbortSignal, needsYou: NeedsYou): Promise<RunsView> {
+  await needsYou.settled()
+  if (request.status === 'needs-you') {
+    const rows = needsYou.rows(request.rows, request.codebaseId)
+    if (rows === null) return { kind: 'failed', message: NEEDS_YOU_UNAVAILABLE }
+    // The other filters' counts still come from Archon, in one page.
+    const counted = await readRuns(client, server, { ...request, status: 'all', rows: 1 }, signal)
+    if (counted.kind !== 'ready') return counted
+    const view = needsYou.view(request.codebaseId)
+    return { ...counted, total: view.kind === 'ready' ? view.total : rows.length, rows, unreadable: 0, needsYou: view }
+  }
+  const read = await readRuns(client, server, request, signal)
+  if (read.kind !== 'ready') return read
+  const rows = read.rows.map((row) => {
+    const waiting = needsYou.waiting(row.id)
+    return waiting === undefined ? row : { ...row, waiting }
+  })
+  return { ...read, rows, needsYou: needsYou.view(request.codebaseId) }
 }
 
 /** The id of the first workspace row whose path is `path`, once both are normalised, if any. */
@@ -107,7 +135,10 @@ export function startRunsTable(orca: OrcaWorkerApi, ports: RunsTablePorts): Disp
     const request = parseRunsRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, runs: { kind: 'not-connected' } }
-    const read = await readRuns(ports.client, connection, request, context.signal)
+    const read =
+      ports.needsYou === undefined
+        ? await readRuns(ports.client, connection, request, context.signal)
+        : await readWithSnapshot(ports.client, connection, request, context.signal, ports.needsYou)
     const runs = read.kind === 'ready' && ports.workspaces !== undefined ? withWorkspaces(read, await ports.workspaces()) : read
     return { connection: await ports.current(), runs }
   })
