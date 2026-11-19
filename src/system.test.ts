@@ -20,6 +20,7 @@ import {
   type Release,
   type Scripted
 } from '../scripts/scripted-archon.ts'
+import { CODE_EXTENSIONS, hasExtension, listRepoFiles, readRepoText } from '../scripts/repo-files.ts'
 import type { SystemView } from './system-view'
 
 const UPDATE_CHECK = `${DEFAULT}/api/update-check`
@@ -325,5 +326,33 @@ describe('the System group', () => {
     await stage.clock.advance(10_000)
     assert.equal((await pending).system.failure, 'Archon did not answer within 10 seconds.')
     await mounted.worker.deactivate()
+  })
+
+  test('calls no /api/auth route on open, Refresh or the timer', async () => {
+    const { stage, mounted } = await connectedTo('0.14.0')
+    await mounted.worker.request('system.open')
+    await mounted.worker.request('system.refresh')
+    await stage.clock.advance(90_000)
+    const paths = stage.archon.calls.map((call) => new URL(call.url).pathname)
+    assert.deepEqual(
+      paths.filter((path) => path.startsWith('/api/auth')),
+      []
+    )
+    assert.deepEqual([...new Set(paths)].sort(), ['/api/health', '/api/openapi.json', '/api/update-check'])
+    await mounted.worker.deactivate()
+  })
+})
+
+describe('the routes the shipped source names', () => {
+  test('no file Orca loads names an /api/auth route', () => {
+    const shipped = listRepoFiles()
+      .map((file) => file.path)
+      .filter((path) => /^(?:src|editors)\//.test(path) && !/\.(?:test|check)\.[a-z]+$/.test(path))
+      .filter((path) => hasExtension(path, [...CODE_EXTENSIONS, 'html']))
+    assert.ok(shipped.includes('src/system.ts'))
+    assert.deepEqual(
+      shipped.filter((path) => readRepoText(path).includes('/api/auth')),
+      []
+    )
   })
 })
