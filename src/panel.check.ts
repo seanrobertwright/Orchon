@@ -18,6 +18,7 @@ import {
 } from '../scripts/connection-samples.ts'
 import { formsWithEdits } from '../scripts/forms-samples.ts'
 import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail } from '../scripts/runs-samples.ts'
+import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 import type { RunsRequest } from './runs-view'
 
@@ -70,6 +71,7 @@ const runWaitingOnSubRuns = answeringRun(
 
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
+const onLaunch = { persisted: { workspace: { section: 'launch' } } }
 
 export default defineCheck({
   connected: answering(connected),
@@ -98,6 +100,14 @@ export default defineCheck({
   'bad setting, one refused': answering(oneBadSetting),
   'bad setting, two refused': answering(twoBadSettings),
   unsupported: answering(unsupported),
+  launcher: { ...answeringLaunch({ launch: () => webForm }), ...onLaunch },
+  'launcher, starting': {
+    ...answeringLaunch({
+      launch: () => ({ ...webForm, starting: { launchId: 'launch-1', workflow: 'deliver', project: 'acme/web', state: 'started', late: false } })
+    }),
+    ...onLaunch
+  },
+  'launcher, unmatched project': { ...answeringLaunch({ launch: () => ({ ...webForm, codebaseId: null, workflows: { kind: 'none' }, workflow: null, description: '' }), scope: () => unmatchedGit }), ...onLaunch },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
