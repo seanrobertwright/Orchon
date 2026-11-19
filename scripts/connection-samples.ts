@@ -14,6 +14,7 @@ import type { LaunchAnswer, LaunchView } from '../src/launch-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
 import type { ScopeAnswer } from '../src/scope-view.ts'
 import type { SystemAnswer, SystemView } from '../src/system-view.ts'
+import type { WorkflowsAnswer, WorkflowsSectionView } from '../src/workflows-section-view.ts'
 import { formsRead, formsUnread } from './forms-samples.ts'
 
 export const HOME = '/home/ada/.archon'
@@ -160,6 +161,7 @@ type Answers = {
   'forms.save': FormsAnswer
   'forms.resolve': FormsAnswer
   'launch.read': LaunchAnswer
+  'workflows.read': WorkflowsAnswer
 }
 
 /** The launcher of an Archon with no projects: nothing to choose, nothing typed. */
@@ -172,6 +174,16 @@ export const noProjectsLaunch: LaunchView = {
   description: '',
   message: '',
   posting: false
+}
+
+/** The Workflows section of an Archon with no projects and no workflows. */
+export const noProjectsWorkflows: WorkflowsSectionView = {
+  kind: 'ready',
+  projects: { rows: [], more: 0, unreadable: 0 },
+  codebaseId: null,
+  folder: null,
+  readFrom: null,
+  list: { kind: 'ready', rows: [], total: 0, matching: 0, unreadable: 0 }
 }
 
 /**
@@ -201,7 +213,8 @@ export function answeringRuns(
       'forms.discard': formsAnswer,
       'forms.save': formsAnswer,
       'forms.resolve': formsAnswer,
-      'launch.read': { connection, launch: connection.kind === 'connected' ? noProjectsLaunch : { kind: 'not-connected' }, notices: [] }
+      'launch.read': { connection, launch: connection.kind === 'connected' ? noProjectsLaunch : { kind: 'not-connected' }, notices: [] },
+      'workflows.read': { connection, workflows: connection.kind === 'connected' ? noProjectsWorkflows : { kind: 'not-connected' } }
     }
   }
 }

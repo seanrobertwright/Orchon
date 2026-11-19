@@ -19,6 +19,7 @@ import {
 import { formsWithEdits } from '../scripts/forms-samples.ts'
 import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail } from '../scripts/runs-samples.ts'
 import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
+import { answeringWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 import type { RunsRequest } from './runs-view'
 
@@ -72,6 +73,7 @@ const runWaitingOnSubRuns = answeringRun(
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
 const onLaunch = { persisted: { workspace: { section: 'launch' } } }
+const onWorkflows = { persisted: { workspace: { section: 'workflows' } } }
 
 export default defineCheck({
   connected: answering(connected),
@@ -108,6 +110,7 @@ export default defineCheck({
     ...onLaunch
   },
   'launcher, unmatched project': { ...answeringLaunch({ launch: () => ({ ...webForm, codebaseId: null, workflows: { kind: 'none' }, workflow: null, description: '' }), scope: () => unmatchedGit }), ...onLaunch },
+  workflows: { ...answeringWorkflows({ workflows: () => ({ ...webWorkflows, readFrom: 'C:/Projects/web' }) }), ...onWorkflows },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },

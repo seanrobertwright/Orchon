@@ -25,12 +25,12 @@ afterEach(async () => {
 
 /**
  * What a person notices first: the selected tab and the empty state under it. Runs is built and
- * the scripted worker has no runs. Settings and Launch are built, so they have no empty state;
- * their own tests are in settings.test.tsx and launch-section.test.tsx. Every other section is
- * still a placeholder.
+ * the scripted worker has no runs. Settings, Launch and Workflows are built, so they have no
+ * empty state; their own tests are in settings.test.tsx, launch-section.test.tsx and
+ * workflows-panel.test.tsx. Every other section is still a placeholder.
  */
 function showing(view: TestPanel, label: string): void {
-  const empty = label === 'Settings' || label === 'Launch' ? [] : [`EmptyState "${label === 'Runs' ? 'No runs yet' : label}"`]
+  const empty = label === 'Settings' || label === 'Launch' || label === 'Workflows' ? [] : [`EmptyState "${label === 'Runs' ? 'No runs yet' : label}"`]
   assert.deepEqual(view.summary(), [`Tabs "Orchon sections": "${label}" selected`, ...empty])
 }
 
