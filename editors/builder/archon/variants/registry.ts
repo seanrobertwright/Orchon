@@ -136,6 +136,9 @@ const OPAQUE_LABELS: Record<OpaqueKind, string> = {
   loop_group: 'Loop group',
   workflow: 'Workflow',
   include: 'Include',
+  unrecognised: 'Unrecognised node',
+  script_without_runtime: 'Script with no runtime',
+  loop_with_prompt_and_command: 'Loop with prompt and command',
 };
 
 const OPAQUE_CAPABILITIES: VariantCapabilities = { honorsAiFields: false };

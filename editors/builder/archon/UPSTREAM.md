@@ -57,6 +57,25 @@ is React and React Flow, and the plugin draws its own screens.
 
 ### Code
 
+- `model/from-workflow.ts` drops nothing on import. Upstream turned four inputs into something
+  else, and the plugin keeps each one unchanged:
+  - A node with no mode field the builder knows became an empty prompt node with an `error`. It
+    now opens read-only, as an `opaque` node of kind `unrecognised`.
+  - A script node with no `runtime` was edited as `bun`, so a save wrote `runtime: bun`, with an
+    `error`. It now opens read-only, of kind `script_without_runtime`.
+  - A loop node with both `prompt` and `command` kept `prompt` and dropped `command`, with an
+    `error`. It now opens read-only, of kind `loop_with_prompt_and_command`.
+  - A field the node's kind does not carry (a field of another kind, or one no release names)
+    was dropped with a `warning`. It is now kept with the node's base fields, which a save writes
+    back as they were, and its issue is `info`.
+
+  Each read-only node gets one `info` issue, `structural.node.read-only`, as upstream already
+  gave a `loop_group`, `workflow` or `include` node. The importer's header comment and the
+  comment on `importWorkflowDefinition` say so.
+- `types/variant.ts`: `OpaqueKind` gains `unrecognised`, `script_without_runtime` and
+  `loop_with_prompt_and_command`, and its comment names them.
+- `variants/registry.ts`: their labels are "Unrecognised node", "Script with no runtime" and
+  "Loop with prompt and command".
 - `editor/align.ts`: `distributeH` and `distributeV` assert that the first and last rectangles
   exist (`sorted[0]!`), which the plugin's `noUncheckedIndexedAccess` setting requires. Both
   already return early below three rectangles.
@@ -73,6 +92,9 @@ is React and React Flow, and the plugin draws its own screens.
   issue or `when:` term exists (`nodes[0]!`), which `noUncheckedIndexedAccess` requires.
 - `fixtures/index.ts` types `FIXTURES` with `satisfies` in place of a `Record` annotation, so a
   test that names one fixture gets it without `undefined`.
+- `model/round-trip.test.ts`: the four "import issues" tests that pinned the lossy import above
+  are rewritten to pin the plugin's: each input opens read-only or keeps its field, with an
+  `info` issue, and saves unchanged.
 - `validation/structural.test.ts` gains the test "wait timestamps must name a real UTC calendar
   instant", which pins the timestamps the upstream check accepted and refused.
 

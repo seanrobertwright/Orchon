@@ -180,8 +180,18 @@ export type BuilderNode =
  * Valid authored node modes the builder has no editor for. Kept out of
  * `VariantId` on purpose: they cannot be created from the palette or switched
  * to, only opened from an existing workflow.
+ *
+ * Orchon: three more kinds open read-only rather than being rewritten into an
+ * editable node — `unrecognised` (no mode field the builder knows), a script
+ * with no `runtime`, and a loop carrying both `prompt` and `command`.
  */
-export type OpaqueKind = 'loop_group' | 'workflow' | 'include';
+export type OpaqueKind =
+  | 'loop_group'
+  | 'workflow'
+  | 'include'
+  | 'unrecognised'
+  | 'script_without_runtime'
+  | 'loop_with_prompt_and_command';
 
 /**
  * A node the builder shows read-only and writes back exactly as it was read.

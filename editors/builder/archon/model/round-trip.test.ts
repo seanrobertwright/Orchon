@@ -206,71 +206,74 @@ describe('import issues', () => {
     nodes,
   });
 
-  test('a node with no mode field imports as an empty prompt node with an error', () => {
-    const { workflow, issues } = fromWorkflowDefinition(wire([{ id: 'mystery' }]));
+  // Orchon: upstream's four tests here pinned a lossy import (an empty prompt
+  // node, a 'bun' runtime, a dropped field, a dropped loop command). The plugin
+  // keeps all four unchanged; see UPSTREAM.md.
+  test('a node with no mode field opens read-only with an info issue and saves unchanged', () => {
+    const def = wire([{ id: 'mystery' }]);
+    const { workflow, issues } = fromWorkflowDefinition(def);
     expect(issues).toHaveLength(1);
-    expect(issues[0]!.rule).toBe('structural.variant.unknown');
-    expect(issues[0]!.severity).toBe('error');
+    expect(issues[0]!.rule).toBe('structural.node.read-only');
+    expect(issues[0]!.severity).toBe('info');
     expect(issues[0]!.path.nodeId).toBe('mystery');
     const node = workflow.nodes[0]!;
-    expect(node.variant).toBe('prompt');
-    if (node.variant === 'prompt') expect(node.data.prompt).toBe('');
+    expect(node.variant).toBe('opaque');
+    if (node.variant === 'opaque') expect(node.data.kind).toBe('unrecognised');
+    expect(toWorkflowDefinition(workflow)).toEqual(def);
   });
 
-  test('a script node missing runtime is flagged but stays editable as bun', () => {
-    const { workflow, issues } = fromWorkflowDefinition(
-      wire([{ id: 's', script: 'console.log(1)' }])
-    );
+  test('a script node missing runtime opens read-only and saves with no runtime', () => {
+    const def = wire([{ id: 's', script: 'console.log(1)' }]);
+    const { workflow, issues } = fromWorkflowDefinition(def);
     expect(issues).toHaveLength(1);
-    expect(issues[0]!.rule).toBe('structural.field.missing');
-    expect(issues[0]!.path).toEqual({ nodeId: 's', field: 'runtime' });
+    expect(issues[0]!.rule).toBe('structural.node.read-only');
+    expect(issues[0]!.path).toEqual({ nodeId: 's' });
     const node = workflow.nodes[0]!;
-    expect(node.variant).toBe('script');
-    if (node.variant === 'script') expect(node.data.runtime).toBe('bun');
+    expect(node.variant).toBe('opaque');
+    if (node.variant === 'opaque') expect(node.data.kind).toBe('script_without_runtime');
+    const out = toWorkflowDefinition(workflow);
+    expect(out).toEqual(def);
+    expect('runtime' in out.nodes[0]!).toBe(false);
   });
 
-  test('a wire key the variant cannot carry is dropped with a warning, matching the engine', () => {
+  test('a wire key the variant cannot carry is kept with an info issue and saved unchanged', () => {
     // The engine's transform emits `timeout` only on bash/script nodes, so a
     // prompt node carrying one is not engine-producible input; the importer
-    // drops it loudly rather than silently.
-    const { workflow, issues } = fromWorkflowDefinition(
-      wire([{ id: 'p', prompt: 'hi', timeout: 5000 }])
-    );
+    // keeps it, and says so, rather than dropping it.
+    const def = wire([{ id: 'p', prompt: 'hi', timeout: 5000 }]);
+    const { workflow, issues } = fromWorkflowDefinition(def);
     expect(issues).toHaveLength(1);
     expect(issues[0]!.rule).toBe('structural.field.unsupported');
-    expect(issues[0]!.severity).toBe('warning');
+    expect(issues[0]!.severity).toBe('info');
     expect(issues[0]!.path).toEqual({ nodeId: 'p', field: 'timeout' });
     const out = toWorkflowDefinition(workflow);
-    expect('timeout' in out.nodes[0]!).toBe(false);
+    expect(out).toEqual(def);
   });
 
-  test('a loop with both prompt and command is flagged with an error and keeps the prompt', () => {
+  test('a loop with both prompt and command opens read-only and keeps both', () => {
     // Not engine-producible input (the schema enforces exactly-one) — the
     // importer must not silently drop either source.
-    const { workflow, issues } = fromWorkflowDefinition(
-      wire([
-        {
-          id: 'both',
-          loop: {
-            prompt: 'inline',
-            command: 'cmd-file',
-            until: 'DONE',
-            max_iterations: 3,
-            fresh_context: false,
-          },
+    const def = wire([
+      {
+        id: 'both',
+        loop: {
+          prompt: 'inline',
+          command: 'cmd-file',
+          until: 'DONE',
+          max_iterations: 3,
+          fresh_context: false,
         },
-      ])
-    );
+      },
+    ]);
+    const { workflow, issues } = fromWorkflowDefinition(def);
     expect(issues).toHaveLength(1);
-    expect(issues[0]!.rule).toBe('structural.field.unsupported');
-    expect(issues[0]!.severity).toBe('error');
-    expect(issues[0]!.path).toEqual({ nodeId: 'both', field: 'loop.command' });
+    expect(issues[0]!.rule).toBe('structural.node.read-only');
+    expect(issues[0]!.severity).toBe('info');
+    expect(issues[0]!.path).toEqual({ nodeId: 'both' });
     const node = workflow.nodes[0]!;
-    expect(node.variant).toBe('loop');
-    if (node.variant === 'loop') {
-      expect(node.data.prompt).toBe('inline');
-      expect(node.data.command).toBeUndefined();
-    }
+    expect(node.variant).toBe('opaque');
+    if (node.variant === 'opaque') expect(node.data.kind).toBe('loop_with_prompt_and_command');
+    expect(toWorkflowDefinition(workflow)).toEqual(def);
   });
 
   test('timeout on bash and script nodes is carried, not flagged', () => {

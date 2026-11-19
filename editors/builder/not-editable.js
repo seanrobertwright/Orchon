@@ -1,0 +1,55 @@
+// Which fields of a node the builder lists under "Not editable here". Such a field is kept on its
+// node and written back unchanged; the builder shows it as read-only YAML.
+//
+// The fields that do have an editor are the ones Archon's own builder inspector edits at v0.14.0
+// (components/Inspector.tsx and components/inspector/*Fields.tsx, which the plugin does not copy).
+import { toWorkflowDefinition } from "./archon/model/index.js";
+/** Fields every editable node kind edits. */
+const COMMON = ['id', 'depends_on', 'when', 'trigger_rule', 'output_type'];
+/** Fields a node kind that calls a provider also edits. `model` only while it is one string. */
+const AI = ['provider', 'model', 'persist_session'];
+/** The fields each editable node kind edits. A field inside `loop`, `approval` or `wait` is named by its path. */
+const EDITED = {
+    prompt: [...COMMON, ...AI, 'prompt'],
+    command: [...COMMON, ...AI, 'command'],
+    bash: [...COMMON, 'bash', 'timeout'],
+    script: [...COMMON, 'script', 'runtime', 'deps', 'timeout'],
+    loop: [
+        ...COMMON,
+        ...AI,
+        'timeout',
+        ...['prompt', 'command', 'until', 'until_bash', 'until_field', 'max_iterations', 'fresh_context', 'interactive', 'gate_message'].map((key) => `loop.${key}`)
+    ],
+    approval: [...COMMON, ...['message', 'capture_response', 'on_reject'].map((key) => `approval.${key}`)],
+    wait: [...COMMON, ...['duration_ms', 'until', 'event', 'deadline_ms', 'attention'].map((key) => `wait.${key}`)],
+    cancel: [...COMMON, 'cancel']
+};
+/** The node fields that hold an object whose own fields the inspector edits one by one. */
+const NESTED = ['loop', 'approval', 'wait'];
+/**
+ * The fields of `node` that have no editor, in the order a save writes them. A field inside
+ * `loop`, `approval` or `wait` is named by its path, such as `loop.signal_completes`. Every field
+ * but `id` of a node the builder shows read-only is listed.
+ */
+export function notEditableHere(node) {
+    const [saved] = toWorkflowDefinition({ name: '', description: '', meta: {}, nodes: [node] }).nodes;
+    if (saved === undefined)
+        return [];
+    const fields = Object.entries(saved);
+    if (node.variant === 'opaque')
+        return fields.map(([key]) => key).filter((key) => key !== 'id');
+    const edited = EDITED[node.variant];
+    const listed = [];
+    for (const [key, value] of fields) {
+        if (NESTED.includes(key) && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            for (const inner of Object.keys(value)) {
+                if (!edited.includes(`${key}.${inner}`))
+                    listed.push(`${key}.${inner}`);
+            }
+        }
+        else if (!edited.includes(key) || (key === 'model' && Array.isArray(value))) {
+            listed.push(key);
+        }
+    }
+    return listed;
+}

@@ -94,6 +94,9 @@ const OPAQUE_LABELS = {
     loop_group: 'Loop group',
     workflow: 'Workflow',
     include: 'Include',
+    unrecognised: 'Unrecognised node',
+    script_without_runtime: 'Script with no runtime',
+    loop_with_prompt_and_command: 'Loop with prompt and command',
 };
 const OPAQUE_CAPABILITIES = { honorsAiFields: false };
 /** Badge label for any builder node, read-only ones included. */
