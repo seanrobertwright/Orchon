@@ -1,6 +1,7 @@
 // The System group of the Settings section: a read-only list of what Archon's health reported,
 // the range of releases Orchon is tested with, and the update check. A value the server did not
-// send shows a dash. Its controls are Refresh, which reads both again, and "Try again" beside a
+// send shows a dash. Updates is the last row; a release link the worker kept sits on its own line
+// under the list, because a row's value is text only. Its controls are Refresh, which reads both again, and "Try again" beside a
 // failed read, which does the same.
 import { Button, Callout, Collapsible, env, KeyValue, Link, Skeleton, Stack, Text, type KeyValueItem, type OrcaNode } from 'orca'
 import { TESTED_RANGE } from './connection-words'
@@ -19,7 +20,7 @@ function platformsText(platforms: Platforms | null): string {
   return platforms.more === 0 ? named : `${named} and ${platforms.more} more`
 }
 
-function rows(health: HealthFacts): KeyValueItem[] {
+function rows(health: HealthFacts, updates: Updates): KeyValueItem[] {
   const { concurrency } = health
   return [
     { label: 'Status', value: orDash(health.status) },
@@ -30,28 +31,45 @@ function rows(health: HealthFacts): KeyValueItem[] {
     { label: 'Store id', value: orDash(health.storeId), ...(health.storeId === null ? {} : { code: true }) },
     { label: 'Concurrency', value: concurrency === null ? DASH : `${concurrency.active} of ${concurrency.max} active` },
     { label: 'Running workflows', value: orDash(health.runningWorkflows) },
-    { label: 'Platforms', value: platformsText(health.platforms) }
+    { label: 'Platforms', value: platformsText(health.platforms) },
+    { label: 'Updates', value: updatesText(updates) }
   ]
 }
 
-/** The update check in words. The latest version is a link only when the worker kept one. */
-function updatesText(updates: Updates): OrcaNode {
+/** The update check in words. */
+function updatesText(updates: Updates): string {
   switch (updates.kind) {
     case 'checking':
       return 'Checking'
     case 'up-to-date':
       return updates.version === null ? 'Up to date' : `Up to date (${updates.version})`
     case 'available':
-      return updates.releaseUrl === null ? (
-        `${updates.version} available`
-      ) : (
-        <>
-          <Link href={updates.releaseUrl}>{updates.version}</Link> available
-        </>
-      )
+      return `${updates.version} available`
     case 'unavailable':
       return 'Update check unavailable'
   }
+}
+
+/** The latest version as a link, only when the worker kept a release link. */
+function releaseLine(updates: Updates): OrcaNode {
+  if (updates.kind !== 'available' || updates.releaseUrl === null) return null
+  return (
+    <Text>
+      Release notes: <Link href={updates.releaseUrl}>{updates.version}</Link>
+    </Text>
+  )
+}
+
+/** A failed read, in words, with "Try again". */
+function failureCallout(sentence: string, refresh: () => void): OrcaNode {
+  return (
+    <Callout tone="warning">
+      <Stack gap="sm">
+        <Text>{sentence}</Text>
+        <Button onPress={refresh}>Try again</Button>
+      </Stack>
+    </Callout>
+  )
 }
 
 /** The list, or what stands in its place before an answer. */
@@ -59,31 +77,16 @@ function content(system: SystemView | null, refresh: () => void): OrcaNode {
   const health = system?.health ?? null
   const failure = system?.failure ?? null
   if (health === null) {
-    return failure === null ? (
-      <Skeleton lines={4} label="Reading Archon's status" />
-    ) : (
-      <Callout tone="warning">
-        <Stack gap="sm">
-          <Text>{failure}</Text>
-          <Button onPress={refresh}>Try again</Button>
-        </Stack>
-      </Callout>
-    )
+    return failure === null ? <Skeleton lines={4} label="Reading Archon's status" /> : failureCallout(failure, refresh)
   }
   const readAt = system?.readAt ?? null
   const at = readAt === null ? '' : formatClock(readAt, env.locale)
+  const updates = system?.updates ?? { kind: 'checking' }
   return (
     <>
-      {failure === null ? null : (
-        <Callout tone="warning">
-          <Stack gap="sm">
-            <Text>{at === '' ? failure : `${failure} These values are from ${at}.`}</Text>
-            <Button onPress={refresh}>Try again</Button>
-          </Stack>
-        </Callout>
-      )}
-      <KeyValue label="System" items={rows(health)} />
-      <Text>Updates: {updatesText(system?.updates ?? { kind: 'checking' })}</Text>
+      {failure === null ? null : failureCallout(at === '' ? failure : `${failure} These values are from ${at}.`, refresh)}
+      <KeyValue label="System" items={rows(health, updates)} />
+      {releaseLine(updates)}
     </>
   )
 }

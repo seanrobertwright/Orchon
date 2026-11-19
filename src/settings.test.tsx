@@ -59,11 +59,11 @@ function systemRows(view: TestPanel): string[] {
   return (list.props.items as { label: string; value: string }[]).map((item) => `${item.label}: ${item.value}`)
 }
 
-/** The updates line as a person reads it. */
-function updatesLine(view: TestPanel): string {
-  const line = view.findAll({ type: 'Text' }).find((text) => text.text.startsWith('Updates:'))
-  assert.ok(line, 'no updates line')
-  return folded(line.text)
+/** The Updates row of the System list, as "label: value". */
+function updatesRow(view: TestPanel): string {
+  const row = systemRows(view).find((line) => line.startsWith('Updates:'))
+  assert.ok(row, 'no Updates row')
+  return row
 }
 
 const requests = (view: TestPanel): string[] =>
@@ -119,7 +119,7 @@ describe('the Settings section', () => {
 })
 
 describe('the System group', () => {
-  test('is an open, read-only list of the server state, with the tested range and the updates line', async () => {
+  test('is an open, read-only list of the server state, with the tested range and the updates row', async () => {
     const view = await mountOn(connected, systemRead)
     const releases = fixtureReleases()
     assert.deepEqual(systemRows(view), [
@@ -131,9 +131,9 @@ describe('the System group', () => {
       'Store id: 00000000-0000-4000-8000-000000000000',
       'Concurrency: 2 of 10 active',
       'Running workflows: 1',
-      'Platforms: Web'
+      'Platforms: Web',
+      'Updates: 0.14.0 available'
     ])
-    assert.equal(updatesLine(view), 'Updates: 0.14.0 available')
     const link = view.find({ type: 'Link' })
     assert.equal(link?.text, '0.14.0')
     assert.equal(link?.props.href, RELEASE_TAG)
@@ -168,7 +168,8 @@ describe('the System group', () => {
       'Store id: —',
       'Concurrency: —',
       'Running workflows: —',
-      'Platforms: —'
+      'Platforms: —',
+      'Updates: 0.14.0 available'
     ])
     clean(view)
   })
@@ -178,10 +179,10 @@ describe('the System group', () => {
     const health = systemRead.health
     assert.ok(health)
     const view = await mountOn(connected, { ...systemRead, health: { ...health, platforms: { names, more: 4 } } })
-    assert.equal(systemRows(view).at(-1), `Platforms: ${names.join(', ')} and 4 more`)
+    assert.equal(systemRows(view).at(-2), `Platforms: ${names.join(', ')} and 4 more`)
   })
 
-  test('the updates line has four states, and the latest version is a link only when the worker kept one', async () => {
+  test('the updates row has four states, and the latest version is a link only when the worker kept one', async () => {
     const cases: [SystemView['updates'], string, string | null][] = [
       [{ kind: 'checking' }, 'Updates: Checking', null],
       [{ kind: 'up-to-date', version: '0.14.0' }, 'Updates: Up to date (0.14.0)', null],
@@ -191,7 +192,7 @@ describe('the System group', () => {
     ]
     for (const [updates, line, href] of cases) {
       const view = await mountOn(connected, { ...systemRead, updates })
-      assert.equal(updatesLine(view), line)
+      assert.equal(updatesRow(view), line)
       assert.equal(view.find({ type: 'Link' })?.props.href ?? null, href, line)
       clean(view)
       await view.unmount()
@@ -229,10 +230,10 @@ describe('the System group', () => {
     await view.press({ type: 'Button', text: 'Refresh' })
     assert.deepEqual(requests(view), ['connection.read', 'system.open', 'system.refresh'])
     await view.post('system.changed', { ...systemRead, since: 100, updates: { kind: 'unavailable' } })
-    assert.equal(updatesLine(view), 'Updates: Update check unavailable')
+    assert.equal(updatesRow(view), 'Updates: Update check unavailable')
     // An older view arriving late changes nothing.
     await view.post('system.changed', { ...systemRead, since: 50 })
-    assert.equal(updatesLine(view), 'Updates: Update check unavailable')
+    assert.equal(updatesRow(view), 'Updates: Update check unavailable')
     clean(view)
   })
 
@@ -248,7 +249,7 @@ describe('the System group', () => {
     const warning = view.find({ type: 'Callout' })
     assert.equal(warning?.props.tone, 'warning')
     assert.match(folded(warning?.text ?? ''), /^Archon did not answer within 10 seconds\. These values are from .+\. Try again$/)
-    assert.equal(systemRows(view).length, 9)
+    assert.equal(systemRows(view).length, 10)
     await view.press({ type: 'Button', text: 'Try again' })
     assert.equal(requests(view).at(-1), 'system.refresh')
     clean(view)
