@@ -12,7 +12,7 @@ import { cutAt } from './cutter'
 import { parseInstant } from './dates'
 import type { WorkspaceRow } from './project-scope'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseRequest } from './records'
+import { cappedTextRefusal, isCappedText, isRecord, isText, own, ownRecord, refuseRequest } from './records'
 import {
   CHILD_ROWS_CAP,
   LAUNCH_MESSAGE_CAP,
@@ -83,7 +83,7 @@ function foldEvents(events: readonly unknown[]): Map<string, StepEvents> {
     const id = own(event, 'step_name')
     const type = own(event, 'event_type')
     if (!isText(id) || !isText(type)) return
-    const data = isRecord(own(event, 'data')) ? (own(event, 'data') as Record<string, unknown>) : {}
+    const data = ownRecord(event, 'data')
     let step = steps.get(id)
     if (step === undefined) {
       step = { first: index, kind: null, starts: 0, durationMs: null }
@@ -102,8 +102,11 @@ function foldEvents(events: readonly unknown[]): Map<string, StepEvents> {
   return steps
 }
 
+/** A node of `run.nodes` that run detail can read: its id and a state it knows. */
+type ParsedNode = { id: string; state: StepState }
+
 /** One node of `run.nodes`, or null when it has no id or a state run detail does not know. */
-function parseNode(value: unknown): { id: string; state: StepState } | null {
+function parseNode(value: unknown): ParsedNode | null {
   if (!isRecord(value)) return null
   const id = own(value, 'node_id')
   const state = own(value, 'state')
@@ -124,7 +127,7 @@ function loopOf(id: string, ids: ReadonlySet<string>): string | null {
  * The steps in the tree's order: at each level the steps reached by first start, then the rest in
  * Archon's order, and each loop followed by its own inner steps.
  */
-function orderSteps(nodes: readonly { id: string; state: StepState }[], events: Map<string, StepEvents>): Step[] {
+function orderSteps(nodes: readonly ParsedNode[], events: Map<string, StepEvents>): Step[] {
   const ids = new Set(nodes.map((node) => node.id))
   const steps: Step[] = nodes.map((node, position) => {
     const loop = loopOf(node.id, ids)
@@ -219,11 +222,11 @@ export function parseRunDetail(value: unknown): ParsedRun | null {
   if (started === false || completed === false || message === false || codebaseId === false || workingPath === false) {
     return null
   }
-  const metadata = isRecord(own(run, 'metadata')) ? (own(run, 'metadata') as Record<string, unknown>) : {}
+  const metadata = ownRecord(run, 'metadata')
   const cost = own(metadata, 'total_cost_usd')
   const rawEvents = own(value, 'events')
   const events = foldEvents(Array.isArray(rawEvents) ? (rawEvents as unknown[]) : [])
-  const parsedNodes: { id: string; state: StepState }[] = []
+  const parsedNodes: ParsedNode[] = []
   for (const node of nodes as unknown[]) {
     const parsed = parseNode(node)
     if (parsed !== null) parsedNodes.push(parsed)
@@ -273,12 +276,15 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
   const childLookups = new Map<string, { at: number; rows: Map<string, ChildRow> }>()
   let projects: { at: number; names: Map<string, string> } | undefined
 
+  /** Whether a lookup is missing or was made at least `LOOKUP_MS` ago. */
+  const isOld = (lookup: { at: number } | undefined): boolean => lookup === undefined || ports.now() - lookup.at >= LOOKUP_MS
+
   const get = (server: Connected, path: string, signal: AbortSignal) =>
     ports.client.request({ baseUrl: server.baseUrl, path, timeout: 'read', signal })
 
   /** The project's name, from Archon's list, read again on open and once the last read is old. */
   async function projectName(server: Connected, codebaseId: string, open: boolean, signal: AbortSignal): Promise<string | null> {
-    if (open || projects === undefined || ports.now() - projects.at >= LOOKUP_MS) {
+    if (open || isOld(projects)) {
       const answer = await get(server, CODEBASES_PATH, signal)
       const list = answer.ok ? parseCodebases(answer.value) : null
       if (list !== null) projects = { at: ports.now(), names: new Map(list.projects.map((project) => [project.id, project.name])) }
@@ -290,7 +296,7 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
   async function childRows(server: Connected, runId: string, ids: string[], open: boolean, signal: AbortSignal): Promise<ChildRow[]> {
     const shown = ids.slice(0, CHILD_ROWS_CAP)
     const held = childLookups.get(runId)
-    if (open || held === undefined || ports.now() - held.at >= LOOKUP_MS) {
+    if (open || isOld(held)) {
       const rows = await Promise.all(
         shown.map(async (id) => {
           const answer = await get(server, `${RUN_PATH}${encodeURIComponent(id)}`, signal)
