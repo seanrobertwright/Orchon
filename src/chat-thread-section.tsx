@@ -59,6 +59,8 @@ const toolCallsOn = atom<unknown>('chatToolCalls', false, { persist: 'workspace'
 /** How many of the newest messages the thread asks for. */
 const limit = atom(THREAD_PAGE)
 const loaded = atom<Thread | null>(null)
+/** Set when Archon answered that the conversation being read does not exist. */
+const gone = atom(false)
 const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
 /** What the last press of Open run on a dispatch row found when it opened nothing, by message id. */
@@ -101,11 +103,19 @@ function apply(answer: ThreadAnswer | null): void {
   if (thread.kind === 'ready' && thread.thread.id === openChatId()) {
     observeThread(thread.thread)
     set(loaded, thread.thread)
+    set(gone, false)
     set(problem, null)
     set(lastGood, now())
   } else if (thread.kind === 'gone') {
-    // The conversation was deleted, here or elsewhere: the list opens, with nothing said.
-    back()
+    // On open, before Archon has answered with the thread, the list opens with nothing said. A
+    // thread already read afresh and deleted elsewhere says so, with the way back.
+    if (read(lastGood) === null) {
+      back()
+      return
+    }
+    set(loaded, null)
+    set(gone, true)
+    set(problem, null)
   } else if (thread.kind === 'failed') {
     report(thread.message)
   }
@@ -165,6 +175,7 @@ function readLast(conversationId: string): void {
 function resetView(): void {
   closeDelete()
   set(loaded, null)
+  set(gone, false)
   set(problem, null)
   set(lastGood, null)
   set(limit, THREAD_PAGE)
@@ -475,7 +486,18 @@ export function chatThreadSection(writable: boolean): OrcaNode {
   const thread = read(loaded)
   const held = read(problem)
   let body: OrcaNode
-  if (thread === null) body = held === null ? <Spinner label="Loading the conversation…" /> : null
+  if (read(gone)) {
+    body = (
+      <Stack gap="sm">
+        <Text>This conversation no longer exists in Archon.</Text>
+        <Row>
+          <Button size="sm" variant="outline" onPress={back}>
+            Back to conversations
+          </Button>
+        </Row>
+      </Stack>
+    )
+  } else if (thread === null) body = held === null ? <Spinner label="Loading the conversation…" /> : null
   else body = threadBody(thread, writable)
   return (
     <Stack gap="sm">

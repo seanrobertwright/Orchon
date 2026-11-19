@@ -310,11 +310,24 @@ describe('when the thread is read', () => {
     clean(view)
   })
 
-  test('when the conversation no longer exists the list opens, quietly, and is read again', async () => {
+  test('when the conversation no longer exists on open the list opens, quietly, and is read again', async () => {
     const view = await openFirst(() => ({ kind: 'gone' }))
     assert.ok(view.find({ type: 'List', label: 'Conversations' }))
     assert.equal(view.find({ text: /no longer exists/ }), null)
     assert.equal(view.host.callsOf('plugin.request').filter((params) => (params as { name: string }).name === 'chats.read').length, 2)
+    clean(view)
+  })
+
+  test('a thread already read that Archon later says no longer exists says so and offers the way back', async () => {
+    let deleted = false
+    const view = await openFirst((request) => (deleted ? { kind: 'gone' } : sampleThread(2, request)))
+    assert.ok(view.find({ type: 'Heading', text: 'Question 0' }))
+    deleted = true
+    await advance(view, 30_000)
+    assert.ok(view.find({ type: 'Text', text: 'This conversation no longer exists in Archon.' }))
+    assert.equal(view.find({ type: 'List', label: 'Conversations' }), null)
+    await view.press({ type: 'Button', text: 'Back to conversations' })
+    assert.ok(view.find({ type: 'List', label: 'Conversations' }))
     clean(view)
   })
 
