@@ -6,7 +6,7 @@
 // outline, and dependencies in the "Depends on" list or in connect mode. Each edit goes through
 // the edit session, which uses the copied Archon editor state; the graph is laid out again after
 // every change, and the local rules run on the copy as it stands. Nothing is saved yet: the tab
-// never edits its file and sends nothing but reads. An installed workflow is only viewed. Every
+// never edits its file, and no edit leaves the frame. An installed workflow is only viewed. Every
 // piece of outside text is set through `textContent`.
 import { createCanvas, type Canvas, type ObserveSize } from '../shared/canvas.ts'
 import { elementMaker } from '../shared/dom.ts'
@@ -265,7 +265,10 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
   editBar.setAttribute('aria-label', 'Editing')
   editBar.append(undoButton, redoButton, addButton, addMenu)
 
+  /** Opens or closes the Add node menu. A closing menu hands the focus it held back to its button, as a disclosure does. */
   function setMenu(open: boolean): void {
+    const active = doc.activeElement
+    if (!open && active !== null && addMenu.contains(active)) addButton.focus()
     addMenu.hidden = !open
     addButton.setAttribute('aria-expanded', String(open))
   }

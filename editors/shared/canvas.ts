@@ -3,7 +3,8 @@
 // the plus and minus keys, fit by a button or the zero key, and a minimap whose frame can be
 // dragged to move the view. Until the person moves the view, the graph is fitted again each time
 // the canvas changes size. Panning and zooming change the drawing's viewBox only: nothing is laid
-// out or drawn again. The caller lays out and draws, and hands both over with `show`.
+// out or drawn again. The caller lays out and draws, and hands both over with `show`. A click on
+// a step or on an edge is reported to the caller.
 import { elementMaker } from './dom.ts'
 import type { Layout } from './graph-layout.ts'
 

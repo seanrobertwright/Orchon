@@ -35,7 +35,7 @@ export type EditSession = {
   /** Adds a node of a kind at the end, with a fresh id, and returns its position. */
   addNode(variant: VariantId): number
   removeNode(index: number): boolean
-  /** Adds a copy of the node at the end, with a fresh id, and returns its position, or null. */
+  /** Adds a copy of the node at the end, with a fresh id and no dependencies, and returns its position, or null. */
   duplicateNode(index: number): number | null
   /** Makes the node at `index` depend on the node named `id`. */
   addDependency(index: number, id: string): boolean
