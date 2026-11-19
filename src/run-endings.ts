@@ -6,6 +6,7 @@ import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected } from './connection-view'
 import { identities, isEnded, type Notice } from './notifications'
 import { readRun } from './run-detail'
+import { errorText } from './records'
 
 /** How many runs may wait to be read; the frames of more are dropped and said in the log. */
 export const ENDINGS_QUEUE_CAP = 50
@@ -71,7 +72,7 @@ export function createRunEndings(ports: RunEndingsPorts): RunEndings {
     const { signal } = controller
     readOne(target, next, signal)
       .catch((error: unknown) => {
-        ports.log(`Orchon could not read whether a run ended: ${error instanceof Error ? error.message : String(error)}`)
+        ports.log(`Orchon could not read whether a run ended: ${errorText(error)}`)
       })
       .finally(() => {
         if (signal !== controller.signal) return
