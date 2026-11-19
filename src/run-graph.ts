@@ -41,7 +41,7 @@ const PROJECT_GONE = "Archon no longer lists this run's project, so its workflow
 export const ANSWERED_IN_PANEL = 'Answered in the Orchon panel.'
 
 /** A BCP-47 tag as Orca gives one: letters, digits and dashes. */
-const LOCALE = /^[A-Za-z0-9-]{1,35}$/
+export const LOCALE = /^[A-Za-z0-9-]{1,35}$/
 
 /** The tab's request, or a refusal: a run id of 1 to the cap and a language tag, and nothing else. */
 export function parseGraphRequest(input: unknown): GraphRequest {

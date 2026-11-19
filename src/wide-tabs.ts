@@ -9,7 +9,7 @@ import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client } from './client'
 import type { ConnectionView } from './connection-view'
 import type { Disk } from './disk'
-import { goneText, parseWorkflowIdentity, PROJECT_GONE, projectFolder, readWorkflowFile } from './builder'
+import { goneText, parseWorkflowIdentity, PROJECT_GONE, projectFolder, readWorkflowFile, TOO_LARGE_TO_READ } from './builder'
 import { builderPointerName, builderPointerText, GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan } from './pointer-files'
 import type { FocusedWorkspace } from './project-scope'
 import { errorText, parseOneText } from './records'
@@ -26,7 +26,6 @@ export const WRITE_FAILED =
   'Orchon could not write its tab file into .orchon/ in this workspace, so wide tabs are off here until Orca restarts the plugin.'
 const NOT_CONNECTED = 'Orchon is not connected to Archon.'
 const RUN_GONE = 'This run no longer exists.'
-export const DEFINITION_TOO_LARGE = "This workflow's definition is over 1 MiB, so the builder cannot open it."
 
 /** The longest `.gitignore` the worker reads back before it decides to write its own. */
 const GITIGNORE_CAP_BYTES = 1024
@@ -161,7 +160,7 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     }
     const read = await readWorkflowFile(ports.client, connection, request.name, cwd, signal)
     if (read.kind === 'gone') return refused(goneText(request.name))
-    if (read.kind === 'too-large') return refused(DEFINITION_TOO_LARGE)
+    if (read.kind === 'too-large') return refused(TOO_LARGE_TO_READ)
     if (read.kind === 'failed') return refused(read.message)
     const scope = read.file.source
     return openPointer(focused, builderPointerName(scope, request.name), builderPointerText({ name: request.name, codebaseId: request.codebaseId, scope }))

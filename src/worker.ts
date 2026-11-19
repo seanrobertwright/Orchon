@@ -2,6 +2,7 @@
 // status bar item beside `main`, and loads this file as written: there is no build step.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
+import { startBuilder } from './builder'
 import { startChatList } from './chat-list'
 import { startConnection, type WorkerPorts } from './connection'
 import { createConversationStreams } from './conversation-streams'
@@ -56,6 +57,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
+  const builder = startBuilder(orca, { client: connection.client, current: connection.current, workspaces: projectScope.workspaces, platform: ports.platform })
   // One reader per conversation stream, shared by the launch tracker and chat.
   const streams = createConversationStreams({ client: connection.client, log: (message) => orca.log(message) })
   const launch = startLaunch(orca, {
@@ -84,6 +86,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()
+    builder.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()
