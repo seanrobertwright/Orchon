@@ -97,4 +97,11 @@ export type RunDetailView =
   /** The read failed. The message is one sentence for the person. */
   | { kind: 'failed'; message: string }
 
-export type RunDetailAnswer = ConnectionAnswer & { run: RunDetailView }
+export type RunDetailAnswer = ConnectionAnswer & {
+  run: RunDetailView
+  /**
+   * Why Open graph is off for a ready run, as one sentence: no local workspace is focused, it is
+   * remote, the run has no project, or a write failed there. Left out when it is on.
+   */
+  graphOff?: string
+}

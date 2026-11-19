@@ -51,6 +51,11 @@ const loaded = atom<RunDetail | null>(null)
 /** Set when Archon answered that the open run does not exist. */
 const gone = atom(false)
 
+/** Why Open graph is off, as the worker last said, or null when it is on. */
+const graphOff = atom<string | null>(null)
+/** Why the last press of Open graph opened nothing, or null. */
+const graphRefused = atom<string | null>(null)
+
 const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
 
@@ -86,6 +91,7 @@ function apply(answer: RunDetailAnswer | null): void {
   const { run } = answer
   if (run.kind === 'ready' && run.detail.id === openRunId()) {
     set(loaded, run.detail)
+    set(graphOff, answer.graphOff ?? null)
     set(gone, false)
     set(problem, null)
     set(lastGood, now())
@@ -275,6 +281,8 @@ const shown = atom<'steps' | 'artifacts'>('steps')
 /** A run opens as it first shows: both folds shut, Steps chosen, every loop open and no step selected. */
 function resetView(): void {
   set(gone, false)
+  set(graphOff, null)
+  set(graphRefused, null)
   set(problem, null)
   set(lastGood, null)
   set(factsOpen, false)
@@ -404,16 +412,56 @@ function waitingCallout(waiting: Waiting | null): OrcaNode {
   )
 }
 
+/** What a press of Open graph says when the worker itself does not answer. */
+export const GRAPH_UNANSWERED = "The graph tab did not open: Orchon's worker did not answer."
+
+async function openGraph(runId: string): Promise<void> {
+  set(graphRefused, null)
+  try {
+    const answer = await plugin.request('graph.open', { runId })
+    if (!answer.opened && openRunId() === runId) set(graphRefused, answer.reason)
+  } catch {
+    if (openRunId() === runId) set(graphRefused, GRAPH_UNANSWERED)
+  }
+}
+
+/**
+ * Open graph, under the folds. It is off, with the worker's reason beside it, when no local
+ * workspace is focused, in a remote one, for a run with no project and after a failed write;
+ * and off while Orchon is not connected, which the Searching banner says.
+ */
+function graphRow(detail: RunDetail): OrcaNode {
+  const off = read(graphOff)
+  const refused = read(graphRefused)
+  const connected = hooks?.connection()?.kind === 'connected'
+  return (
+    <Stack gap="xs">
+      <Row gap="sm" wrap>
+        <Button size="sm" variant="outline" disabled={off !== null || !connected} onPress={() => void openGraph(detail.id)}>
+          Open graph
+        </Button>
+      </Row>
+      {off === null ? null : (
+        <Text muted size="sm">
+          {off}
+        </Text>
+      )}
+      {refused === null || off !== null ? null : <Text size="sm">{refused}</Text>}
+    </Stack>
+  )
+}
+
 function body(detail: RunDetail): OrcaNode {
   const showing = read(shown)
   // The answer block, which takes the waiting callout's place for a question, and the action row
-  // go above the folds; the row of small buttons (Open graph, Open workflow in builder, Open
-  // conversation) goes under them.
+  // go above the folds; the row of small buttons goes under them: Open graph, and with their own
+  // tickets Open workflow in builder and Open conversation.
   return (
     <>
       {waitingCallout(detail.waiting)}
       {factsFold(detail)}
       {messageFold(detail)}
+      {graphRow(detail)}
       <Select
         label="Show"
         labelHidden

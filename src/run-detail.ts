@@ -23,7 +23,6 @@ import {
   type RunDetail,
   type RunDetailAnswer,
   type RunDetailRequest,
-  type RunDetailView,
   type Step,
   type StepState,
   type Waiting
@@ -267,6 +266,8 @@ export type RunDetailPorts = {
   current(): Promise<ConnectionView>
   /** Orca's workspaces, so a run whose folder Orca lists can be opened there. None when left out. */
   workspaces?(): Promise<readonly Pick<WorkspaceRow, 'id' | 'path'>[]>
+  /** Why Open graph is off for a run with or without a project, or null when it is on. Never off when left out. */
+  graphOff?(hasProject: boolean): Promise<string | null>
   now(): number
 }
 
@@ -311,14 +312,15 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
     return shown.map((id) => looked?.get(id) ?? { id, workflow: null, status: null })
   }
 
-  async function read(server: Connected, request: RunDetailRequest, signal: AbortSignal): Promise<RunDetailView> {
+  /** The run's view, and for a ready run why Open graph is off, when it is. */
+  async function read(server: Connected, request: RunDetailRequest, signal: AbortSignal): Promise<Omit<RunDetailAnswer, 'connection'>> {
     const answer = await get(server, `${RUN_PATH}${encodeURIComponent(request.runId)}`, signal)
     if (!answer.ok) {
-      if (answer.failure.kind === 'status' && answer.failure.status === 404) return { kind: 'gone' }
-      return { kind: 'failed', message: readFailureText(answer.failure) }
+      if (answer.failure.kind === 'status' && answer.failure.status === 404) return { run: { kind: 'gone' } }
+      return { run: { kind: 'failed', message: readFailureText(answer.failure) } }
     }
     const parsed = parseRunDetail(answer.value)
-    if (parsed === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
+    if (parsed === null) return { run: { kind: 'failed', message: unreadableAnswerText(server.version) } }
     const open = request.open === true
     const { codebaseId, children, waiting, ...facts } = parsed
     const project = codebaseId === null ? null : await projectName(server, codebaseId, open, signal)
@@ -338,14 +340,15 @@ export function startRunDetail(orca: OrcaWorkerApi, ports: RunDetailPorts): Disp
       const workspaceId = workspaceIdFor(detail.workingPath, await ports.workspaces())
       if (workspaceId !== undefined) detail.workspaceId = workspaceId
     }
-    return { kind: 'ready', detail }
+    const graphOff = ports.graphOff === undefined ? null : await ports.graphOff(codebaseId !== null)
+    return { run: { kind: 'ready', detail }, ...(graphOff === null ? {} : { graphOff }) }
   }
 
   return orca.panels.handle('run.read', async (input, context): Promise<RunDetailAnswer> => {
     const request = parseRunDetailRequest(input)
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { connection, run: { kind: 'not-connected' } }
-    const run = await read(connection, request, context.signal)
-    return { connection: await ports.current(), run }
+    const parts = await read(connection, request, context.signal)
+    return { connection: await ports.current(), ...parts }
   })
 }

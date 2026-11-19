@@ -4,6 +4,7 @@
 import { assert, describe, test } from 'orca/testing'
 import type { MockHostOptions } from 'orca/testing'
 import { DEFAULT, DEFAULT_HEALTH, health, json, recorded, scene, type Scene } from '../scripts/scripted-archon.ts'
+import type { RunDetailAnswer } from './run-detail-view'
 import type { GraphOpenAnswer } from './wide-tabs'
 
 const RUN_ID = '7c28e1a1-6432-4c9d-89d6-874cfaf81f89'
@@ -165,6 +166,37 @@ describe('a failed write', () => {
     const again = (await worker.request('graph.open', { runId: RUN_ID })) as GraphOpenAnswer
     assert.deepEqual(again, { opened: false, reason })
     assert.deepEqual(host.callsOf('editor.open'), [])
+    await worker.deactivate()
+  })
+})
+
+describe('run detail says why Open graph is off', () => {
+  const graphOff = async (stage: Scene, focused: string | null): Promise<unknown> => {
+    const { worker } = await stage.mount(orcaWith(focused))
+    const answer = (await worker.request('run.read', { runId: RUN_ID })) as RunDetailAnswer
+    await worker.deactivate()
+    assert.ok(answer.run.kind === 'ready')
+    return Object.hasOwn(answer, 'graphOff') ? answer.graphOff : 'left out'
+  }
+
+  test('it is left out when a local workspace is focused and the run has a project', async () => {
+    assert.equal(await graphOff(runScene(), 'ws-web'), 'left out')
+  })
+
+  test('with no workspace focused, in a remote workspace and for a run with no project', async () => {
+    assert.equal(await graphOff(runScene(), null), 'No workspace is focused in Orca. Wide tabs open in a workspace on this computer.')
+    assert.equal(await graphOff(runScene(), 'ws-ssh'), 'This workspace is on another host. Orchon works with the Archon on this computer.')
+    assert.equal(await graphOff(runScene(changedRun({ codebase_id: null })), 'ws-web'), 'This run has no Archon project, so it has no graph.')
+  })
+
+  test('after a failed write in that workspace', async () => {
+    const stage = runScene()
+    stage.disk.failWrites = true
+    const { worker } = await stage.mount(orcaWith('ws-web'))
+    await worker.request('graph.open', { runId: RUN_ID })
+    const answer = (await worker.request('run.read', { runId: RUN_ID })) as RunDetailAnswer
+    assert.ok(answer.run.kind === 'ready')
+    assert.match(answer.graphOff ?? '', /^Orchon could not write its tab file/)
     await worker.deactivate()
   })
 })

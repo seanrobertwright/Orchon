@@ -50,8 +50,8 @@ export type WideTabsPorts = {
 }
 
 export type WideTabs = Disposable & {
-  /** Why a wide tab cannot open in the focused workspace now, or null when one can. */
-  offReason(): Promise<string | null>
+  /** Why Open graph is off for a run with or without a project, or null when it is on. */
+  graphOff(hasProject: boolean): Promise<string | null>
 }
 
 export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTabs {
@@ -134,7 +134,9 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
 
   const subscription = orca.panels.handle('graph.open', (input, context) => openGraph(parseGraphOpenRequest(input), context.signal))
   return {
-    offReason,
+    async graphOff(hasProject) {
+      return (await offReason()) ?? (hasProject ? null : NO_PROJECT_GRAPH)
+    },
     dispose() {
       subscription.dispose()
     }

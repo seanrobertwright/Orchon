@@ -31,7 +31,6 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     openDisk: ports.openDisk
   })
   const runsTable = startRunsTable(orca, { ...connection, workspaces: projectScope.workspaces })
-  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, now: ports.now })
   const wideTabs = startWideTabs(orca, {
     client: connection.client,
     current: connection.current,
@@ -39,6 +38,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     openDisk: ports.openDisk,
     now: ports.now
   })
+  const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, graphOff: wideTabs.graphOff, now: ports.now })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     forms.dispose()
