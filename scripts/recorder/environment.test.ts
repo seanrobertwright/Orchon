@@ -1,6 +1,7 @@
 // The release's environment: the throwaway home and nothing of the developer's own setup.
+import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
-import { releaseEnvironment, type ProviderLogin } from './environment.ts'
+import { claudeLoginFolder, releaseEnvironment, type ProviderLogin } from './environment.ts'
 
 const HIDDEN: ProviderLogin = { kind: 'hidden', emptyConfigFolder: '/tmp/throwaway/claude-config-empty' }
 
@@ -78,5 +79,11 @@ describe("the release's environment", () => {
     const env = releaseEnvironment({ USERPROFILE: 'C:\Users\dev' }, 'C:\Temp\throwaway\archon-home', { kind: 'passed' })
     assert.equal(env.CLAUDE_CONFIG_DIR, undefined)
     assert.equal(env.USERPROFILE, 'C:\Users\dev')
+  })
+
+  test("knows where Claude keeps the shell's login, by path only", () => {
+    assert.equal(claudeLoginFolder({ CLAUDE_CONFIG_DIR: 'D:\claude-config' }, 'C:\Users\dev'), 'D:\claude-config')
+    assert.equal(claudeLoginFolder({ claude_config_dir: '' }, '/home/dev'), join('/home/dev', '.claude'))
+    assert.equal(claudeLoginFolder({}, '/home/dev'), join('/home/dev', '.claude'))
   })
 })

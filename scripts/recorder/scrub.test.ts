@@ -86,6 +86,7 @@ describe('the scrubber', () => {
       recorderFolder: '/tmp/orchon-recorder-abc123',
       tempFolder: '/tmp',
       homeFolder: '/home/dev',
+      claudeConfig: '/home/dev/.claude',
       binary: '/home/dev/downloads/archon-linux-x64',
       user: 'dev',
       host: 'dev-box'
@@ -98,14 +99,15 @@ describe('the scrubber', () => {
       recorderFolder: '<recorder-folder>',
       tempFolder: '<temp>',
       homeFolder: '<home>',
+      claudeConfig: '<claude-config>',
       binary: '<binary>',
       user: '<user>',
       host: '<host>'
     })
     assert.deepEqual(scrubber.leftovers(JSON.stringify(scrubbed)), [])
     assert.equal(scrubber.scrub('cwd=%2Ftmp%2Forchon-recorder-abc123%2Fproject&x'), 'cwd=<project-path>&x')
-    // Every placeholder but the store id's stands for one of the machine's values.
-    assert.deepEqual(Object.keys(PLACEHOLDERS).sort(), [...Object.keys(machine), 'storeId'].sort())
+    // Every placeholder but the store id's and the token's stands for one of the machine's values.
+    assert.deepEqual(Object.keys(PLACEHOLDERS).sort(), [...Object.keys(machine), 'storeId', 'token'].sort())
   })
 
   test('does not find a folder inside a longer name', () => {

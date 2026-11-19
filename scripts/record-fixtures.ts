@@ -13,6 +13,7 @@ import { basename, join, resolve } from 'node:path'
 import { parseArguments, USAGE } from './recorder/arguments.ts'
 import { BOOT_TIMEOUT_MS, waitUntilHealthy } from './recorder/boot.ts'
 import { nowIso } from './recorder/clock.ts'
+import { claudeLoginFolder } from './recorder/environment.ts'
 import { createThrowawayHome, removeThrowawayHome } from './recorder/home.ts'
 import { createLoopbackClient, type LoopbackClient } from './recorder/http.ts'
 import { untilInterrupted, watchInterrupts } from './recorder/interrupt.ts'
@@ -92,6 +93,7 @@ async function record(signal: AbortSignal): Promise<number> {
       recorderFolder: home.root,
       tempFolder: tmpdir(),
       homeFolder: homedir(),
+      claudeConfig: claudeLoginFolder(process.env, homedir()),
       binary,
       user: userInfo().username,
       host: hostname()

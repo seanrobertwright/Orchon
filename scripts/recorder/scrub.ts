@@ -1,5 +1,7 @@
 // Takes machine paths, account names and store ids out of what was recorded, before any of it
-// is written. A fixture is refused when something it was told to remove is still there.
+// is written, and strings shaped like a key or a token. A fixture is refused when something it
+// was told to remove is still there.
+import { holdsToken, scrubTokens, TOKEN } from './tokens.ts'
 
 export interface ScrubRules {
   /** Folders of this machine and what each is written as, such as `<project-path>`. */
@@ -18,10 +20,12 @@ export const PLACEHOLDERS = {
   recorderFolder: { as: '<recorder-folder>', stands: 'the folder that held both' },
   tempFolder: { as: '<temp>', stands: "the machine's temp folder" },
   homeFolder: { as: '<home>', stands: "the developer's home folder" },
+  claudeConfig: { as: '<claude-config>', stands: "the developer's Claude config folder, which holds the Claude login" },
   binary: { as: '<binary>', stands: "the release binary's path" },
   user: { as: '<user>', stands: "the developer's account name" },
   host: { as: '<host>', stands: "the machine's name" },
-  storeId: { as: '<store-id>', stands: "the install's store id" }
+  storeId: { as: '<store-id>', stands: "the install's store id" },
+  token: { as: TOKEN, stands: 'a string shaped like a key or a token' }
 } as const
 
 export const STORE_ID = PLACEHOLDERS.storeId.as
@@ -33,6 +37,8 @@ export interface Machine {
   recorderFolder: string
   tempFolder: string
   homeFolder: string
+  /** `CLAUDE_CONFIG_DIR`, or `.claude` in the home folder: the path only, never what it holds. */
+  claudeConfig: string
   binary: string
   user: string
   host: string
@@ -40,7 +46,7 @@ export interface Machine {
 
 /** The rules that take one machine's folders and names out of a recording. */
 export function machineRules(machine: Machine): ScrubRules {
-  const folders = ['projectFolder', 'archonHome', 'recorderFolder', 'tempFolder', 'homeFolder', 'binary'] as const
+  const folders = ['projectFolder', 'archonHome', 'recorderFolder', 'tempFolder', 'homeFolder', 'claudeConfig', 'binary'] as const
   const names = ['user', 'host'] as const
   return {
     paths: folders.map((key) => ({ path: machine[key], as: PLACEHOLDERS[key].as })),
@@ -76,7 +82,7 @@ export function pathPattern(path: string): RegExp {
 }
 
 /** Matches a name that stands by itself, not as part of a longer word. */
-function namePattern(name: string): RegExp {
+export function namePattern(name: string): RegExp {
   return new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(name)}(?![A-Za-z0-9])`, 'gi')
 }
 
@@ -101,7 +107,7 @@ export function createScrubber(rules: ScrubRules): Scrubber {
   }
 
   const scrubText = (text: string): string =>
-    replacements.reduce((scrubbed, { pattern, as }) => scrubbed.replace(pattern, () => as), text)
+    scrubTokens(replacements.reduce((scrubbed, { pattern, as }) => scrubbed.replace(pattern, () => as), text))
 
   const scrubValue = (value: unknown, key?: string): unknown => {
     if (typeof value === 'string') {
@@ -120,7 +126,8 @@ export function createScrubber(rules: ScrubRules): Scrubber {
     },
     scrub: <T>(value: T): T => scrubValue(value) as T,
     leftovers(text) {
-      return replacements.filter(({ pattern }) => new RegExp(pattern.source, pattern.flags).test(text)).map(({ as }) => as)
+      const left = replacements.filter(({ pattern }) => new RegExp(pattern.source, pattern.flags).test(text)).map(({ as }) => as)
+      return holdsToken(text) ? [...left, TOKEN] : left
     }
   }
 }

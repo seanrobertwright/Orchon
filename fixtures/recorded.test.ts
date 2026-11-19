@@ -4,6 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
+import { findLeaks } from '../scripts/recorder/leaks.ts'
 import { FORBIDDEN_WORKFLOWS, RECORDER_WORKFLOWS } from '../scripts/recorder/workflows.ts'
 import { repoRoot } from '../scripts/repo-files.ts'
 
@@ -243,6 +244,12 @@ for (const release of RELEASES) {
           [],
           `fixtures/${release}/${path} holds the recorder's temp folder`
         )
+      }
+    })
+
+    test('hold no string shaped like a key or a token, and no email address a person owns', () => {
+      for (const path of filesOf(release)) {
+        assert.deepEqual(findLeaks(textOf(release, path), { loginFolder: '', homeFolder: '', user: '' }), [], `fixtures/${release}/${path}`)
       }
     })
 
