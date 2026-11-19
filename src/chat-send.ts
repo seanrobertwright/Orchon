@@ -25,8 +25,13 @@ import { readFailureText, unreadableAnswerText } from './read-failure'
 import { cappedTextRefusal, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { PROJECT_ID_CAP } from './scope-view'
 
-/** Whether a message holds anything but blanks. It is still sent exactly as typed. */
-export const hasWords = (message: string): boolean => message.trim() !== ''
+/** A project id as a frame sends it, or a refusal. */
+function parseProjectId(codebaseId: unknown): string {
+  if (typeof codebaseId !== 'string' || codebaseId === '' || codebaseId.length > PROJECT_ID_CAP) {
+    refuseRequest(cappedTextRefusal('The project id', PROJECT_ID_CAP))
+  }
+  return codebaseId
+}
 
 /** A frame's request, or a refusal. The message is kept exactly as typed: a slash command passes through. */
 export function parseChatSendRequest(input: unknown): ChatSendRequest {
@@ -36,7 +41,6 @@ export function parseChatSendRequest(input: unknown): ChatSendRequest {
   if (typeof message !== 'string' || message.length === 0 || messageBytes(message) > CHAT_MESSAGE_CAP) {
     refuseRequest(`The message must be text of 1 character to ${String(CHAT_MESSAGE_CAP)} bytes.`)
   }
-  if (!hasWords(message)) refuseRequest('The message holds only blanks.')
   const conversationId = own(input, 'conversationId')
   const codebaseId = own(input, 'codebaseId')
   if ((conversationId === undefined) === (codebaseId === undefined)) refuseRequest('Send takes a conversation id or a project id, not both.')
@@ -46,10 +50,7 @@ export function parseChatSendRequest(input: unknown): ChatSendRequest {
     }
     return { conversationId, message }
   }
-  if (typeof codebaseId !== 'string' || codebaseId === '' || codebaseId.length > PROJECT_ID_CAP) {
-    refuseRequest(cappedTextRefusal('The project id', PROJECT_ID_CAP))
-  }
-  return { codebaseId, message }
+  return { codebaseId: parseProjectId(codebaseId), message }
 }
 
 /** A frame's request for a new chat's projects, or a refusal. */
@@ -57,19 +58,27 @@ export function parseChatProjectsRequest(input: unknown): ChatProjectsRequest {
   if (!isRecord(input)) refuseRequest("A new chat's projects take nothing but the scope's project id.")
   refuseOtherKeys(input, ['codebaseId'], "A new chat's projects")
   if (!Object.hasOwn(input, 'codebaseId')) return {}
-  const codebaseId = own(input, 'codebaseId')
-  if (typeof codebaseId !== 'string' || codebaseId === '' || codebaseId.length > PROJECT_ID_CAP) {
-    refuseRequest(cappedTextRefusal('The project id', PROJECT_ID_CAP))
-  }
-  return { codebaseId }
+  return { codebaseId: parseProjectId(own(input, 'codebaseId')) }
+}
+
+/** Archon's projects, read afresh, or one sentence saying why they could not be read. */
+async function readListedProjects(
+  client: Client,
+  server: Connected,
+  signal?: AbortSignal
+): Promise<{ ok: true; listed: NonNullable<ReturnType<typeof parseCodebases>> } | { ok: false; message: string }> {
+  const read = await client.request({ baseUrl: server.baseUrl, path: CODEBASES_PATH, timeout: 'read', ...(signal === undefined ? {} : { signal }) })
+  if (!read.ok) return { ok: false, message: readFailureText(read.failure) }
+  const listed = parseCodebases(read.value)
+  if (listed === null) return { ok: false, message: unreadableAnswerText(server.version) }
+  return { ok: true, listed }
 }
 
 /** Archon's projects as a new chat offers them, read afresh. */
 export async function readChatProjects(client: Client, server: Connected, request: ChatProjectsRequest, signal?: AbortSignal): Promise<ChatProjectsView> {
-  const read = await client.request({ baseUrl: server.baseUrl, path: CODEBASES_PATH, timeout: 'read', ...(signal === undefined ? {} : { signal }) })
-  if (!read.ok) return { kind: 'failed', message: readFailureText(read.failure) }
-  const listed = parseCodebases(read.value)
-  if (listed === null) return { kind: 'failed', message: unreadableAnswerText(server.version) }
+  const read = await readListedProjects(client, server, signal)
+  if (!read.ok) return { kind: 'failed', message: read.message }
+  const { listed } = read
   const projects: ChatProject[] = listed.projects
     .map(({ id, name, defaultCwd }) => ({ id, name, defaultCwd }))
     .sort((first, second) => first.name.localeCompare(second.name) || first.id.localeCompare(second.id))
@@ -126,11 +135,9 @@ export const PROJECT_NOT_LISTED = 'Archon does not list this project now. Choose
 
 /** The first send of a new chat: the project must be one Archon lists now, read afresh. */
 async function createIn(ports: ChatSendPorts, server: Connected, codebaseId: string, message: string): Promise<ChatSendOutcome> {
-  const read = await ports.client.request({ baseUrl: server.baseUrl, path: CODEBASES_PATH, timeout: 'read' })
-  if (!read.ok) return { kind: 'refused', message: readFailureText(read.failure) }
-  const listed = parseCodebases(read.value)
-  if (listed === null) return { kind: 'refused', message: unreadableAnswerText(server.version) }
-  if (!listed.projects.some((project) => project.id === codebaseId)) return { kind: 'refused', message: PROJECT_NOT_LISTED }
+  const read = await readListedProjects(ports.client, server)
+  if (!read.ok) return { kind: 'refused', message: read.message }
+  if (!read.listed.projects.some((project) => project.id === codebaseId)) return { kind: 'refused', message: PROJECT_NOT_LISTED }
   const created = await ports.client.request({
     baseUrl: server.baseUrl,
     path: CONVERSATIONS_PATH,
@@ -165,9 +172,10 @@ export function startChatSend(orca: OrcaWorkerApi, ports: ChatSendPorts): Dispos
     try {
       const connection = await ports.current()
       if (connection.kind !== 'connected') return { connection, outcome: { kind: 'not-connected' } }
-      const outcome = Object.hasOwn(request, 'conversationId')
-        ? await sendTo(ports, connection, (request as { conversationId: string }).conversationId, request.message)
-        : await createIn(ports, connection, (request as { codebaseId: string }).codebaseId, request.message)
+      const outcome =
+        request.conversationId !== undefined
+          ? await sendTo(ports, connection, request.conversationId, request.message)
+          : await createIn(ports, connection, request.codebaseId, request.message)
       return { connection: await ports.current(), outcome }
     } finally {
       sending = false

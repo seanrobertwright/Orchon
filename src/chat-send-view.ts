@@ -23,7 +23,9 @@ export const messageBytes = (message: string): number => encoder.encode(message)
  * What **Send** sends: the message as typed, and either the open conversation's platform id or,
  * for the first send of a new chat, the Archon project to create it in.
  */
-export type ChatSendRequest = { conversationId: string; message: string } | { codebaseId: string; message: string }
+export type ChatSendRequest =
+  | { conversationId: string; codebaseId?: never; message: string }
+  | { codebaseId: string; conversationId?: never; message: string }
 
 export type ChatSendOutcome =
   /** Archon accepted the message. For a new chat the id is the conversation it created. */

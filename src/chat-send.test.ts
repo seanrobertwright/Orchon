@@ -76,7 +76,6 @@ describe('what the worker refuses before anything is sent', () => {
   const id = CONVERSATION[release]
   const cases: [string, unknown][] = [
     ['an empty message', { conversationId: id, message: '' }],
-    ['a message of blanks only', { conversationId: id, message: ' \n\t ' }],
     ['a message over 32 KiB', { conversationId: id, message: 'a'.repeat(32 * 1024 + 1) }],
     // 11,000 characters of three bytes each: 33,000 bytes of UTF-8.
     ['a message under 32 Ki characters but over 32 KiB of UTF-8', { conversationId: id, message: '€'.repeat(11_000) }],
@@ -100,6 +99,14 @@ describe('what the worker refuses before anything is sent', () => {
       await mounted.worker.deactivate()
     })
   }
+
+  test('a message of blanks only is 1 character or more, so it is sent as typed', async () => {
+    const stage = sendScene(release)
+    const mounted = await stage.mount({})
+    assert.deepEqual(await send(mounted, { conversationId: id, message: ' \n\t ' }), { kind: 'sent', conversationId: id })
+    assert.deepEqual(writes(stage), [{ method: 'POST', path: `/api/conversations/${id}/message`, body: { message: ' \n\t ' } }])
+    await mounted.worker.deactivate()
+  })
 
   test('a message of exactly 32 KiB is sent', async () => {
     const stage = sendScene(release)
