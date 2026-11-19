@@ -411,3 +411,16 @@ describe('a workflow Archon no longer has', () => {
     assert.equal(reads(stage).length, 2)
   })
 })
+
+describe('a node with many dependencies', () => {
+  test('the inspector lists the first 200 and says how many are not shown', async () => {
+    const ids = Array.from({ length: 205 }, (_, index) => `d${String(index)}`)
+    const nodes = [...ids.map((id) => ({ id, prompt: 'p' })), { id: 'last', prompt: 'p', depends_on: ids }]
+    const stage = await open({ connection, builder: { kind: 'ready', header, definition: { name: 'wide', nodes } } })
+    withClass(panelOf(stage, 'Outline'), 'outline-node')[205]?.click()
+    await settle()
+    const inspector = panelOf(stage, 'Inspector')
+    assert.equal(texts(inspector, 'li').filter((line) => /^d\d+$/.test(line)).length, 200)
+    assert.ok(texts(inspector, 'p').includes('5 more dependencies are not shown.'))
+  })
+})

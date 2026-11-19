@@ -19,6 +19,8 @@ export const CANVAS_CAP = 300
 export const OUTLINE_CAP = 2_000
 /** The most issues the strip lists; past it a line says how many are not shown. */
 export const ISSUES_CAP = 200
+/** The most dependencies the inspector lists for one node; past it a line says how many are not shown. */
+export const DEPENDS_CAP = 200
 
 /** The caps a pointer file's identity is read under, as the worker allows. */
 const NAME_CAP = 200
@@ -370,8 +372,10 @@ export function startBuilderTab(ports: BuilderTabPorts): BuilderTab {
     if (node.dependsOn.length === 0) parts.push(el('p', 'Nothing.', 'muted'))
     else {
       const list = el('ul')
-      for (const id of node.dependsOn) list.appendChild(el('li', id))
+      for (const id of node.dependsOn.slice(0, DEPENDS_CAP)) list.appendChild(el('li', id))
       parts.push(list)
+      const more = node.dependsOn.length - DEPENDS_CAP
+      if (more > 0) parts.push(el('p', `${String(more)} more ${more === 1 ? 'dependency is' : 'dependencies are'} not shown.`, 'muted'))
     }
     if (node.notEditable.length > 0) {
       const group = el('section', undefined, 'not-editable')
