@@ -1,0 +1,10 @@
+Third-party notices for Orchon
+
+Orchon ships no third-party code yet.
+
+When code from another project is copied into this repository, its licence text
+is added to this file in the same commit: Archon's MIT licence with the builder
+logic copied from Archon, and the licence of every bundled library.
+
+The development dependencies named in package.json are used to check the
+repository. They are not part of the installed plugin.

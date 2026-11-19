@@ -1,3 +1,9 @@
 # >>> implement-flow runtime state
 .lril/
 # <<< implement-flow runtime state
+
+# Installed development dependencies. They are never shipped: Orca installs the repository as it is.
+node_modules/
+
+# Orca's generated types and screenshots. Recreate the types with `orca plugin types .`.
+.orca/

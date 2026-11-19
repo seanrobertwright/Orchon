@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["orca", "orca-host", "orca-frame", "orca-services"],
+    "noEmit": false,
+    "noEmitOnError": true,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true,
+    "removeComments": false,
+    "newLine": "lf",
+    "sourceMap": false,
+    "declaration": false
+  },
+  "include": ["editors/**/*.ts"],
+  "exclude": ["editors/**/*.test.ts", "editors/**/*.d.ts"]
+}

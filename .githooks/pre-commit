@@ -1,0 +1,12 @@
+#!/bin/sh
+# Refuses a commit while a staged file holds U+FFFD, text that is not valid UTF-8, or the
+# owner's personal handle, home path or email address. Turn it on once per clone with
+# `npm run hooks:install`. CI runs the same check on every pull request.
+#
+# The staged content is written to a temporary folder and checked there, so the check reads
+# what the commit will hold and not what the working tree holds.
+set -eu
+staged=$(mktemp -d)
+trap 'rm -rf "$staged"' EXIT
+git checkout-index --all --prefix="$staged/"
+git ls-files -z | node scripts/check-tracked-files.ts --root "$staged"
