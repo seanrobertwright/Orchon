@@ -44,6 +44,32 @@ export function sampleThread(count: number, request: ThreadRequest, change: Part
   }
 }
 
+/** A message by which the orchestrator started the `deploy-site` workflow in conversation `workerId`. */
+export const sampleDispatch = (workerId: string | null): ThreadMessage => ({
+  ...sampleMessage(0),
+  id: 'msg-dispatch',
+  blocks: [],
+  dispatch: { workflow: 'deploy-site', workerId }
+})
+
+/** The result of the `deploy-site` workflow's run `run-5`, with `change` over it. */
+export const sampleResult = (change: Partial<ThreadMessage> = {}): ThreadMessage => ({
+  ...sampleMessage(0),
+  id: 'msg-result',
+  blocks: ['The site is **live**.'],
+  result: { workflow: 'deploy-site', runId: 'run-5' },
+  ...change
+})
+
+/** A thread of `count` sample messages with `messages` newest, over them, as the worker answers a request. */
+export const sampleThreadWith =
+  (count: number, ...messages: ThreadMessage[]) =>
+  (request: ThreadRequest): ThreadView => {
+    const view = sampleThread(count, request)
+    if (view.kind !== 'ready') return view
+    return { ...view, thread: { ...view.thread, messages: [...messages, ...view.thread.messages] } }
+  }
+
 /**
  * A stand-in for the worker that answers a thread with `thread(request)` as it stands at each
  * request, and the chat list, the scope and the runs table as `answeringChats` does.

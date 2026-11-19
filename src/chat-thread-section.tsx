@@ -1,11 +1,14 @@
 // A chat thread, the second level of the Chat section: one conversation's saved messages, newest
 // first, in the panel's own scroll. It draws only the worker's view model and fetches it under
-// the shared per-view fetch rules, every 30 seconds while it shows. It reads saved messages only:
+// the shared per-view fetch rules, every 30 seconds while it shows. A workflow's dispatch is a row
+// and its result a card, each with Open run, which hands the run to the Runs section. It reads saved messages only:
 // sending a message and following a reply as it streams belong to later tickets.
 import {
   atom,
+  Badge,
   Button,
   Callout,
+  Card,
   CodeView,
   Collapsible,
   Heading,
@@ -32,6 +35,7 @@ import {
   type ThreadRequest,
   type ThreadToolCall
 } from './chat-thread-view'
+import type { ChatRunAnswer } from './chat-run-view'
 import type { ConnectionView } from './connection-view'
 import { CONVERSATION_ID_CAP } from './conversations'
 import { now } from './dates'
@@ -55,6 +59,10 @@ const loaded = atom<Thread | null>(null)
 const gone = atom(false)
 const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
+/** What the last press of Open run on a dispatch row found when it opened nothing, by message id. */
+const runLines = atom<Readonly<Record<string, string>>>({})
+/** The dispatch row whose run is being looked up, whose Open run is off meanwhile. */
+const lookingUp = atom<string | null>(null)
 
 /** What the thread reads from the rest of the panel. */
 export type ChatThreadHooks = {
@@ -65,6 +73,8 @@ export type ChatThreadHooks = {
   keep(view: ConnectionView): void
   /** The way back: the list shows again and is read again. */
   back(): void
+  /** Open run: shows the Runs section on the run's detail. */
+  openRun(runId: string): void
 }
 
 let fetcher: ViewFetch | undefined
@@ -136,6 +146,8 @@ function resetView(): void {
   set(problem, null)
   set(lastGood, null)
   set(limit, THREAD_PAGE)
+  set(runLines, {})
+  set(lookingUp, null)
 }
 
 /** Opens a conversation in place of the list. */
@@ -236,8 +248,96 @@ function filesLine(files: NonNullable<ThreadMessage['files']>): OrcaNode {
   )
 }
 
+/** What a dispatch row says when its run was not opened. */
+const RUN_NOT_CREATED = 'The run has not been created yet.'
+const NO_WORKER = 'Archon did not say which run it started.'
+const LOOKUP_UNANSWERED = 'Orchon could not look the run up. Try again.'
+
+/** Open run on a dispatch row: the worker finds the run by the worker conversation, and its detail opens. */
+async function openDispatchedRun(messageId: string, workerId: string): Promise<void> {
+  if (read(lookingUp) !== null) return
+  const conversation = openChatId()
+  set(lookingUp, messageId)
+  let line: string | null
+  try {
+    const answer: ChatRunAnswer = await plugin.request('chat.findRun', { workerId })
+    hooks?.keep(answer.connection)
+    const { run } = answer
+    if (run.kind === 'found') {
+      set(lookingUp, null)
+      // A person who left the thread meanwhile is not taken to the run.
+      if (openChatId() === conversation) hooks?.openRun(run.runId)
+      return
+    }
+    line = run.kind === 'not-created' ? RUN_NOT_CREATED : run.kind === 'failed' ? run.message : null
+  } catch {
+    line = LOOKUP_UNANSWERED
+  }
+  set(lookingUp, null)
+  if (openChatId() !== conversation) return
+  set(runLines, line === null ? read(runLines) : { ...read(runLines), [messageId]: line })
+}
+
+function timeOf(message: ThreadMessage): OrcaNode {
+  return message.at === null ? null : (
+    <Text muted size="sm">
+      <RelativeTime at={message.at} />
+    </Text>
+  )
+}
+
+/** A message that started a workflow: a badge, the workflow and Open run, in place of its content. */
+function dispatchRow(message: ThreadMessage, dispatch: NonNullable<ThreadMessage['dispatch']>): OrcaNode {
+  const { workerId } = dispatch
+  const line = read(runLines)[message.id]
+  return (
+    <Stack key={message.id} gap="xs">
+      <Row gap="sm" align="center" wrap>
+        <Badge tone="accent">Started workflow</Badge>
+        <Text weight="semibold">{dispatch.workflow}</Text>
+        {timeOf(message)}
+        {workerId === null ? null : (
+          <Button size="sm" variant="outline" disabled={read(lookingUp) === message.id} onPress={() => void openDispatchedRun(message.id, workerId)}>
+            Open run
+          </Button>
+        )}
+      </Row>
+      {workerId === null ? (
+        <Text muted size="sm">
+          {NO_WORKER}
+        </Text>
+      ) : null}
+      {line === undefined ? null : (
+        <Text muted size="sm">
+          {line}
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
+/** A workflow's result: a card with the workflow, the summary and Open run. */
+function resultCard(message: ThreadMessage, result: NonNullable<ThreadMessage['result']>): OrcaNode {
+  return (
+    <Card key={message.id} title={result.workflow} description="Workflow result">
+      <Stack gap="xs">
+        {timeOf(message)}
+        {contentOf(message)}
+        {notShownLine(message.notShown, 'the summary')}
+        <Row>
+          <Button size="sm" variant="outline" onPress={() => hooks?.openRun(result.runId)}>
+            Open run
+          </Button>
+        </Row>
+      </Stack>
+    </Card>
+  )
+}
+
 /** One message, or null when it has nothing to show: only tool calls, while they are hidden. */
 function messageNode(message: ThreadMessage, withToolCalls: boolean): OrcaNode {
+  if (message.dispatch !== undefined) return dispatchRow(message, message.dispatch)
+  if (message.result !== undefined) return resultCard(message, message.result)
   const toolCalls = withToolCalls ? message.toolCalls : undefined
   if (message.blocks.length === 0 && message.error === undefined && message.files === undefined && toolCalls === undefined) return null
   return (

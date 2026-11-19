@@ -4,27 +4,51 @@
 // what it refuses.
 import { assert, describe, test } from 'orca/testing'
 import { DEFAULT, DEFAULT_HEALTH, health, json, recorded, RELEASES, scene, type MountedScene, type Release, type Scene } from '../scripts/scripted-archon.ts'
-import type { Thread, ThreadAnswer, ThreadView } from './chat-thread-view'
+import type { Thread, ThreadAnswer, ThreadMessage, ThreadView } from './chat-thread-view'
 
 /** The one web conversation each release's recording holds, read off the fixtures by hand. */
-const RECORDED: Record<Release, { id: string; title: string; user: { id: string; at: number }; assistant: { id: string; at: number } }> = {
+type Saved = { id: string; at: number }
+const RECORDED: Record<
+  Release,
+  {
+    id: string
+    title: string
+    user: Saved
+    assistant: Saved
+    /** The orchestrator's dispatch message, and the worker conversation it names. */
+    dispatch: Saved & { worker: string }
+    /** The workflow's result message, and the run it names. */
+    result: Saved & { runId: string }
+    /** The four messages in the order the thread shows them, newest first. */
+    newestFirst: ('user' | 'assistant' | 'dispatch' | 'result')[]
+  }
+> = {
   '0.12.1': {
     id: 'web-1795050072354-vqr978',
     title: 'Orchon recorder launch shell step',
     user: { id: 'ad4336d60932433064caeb7c0247160d', at: Date.UTC(2026, 10, 19, 1, 1, 12) },
-    assistant: { id: '372a43bd65fa712a173f9c3e0c5ddf91', at: Date.UTC(2026, 10, 19, 1, 1, 15) }
+    assistant: { id: '372a43bd65fa712a173f9c3e0c5ddf91', at: Date.UTC(2026, 10, 19, 1, 1, 15) },
+    dispatch: { id: '8a83298b05be5c27f18dee704020cf32', at: Date.UTC(2026, 10, 19, 1, 1, 15), worker: 'web-worker-1795050075790-mrmpg0' },
+    result: { id: '37f3bb539a9405926b722baf8bd03acc', at: Date.UTC(2026, 10, 19, 1, 1, 18), runId: '7c28e1a1-6432-4c9d-89d6-874cfaf81f89' },
+    newestFirst: ['result', 'dispatch', 'assistant', 'user']
   },
   '0.13.2': {
     id: 'web-1795050191420-o7xrhr',
     title: 'Orchon launch recording shell step',
     user: { id: '3e15411262282c8d2ea8f84b61d822eb', at: Date.UTC(2026, 10, 19, 1, 3, 11) },
-    assistant: { id: '5a811e3ff4503b62a553a4c367545fec', at: Date.UTC(2026, 10, 19, 1, 3, 14) }
+    assistant: { id: '5a811e3ff4503b62a553a4c367545fec', at: Date.UTC(2026, 10, 19, 1, 3, 14) },
+    dispatch: { id: '56f0662942da3207c3e168c7b828853b', at: Date.UTC(2026, 10, 19, 1, 3, 14), worker: 'web-worker-1795050194452-i06suv' },
+    result: { id: '79fa2471ba172659a7cc96de0430638f', at: Date.UTC(2026, 10, 19, 1, 3, 16), runId: '542b1888-311b-4b65-b005-8b78e33a7c79' },
+    newestFirst: ['result', 'assistant', 'dispatch', 'user']
   },
   '0.14.0': {
     id: 'web-1795050310074-i0mt96',
     title: 'Orchon launch shell step',
     user: { id: 'a4df0322074c4750e409f699004fab4f', at: Date.UTC(2026, 10, 19, 1, 5, 10) },
-    assistant: { id: 'a93711901d7f5b4edbbcb52979852ccb', at: Date.UTC(2026, 10, 19, 1, 5, 13) }
+    assistant: { id: 'a93711901d7f5b4edbbcb52979852ccb', at: Date.UTC(2026, 10, 19, 1, 5, 13) },
+    dispatch: { id: '267336a1fff315610d29e477c4dcdf04', at: Date.UTC(2026, 10, 19, 1, 5, 13), worker: 'web-worker-1795050313338-bvgrg9' },
+    result: { id: 'fc922d89dfb6ba812420731f18ce4b76', at: Date.UTC(2026, 10, 19, 1, 5, 17), runId: '68b479b2-217a-4e84-b86d-ecb9faf394e6' },
+    newestFirst: ['result', 'assistant', 'dispatch', 'user']
   }
 }
 
@@ -54,19 +78,38 @@ const ready = (view: ThreadView): Thread => {
 
 describe('a recorded thread', () => {
   for (const release of RELEASES) {
-    test(`${release}: the conversation, its project and its saved messages newest first, without framework messages`, async () => {
+    test(`${release}: the conversation, its project and its saved messages newest first, the dispatch as a row and the result as a card`, async () => {
       const stage = threadScene(release)
       const mounted = await stage.mount({})
       const chat = RECORDED[release]
       const thread = ready(await read(mounted, { conversationId: chat.id, limit: 50 }))
+      const drawn: Record<(typeof chat.newestFirst)[number], ThreadMessage> = {
+        result: {
+          id: chat.result.id,
+          role: 'assistant',
+          at: chat.result.at,
+          format: 'markdown',
+          blocks: ['recorded'],
+          notShown: 0,
+          result: { workflow: 'orchon-recorder-echo', runId: chat.result.runId }
+        },
+        dispatch: {
+          id: chat.dispatch.id,
+          role: 'assistant',
+          at: chat.dispatch.at,
+          format: 'markdown',
+          blocks: [],
+          notShown: 0,
+          dispatch: { workflow: 'orchon-recorder-echo', workerId: chat.dispatch.worker }
+        },
+        assistant: { id: chat.assistant.id, role: 'assistant', at: chat.assistant.at, format: 'markdown', blocks: ['Starting workflow: `orchon-recorder-echo`'], notShown: 0 },
+        user: { id: chat.user.id, role: 'user', at: chat.user.at, format: 'markdown', blocks: ['Recording a launch for Orchon: one shell step.'], notShown: 0 }
+      }
       assert.deepEqual(thread, {
         id: chat.id,
         title: chat.title,
         project: { name: 'orchon-recorder/throwaway-project', defaultCwd: '<project-path>' },
-        messages: [
-          { id: chat.assistant.id, role: 'assistant', at: chat.assistant.at, format: 'markdown', blocks: ['Starting workflow: `orchon-recorder-echo`'], notShown: 0 },
-          { id: chat.user.id, role: 'user', at: chat.user.at, format: 'markdown', blocks: ['Recording a launch for Orchon: one shell step.'], notShown: 0 }
-        ],
+        messages: chat.newestFirst.map((which) => drawn[which]),
         limit: 50,
         earlier: false,
         atArchonCap: false,
@@ -127,6 +170,60 @@ describe('what a message carries', () => {
       assert.equal(messages[1]?.error, undefined)
     })
   }
+})
+
+describe('workflow dispatches and results', () => {
+  const dispatch = (worker: unknown): Record<string, unknown> => ({
+    category: 'workflow_dispatch_status',
+    workflowDispatch: { workflowName: 'deploy' + String.fromCharCode(10) + 'now', workerConversationId: worker }
+  })
+  const result = (workflowResult: unknown): Record<string, unknown> => ({ category: 'workflow_result', workflowResult })
+
+  test('a dispatch keeps its worker conversation id only when the conversation id rule accepts it, and its name on one line', async () => {
+    const { view } = await readRows('0.14.0', [
+      likeRecorded('0.14.0', 'm-good', { role: 'assistant', metadata: dispatch('web-worker-1-abc') }),
+      likeRecorded('0.14.0', 'm-odd', { role: 'assistant', metadata: dispatch('web/../worker') }),
+      likeRecorded('0.14.0', 'm-none', { role: 'assistant', metadata: dispatch(undefined) })
+    ])
+    assert.deepEqual(
+      ready(view).messages.map((message) => [message.id, message.blocks, message.dispatch]),
+      [
+        ['m-none', [], { workflow: 'deploy now', workerId: null }],
+        ['m-odd', [], { workflow: 'deploy now', workerId: null }],
+        ['m-good', [], { workflow: 'deploy now', workerId: 'web-worker-1-abc' }]
+      ]
+    )
+  })
+
+  test("a result's summary is cut at 2,000 characters with how much is not shown", async () => {
+    const content = paragraphs(3)
+    const { view } = await readRows('0.14.0', [
+      likeRecorded('0.14.0', 'm-result', { role: 'assistant', content, metadata: result({ workflowName: 'deploy', runId: 'run-1' }) })
+    ])
+    const [message] = ready(view).messages
+    assert.deepEqual(message?.result, { workflow: 'deploy', runId: 'run-1' })
+    // Two whole paragraphs of 1,000 characters fit 2,000.
+    assert.equal(message?.blocks.join(''), paragraphs(2))
+    assert.equal(message?.notShown, 1_000)
+  })
+
+  test('a result without a workflow name or a run id, a dispatch without a name, and every other framework message stay hidden', async () => {
+    const { view } = await readRows('0.14.0', [
+      likeRecorded('0.14.0', 'm-user'),
+      likeRecorded('0.14.0', 'm-no-run', { metadata: result({ workflowName: 'deploy' }) }),
+      likeRecorded('0.14.0', 'm-null', { metadata: result(null) }),
+      likeRecorded('0.14.0', 'm-long-run', { metadata: result({ workflowName: 'deploy', runId: 'r'.repeat(201) }) }),
+      likeRecorded('0.14.0', 'm-no-name', { metadata: { category: 'workflow_dispatch_status', workflowDispatch: { workerConversationId: 'web-worker-1' } } }),
+      likeRecorded('0.14.0', 'm-status', { metadata: { category: 'workflow_status' } }),
+      likeRecorded('0.14.0', 'm-system', { metadata: { category: 'system_note' } }),
+      // A result outside a `workflow_result` message is not a card.
+      likeRecorded('0.14.0', 'm-other', { metadata: { category: 'workflow_progress', workflowResult: { workflowName: 'deploy', runId: 'run-1' } } })
+    ])
+    assert.deepEqual(
+      ready(view).messages.map((message) => message.id),
+      ['m-user']
+    )
+  })
 })
 
 /** `count` paragraphs of 1,000 characters each, with a blank line after each: Markdown the cutter cuts at a blank line. */
