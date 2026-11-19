@@ -33,6 +33,12 @@ describe('the throwaway Archon home', () => {
     assertOwnHome(home)
   })
 
+  test('holds an empty Claude config folder of its own, where a hidden login points', () => {
+    const home = createThrowawayHome({ tempFolder: scratch(), developerHomes: [] })
+    assert.equal(home.emptyClaudeConfig, join(home.root, 'claude-config-empty'))
+    assert.deepEqual(readdirSync(home.emptyClaudeConfig), [])
+  })
+
   test('two homes never share a folder', () => {
     const temp = scratch()
     const first = createThrowawayHome({ tempFolder: temp, developerHomes: [] })

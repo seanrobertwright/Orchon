@@ -24,6 +24,11 @@ export interface ThrowawayHome {
   archonHome: string
   /** The folder the throwaway project is made in: `project` inside the root. */
   projectFolder: string
+  /**
+   * An empty folder, `claude-config-empty` inside the root. A hidden login points Claude's
+   * config folder here, so Claude finds no login.
+   */
+  emptyClaudeConfig: string
   /** What the marker holds. A home whose marker holds another token belongs to another run. */
   token: string
   /** The developer's own Archon homes, which nothing here may equal, hold or lie inside. */
@@ -79,10 +84,12 @@ export function createThrowawayHome(options: HomeOptions = {}): ThrowawayHome {
     root,
     archonHome: join(root, 'archon-home'),
     projectFolder: join(root, 'project'),
+    emptyClaudeConfig: join(root, 'claude-config-empty'),
     token: randomUUID(),
     developerHomes
   }
   mkdirSync(home.archonHome)
+  mkdirSync(home.emptyClaudeConfig)
   writeFileSync(join(root, HOME_MARKER), `${JSON.stringify({ madeBy: 'orchon record-fixtures', token: home.token })}\n`)
   return home
 }
