@@ -256,14 +256,14 @@ export function launchHasData(): boolean {
 
 /**
  * Re-run: asks the worker to fill the draft from the run, which it reads itself, and keeps the
- * answer, so the section shows the filled form. It rejects with the worker's refusal. A message
- * being typed is dropped: the run's message replaces it.
+ * answer, so the section shows the filled form. It rejects with the worker's refusal. What was
+ * typed is dropped, an edit waiting out its pause included: the run's message, inputs and
+ * bindings replace it.
  */
 export async function rerunLaunch(runId: string): Promise<void> {
   const answer = await plugin.request('launch.rerun', { runId })
-  if (draftTimer !== undefined) frameTimers.clear(draftTimer)
-  draftTimer = undefined
-  set(typed, null)
+  dropPendingEdit()
+  forgetTyped()
   apply(answer)
 }
 
