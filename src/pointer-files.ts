@@ -47,8 +47,9 @@ const SCOPE_PART_CAP = 40
 
 /**
  * `<scope>-<workflow>.orchonflow`, each part cleaned first, so a project and a global workflow
- * that share a name have a file each. Two projects' workflows of one name and scope share a file;
- * its content names the project, and a tab reads it once, when it opens.
+ * that share a name have a file each. Two projects' workflows of one name and scope share a file:
+ * the last one opened writes its project into the content, but a tab already open on the file
+ * read it once, when it opened, and keeps showing the workflow it read.
  */
 export function builderPointerName(scope: string, workflow: string): string {
   const part = clean(scope, 'scope').slice(0, SCOPE_PART_CAP).replace(/-+$/, '')
