@@ -64,8 +64,7 @@ export type NotFound = Stamped & {
 export type BadSetting = Stamped & { kind: 'bad-setting'; refused: RefusedSetting[] }
 /**
  * A server answered health, but its path list lacks a path Orchon needs, is not JSON, or has no
- * `paths` object; an error status or an answer past the read cap counts as not a path list. The
- * version is what health reported, shown and never the reason.
+ * `paths` object. The version is what health reported, shown and never the reason.
  */
 export type Unsupported = Stamped & {
   kind: 'unsupported'

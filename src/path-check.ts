@@ -46,12 +46,12 @@ export const METRICS_PATHS: readonly string[] = ['/api/metrics', '/api/metric-vi
 export type PathCheck =
   /** Every required path is listed. The optional features are those whose paths are all listed. */
   | { kind: 'supported'; features: Features }
-  /**
-   * The document is not JSON, has no `paths` object, or lacks a required path. An error status
-   * or an answer past the read cap is not a path list either.
-   */
+  /** The document is not JSON, has no `paths` object, or lacks a required path. */
   | { kind: 'unsupported' }
-  /** The document did not arrive: the connection was refused, or it timed out. */
+  /**
+   * The document did not arrive as an answer to judge: the connection was refused, it timed out,
+   * or it came back with an error status or past the read cap.
+   */
   | { kind: 'unreachable' }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,20 +69,13 @@ export function judgePathList(document: unknown): PathCheck {
 }
 
 /**
- * Reads the path list of a confirmed server through the client, as any read, and decides. A
- * refused connection or a timeout says nothing about the server's paths. Any other failure is
- * an answer that is not a path list: HTML where the document should be, an error status, or a
- * document past the read cap.
+ * Reads the path list of a confirmed server through the client, as any read, and decides. Only
+ * an answer that is not JSON (HTML where the document should be) says the server has no path
+ * list. Every other failure, a refused connection, a timeout, an error status or an answer past
+ * the read cap, says nothing about the server's paths.
  */
 export async function checkPaths(client: Client, baseUrl: string, signal: AbortSignal): Promise<PathCheck> {
   const answer = await client.request({ baseUrl, path: OPENAPI_PATH, timeout: 'read', signal })
   if (answer.ok) return judgePathList(answer.value)
-  switch (answer.failure.kind) {
-    case 'refused':
-    case 'timeout':
-    case 'cancelled':
-      return { kind: 'unreachable' }
-    default:
-      return { kind: 'unsupported' }
-  }
+  return answer.failure.kind === 'not-json' ? { kind: 'unsupported' } : { kind: 'unreachable' }
 }

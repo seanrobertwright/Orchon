@@ -64,8 +64,7 @@ describe('the path check', () => {
       ['a document with no paths', json({ openapi: '3.0.0', info: { title: 'Archon API' } })],
       ['paths that are a list', json({ openapi: '3.0.0', paths: ['/api/health'] })],
       ['paths that are null', json({ openapi: '3.0.0', paths: null })],
-      ['a list, not a document', json([{ paths: {} }])],
-      ['an error status', json({ error: 'Internal error' }, 500)]
+      ['a list, not a document', json([{ paths: {} }])]
     ]
     for (const [what, answer] of answers) {
       const stage = scene()
@@ -130,6 +129,25 @@ describe('the path check', () => {
     await stage.clock.advance(2_000)
     assert.deepEqual(urls(stage), [DEFAULT_HEALTH, DEFAULT_OPENAPI, DEFAULT_HEALTH, DEFAULT_OPENAPI])
     assert.deepEqual(kinds(mounted), ['searching', 'connected'])
+  })
+
+  test('an error status or a document past the read cap stays Searching, and discovery runs again', async () => {
+    const mebibyte = new Uint8Array(1024 * 1024).fill(0x20)
+    const answers: [what: string, answer: Scripted][] = [
+      ['a server error', json({ error: 'Internal error' }, 500)],
+      ['a not-found status', html(404)],
+      ['a document past 8 MiB', { kind: 'chunks', chunks: Array.from({ length: 9 }, () => mebibyte) }]
+    ]
+    for (const [what, answer] of answers) {
+      const stage = scene()
+      stage.archon.answer(DEFAULT_HEALTH, health())
+      stage.archon.answer(DEFAULT_OPENAPI, answer)
+      const mounted = await stage.mount()
+      assert.deepEqual(kinds(mounted), ['searching'], what)
+      stage.archon.answer(DEFAULT_OPENAPI, recorded('0.12.1', 'openapi'))
+      await stage.clock.advance(2_000)
+      assert.deepEqual(kinds(mounted), ['searching', 'connected'], what)
+    }
   })
 
   test('a document that times out stays Searching, after the read timeout of 10 seconds', async () => {
