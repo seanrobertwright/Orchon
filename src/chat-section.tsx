@@ -1,8 +1,8 @@
 // The Chat section of the panel: the list of the scope's conversations with Archon's agent. It
 // draws only the worker's view model and fetches it under the shared per-view fetch rules, under
-// the project scope of `scope-section.tsx`. It ignores run hints and has no search. Opening a
-// conversation and **New chat** belong to later tickets: the button is drawn disabled, with its
-// reason beside it.
+// the project scope of `scope-section.tsx`. It ignores run hints and has no search. A row opens
+// the conversation's thread, drawn by `chat-thread-section.tsx` in place of the list. **New chat**
+// belongs to a later ticket: the button is drawn disabled, with its reason beside it.
 import {
   atom,
   Button,
@@ -24,6 +24,7 @@ import {
   type OrcaNode,
   type PanelContext
 } from 'orca'
+import { chatThreadHasData, chatThreadSection, clearChatThread, openChatId, openChatThread, restartChatThread, startChatThreadSection } from './chat-thread-section'
 import { ARCHON_CONVERSATIONS_CAP, CHAT_LIST_GAP_MS, type ChatRow, type ChatsAnswer, type ChatsRequest, type ChatsView } from './chats-view'
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
@@ -80,7 +81,8 @@ export function startChatSection(ctx: PanelContext, given: ChatSectionHooks): vo
   const view = createViewFetch<ChatsAnswer | null>({
     load(signal) {
       // The list waits for the scope, so it never reads one project and then another.
-      if (given.connection()?.kind !== 'connected' || !given.showing() || !scopeSettled()) return Promise.resolve(null)
+      // Nor is it read while a thread shows in its place.
+      if (given.connection()?.kind !== 'connected' || !given.showing() || !scopeSettled() || openChatId() !== null) return Promise.resolve(null)
       const codebaseId = scopedProjectId()
       const request: ChatsRequest = codebaseId === undefined ? {} : { codebaseId }
       return plugin.request('chats.read', request, { signal })
@@ -99,6 +101,7 @@ export function startChatSection(ctx: PanelContext, given: ChatSectionHooks): vo
     timers: frameTimers
   })
   fetcher = view
+  startChatThreadSection(ctx, { ...given, back: () => view.restart() })
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -109,7 +112,7 @@ export function startChatSection(ctx: PanelContext, given: ChatSectionHooks): vo
 
 /** Whether the list holds an answer to show, as Searching keeps it under its banner. */
 export function chatsHaveData(): boolean {
-  return read(loaded) !== null
+  return openChatId() === null ? read(loaded) !== null : chatThreadHasData()
 }
 
 /** A different Archon store: what the section loaded belongs to the old one. */
@@ -117,11 +120,21 @@ export function clearChats(): void {
   set(loaded, null)
   set(problem, null)
   set(lastGood, null)
+  clearChatThread()
 }
 
-/** Reads the list again at once: the section was shown, the scope changed or a person asked. */
+/**
+ * Reads the list again at once: the section was shown, the scope changed or a person asked.
+ * While a thread shows in its place, the thread is read instead.
+ */
 export function restartChats(): void {
-  fetcher?.restart()
+  if (openChatId() === null) fetcher?.restart()
+  else restartChatThread()
+}
+
+/** The project scope changed: the list follows it, and an open thread, which does not, is not read again. */
+export function rescopeChats(): void {
+  if (openChatId() === null) fetcher?.restart()
 }
 
 function unreadableLine(count: number): string {
@@ -132,7 +145,7 @@ function chatRow(chat: ChatRow, allProjects: boolean): OrcaNode {
   const title = chat.title ?? 'Untitled'
   const project = allProjects ? (chat.project ?? 'No project') : undefined
   return (
-    <ListItem key={chat.id} title={title} description={project}>
+    <ListItem key={chat.id} title={title} description={project} onPress={() => openChatThread(chat.id)}>
       {chat.lastActivityAt === null ? null : (
         <Text muted size="sm">
           <RelativeTime at={chat.lastActivityAt} />
@@ -144,6 +157,7 @@ function chatRow(chat: ChatRow, allProjects: boolean): OrcaNode {
 
 /** The section while connected or under the Searching banner. `writable` is false when its controls that write are off. */
 export function chatSection(state: Connected, writable: boolean): OrcaNode {
+  if (openChatId() !== null) return chatThreadSection()
   const chats = read(loaded)
   const held = read(problem)
   const allProjects = scopeChoice() === 'all'

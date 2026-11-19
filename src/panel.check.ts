@@ -21,6 +21,7 @@ import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail
 import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
 import { answeringWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
 import { answeringChats, sampleChats } from '../scripts/chat-samples.ts'
+import { answeringThread, sampleThread } from '../scripts/chat-thread-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 import type { RunsRequest } from './runs-view'
 
@@ -149,6 +150,10 @@ export default defineCheck({
   chat: { ...answeringChats((request) => sampleChats(8, request)), ...onChat },
   'chat, all projects at 50': { ...answeringChats((request) => sampleChats(50, request), { scope: () => unmatchedGit }), ...onChat },
   'chat, empty': { ...answeringChats((request) => sampleChats(0, request)), ...onChat },
+  'chat thread': {
+    ...answeringThread((request) => sampleThread(60, request, { unreadable: 1 })),
+    persisted: { workspace: { section: 'chat', openChat: 'web-chat-0' } }
+  },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
