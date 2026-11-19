@@ -29,13 +29,15 @@ import {
 } from 'orca'
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
-import { formatDateTime, formatDuration, now } from './dates'
+import { formatClock, formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
 import { RUN_ID_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type Step, type ChildRow, type Waiting } from './run-detail-view'
 import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
+import { warningLine } from './view-notices'
+import { offersTryAgain, troubleText } from './worker-words'
 import { worktreeLine } from './worktree-line'
 
 /** The least time between two reads of run detail that no person asked for. */
@@ -49,6 +51,18 @@ const openRun = atom<unknown>('openRun', null, { persist: 'workspace' })
 const loaded = atom<RunDetail | null>(null)
 /** Set when Archon answered that the open run does not exist. */
 const gone = atom(false)
+
+/**
+ * A read that failed: what to say, when the last good answer came, if one did, and whether it
+ * offers "Try again".
+ */
+type Problem = { message: string; lastGood: number | null; tryAgain: boolean }
+const problem = atom<Problem | null>(null)
+const lastGood = atom<number | null>(null)
+
+function report(message: string, tryAgain = true): void {
+  set(problem, { message, lastGood: read(lastGood), tryAgain })
+}
 
 /** The open run's id, or null when the runs table shows. */
 export function openRunId(): string | null {
@@ -79,9 +93,14 @@ function apply(answer: RunDetailAnswer | null): void {
   if (run.kind === 'ready' && run.detail.id === openRunId()) {
     set(loaded, run.detail)
     set(gone, false)
+    set(problem, null)
+    set(lastGood, now())
   } else if (run.kind === 'gone') {
     set(loaded, null)
     set(gone, true)
+    set(problem, null)
+  } else if (run.kind === 'failed') {
+    report(run.message)
   }
 }
 
@@ -97,7 +116,10 @@ export function startRunDetail(ctx: PanelContext, given: RunDetailHooks): void {
       return plugin.request('run.read', request, { signal })
     },
     apply,
-    fail() {},
+    // Worker unreachable, said by the shared fetch rules; a rate-limited read says nothing.
+    fail(_error, trouble) {
+      if (trouble !== null) report(troubleText(trouble), offersTryAgain(trouble))
+    },
     minGapMs: RUN_DETAIL_GAP_MS,
     safetyMs: () => {
       const state = given.connection()
@@ -155,6 +177,12 @@ function back(): void {
   set(loaded, null)
   resetView()
   hooks?.back()
+}
+
+function problemLine(held: Problem, hasData: boolean): OrcaNode {
+  const at = hasData && held.lastGood !== null ? formatClock(held.lastGood, env.locale) : ''
+  const when = at === '' ? '' : ` Last good answer at ${at}.`
+  return warningLine(`${held.message}${when}`, held.tryAgain ? () => restartRunDetail() : null)
 }
 
 function header(detail: RunDetail | null): OrcaNode {
@@ -259,6 +287,8 @@ const shown = atom<'steps' | 'artifacts'>('steps')
 /** A run opens as it first shows: both folds shut, Steps chosen, every loop open and no step selected. */
 function resetView(): void {
   set(gone, false)
+  set(problem, null)
+  set(lastGood, null)
   set(factsOpen, false)
   set(messageOpen, false)
   set(flipped, [])
@@ -421,10 +451,16 @@ function body(detail: RunDetail): OrcaNode {
 /** Run detail while connected or under the Searching banner. It has no control that writes yet. */
 export function runDetailSection(): OrcaNode {
   const detail = read(loaded)
+  const held = read(problem)
+  let content: OrcaNode
+  if (read(gone)) content = <Text>This run no longer exists.</Text>
+  else if (detail !== null) content = body(detail)
+  else content = held === null ? <Spinner label="Loading the run…" /> : null
   return (
     <Stack gap="sm">
       {header(detail)}
-      {read(gone) ? <Text>This run no longer exists.</Text> : detail === null ? <Spinner label="Loading the run…" /> : body(detail)}
+      {held === null ? null : problemLine(held, detail !== null)}
+      {content}
     </Stack>
   )
 }
