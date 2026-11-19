@@ -3,6 +3,7 @@
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startConnection, type WorkerPorts } from './connection'
 import { realPorts } from './ports'
+import { startProjectScope } from './project-scope'
 import { startRunsTable } from './runs-table'
 
 /** The manifest text of the status bar item, and what its press answers until runs are counted. */
@@ -21,7 +22,14 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const connection = startConnection(orca, ports)
   const runsTable = startRunsTable(orca, connection)
+  const projectScope = startProjectScope(orca, {
+    client: connection.client,
+    current: connection.current,
+    platform: ports.platform,
+    openDisk: ports.openDisk
+  })
   return () => {
+    projectScope.dispose()
     runsTable.dispose()
     connection.stop()
   }
