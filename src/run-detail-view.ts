@@ -1,5 +1,5 @@
 // Run detail as a frame gets it: the request a panel sends and the trimmed view model the worker
-// answers. It holds the run's facts, its steps and its waiting state only: no artifact listing,
+// answers. It holds the run's facts, its steps, its waiting state and its question only: no artifact listing,
 // no event payload and no step output crosses to the panel. It is types and constants only.
 import type { ConnectionAnswer } from './connection-view'
 import type { Question } from './run-answer-view'

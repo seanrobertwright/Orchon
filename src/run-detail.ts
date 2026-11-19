@@ -1,6 +1,7 @@
 // Run detail's request: the validator and view-model builder of `GET /api/workflows/runs/{runId}`.
 // It lists only the fields run detail reads, all present at the floor (Archon 0.12.1), and keeps
-// the run's facts, its steps and its waiting state. The run's events are read for each step's
+// the run's facts, its steps, its waiting state and the question a paused run waits on, which it
+// also tells the run-control side as the question last read. The run's events are read for each step's
 // kind, start count and duration, and then dropped with their payloads; `terminal_record`, its
 // artifact listing and every step's output are never read. A step that fails is dropped and
 // counted; a run that fails as a whole is an error.

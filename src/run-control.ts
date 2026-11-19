@@ -1,4 +1,5 @@
-// Run control: the worker's side of Cancel, Abandon, Resume and Try now. The worker is the
+// Run control: the worker's side of Cancel, Abandon, Resume and Try now, and of an answer to a
+// question, whose checks are in `run-answer.ts`. The worker is the
 // boundary, so it checks every request itself before anything reaches Archon, sends each write
 // once with the write timeout, and never tries one again. The outcomes follow the table of the
 // run control decision (#14, part 8).

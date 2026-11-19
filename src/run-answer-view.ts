@@ -36,7 +36,8 @@ export type Question =
       completionSignaled: boolean
     }
   /**
-   * An attention wait. Its identity is the occurrence. At most `OPTIONS_CAP` options, and how
+   * An attention wait. Its identity is the occurrence. `message` is Markdown, cut as a gate's is.
+   * At most `OPTIONS_CAP` options, none for a form that takes no choice, and how
    * many more there are. `recommendation` names one of the options, when the server sends one.
    */
   | {

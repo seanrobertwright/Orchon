@@ -1,7 +1,8 @@
 // Run detail's action row: Cancel, Abandon, Resume and Try now, as the run control decision sets
 // them for each state (#14, parts 1, 3 and 8). Cancel and Abandon confirm inline, with the safe
 // button first; Resume and Try now send at once. One write per run is in flight at a time, and
-// while it is every write control on that run is off. The worker checks each request again and
+// while it is every write control on that run is off, an answer from the answer block included,
+// which shares this rule and the outcome shown under the row. The worker checks each request again and
 // sends it once; the panel shows Archon's answer as plain text and reads the run again at once.
 import { atom, Button, Callout, plugin, read, Row, set, Stack, Text, update, type OrcaNode } from 'orca'
 import type { ConnectionView } from './connection-view'
