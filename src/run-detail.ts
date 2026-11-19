@@ -186,7 +186,6 @@ function childIds(run: Record<string, unknown>): string[] | null {
 }
 
 
-
 /** The `attention` kinds that are a question or nothing to wait for: the answer block's, or none. */
 const NOT_WAITING = ['awaiting_response', 'attention', 'terminal', 'blocked_on_child', 'blocked_on_children']
 
