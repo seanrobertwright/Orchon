@@ -267,7 +267,11 @@ describe('when the stream ends', () => {
     assert.equal(opens(stage, id), 2)
     await stage.clock.advance(1)
     assert.equal(opens(stage, id), 3)
+    // Deactivating with a reconnect and the lease waiting leaves no timer behind.
     await mounted.worker.deactivate()
+    assert.deepEqual(stage.clock.waiting(), [])
+    await stage.clock.advance(120_000)
+    assert.equal(opens(stage, id), 3)
   })
 })
 

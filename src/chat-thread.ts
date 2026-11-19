@@ -1,7 +1,8 @@
 // A chat thread's request: a frame sends a conversation id and how many of its newest messages to
 // read, and the worker reads the conversation, its project and its saved messages from Archon and
 // answers once. The frame gets the trimmed view model of `chat-thread-view.ts`, never Archon's
-// JSON. It reads saved messages only: no stream is opened here.
+// JSON. It reads saved messages only. Each read renews the lease of `chat-stream.ts` on the
+// conversation's stream, and the answer carries what that stream said of the turn, never its text.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import {
   ARCHON_MESSAGES_CAP,
