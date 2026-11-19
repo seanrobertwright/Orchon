@@ -1,10 +1,10 @@
 // The copy of a workflow the builder tab edits (#16, #28). Each edit goes through the copied
 // Archon editor state (`archon/editor/state.ts`) and its undo history, so the builder holds one
 // model of a workflow, Archon's. The session also knows whether the copy differs from the one
-// opened, or from the one last saved, which is what "Unsaved changes" says. Node positions carry no meaning: the tab lays the
-// graph out again after every change, and nothing is dragged or saved; the state's positions are
-// only kept in each undo step as the copied history expects. The session holds its own state and
-// touches nothing outside it: no page, no file, no clock.
+// opened, or from the one last saved, which is what "Unsaved changes" says. Node positions carry
+// no meaning: the tab lays the graph out again after every change, and nothing is dragged or
+// saved; the state's positions are only kept in each undo step as the copied history expects.
+// The session holds its own state and touches nothing outside it: no page, no file, no clock.
 //
 // The copied reducer finds a node by its id. A workflow may hold two nodes with one id, or a node
 // with none, until the person fixes it; an edit to such a node is applied by its position here,

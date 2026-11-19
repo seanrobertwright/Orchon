@@ -84,7 +84,7 @@ export type BuilderTabPorts = {
   on(event: string, handler: (payload: unknown) => void): { dispose(): void }
   /** Orca's UI language. */
   locale: string
-  /** The tab sets no timer of its own today; it is given the frame's for the ones saving brings. */
+  /** The frame's timers. The tab sets none of its own: a save waits on the worker, which times Archon's answers. */
   timers: TabTimers
   /** Opens a link in the system browser, when the frame can. */
   openExternal?(url: string): Promise<unknown>
