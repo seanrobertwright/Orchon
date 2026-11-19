@@ -3,7 +3,7 @@
 // Every scenario scripts the worker's connection answer. Check also starts the real worker, which
 // looks for Archon on the machine it runs on: without a scripted answer, what a scenario drew
 // would depend on whether an Archon happens to be running there.
-import { defineCheck } from 'orca/testing'
+import { defineCheck, hostError } from 'orca/testing'
 import {
   answering,
   connected,
@@ -16,8 +16,34 @@ import {
   twoBadSettings,
   unsupported
 } from '../scripts/connection-samples.ts'
+import { formsWithEdits } from '../scripts/forms-samples.ts'
 import { answeringRuns, busyRuns } from '../scripts/runs-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
+import type { RunsRequest } from './runs-view'
+
+/**
+ * Searching with data: the panel was Connected and has the runs table, then the worker says it
+ * is Searching. A scenario cannot post, so the runs answer carries the newer state.
+ */
+const searchingWithRuns = {
+  requests: {
+    ...answeringRuns((request) => busyRuns(40, request)).requests,
+    'runs.read': (request: RunsRequest) => ({
+      connection: { ...searching, since: connected.since + 1 },
+      runs: busyRuns(40, request)
+    })
+  }
+}
+
+/** Worker unreachable: Orca rejects the panel's requests to its worker as `unavailable`. */
+const workerUnreachable = {
+  requests: {
+    ...answering(connected).requests,
+    'connection.read': () => {
+      throw hostError('unavailable')
+    }
+  }
+}
 
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
@@ -31,6 +57,8 @@ export default defineCheck({
   'runs, remote workspace': answeringScope(() => remote, (request) => busyRuns(40, request)),
   'connected, reopened on settings': { ...answering(connected), ...onSettings },
   'searching with nothing loaded': answering(searching),
+  'searching with data': searchingWithRuns,
+  'worker unreachable': workerUnreachable,
   'not found, Archon is not running': answering(notRunning),
   'not found, no Archon home folder': answering(noHome),
   'bad setting, one refused': answering(oneBadSetting),
@@ -39,6 +67,7 @@ export default defineCheck({
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
+  'settings with unsaved edits and an outside change': { ...answering(connected, systemRead, formsWithEdits), ...onSettings },
   'settings while not found': { ...answering(notRunning), ...onSettings },
   'settings while unsupported': { ...answering(unsupported), ...onSettings },
   'settings with two refused settings': { ...answering(twoBadSettings), ...onSettings }

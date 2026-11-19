@@ -2,7 +2,7 @@
 // frame. This file owns the state and when discovery runs; `startConnection` ties it to Orca
 // (the settings, the frames' requests, the posts and the status bar item).
 import type { OrcaWorkerApi } from 'orca/worker'
-import { createClient, type Client, type FetchLike, type Timers } from './client'
+import { createClient, type Client, type ClientFailure, type FetchLike, type Timers } from './client'
 import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings } from './connection-settings'
 import type { ConnectionView, SettingsView } from './connection-view'
 import type { Disk } from './disk'
@@ -30,6 +30,10 @@ export const FIRST_RETRY_MS = 2_000
 export const LAST_RETRY_MS = 30_000
 /** In Unsupported, discovery runs again this often, with no doubling. */
 export const UNSUPPORTED_RETRY_MS = 30_000
+/** From Connected, a lost server stays Searching this long before it is Not found. */
+export const GRACE_MS = 20_000
+/** During the grace, discovery runs again this long after each pass that found nothing. */
+export const GRACE_RETRY_MS = 2_000
 
 /** A state before it is stamped with the time it was entered. */
 type Entering = ConnectionView extends infer View ? (View extends ConnectionView ? Omit<View, 'since'> : never) : never
@@ -60,13 +64,16 @@ const sameStored = (first: TypedSettings, second: TypedSettings): boolean =>
 export type Connection = {
   /** Begins the first discovery pass. */
   start(): void
-  /**
-   * The state, once the settings were first read. While Connected it also sends one health
-   * check, at most one in flight: a server that no longer answers moves the state to Searching.
-   */
+  /** The state, once the settings were first read: what a frame's `connection.read` answers. */
   read(): Promise<ConnectionView>
-  /** The state, once the settings were first read, with no health check. Data requests carry it. */
+  /** The state, once the settings were first read. Data requests carry it. */
   current(): Promise<ConnectionView>
+  /**
+   * A call to Archon failed. While Connected to that base URL, a refused connection moves the
+   * state to Searching, and a timeout sends one health check, at most one in flight: when
+   * health answers as the same store the state stays Connected, otherwise it moves to Searching.
+   */
+  callFailed(baseUrl: string, failure: ClientFailure): void
   /**
    * "Try again": in Not found and Unsupported, runs discovery at once. In any other state it
    * changes nothing.
@@ -99,7 +106,10 @@ export function createConnection(ports: ConnectionPorts): Connection {
   let inFlight = new AbortController()
   let retryTimer: unknown
   let retryDelay = FIRST_RETRY_MS
-  let verifying = false
+  /** Whether a health check sent after a timeout is in flight. */
+  let checking = false
+  /** When a server was lost from Connected, while its grace runs; null otherwise. */
+  let graceStart: number | null = null
   let settingsRead = (): void => {}
   const ready = new Promise<void>((resolve) => {
     settingsRead = resolve
@@ -122,6 +132,29 @@ export function createConnection(ports: ConnectionPorts): Connection {
       retryTimer = undefined
       void look()
     }, wait)
+  }
+
+  const inGrace = (): boolean => graceStart !== null && ports.now() < graceStart + GRACE_MS
+
+  /**
+   * A pass found no server to connect to. During the grace the state stays Searching and
+   * discovery runs again soon; once the grace is over, `otherwise` decides.
+   */
+  function foundNothing(otherwise: () => void): void {
+    if (inGrace()) {
+      lookAfter(GRACE_RETRY_MS)
+      return
+    }
+    graceStart = null
+    otherwise()
+  }
+
+  /** The connected server was lost: Searching, with the grace, and discovery at once. */
+  function lose(): void {
+    if (view.kind !== 'connected') return
+    graceStart = ports.now()
+    enter({ kind: 'searching', settings: view.settings })
+    void look()
   }
 
   /** The next wait of the Not found backoff. */
@@ -161,12 +194,15 @@ export function createConnection(ports: ConnectionPorts): Connection {
       const found = await discover(parsed, { client: ports.client, disk: ports.openDisk([parsed.home]), signal })
       if (mine !== generation) return
       if (found.kind === 'not-found') {
-        enter({ ...found, settings })
-        retryLater()
+        foundNothing(() => {
+          enter({ ...found, settings })
+          retryLater()
+        })
         return
       }
       const paths = await checkPaths(ports.client, found.baseUrl, signal)
       if (mine !== generation) return
+      if (paths.kind !== 'unreachable') graceStart = null
       if (paths.kind === 'supported') {
         enter({ ...found, settings, features: paths.features })
         retryDelay = FIRST_RETRY_MS
@@ -180,35 +216,32 @@ export function createConnection(ports: ConnectionPorts): Connection {
         // The server answered health, then the document did not arrive: that says nothing about
         // its paths, so the state is Searching and discovery runs again on the backoff.
         enter({ kind: 'searching', settings })
-        retryLater()
+        foundNothing(retryLater)
       }
     } catch (error) {
       if (mine !== generation) return
       ports.log(`Orchon could not look for Archon: ${error instanceof Error ? error.message : String(error)}`)
-      retryLater()
+      foundNothing(retryLater)
     } finally {
       settingsRead()
     }
   }
 
-  /** Checks that the connected server still answers as the same store. */
-  async function verify(): Promise<void> {
-    if (verifying || view.kind !== 'connected') return
-    verifying = true
+  /** After a timeout: one health check, at most one in flight, decides whether the server is lost. */
+  async function checkAfterTimeout(): Promise<void> {
+    if (checking || view.kind !== 'connected') return
+    checking = true
     const mine = generation
-    const { baseUrl, storeId, version } = view
+    const { baseUrl, storeId } = view
     try {
       const health = await checkHealth(ports.client, baseUrl, inFlight.signal)
-      if (mine !== generation) return
-      if (health === null || health.storeId !== storeId || health.version !== version) {
-        enter({ kind: 'searching', settings: view.settings })
-        void look()
-      }
+      // The version string decides nothing; another store at the address is another server.
+      if (mine === generation && (health === null || health.storeId !== storeId)) lose()
     } catch (error) {
       // Nothing waits for a check, so a failure here must not go unhandled.
       ports.log(`Orchon could not check on Archon: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
-      verifying = false
+      checking = false
     }
   }
 
@@ -219,8 +252,13 @@ export function createConnection(ports: ConnectionPorts): Connection {
 
     async read() {
       await ready
-      void verify()
       return view
+    },
+
+    callFailed(baseUrl, failure) {
+      if (view.kind !== 'connected' || view.baseUrl !== baseUrl) return
+      if (failure.kind === 'refused') lose()
+      else if (failure.kind === 'timeout') void checkAfterTimeout()
     },
 
     async current() {
@@ -249,6 +287,8 @@ export function createConnection(ports: ConnectionPorts): Connection {
       }
       // A pass that began meanwhile has read the settings itself.
       if (mine !== generation || (stored !== null && sameStored(parsed.stored, stored))) return
+      // A new setting is a new question, not a lost server: it has no grace.
+      graceStart = null
       retryDelay = FIRST_RETRY_MS
       await look(parsed)
     },
@@ -289,7 +329,12 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       })
     }
   })
-  const client = createClient({ fetch: ports.fetch, timers: ports.timers })
+  // Every call's failure is reported to the connection, which decides whether the server is lost.
+  const client = createClient({
+    fetch: ports.fetch,
+    timers: ports.timers,
+    failed: (call, failure) => connection.callFailed(call.baseUrl, failure)
+  })
   const connection = createConnection({
     readSettings: () => orca.settings.get(),
     homeDir: ports.homeDir,

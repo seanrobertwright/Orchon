@@ -1,13 +1,18 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
 import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
-import type { ConnectionView } from './connection-view'
+import type { Connected, ConnectionAnswer, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
-import { rescopeRuns, restartRuns, runsSection, startRunsSection } from './runs-section'
+import { now } from './dates'
+import { readForms, startFormGroups } from './form-groups'
+import { clearRuns, rescopeRuns, restartRuns, runsHaveData, runsSection, startRunsSection } from './runs-section'
 import { restartScope, startScope } from './scope-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
 import { stateScreen, type StateScreenActions } from './state-screen'
 import type { SystemView } from './system-view'
+import { frameTimers } from './frame-timers'
+import { createViewFetch, nextTrouble, rejectionOf, SAFETY_REFETCH_MS, type ViewFetch, type WorkerTrouble } from './view-fetch'
+import { dataViewBody, troubleLine, underLine, type DataView } from './view-notices'
 
 /**
  * The section showing, kept per workspace because Orca unmounts a hidden panel. It is stored as
@@ -21,23 +26,57 @@ const section = atom<unknown>('section', DEFAULT_SECTION, { persist: 'workspace'
  */
 const connection = atom<ConnectionView | null>(null)
 
+/**
+ * The last Connected state, kept through every other state: Searching draws the data it loaded
+ * under its banner, and a return with another store id clears what the sections held.
+ */
+const lastConnected = atom<Connected | null>(null)
+
 /** Keeps the newest state: an answer and a post can arrive in either order. */
 function keepNewest(next: ConnectionView): void {
   const held = read(connection)
   if (held !== null && next.since <= held.since) return
+  if (next.kind === 'connected') {
+    const before = read(lastConnected)
+    if (before !== null && before.storeId !== next.storeId) clearRuns()
+    set(lastConnected, next)
+  }
   set(connection, next)
   // On return to Connected every view that is showing fetches again.
   if (next.kind === 'connected' && held?.kind !== 'connected') {
     restartScope()
     restartRuns()
+    // The section's own first read is sent when it shows, so only a return to Connected reads again.
+    if (held !== null && parseSection(read(section)) === 'settings') readForms()
   }
 }
 
-/** Sends a connection request and keeps the state its answer carries. A failed request changes nothing. */
-function ask(name: 'connection.read' | 'connection.retry'): void {
-  plugin.request(name).then(
-    (answer) => keepNewest(answer.connection),
-    () => {}
+/** Worker unreachable for the connection reads: null while the worker answers them. */
+const connectionTrouble = atom<WorkerTrouble | null>(null)
+
+/** The connection read's fetch rules for this panel run: it is a view like any other. */
+let connectionFetch: ViewFetch | undefined
+
+/** Reads the connection state again at once: the "Try again" of Worker unreachable. */
+function readConnection(): void {
+  connectionFetch?.restart()
+}
+
+/** A connection read or retry answered: the worker answers, and the state it carries is kept. */
+function connectionAnswered(answer: ConnectionAnswer): void {
+  set(connectionTrouble, null)
+  keepNewest(answer.connection)
+}
+
+/** A connection read or retry failed. A rate-limited one has no trouble to tell, and changes nothing. */
+function connectionFailed(trouble: WorkerTrouble | null): void {
+  if (trouble !== null) set(connectionTrouble, trouble)
+}
+
+/** "Try again" on a state screen. Its failure is Worker unreachable, like a failed read. */
+function retryConnection(): void {
+  plugin.request('connection.retry').then(connectionAnswered, (error: unknown) =>
+    connectionFailed(nextTrouble(read(connectionTrouble), rejectionOf(error)))
   )
 }
 
@@ -80,12 +119,18 @@ function show(next: SectionId): void {
     restartRuns()
   }
   if (before === next) return
-  if (next === 'settings') askSystem('system.open')
+  if (next === 'settings') {
+    readForms()
+    askSystem('system.open')
+  }
   if (before === 'settings') closeSystem()
 }
 
+/** The least time between two connection reads that no person asked for. */
+const CONNECTION_GAP_MS = 1_000
+
 const actions: StateScreenActions = {
-  tryAgain: () => ask('connection.retry'),
+  tryAgain: retryConnection,
   openSettings: () => show('settings')
 }
 
@@ -105,10 +150,31 @@ export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
-  ask('connection.read')
+  startFormGroups(ctx, { keep: keepNewest })
+  // The first read, then one on the safety refetch: a worker that did not answer is tried again.
+  const fetch = createViewFetch<ConnectionAnswer>({
+    load: (signal) => plugin.request('connection.read', undefined, { signal }),
+    apply: connectionAnswered,
+    fail: (_error, trouble) => connectionFailed(trouble),
+    minGapMs: CONNECTION_GAP_MS,
+    safetyMs: SAFETY_REFETCH_MS,
+    now,
+    timers: frameTimers
+  })
+  connectionFetch = fetch
+  ctx.subscriptions.push({
+    dispose() {
+      fetch.stop()
+      if (connectionFetch === fetch) connectionFetch = undefined
+    }
+  })
+  fetch.restart()
   // Orca unmounts a hidden panel, so the Settings section shows from setup until it is left or
   // the panel closes.
-  if (parseSection(read(section)) === 'settings') askSystem('system.open')
+  if (parseSection(read(section)) === 'settings') {
+    readForms()
+    askSystem('system.open')
+  }
   ctx.subscriptions.push({
     dispose: () => {
       if (parseSection(read(section)) === 'settings') closeSystem()
@@ -116,17 +182,38 @@ export function setup(ctx: PanelContext): void {
   })
 }
 
+/**
+ * The sections that show Archon's data. Each one is drawn through an outage by the shared rules of
+ * `dataViewBody`, so a new data view only adds itself here.
+ */
+const DATA_VIEWS: Partial<Record<SectionId, DataView>> = {
+  runs: { hasData: runsHaveData, draw: runsSection }
+}
+
 /** What one section shows below the section bar. */
 function sectionBody(id: SectionId, label: string, state: ConnectionView | null): OrcaNode {
-  const placeholder = <EmptyState title={label} description="This section is not built yet." />
-  if (id === 'settings') return settingsSection(state, read(system), { refresh: () => askSystem('system.refresh') })
+  const trouble = read(connectionTrouble)
+  const view = DATA_VIEWS[id]
+  if (view !== undefined) {
+    const screen = stateScreen(state, actions)
+    return dataViewBody(view, { state, kept: read(lastConnected), screen, trouble, tryAgain: readConnection })
+  }
+  const line = trouble === null ? null : troubleLine(trouble, readConnection)
+  // Settings keeps its Connection group under the line, even with no state known.
+  if (id === 'settings') {
+    const refresh = (): void => {
+      readForms()
+      askSystem('system.refresh')
+    }
+    return underLine(line, settingsSection(state, read(system), { refresh }))
+  }
+  if (state === null && line !== null) return line
   // Without its paths the Metrics section says which release it needs, and asks Archon nothing.
   if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
-    return <EmptyState title={label} description={metricsMissing(state)} />
+    return underLine(line, <EmptyState title={label} description={metricsMissing(state)} />)
   }
   const screen = stateScreen(state, actions)
-  if (screen !== null || state?.kind !== 'connected') return screen
-  return id === 'runs' ? runsSection(state) : placeholder
+  return underLine(line, screen ?? <EmptyState title={label} description="This section is not built yet." />)
 }
 
 export default function Panel() {
