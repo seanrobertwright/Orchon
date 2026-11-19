@@ -63,7 +63,10 @@ export type ClientFailure =
   | { kind: 'timeout'; timeoutMs: number }
   /** The answer passed the read cap. Nothing partial is kept. */
   | { kind: 'too-large' }
-  /** No JSON content type, or a body that is not JSON. From a `200` it means the feature is missing. */
+  /**
+   * No JSON content type, or a body that is not JSON; for a stream, no event-stream content type.
+   * From a `200` it means the feature is missing.
+   */
   | { kind: 'not-json' }
   /** A status outside 200 to 299, a redirect included. */
   | { kind: 'status'; status: number }
@@ -72,9 +75,28 @@ export type ClientFailure =
 
 export type ClientResult = { ok: true; value: unknown } | { ok: false; failure: ClientFailure }
 
-export type Client = { request(call: ClientCall): Promise<ClientResult> }
+/** A stream to open. It has no timeout of its own: its caller's signal bounds it in time. */
+export type StreamCall = {
+  baseUrl: string
+  /** A path on that server, starting with `/`. */
+  path: string
+  /** Aborts the open, or ends the stream once open. */
+  signal: AbortSignal
+}
+
+/** The text of a held-open body as it arrives. It throws when the body breaks or is not UTF-8. */
+export type StreamText = AsyncIterable<string>
+
+export type StreamResult = { ok: true; text: StreamText } | { ok: false; failure: ClientFailure }
+
+export type Client = {
+  request(call: ClientCall): Promise<ClientResult>
+  /** Opens a Server-Sent Events stream, such as Archon's dashboard stream. */
+  stream(call: StreamCall): Promise<StreamResult>
+}
 
 const fail = (failure: ClientFailure): ClientResult => ({ ok: false, failure })
+const failed = (failure: ClientFailure): StreamResult => ({ ok: false, failure })
 
 /** The URL to call, or null when the base is not loopback `http` or the path would leave it. */
 function loopbackUrl(baseUrl: string, path: string): string | null {
@@ -88,6 +110,37 @@ function loopbackUrl(baseUrl: string, path: string): string | null {
 }
 
 const JSON_CONTENT_TYPE = /^application\/(?:[\w.-]+\+)?json\s*(?:;|$)/i
+const STREAM_CONTENT_TYPE = /^text\/event-stream\s*(?:;|$)/i
+
+/** A promise that rejects once the signal aborts, so a wait on a deaf transport still ends. */
+function abortion(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    const stop = (): void => reject(new DOMException('aborted', 'AbortError'))
+    if (signal.aborted) stop()
+    else signal.addEventListener('abort', stop, { once: true })
+  })
+}
+
+/** The body's text, piece by piece, ending when the signal aborts even if the body never does. */
+async function* streamText(body: AsyncIterable<Uint8Array>, signal: AbortSignal): StreamText {
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  const chunks = body[Symbol.asyncIterator]()
+  const aborted = abortion(signal)
+  aborted.catch(() => {})
+  try {
+    for (;;) {
+      const next = await Promise.race([chunks.next(), aborted])
+      if (next.done === true) break
+      const text = decoder.decode(next.value, { stream: true })
+      if (text !== '') yield text
+    }
+    const rest = decoder.decode()
+    if (rest !== '') yield rest
+  } finally {
+    // Lets go of the body: a pending read is not awaited, and its failure is not left unhandled.
+    chunks.return?.().catch(() => {})
+  }
+}
 
 /**
  * The body as text. It stops, with a failure, once the body passes `maxBytes` or holds bytes
@@ -140,6 +193,24 @@ export function createClient(ports: { fetch: FetchLike; timers: Timers }): Clien
   }
 
   return {
+    async stream(call) {
+      const url = loopbackUrl(call.baseUrl, call.path)
+      if (url === null) return failed({ kind: 'not-loopback' })
+      if (call.signal.aborted) return failed({ kind: 'cancelled' })
+      const init: FetchInit = { method: 'GET', headers: { accept: 'text/event-stream' }, redirect: 'manual', signal: call.signal }
+      let answer: FetchAnswer
+      try {
+        answer = await Promise.race([ports.fetch(url, init), abortion(call.signal)])
+      } catch {
+        return failed({ kind: call.signal.aborted ? 'cancelled' : 'refused' })
+      }
+      if (answer.status < 200 || answer.status > 299) return failed({ kind: 'status', status: answer.status })
+      if (!STREAM_CONTENT_TYPE.test(answer.headers.get('content-type')?.trim() ?? '') || answer.body === null) {
+        return failed({ kind: 'not-json' })
+      }
+      return { ok: true, text: streamText(answer.body, call.signal) }
+    },
+
     async request(call) {
       const url = loopbackUrl(call.baseUrl, call.path)
       if (url === null) return fail({ kind: 'not-loopback' })
