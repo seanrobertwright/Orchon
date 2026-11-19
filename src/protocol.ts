@@ -12,7 +12,7 @@ import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
-import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
+import type { BuilderOpenAnswer, BuilderOpenRequest, GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
 import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer, RerunRequest } from './launch-view'
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 import type { DeleteAnswer, WorkflowDelete, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
@@ -109,6 +109,8 @@ declare module 'orca' {
     'workflows.read': { input: WorkflowsRequest; output: WorkflowsAnswer }
     /** Deletes one project or global workflow, once, then reads the list again. */
     'workflows.delete': { input: WorkflowDelete; output: DeleteAnswer }
+    /** Open in builder: writes the workflow's pointer file into `.orchon/` and opens it in a wide tab. */
+    'builder.open': { input: BuilderOpenRequest; output: BuilderOpenAnswer }
     /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */
     'chats.read': { input: ChatsRequest; output: ChatsAnswer }
   }
