@@ -20,9 +20,9 @@ import {
   type OrcaNode,
   type PanelContext
 } from 'orca'
-import type { Timers } from './client'
 import type { ConnectionView } from './connection-view'
 import type { ConflictChoice, FormField, FormGroupId, FormsAnswer, FormsView, FormView } from './forms-view'
+import { frameTimers } from './frame-timers'
 
 /** Typed text is sent to the worker this long after the last key press. */
 export const TYPING_PAUSE_MS = 300
@@ -41,11 +41,6 @@ export type FormGroupsHooks = {
 }
 
 let hooks: FormGroupsHooks = { keep: () => {} }
-
-const frameTimers: Timers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>)
-}
 
 /** Typed values not yet sent, by group and field id. */
 const pending = new Map<FormGroupId, Map<string, string>>()

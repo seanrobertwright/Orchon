@@ -239,12 +239,15 @@ describe('editing a group', () => {
     const { stage, mounted } = await connectedTo('0.14.0')
     await mounted.worker.request('forms.read')
     await mounted.worker.request('forms.edit', { group: 'defaults', edits: { 'model:claude': 'mine' } })
-    // Another Archon store answers at the same address.
+    // Another Archon store answers at the same address. A read that times out sends the health
+    // check that finds it.
     const health = recorded('0.14.0', 'health')
     if (health.kind !== 'json') throw new Error('The recorded health answer is not JSON.')
     stage.archon.answer(DEFAULT_HEALTH, json({ ...(health.value as object), storeId: '<another-store>' }))
-    await mounted.read()
-    await stage.clock.advance(1)
+    stage.archon.answer(CONFIG, HANG)
+    void mounted.worker.request('forms.read')
+    await stage.clock.advance(10_000)
+    stage.archon.answer(CONFIG, recorded('0.14.0', 'config'))
     assert.equal(mounted.latest().kind, 'connected')
     const { forms } = await mounted.worker.request('forms.read')
     assert.equal(forms.defaults.dirty, false)

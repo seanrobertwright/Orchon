@@ -179,8 +179,12 @@ describe('the System group', () => {
     stage.archon.answer(DEFAULT_HEALTH, HANG)
     await stage.clock.advance(30_000)
     await mounted.worker.request('system.close')
-    // The read times out after 10 seconds.
+    // The read times out after 10 seconds, and the health check that follows finds no server, so
+    // discovery looks for one until Archon answers again (#44).
     await stage.clock.advance(10_000)
+    stage.archon.answer(DEFAULT_HEALTH, recorded('0.14.0', 'health'))
+    await stage.clock.advance(30_000)
+    assert.equal(mounted.latest().kind, 'connected')
     const mark = stage.archon.calls.length
     await stage.clock.advance(120_000)
     assert.deepEqual(callsSince(stage, mark), { health: 0, updates: 0 })
@@ -289,10 +293,13 @@ describe('the System group', () => {
     assert.deepEqual(failed?.health, first.health)
     assert.equal(failed?.readAt, CLOCK_START)
 
+    // The refused call moved the connection to Searching (#44); it comes back once Archon answers.
     stage.archon.answer(DEFAULT_HEALTH, recorded('0.14.0', 'health'))
+    await stage.clock.advance(2_000)
+    assert.equal(mounted.latest().kind, 'connected')
     const again = (await mounted.worker.request('system.refresh')).system
     assert.equal(again.failure, null)
-    assert.equal(again.readAt, CLOCK_START + 30_000)
+    assert.equal(again.readAt, CLOCK_START + 32_000)
     await mounted.worker.deactivate()
   })
 
