@@ -2,6 +2,7 @@
 // connected and answers the runs table with the snapshot's callout. These tests cover the
 // "runs need you" callout, the "Needs you" filter, the preview's question and the press of
 // "Orchon: Show runs", and which requests the panel sends.
+import { mock } from 'node:test'
 import { afterEach, assert, describe, mockHost, mount, test, type TestPanel, type TreeSnapshot } from 'orca/testing'
 import { answeringRuns, connected } from '../scripts/connection-samples.ts'
 import { busyRuns, sampleRun } from '../scripts/runs-samples.ts'
@@ -203,5 +204,24 @@ describe('a press of "Orchon: Show runs"', () => {
     // Mounted again within the minute, the same press is not applied a second time.
     const again = await mountWith(needing(2), { section: 'metrics', extra: { showRuns: { at: 5_000, needsYou: true } }, applied: 5_000 })
     assert.equal(again.valueOf({ type: 'Tabs' }), 'metrics')
+  })
+})
+
+describe('a change in the snapshot', () => {
+  test('reads the table again, no sooner than 2 seconds after the last read, so the callout follows the snapshot', async () => {
+    mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2026, 10, 18, 12) })
+    try {
+      const view = await mountWith(needing(1))
+      assert.equal(runsRequests(view).length, 1)
+      await view.post('needs-you.changed', null)
+      assert.equal(runsRequests(view).length, 1)
+      mock.timers.tick(2_000)
+      await view.settled()
+      assert.equal(runsRequests(view).length, 2)
+      await view.unmount()
+      panel = undefined
+    } finally {
+      mock.timers.reset()
+    }
   })
 })
