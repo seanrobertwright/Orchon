@@ -9,6 +9,7 @@
 // save runs at a time. Between the re-read and the PUT lie a few milliseconds in which an outside
 // change is not seen; that is an accepted limit, stated in the README.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
+import type { BuilderDrafts } from './builder-drafts'
 import { isDefinition, NOT_CONNECTED, parseBuilderIdentity, PROJECT_GONE, projectFolder, readWorkflowFile } from './builder'
 import type { Client, ClientFailure } from './client'
 import type { Connected, ConnectionView } from './connection-view'
@@ -55,7 +56,7 @@ const encoder = new TextEncoder()
 const bytesOf = (value: unknown): number => encoder.encode(JSON.stringify(value)).length
 
 /** A definition from the tab: a record with a list of node records, within the open limit, or a refusal. */
-function parseDefinition(value: unknown, what: string): Record<string, unknown> {
+export function parseDefinition(value: unknown, what: string): Record<string, unknown> {
   if (!isRecord(value) || !isDefinition(value)) refuseRequest(`${what} must be a workflow definition: a record with a list of nodes.`)
   if (bytesOf(value) > DEFINITION_CAP_BYTES) refuseRequest(tooLarge(what))
   return value
@@ -73,16 +74,17 @@ export function parseSaveRequest(input: unknown): BuilderSaveRequest {
   const record = input as Record<string, unknown>
   const definition = parseDefinition(own(record, 'definition'), 'The definition')
   if (!Object.hasOwn(record, 'base')) refuseRequest('Save takes the copy Archon is expected to serve, or null for none.')
-  const rawBase = own(record, 'base')
-  let base: BuilderBase | null = null
-  if (rawBase !== null) {
-    if (!isRecord(rawBase)) refuseRequest('The expected copy must be a source and an authored definition.')
-    refuseOtherKeys(rawBase, ['source', 'authored'], 'The expected copy')
-    const source = own(rawBase, 'source')
-    if (!isText(source) || source.length > SCOPE_CAP) refuseRequest(`The expected source must be text of 1 to ${String(SCOPE_CAP)} characters.`)
-    base = { source, authored: parseDefinition(own(rawBase, 'authored'), 'The expected copy') }
-  }
-  return { ...identity, definition, base, locale: parseLocale(record) }
+  return { ...identity, definition, base: parseBase(own(record, 'base')), locale: parseLocale(record) }
+}
+
+/** A copy Archon is expected to serve: null for none, or a source and an authored definition within the open limit, or a refusal. */
+export function parseBase(rawBase: unknown): BuilderBase | null {
+  if (rawBase === null) return null
+  if (!isRecord(rawBase)) refuseRequest('The expected copy must be a source and an authored definition.')
+  refuseOtherKeys(rawBase, ['source', 'authored'], 'The expected copy')
+  const source = own(rawBase, 'source')
+  if (!isText(source) || source.length > SCOPE_CAP) refuseRequest(`The expected source must be text of 1 to ${String(SCOPE_CAP)} characters.`)
+  return { source, authored: parseDefinition(own(rawBase, 'authored'), 'The expected copy') }
 }
 
 /** The tab's Validate, or a refusal: a definition and a language, and nothing else. */
@@ -178,7 +180,12 @@ async function saveIn(client: Client, server: Connected, request: BuilderSaveReq
 export type BuilderSavePorts = {
   client: Client
   current(): Promise<ConnectionView>
+  /** The drafts kept: a save Archon holds deletes its workflow's draft, and a draft made on another Archon is never saved. */
+  drafts?: Pick<BuilderDrafts, 'find' | 'remove'>
 }
+
+export const OTHER_ARCHON = 'This draft was made on a different Archon.'
+export const DRAFT_NOT_SAVED = `${OTHER_ARCHON} It is not saved here, and it is kept.`
 
 /**
  * Answers a write request with the connection read fresh afterwards: `run`'s outcome while
@@ -205,7 +212,13 @@ export function startBuilderSave(orca: OrcaWorkerApi, ports: BuilderSavePorts): 
         if (saving) return { kind: 'refused', message: SAVE_IN_FLIGHT }
         saving = true
         try {
-          return await saveIn(ports.client, server, request)
+          const identity = { name: request.name, codebaseId: request.codebaseId, scope: request.scope }
+          const draft = await ports.drafts?.find(identity)
+          if (draft !== undefined && draft.storeId !== server.storeId) return { kind: 'refused', message: DRAFT_NOT_SAVED }
+          const outcome = await saveIn(ports.client, server, request)
+          // Archon holds the copy now, so its draft goes.
+          if (outcome.kind === 'saved' || (outcome.kind === 'timeout' && outcome.landed === true)) await ports.drafts?.remove(identity)
+          return outcome
         } finally {
           saving = false
         }

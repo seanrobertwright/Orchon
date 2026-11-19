@@ -3,6 +3,7 @@
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
 import { startBuilder } from './builder'
+import { startBuilderDrafts } from './builder-drafts'
 import { startBuilderSave } from './builder-save'
 import { startChatDelete } from './chat-delete'
 import { startChatDrafts } from './chat-drafts'
@@ -67,8 +68,15 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
-  const builder = startBuilder(orca, { client: connection.client, current: connection.current, workspaces: projectScope.workspaces, platform: ports.platform })
-  const builderSave = startBuilderSave(orca, { client: connection.client, current: connection.current })
+  const builderDrafts = startBuilderDrafts(orca, { timers: ports.timers, current: connection.current })
+  const builder = startBuilder(orca, {
+    client: connection.client,
+    current: connection.current,
+    workspaces: projectScope.workspaces,
+    platform: ports.platform,
+    drafts: builderDrafts
+  })
+  const builderSave = startBuilderSave(orca, { client: connection.client, current: connection.current, drafts: builderDrafts })
   // One reader per conversation stream, shared by the launch tracker and chat.
   const streams = createConversationStreams({ client: connection.client, log: (message) => orca.log(message) })
   const launch = startLaunch(orca, {
@@ -123,6 +131,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     runGraph.dispose()
     builder.dispose()
     builderSave.dispose()
+    builderDrafts.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()

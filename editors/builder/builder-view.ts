@@ -51,7 +51,8 @@ export type BuilderView =
       definition: Record<string, unknown>
     }
 
-export type BuilderAnswer = { connection: TabConnection; builder: BuilderView }
+/** The tab's read: the connection, the workflow as Archon serves it, and its draft, when one is kept. */
+export type BuilderAnswer = { connection: TabConnection; builder: BuilderView; draft?: BuilderDraftView | null }
 
 /** Open YAML: whether Orca opened the file, or the one sentence that says why not. */
 export type YamlOpenAnswer = { opened: true } | { opened: false; reason: string }
@@ -106,3 +107,25 @@ export type BuilderValidateOutcome =
   | { kind: 'failed'; message: string }
 
 export type BuilderValidateAnswer = { connection: TabConnection; validate: BuilderValidateOutcome }
+
+/** The most drafts plugin storage keeps. At the cap a draft of another workflow is refused until one is saved or discarded. */
+export const BUILDER_DRAFTS_CAP = 20
+/** How long the worker waits after a draft's last change before it writes it to plugin storage. */
+export const BUILDER_DRAFT_WRITE_PAUSE_MS = 1_000
+/** How long the tab waits after the last edit before it hands its draft to the worker. */
+export const BUILDER_DRAFT_SEND_PAUSE_MS = 500
+/** The most characters of the file words a draft keeps, to show while Archon is away. */
+export const DRAFT_FILE_CAP = 2_000
+
+/** A draft the tab hands to the worker: the workflow's identity, the copy as it stands, the copy the edit started from, and the file in words. */
+export type BuilderDraftWrite = BuilderIdentity & { definition: Record<string, unknown>; base: BuilderBase | null; file: string }
+
+/** Whether the worker kept the draft, or the one sentence that says why not. */
+export type BuilderDraftWriteAnswer = { kept: true } | { kept: false; reason: string }
+
+/**
+ * A draft as a tab's read gives it back: the copy as it was left, the copy the edit started
+ * from (null when Archon held none), the file in words, whether it is a new workflow never
+ * saved, and whether it was made on a different Archon from the one connected now.
+ */
+export type BuilderDraftView = { definition: Record<string, unknown>; base: BuilderBase | null; file: string; isNew: boolean; otherArchon: boolean }
