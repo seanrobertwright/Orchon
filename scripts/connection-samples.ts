@@ -1,0 +1,90 @@
+// One connection state of each kind, as the worker would answer it, for the panel's tests and
+// for the scenarios of `orca plugin check`. It is development tooling: Orca never loads it.
+import type {
+  BadSetting,
+  Connected,
+  ConnectionView,
+  NotFound,
+  Searching,
+  SettingsView
+} from '../src/connection-view.ts'
+
+export const HOME = '/home/ada/.archon'
+export const OTHER_HOME = '/srv/archon-home'
+const UNSET: SettingsView = { baseUrl: '', archonHome: '', homeFolder: HOME }
+
+export const searching: Searching = { kind: 'searching', since: 10, settings: UNSET }
+
+export const connected: Connected = {
+  kind: 'connected',
+  since: 20,
+  settings: UNSET,
+  baseUrl: 'http://127.0.0.1:3090',
+  source: 'default',
+  version: '0.12.1',
+  storeId: '00000000-0000-4000-8000-000000000000'
+}
+
+export const connectedFromRecord: Connected = { ...connected, baseUrl: 'http://127.0.0.1:4100', source: 'server-json' }
+
+/** Not found, home folder exists: the "not running" wording. */
+export const notRunning: NotFound = {
+  kind: 'not-found',
+  since: 30,
+  settings: UNSET,
+  address: 'http://127.0.0.1:3090',
+  source: 'default',
+  home: 'exists'
+}
+
+export const notRunningAtSetting: NotFound = {
+  ...notRunning,
+  settings: { ...UNSET, baseUrl: 'http://localhost:4000' },
+  address: 'http://localhost:4000',
+  source: 'setting',
+  home: 'unchecked'
+}
+
+export const notRunningAtRecord: NotFound = { ...notRunning, address: 'http://127.0.0.1:4100', source: 'server-json' }
+
+/** Not found, home folder missing: the "could not find Archon" wording. */
+export const noHome: NotFound = { ...notRunning, home: 'missing' }
+
+export const noHomeFromSetting: NotFound = {
+  ...noHome,
+  settings: { baseUrl: '', archonHome: OTHER_HOME, homeFolder: OTHER_HOME }
+}
+
+export const oneBadSetting: BadSetting = {
+  kind: 'bad-setting',
+  since: 40,
+  settings: { baseUrl: 'https://archon.example.com:3090', archonHome: '', homeFolder: HOME },
+  refused: [
+    {
+      key: 'baseUrl',
+      value: 'https://archon.example.com:3090',
+      reason: 'The address must start with `http://`.'
+    }
+  ]
+}
+
+export const twoBadSettings: BadSetting = {
+  kind: 'bad-setting',
+  since: 50,
+  settings: { baseUrl: 'http://192.168.1.20:3090', archonHome: 'archon', homeFolder: null },
+  refused: [
+    {
+      key: 'baseUrl',
+      value: 'http://192.168.1.20:3090',
+      reason: 'Orchon works only with an Archon on this computer. Use `127.0.0.1`, `localhost` or `[::1]`.'
+    },
+    { key: 'archonHome', value: 'archon', reason: 'The folder must be a full path.' }
+  ]
+}
+
+/** A stand-in for the worker that answers every connection request with one state. */
+export function answering(connection: ConnectionView): {
+  requests: { 'connection.read': { connection: ConnectionView }; 'connection.retry': { connection: ConnectionView } }
+} {
+  return { requests: { 'connection.read': { connection }, 'connection.retry': { connection } } }
+}

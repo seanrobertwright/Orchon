@@ -1,0 +1,35 @@
+{
+  "name": "orchon",
+  "private": true,
+  "description": "Archon's runs, workflows and chat inside Orca. Unofficial; not made or endorsed by the Archon or Orca projects.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24.2"
+  },
+  "scripts": {
+    "types": "orca plugin types .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:editors": "tsc -p tsconfig.editors.json",
+    "check:editors": "node scripts/check-editor-output.ts",
+    "lint": "eslint .",
+    "lint:md": "markdownlint-cli2",
+    "check:limits": "node scripts/check-install-limits.ts",
+    "check:tracked": "git ls-files -z | node scripts/check-tracked-files.ts",
+    "test": "orca plugin test .",
+    "check:panel": "orca plugin check .",
+    "validate": "orca plugin validate .",
+    "check": "npm run types && npm run typecheck && npm run check:editors && npm run lint && npm run lint:md && npm run check:tracked && npm run check:limits && npm run test && npm run check:panel && npm run validate",
+    "hooks:install": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@html-eslint/eslint-plugin": "^0.68.0",
+    "@html-eslint/parser": "^0.68.0",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.15.0",
+    "markdownlint-cli2": "^0.24.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}

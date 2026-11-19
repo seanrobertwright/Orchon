@@ -1,0 +1,98 @@
+{
+  "manifestVersion": 2,
+  "id": "orchon",
+  "name": "Orchon",
+  "version": "0.1.0",
+  "description": "Archon's runs, workflows and chat inside Orca. Unofficial; not made or endorsed by the Archon or Orca projects.",
+  "author": {
+    "name": "LRIL"
+  },
+  "license": "MIT",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "capabilities": [
+    { "kind": "workspace:read" },
+    { "kind": "workspace:write" },
+    { "kind": "storage:own" },
+    { "kind": "settings:own" },
+    { "kind": "notifications:show" }
+  ],
+  "contributes": {
+    "panels": [
+      {
+        "id": "console",
+        "title": "Orchon",
+        "icon": "activity",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ],
+    "customEditors": [
+      {
+        "id": "run-graph",
+        "title": "Orchon run graph",
+        "extensions": [".orchonrun"],
+        "entry": "editors/run-graph/index.html",
+        "frame": "isolated"
+      },
+      {
+        "id": "builder",
+        "title": "Orchon workflow builder",
+        "extensions": [".orchonflow"],
+        "entry": "editors/builder/index.html",
+        "frame": "isolated"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "status",
+        "text": "Orchon",
+        "command": "show-runs"
+      }
+    ],
+    "commands": [
+      {
+        "id": "show-runs",
+        "title": "Orchon: Show runs"
+      }
+    ],
+    "events": [
+      {
+        "on": "workspace.changed"
+      }
+    ],
+    "settings": [
+      {
+        "key": "baseUrl",
+        "title": "Base URL",
+        "description": "Where Orchon looks for Archon on this computer, for example http://127.0.0.1:3090. Leave empty to find it automatically.",
+        "type": "string",
+        "default": "",
+        "placeholder": "http://127.0.0.1:3090",
+        "maxLength": 200
+      },
+      {
+        "key": "archonHome",
+        "title": "Archon home folder",
+        "description": "The folder where Archon keeps its files. Orchon reads only server.json in it, to find Archon's address. Leave empty for ~/.archon.",
+        "type": "string",
+        "default": "",
+        "placeholder": "~/.archon",
+        "maxLength": 1024
+      },
+      {
+        "key": "notifications",
+        "title": "Notifications",
+        "description": "Which desktop notifications Orchon shows. A notification holds the workflow name, its state and the project name. Orca also sends them to paired phones.",
+        "type": "string",
+        "default": "needs-you",
+        "enum": ["off", "needs-you", "needs-you-and-ended"],
+        "enumLabels": ["Off", "Runs that need you", "Runs that need you and runs that end"]
+      }
+    ]
+  }
+}

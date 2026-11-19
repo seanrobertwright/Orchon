@@ -1,0 +1,74 @@
+name: CI
+
+# Every gate runs against the newest released Orca: the plugin directory validates a listing
+# with that release, and a tag is installed unattended 12 hours after it is listed.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: Gates on the latest Orca
+    # Orca's CLI ships inside the desktop app. The macOS build runs it without a display.
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install the latest Orca release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/orca"
+          gh release download --repo stablyai/orca --pattern 'Orca-*-arm64-mac.zip' --dir "$RUNNER_TEMP/orca"
+          ditto -x -k "$RUNNER_TEMP"/orca/Orca-*-arm64-mac.zip "$RUNNER_TEMP/orca"
+          echo "$RUNNER_TEMP/orca/Orca.app/Contents/Resources/bin" >> "$GITHUB_PATH"
+
+      - name: Install the development dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Pre-commit check on every tracked file
+        run: npm run check:tracked
+
+      - name: Generate Orca's types
+        run: orca plugin types .
+
+      - name: Type-check the whole repository
+        run: npm run typecheck
+
+      - name: Committed editor JavaScript equals the compiler output
+        run: npm run check:editors
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: markdownlint
+        run: npm run lint:md
+
+      - name: Tests
+        run: orca plugin test .
+
+      - name: Render the panel and check the editors
+        run: orca plugin check .
+
+      - name: Validate the plugin as Orca loads it
+        run: orca plugin validate .
+
+      - name: Install limits
+        run: npm run check:limits
