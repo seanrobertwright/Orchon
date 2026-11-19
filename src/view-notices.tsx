@@ -41,6 +41,22 @@ export function warningLine(sentences: string, tryAgain: (() => void) | null): O
   )
 }
 
+/**
+ * A read that failed: what to say, when the last good answer came, if one did, and whether it
+ * offers "Try again".
+ */
+export type ReadProblem = { message: string; lastGood: number | null; tryAgain: boolean }
+
+/**
+ * The line for a read that failed. Over data it gives the time of the last good answer; a time
+ * that does not format drops out and the message stays.
+ */
+export function problemLine(held: ReadProblem, hasData: boolean, tryAgain: () => void): OrcaNode {
+  const at = hasData && held.lastGood !== null ? formatClock(held.lastGood, env.locale) : ''
+  const when = at === '' ? '' : ` Last good answer at ${at}.`
+  return warningLine(`${held.message}${when}`, held.tryAgain ? tryAgain : null)
+}
+
 /** The Worker unreachable line. Under consent there is nothing to try again. */
 export function troubleLine(trouble: WorkerTrouble, tryAgain: () => void): OrcaNode {
   return warningLine(troubleText(trouble), offersTryAgain(trouble) ? tryAgain : null)

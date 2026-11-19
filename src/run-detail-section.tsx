@@ -24,19 +24,18 @@ import {
   Tree,
   type KeyValueItem,
   type OrcaNode,
-  type PanelContext,
-  type Tone
+  type PanelContext
 } from 'orca'
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
-import { formatClock, formatDateTime, formatDuration, now } from './dates'
+import { formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
-import { RUN_ID_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type Step, type ChildRow, type Waiting } from './run-detail-view'
+import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type Step, type ChildRow, type Waiting } from './run-detail-view'
 import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
-import { warningLine } from './view-notices'
+import { problemLine, type ReadProblem } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
 import { worktreeLine } from './worktree-line'
 
@@ -52,12 +51,7 @@ const loaded = atom<RunDetail | null>(null)
 /** Set when Archon answered that the open run does not exist. */
 const gone = atom(false)
 
-/**
- * A read that failed: what to say, when the last good answer came, if one did, and whether it
- * offers "Try again".
- */
-type Problem = { message: string; lastGood: number | null; tryAgain: boolean }
-const problem = atom<Problem | null>(null)
+const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
 
 function report(message: string, tryAgain = true): void {
@@ -179,12 +173,6 @@ function back(): void {
   hooks?.back()
 }
 
-function problemLine(held: Problem, hasData: boolean): OrcaNode {
-  const at = hasData && held.lastGood !== null ? formatClock(held.lastGood, env.locale) : ''
-  const when = at === '' ? '' : ` Last good answer at ${at}.`
-  return warningLine(`${held.message}${when}`, held.tryAgain ? () => restartRunDetail() : null)
-}
-
 function header(detail: RunDetail | null): OrcaNode {
   return (
     <Row gap="sm" align="center">
@@ -263,7 +251,7 @@ function messageFold(detail: RunDetail): OrcaNode {
         {detail.message === '' ? <Text muted>The run was started with no message.</Text> : <Text>{detail.message}</Text>}
         {detail.messageCut ? (
           <Text muted size="sm">
-            The launch message is cut at 2,000 characters.
+            {`The launch message is cut at ${LAUNCH_MESSAGE_CAP.toLocaleString('en-US')} characters.`}
           </Text>
         ) : null}
       </Stack>
@@ -311,20 +299,13 @@ function expandedKeys(tree: StepTree): string[] {
 /** A count line with one wording for one and another, with N for the count, for more. */
 const countLine = (count: number, one: string, many: string): string => (count === 1 ? one : many.replace('N', String(count)))
 
-const STEP_TONE: Partial<Record<string, Tone>> = {
-  Running: 'accent',
-  Waiting: 'warning',
-  Completed: 'success',
-  Failed: 'danger'
-}
-
 /** The line under the tree about the selected step. */
 function stepLine(step: Step, detail: RunDetail): OrcaNode {
-  const { word } = stepWords(step, detail.status)
+  const { word, tone } = stepWords(step, detail.status)
   const parts = [step.name, step.kind, step.loop === null ? null : `inner step of ${step.loop}`, ranTimes(step)]
   return (
     <Row gap="sm" wrap align="center">
-      <Badge tone={STEP_TONE[word] ?? 'neutral'}>{word}</Badge>
+      <Badge tone={tone}>{word}</Badge>
       <Text>{parts.filter((part) => part !== null).join(' · ')}</Text>
     </Row>
   )
@@ -352,7 +333,7 @@ function stepsBody(detail: RunDetail): OrcaNode {
       )}
       {hidden > 0 ? (
         <Text muted size="sm">
-          {countLine(hidden, 'The list stops at 500 steps: 1 step is not shown.', 'The list stops at 500 steps: N steps are not shown.')}
+          {countLine(hidden, `The list stops at ${String(STEP_ROWS_CAP)} steps: 1 step is not shown.`, `The list stops at ${String(STEP_ROWS_CAP)} steps: N steps are not shown.`)}
         </Text>
       ) : null}
       {detail.unreadableSteps > 0 ? (
@@ -459,7 +440,7 @@ export function runDetailSection(): OrcaNode {
   return (
     <Stack gap="sm">
       {header(detail)}
-      {held === null ? null : problemLine(held, detail !== null)}
+      {held === null ? null : problemLine(held, detail !== null, () => restartRunDetail())}
       {content}
     </Stack>
   )

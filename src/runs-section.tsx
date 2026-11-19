@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   EmptyState,
-  env,
   IconButton,
   KeyValue,
   Link,
@@ -31,7 +30,7 @@ import {
   type TableRow
 } from 'orca'
 import type { Connected, ConnectionView } from './connection-view'
-import { formatClock, formatDuration, now } from './dates'
+import { formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
 import { clearRunDetail, openRunDetail, openRunId, restartRunDetail, runDetailHasData, runDetailSection } from './run-detail-section'
@@ -40,22 +39,16 @@ import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statu
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
 import { restartScope, scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, RUNS_TABLE_GAP_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
-import { warningLine } from './view-notices'
+import { problemLine, type ReadProblem } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
-
-/**
- * A read that failed: what to say, when the last good answer came, if one did, and whether it
- * offers "Try again".
- */
-type Problem = { message: string; lastGood: number | null; tryAgain: boolean }
 
 const filter = atom<StatusFilter>('all')
 /** How many rows the table asks for: rows 0 to N. */
 const requested = atom<number>(ROWS_STEP)
 const loaded = atom<Ready | null>(null)
-const problem = atom<Problem | null>(null)
+const problem = atom<ReadProblem | null>(null)
 const lastGood = atom<number | null>(null)
 const selected = atom<string | null>(null)
 
@@ -259,11 +252,6 @@ function preview(run: RunRow): OrcaNode {
   )
 }
 
-function problemLine(held: Problem, hasData: boolean): OrcaNode {
-  const when = hasData && held.lastGood !== null ? ` Last good answer at ${formatClock(held.lastGood, env.locale)}.` : ''
-  return warningLine(`${held.message}${when}`, held.tryAgain ? () => restartRuns() : null)
-}
-
 function table(runs: Ready, status: StatusFilter): OrcaNode {
   const wanted = read(requested)
   const chosen = read(selected)
@@ -318,7 +306,7 @@ export function runsSection(state: Connected, writable: boolean): OrcaNode {
         <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
         <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />
       </Row>
-      {held === null ? null : problemLine(held, runs !== null)}
+      {held === null ? null : problemLine(held, runs !== null, () => restartRuns())}
       {body}
       {runs !== null && runs.unreadable > 0 ? (
         <Text muted size="sm">
