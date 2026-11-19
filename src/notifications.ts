@@ -25,6 +25,9 @@ export const TITLE_CAP = 80
 /** The project name in a body is cut to this. */
 export const PROJECT_CAP = 80
 
+/** The test notification "Send test notification" sends. It names no run. */
+export const TEST_NOTIFICATION = { title: 'Test notification', body: 'Notifications from Orchon reach this computer.' } as const
+
 /** The setting as read: one of its values, and whether the stored value was one of them. */
 export type NotificationSetting = { level: NotificationLevel; recognised: boolean }
 

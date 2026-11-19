@@ -342,3 +342,43 @@ describe('run endings', () => {
     })
   }
 })
+
+describe('the Notifications group requests', () => {
+  test('notifications.read answers the setting, and a change is posted as notifications.changed', async () => {
+    const stage = connectedTo('0.12.1')
+    const mounted = await stage.mount({ settings: { notifications: 'off' } })
+    await stage.clock.advance(0)
+    assert.deepEqual(await mounted.worker.request('notifications.read'), { level: 'off', recognised: true })
+    await mounted.orca.settings.set('notifications', 'needs-you-and-ended')
+    await stage.clock.advance(0)
+    const posts = mounted.worker.posts.filter((post) => post.event === 'notifications.changed').map((post) => post.payload)
+    assert.deepEqual(posts.at(-1), { level: 'needs-you-and-ended', recognised: true })
+    assert.deepEqual(await mounted.worker.request('notifications.read'), { level: 'needs-you-and-ended', recognised: true })
+  })
+
+  test('a missing value is the default, and a value Orchon does not know reads as the default and says so', async () => {
+    const stage = connectedTo('0.12.1')
+    const mounted = await stage.mount({ settings: { notifications: 'sometimes' } })
+    await stage.clock.advance(0)
+    assert.deepEqual(await mounted.worker.request('notifications.read'), { level: 'needs-you', recognised: false })
+    const plain = await connectedTo('0.12.1').mount()
+    assert.deepEqual(await plain.worker.request('notifications.read'), { level: 'needs-you', recognised: true })
+  })
+
+  test('notifications.test sends one test notification with nothing about any run, and says whether Orca delivered it', async () => {
+    const stage = connectedTo('0.12.1')
+    const mounted = await stage.mount()
+    await stage.clock.advance(0)
+    assert.deepEqual(await mounted.worker.request('notifications.test'), { kind: 'delivered' })
+    assert.deepEqual(shown(mounted), [{ title: 'Test notification', body: 'Notifications from Orchon reach this computer.' }])
+    mounted.host.respond('notifications.show', { delivered: false })
+    assert.deepEqual(await mounted.worker.request('notifications.test'), { kind: 'blocked' })
+  })
+
+  test('notifications.test takes no input', async () => {
+    const stage = connectedTo('0.12.1')
+    const mounted = await stage.mount()
+    await assert.rejects(mounted.worker.request('notifications.test', { title: 'x' } as never))
+    assert.deepEqual(shown(mounted), [])
+  })
+})

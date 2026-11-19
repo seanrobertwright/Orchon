@@ -10,7 +10,15 @@ import type { Disk } from './disk'
 import { checkHealth, discover } from './discovery'
 import { createLive } from './live'
 import { createNeedsYou, type NeedsYou } from './needs-you'
-import { createNotifications, DEFAULT_LEVEL, NOTIFICATIONS_KEY, parseNotificationSetting, type NotificationSetting } from './notifications'
+import {
+  createNotifications,
+  DEFAULT_LEVEL,
+  NOTIFICATIONS_KEY,
+  parseNotificationSetting,
+  TEST_NOTIFICATION,
+  type NotificationSetting
+} from './notifications'
+import type { NotificationsTestAnswer } from './notifications-view'
 import { checkPaths } from './path-check'
 import { createRunEndings } from './run-endings'
 import { isRecord, own, refuseRequest } from './records'
@@ -376,7 +384,11 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     // The one read of the settings also gives the Notifications setting; a failed read keeps its last value.
     async readSettings() {
       const all = await orca.settings.get()
-      setting = parseNotificationSetting(isRecord(all) ? own(all, NOTIFICATIONS_KEY) : undefined)
+      const next = parseNotificationSetting(isRecord(all) ? own(all, NOTIFICATIONS_KEY) : undefined)
+      if (next.level !== setting.level || next.recognised !== setting.recognised) {
+        setting = next
+        orca.panels.post('notifications.changed', next)
+      }
       return all
     },
     homeDir: ports.homeDir,
@@ -483,6 +495,22 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       refuseInput(input)
       const view = await system.refresh()
       return { connection: await connection.current(), system: view }
+    }),
+    orca.panels.handle('notifications.read', async (input) => {
+      refuseInput(input)
+      // Answered once the settings were first read, so a panel that mounts early never sees the default in place of the stored value.
+      await connection.current()
+      return setting
+    }),
+    orca.panels.handle('notifications.test', async (input): Promise<NotificationsTestAnswer> => {
+      refuseInput(input)
+      try {
+        const { delivered } = await orca.host.call('notifications.show', { ...TEST_NOTIFICATION })
+        return delivered ? { kind: 'delivered' } : { kind: 'blocked' }
+      } catch (error) {
+        orca.log(`Orchon could not send the test notification: ${error instanceof Error ? error.message : String(error)}`)
+        return { kind: 'failed' }
+      }
     }),
     orca.panels.handle('system.close', (input) => {
       refuseInput(input)
