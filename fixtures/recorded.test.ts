@@ -168,6 +168,24 @@ const METRICS_PATHS = ['/api/metrics', '/api/metric-views']
 
 const pathList = (release: string): string[] => Object.keys((field(callsOf(release, 'openapi')[0]?.body, 'paths') as object | undefined) ?? {})
 
+/**
+ * The `host` values that name no machine: the placeholder, the addresses a release listens on,
+ * and the empty and `.example` hosts a bundled workflow's prompt shows as examples.
+ */
+const NOT_A_MACHINE = /(?:<host>|0\.0\.0\.0|127\.0\.0\.1|localhost|[a-z0-9.-]*\.example|)/.source
+
+/** What no fixture may hold, each with the words a failure names it by. */
+const MACHINE_DETAILS: [RegExp, string][] = [
+  [/[A-Za-z]:(?:\\{1,4}|\/)(?:Users|Documents and Settings|Windows|ProgramData)\b/i, 'a Windows folder'],
+  [/(?:^|[^<\w.-])AppData[\\/]/, 'an AppData folder'],
+  [/\/(?:home|Users)\/[^/<\s"]+\/\.(?:archon|claude|config)\b/, 'a home folder'],
+  [/"(?:storeId|store_id)":\s*"(?!<store-id>")/, 'a store id'],
+  [/\\"(?:storeId|store_id)\\":\s*\\"(?!<store-id>\\")/, 'a store id inside a stream frame'],
+  [new RegExp(`"host(?:name)?":\\s*"(?!${NOT_A_MACHINE}")`), 'a machine name'],
+  // A stream frame, or a prompt inside one, escapes its quotes once or more.
+  [new RegExp(`\\\\+"host(?:name)?\\\\+":\\s*\\\\+"(?!${NOT_A_MACHINE}\\\\+")`), 'a machine name inside a stream frame']
+]
+
 for (const release of RELEASES) {
   describe(`the fixtures of Archon ${release}`, () => {
     test('are there, with a log', () => {
@@ -214,19 +232,11 @@ for (const release of RELEASES) {
     })
 
     test('hold nothing of the machine that recorded them', () => {
-      const banned: [RegExp, string][] = [
-        [/[A-Za-z]:(?:\\{1,4}|\/)(?:Users|Documents and Settings|Windows|ProgramData)\b/i, 'a Windows folder'],
-        [/(?:^|[^<\w.-])AppData[\\/]/, 'an AppData folder'],
-        [/\/(?:home|Users)\/[^/<\s"]+\/\.(?:archon|claude|config)\b/, 'a home folder'],
-        [/"(?:storeId|store_id)":\s*"(?!<store-id>")/, 'a store id'],
-        [/\\"(?:storeId|store_id)\\":\s*\\"(?!<store-id>\\")/, 'a store id inside a stream frame'],
-        [/"hostname":\s*"(?!<host>")/, 'a machine name']
-      ]
       // The recorder's temp folder is `orchon-recorder-` and six characters. Its workflows share the prefix.
       const own = Object.values(RECORDER_WORKFLOWS).map((workflow) => workflow.name)
       for (const path of filesOf(release)) {
         const text = textOf(release, path)
-        for (const [pattern, what] of banned) assert.ok(!pattern.test(text), `fixtures/${release}/${path} holds ${what}`)
+        for (const [pattern, what] of MACHINE_DETAILS) assert.ok(!pattern.test(text), `fixtures/${release}/${path} holds ${what}`)
         const folders = [...text.matchAll(/orchon-recorder-[A-Za-z0-9]{6}(?![A-Za-z0-9-])/g)].map((match) => match[0])
         assert.deepEqual(
           folders.filter((folder) => !own.includes(folder)),
@@ -454,6 +464,21 @@ for (const release of RELEASES) {
 }
 
 describe('the recorded releases', () => {
+  test('the machine checks find a planted machine detail and pass the placeholders', () => {
+    const caught = (text: string): string[] => MACHINE_DETAILS.filter(([pattern]) => pattern.test(text)).map(([, what]) => what)
+    // Archon writes the machine name as `host`, in a run's execution owner and in stream frames.
+    assert.deepEqual(caught('{ "host": "DESKTOP-4F2K9" }'), ['a machine name'])
+    assert.deepEqual(caught('{ "hostname": "build-box" }'), ['a machine name'])
+    assert.deepEqual(caught('"data": "{\\"host\\":\\"DESKTOP-4F2K9\\"}"'), ['a machine name inside a stream frame'])
+    assert.deepEqual(caught('{ "storeId": "6c1f0b2e" }'), ['a store id'])
+    // The placeholder, and the address server.json says the release listens on, are not machine names.
+    assert.deepEqual(caught('{ "host": "<host>", "storeId": "<store-id>" }'), [])
+    assert.deepEqual(caught('{ "host": "0.0.0.0" }'), [])
+    assert.deepEqual(caught('"data": "{\\"host\\":\\"<host>\\"}"'), [])
+    assert.deepEqual(caught('{ \\\\\\"host\\\\\\": \\\\\\"tracker.example\\\\\\" }'), [])
+    assert.deepEqual(caught('{ \\\\\\"host\\\\\\": \\\\\\"DESKTOP-4F2K9\\\\\\" }'), ['a machine name inside a stream frame'])
+  })
+
   test('are the folders of fixtures/ that are named as a release', () => {
     const folders = readdirSync(join(repoRoot, 'fixtures'), { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && /^\d+\.\d+\.\d+$/.test(entry.name))
