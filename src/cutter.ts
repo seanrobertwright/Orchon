@@ -4,8 +4,9 @@
 // Every size here is a count of UTF-16 code units, a string's `length`. That is how Orca counts
 // its limit for one text: 16,384 units draw and 16,385 are refused, whatever the characters.
 //
-// The cutter never rewrites text. Joined end to end, the blocks are the start of the input,
+// The cuts never rewrite text. Joined end to end, the blocks are the start of the input,
 // apart from the text `Block.addedBefore` and `Block.addedAfter` count.
+// `oneLine` is the one helper that does change text: it folds a line's white space before a one-line cut.
 
 /** Orca's limit for one text, and so the size of the largest block. */
 export const BLOCK_LIMIT = 16 * 1024
@@ -56,6 +57,9 @@ function between(text: string, index: number): number {
   const pair = before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff
   return pair || (before === 13 && after === 10) ? index - 1 : index
 }
+
+/** `text` on one line: every run of white space, line breaks included, becomes one space, and the ends are trimmed. */
+export const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
 /**
  * The start of `text`, at most `count` in size, for the one-line cuts. It never ends with half
