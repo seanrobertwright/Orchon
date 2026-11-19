@@ -74,9 +74,9 @@ export type Connection = {
   retry(): Promise<ConnectionView>
   /** A setting changed: parses both again, and runs discovery at once when either one differs. */
   settingsChanged(): Promise<void>
-  /** While Connected, records whether the dashboard stream is open. */
+  /** While Connected, records whether the dashboard stream is open, or not yet found down. */
   setLive(live: boolean): void
-  /** While Connected, a call found nothing taking its connection: Searching, and discovery runs again. */
+  /** While Connected, a call found nothing taking its connection: Searching, and discovery runs again on its backoff. */
   refused(): void
   stop(): void
 }
@@ -172,8 +172,9 @@ export function createConnection(ports: ConnectionPorts): Connection {
       const paths = await checkPaths(ports.client, found.baseUrl, signal)
       if (mine !== generation) return
       if (paths.kind === 'supported') {
-        // The stream opens once Connected is entered, so a new connection is not live yet.
-        enter({ ...found, settings, features: paths.features, live: false })
+        // The stream opens once Connected is entered. It counts as live until it is found down, so
+        // the panel does not say live updates are off while the stream is still opening.
+        enter({ ...found, settings, features: paths.features, live: true })
         retryDelay = FIRST_RETRY_MS
       } else if (paths.kind === 'unsupported') {
         const { baseUrl, source, version } = found
@@ -265,7 +266,10 @@ export function createConnection(ports: ConnectionPorts): Connection {
     refused() {
       if (view.kind !== 'connected') return
       enter({ kind: 'searching', settings: view.settings })
-      void look()
+      // Discovery runs on its backoff, which Connected starts over. The stream opens at once after
+      // it, so a server that answers health and refuses the stream is asked at that pace, not in a loop.
+      clearRetry()
+      retryLater()
     },
 
     stop() {

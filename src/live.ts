@@ -24,7 +24,7 @@ export type LivePorts = {
   timers: Timers
   /** Posts a hint to every open frame. */
   hint(hint: RunsHint): void
-  /** The stream opened (true) or closed (false). */
+  /** The stream opened (true) or was found down (false). Connected is entered taking it as live. */
   live(live: boolean): void
   /** Nothing took the stream's connection: the server is gone. */
   refused(): void
@@ -32,7 +32,10 @@ export type LivePorts = {
 }
 
 export type Live = {
-  /** Connected to this server: opens the stream at once, with the backoff started over. */
+  /**
+   * Connected to this server: opens the stream at once, with the backoff started over. The stream
+   * counts as live until an attempt finds it down, so the panel says nothing while it opens.
+   */
   open(baseUrl: string): void
   /** No longer Connected: closes the stream and clears every timer. */
   close(): void
@@ -106,12 +109,6 @@ export function createLive(ports: LivePorts): Live {
   /** Whether the stream has opened since the last `open`, so that the next opening is a reconnect. */
   let openedBefore = false
   let isLive = false
-  /**
-   * The last attempt was refused, which sent the connection to Searching. The rediscovery that
-   * follows waits out the backoff before it opens the stream, so a server that answers its other
-   * calls and refuses the stream is not asked again in a tight loop.
-   */
-  let refusedLast = false
 
   function clear(timer: unknown): undefined {
     if (timer !== undefined) ports.timers.clear(timer)
@@ -168,9 +165,9 @@ export function createLive(ports: LivePorts): Live {
       if (mine !== generation) return
       if (!opened.ok) {
         if (opened.failure.kind === 'refused') {
+          // The state goes straight to Searching, with no Connected that is not live on the way.
           watchdog = clear(watchdog)
-          setLive(false)
-          refusedLast = true
+          isLive = false
           ports.refused()
           return
         }
@@ -178,7 +175,6 @@ export function createLive(ports: LivePorts): Live {
         return
       }
       retryDelay = FIRST_STREAM_RETRY_MS
-      refusedLast = false
       setLive(true)
       if (openedBefore) hints.everything()
       openedBefore = true
@@ -210,11 +206,7 @@ export function createLive(ports: LivePorts): Live {
     open(next) {
       baseUrl = next
       openedBefore = false
-      if (refusedLast) {
-        refusedLast = false
-        retryLater()
-        return
-      }
+      isLive = true
       retryDelay = FIRST_STREAM_RETRY_MS
       attemptNow()
     },

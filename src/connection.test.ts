@@ -46,7 +46,7 @@ describe('the connection state', () => {
       version: '0.12.1',
       storeId: 'store-a',
       features: { metrics: false },
-      live: false
+      live: true
     })
     // Connected waits only on the dashboard stream: once the status bar item is told, the one
     // timer left is the stream's watchdog. The scripted stream sends nothing, so it stays not live.

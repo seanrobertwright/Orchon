@@ -62,8 +62,9 @@ describe('the dashboard stream', () => {
       [[STREAM, 'GET', 'manual', { accept: 'text/event-stream' }]]
     )
     assert.equal(streams.length, 1)
-    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'connected'])
-    assert.deepEqual(liveness(mounted), [false, true])
+    // Connected is entered taking the stream as live, so nothing more is posted once it opens.
+    assert.deepEqual(kinds(mounted), ['searching', 'connected'])
+    assert.deepEqual(liveness(mounted), [true])
     assert.deepEqual(mounted.worker.refusals, [])
     await mounted.worker.deactivate()
   })
@@ -138,7 +139,7 @@ describe('keeping the stream open', () => {
     await stage.clock.advance(1)
     assert.equal(streams.length, 2)
     assert.equal(streams[0]?.closed, true)
-    assert.deepEqual(liveness(mounted), [false, true, false, true])
+    assert.deepEqual(liveness(mounted), [true, false, true])
     assert.deepEqual(hints(mounted), [{ types: ['workflow_status', 'dag_node'], runs: 'many' }])
     await mounted.worker.deactivate()
   })
@@ -152,7 +153,7 @@ describe('keeping the stream open', () => {
     assert.equal(stage.archon.streams.length, 1)
     await stage.clock.advance(1)
     assert.equal(stage.archon.streams.length, 2)
-    assert.deepEqual(liveness(mounted), [false])
+    assert.deepEqual(liveness(mounted), [true, false])
     assert.deepEqual(hints(mounted), [])
     await mounted.worker.deactivate()
   })
@@ -168,9 +169,9 @@ describe('keeping the stream open', () => {
     const mounted = await stage.mount()
     await stage.clock.advance(150_000)
     assert.deepEqual(times, [0, 1_000, 3_000, 7_000, 15_000, 31_000, 61_000, 91_000, 121_000])
-    // Archon answers its other calls all along: the state stays Connected, not live, posted once.
-    assert.deepEqual(kinds(mounted), ['searching', 'connected'])
-    assert.deepEqual(liveness(mounted), [false])
+    // Archon answers its other calls all along: the state stays Connected, and is not live from the first failure.
+    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'connected'])
+    assert.deepEqual(liveness(mounted), [true, false])
     await mounted.worker.deactivate()
   })
 
@@ -185,7 +186,7 @@ describe('keeping the stream open', () => {
     last(streams).end()
     await stage.clock.advance(1_000)
     assert.equal(streams.length, 3)
-    assert.deepEqual(liveness(mounted), [false, true, false, true, false, true])
+    assert.deepEqual(liveness(mounted), [true, false, true, false, true])
     // Each reopening is a reconnect: frames may have been lost meanwhile.
     assert.deepEqual(hints(mounted), [
       { types: ['workflow_status', 'dag_node'], runs: 'many' },
@@ -194,26 +195,39 @@ describe('keeping the stream open', () => {
     await mounted.worker.deactivate()
   })
 
-  test('a refused connection on the stream moves the state to Searching, and discovery runs again', async () => {
+  test('a refused connection on the stream moves the state to Searching, and the stream opens at once after the rediscovery', async () => {
     const stage = scene()
     stage.archon.answer(DEFAULT_HEALTH, health())
-    stage.archon.answer(STREAM, REFUSE)
+    const opens: number[] = []
+    stage.archon.answer(STREAM, () => {
+      opens.push(stage.clock.now() - CLOCK_START)
+      return opens.length === 1 ? REFUSE : openStream()
+    })
     const mounted = await stage.mount()
-    assert.deepEqual(kinds(mounted).slice(0, 3), ['searching', 'connected', 'searching'])
-    // Discovery ran again: two health calls and two path lists.
+    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching'])
+    // Discovery runs again on its own backoff, and the stream is opened the moment it connects.
+    await stage.clock.advance(2_000)
     assert.deepEqual(
       stage.archon.calls.map((call) => new URL(call.url).pathname),
       ['/api/health', '/api/openapi.json', '/api/health', '/api/openapi.json']
     )
-    // A server that answers health and still refuses the stream is not asked in a tight loop:
-    // after a refusal, the stream waits out its backoff once discovery has connected again.
+    assert.deepEqual(opens, [0, 2_000])
+    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching', 'connected'])
+    assert.equal(last(liveness(mounted)), true)
+    await mounted.worker.deactivate()
+  })
+
+  test('a server that answers health and keeps refusing the stream is asked at the pace of discovery, not in a loop', async () => {
+    const stage = scene()
+    stage.archon.answer(DEFAULT_HEALTH, health())
     const opens: number[] = []
     stage.archon.answer(STREAM, () => {
       opens.push(stage.clock.now() - CLOCK_START)
       return REFUSE
     })
+    const mounted = await stage.mount()
     await stage.clock.advance(10_000)
-    assert.deepEqual(opens, [1_000, 3_000, 7_000])
+    assert.deepEqual(opens, [0, 2_000, 4_000, 6_000, 8_000, 10_000])
     await mounted.worker.deactivate()
   })
 
@@ -231,7 +245,7 @@ describe('keeping the stream open', () => {
     // A check finds another store there: discovery connects afresh.
     stage.archon.answer(DEFAULT_HEALTH, health({ storeId: 'store-b' }))
     await mounted.read()
-    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'searching', 'connected'])
+    assert.deepEqual(kinds(mounted), ['searching', 'connected', 'connected', 'searching', 'connected', 'connected'])
     assert.deepEqual(times, [0, 1_000, 3_000, 7_000, 10_000])
     await stage.clock.advance(1_000)
     assert.deepEqual(times, [0, 1_000, 3_000, 7_000, 10_000, 11_000])
@@ -304,7 +318,8 @@ describe('failures in the stream code', () => {
     const result = await unhandledWith(() => {
       throw new Error('transport broke')
     })
-    assert.deepEqual(result, { unhandled: [], kind: 'connected' })
+    // A transport that throws is a refused connection, so the state is back in Searching.
+    assert.deepEqual(result, { unhandled: [], kind: 'searching' })
   })
 
   test('a body whose reads and whose closing both reject leaves no rejection unhandled', async () => {
