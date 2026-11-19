@@ -206,6 +206,19 @@ export function launchHasData(): boolean {
   return read(loaded) !== null
 }
 
+/**
+ * Re-run: asks the worker to fill the draft from the run, which it reads itself, and keeps the
+ * answer, so the section shows the filled form. It rejects with the worker's refusal. A message
+ * being typed is dropped: the run's message replaces it.
+ */
+export async function rerunLaunch(runId: string): Promise<void> {
+  const answer = await plugin.request('launch.rerun', { runId })
+  if (draftTimer !== undefined) frameTimers.clear(draftTimer)
+  draftTimer = undefined
+  set(typed, null)
+  apply(answer)
+}
+
 /** A different Archon store: what the section held belongs to the old one. */
 export function clearLaunch(): void {
   set(loaded, null)
@@ -334,8 +347,18 @@ function form(view: Ready, writable: boolean): OrcaNode {
   const message = messageOf(view)
   const reason = startReason(view, message, writable)
   const { projects } = view
+  const notes = view.notes ?? []
   return (
     <Stack gap="sm">
+      {notes.length === 0 ? null : (
+        <Callout tone="accent" icon="info" title="Filled from the run">
+          <Stack gap="xs">
+            {notes.map((note) => (
+              <Text key={note}>{note}</Text>
+            ))}
+          </Stack>
+        </Callout>
+      )}
       <Input
         label="Search projects"
         type="search"

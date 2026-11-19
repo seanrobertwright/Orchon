@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
+import type { ChatsAnswer, ChatsRequest } from './chats-view'
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
 import type { ConnectionReadAnswer, RunsHint, ShowRuns } from './hint-view'
@@ -12,7 +13,7 @@ import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
 import type { GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
-import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer } from './launch-view'
+import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswer, RerunRequest } from './launch-view'
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 import type { DeleteAnswer, WorkflowDelete, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
 
@@ -87,6 +88,11 @@ declare module 'orca' {
     'launch.edit': { input: LaunchEdit; output: LaunchAnswer }
     /** Start: creates a conversation and posts the run once, never again. A press while one posts is ignored. */
     'launch.start': { input: LaunchStart; output: LaunchAnswer }
+    /**
+     * Re-run: fills the focused workspace's draft from a completed or cancelled run, read from
+     * Archon by the worker, and launches nothing.
+     */
+    'launch.rerun': { input: RerunRequest; output: LaunchAnswer }
     /** "Launch another": the form again in place of the Starting view. It takes no input. */
     'launch.another': { output: LaunchAnswer }
     /** "Keep waiting": the launch looks for its run for another 60 seconds. */
@@ -99,6 +105,8 @@ declare module 'orca' {
     'workflows.read': { input: WorkflowsRequest; output: WorkflowsAnswer }
     /** Deletes one project or global workflow, once, then reads the list again. */
     'workflows.delete': { input: WorkflowDelete; output: DeleteAnswer }
+    /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */
+    'chats.read': { input: ChatsRequest; output: ChatsAnswer }
   }
   interface PluginPanelEvents {
     /**

@@ -9,6 +9,7 @@ import type {
   SettingsView,
   Unsupported
 } from '../src/connection-view.ts'
+import type { ChatsAnswer } from '../src/chats-view.ts'
 import type { FormsAnswer, FormsView } from '../src/forms-view.ts'
 import type { LaunchAnswer, LaunchView } from '../src/launch-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
@@ -162,6 +163,7 @@ type Answers = {
   'forms.resolve': FormsAnswer
   'launch.read': LaunchAnswer
   'workflows.read': WorkflowsAnswer
+  'chats.read': ChatsAnswer
 }
 
 /** The launcher of an Archon with no projects: nothing to choose, nothing typed. */
@@ -214,7 +216,8 @@ export function answeringRuns(
       'forms.save': formsAnswer,
       'forms.resolve': formsAnswer,
       'launch.read': { connection, launch: connection.kind === 'connected' ? noProjectsLaunch : { kind: 'not-connected' }, notices: [] },
-      'workflows.read': { connection, workflows: connection.kind === 'connected' ? noProjectsWorkflows : { kind: 'not-connected' } }
+      'workflows.read': { connection, workflows: connection.kind === 'connected' ? noProjectsWorkflows : { kind: 'not-connected' } },
+      'chats.read': { connection, chats: connection.kind === 'connected' ? { kind: 'ready', rows: [], capped: false, unreadable: 0 } : { kind: 'not-connected' } }
     }
   }
 }
