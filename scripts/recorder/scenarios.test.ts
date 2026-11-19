@@ -96,6 +96,14 @@ describe('a recording run', () => {
     }
   })
 
+  test('notes that the assistants route has no null removal to record', async () => {
+    const { session, sent } = await unknown
+    assert.ok(sent.includes('PATCH /api/config/assistants'))
+    const gap = session.gaps.find((entry) => entry.what === 'a null removal on PATCH /api/config/assistants')
+    assert.ok(gap, 'no gap names the assistants null removal')
+    assert.match(gap.why, /UpdateAssistantConfigBody/)
+  })
+
   test('goes on after a scenario fails, and notes it as a gap', async () => {
     const { session, sent } = await unknown
     // The reads that come after the launches were still sent.

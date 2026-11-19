@@ -286,6 +286,10 @@ async function recordConfigWrites(session: Session): Promise<void> {
   await assistants.call('PATCH', '/api/config/assistants', { assistant: 'orchon-recorder-no-such-provider' })
   await assistants.call('PATCH', '/api/config/assistants', { assistant: '' })
   session.save('config-assistants', 'PATCH /api/config/assistants: a merge, the config after it, and two refused requests', assistants)
+  session.missing(
+    'a null removal on PATCH /api/config/assistants',
+    "the release's UpdateAssistantConfigBody in openapi.json takes an object for each assistant and never null, so there is no removal to record; the tiers and aliases routes record theirs"
+  )
 
   const tiers = session.tape()
   await tiers.call('PATCH', '/api/config/tiers', { tiers: { small: entry } })

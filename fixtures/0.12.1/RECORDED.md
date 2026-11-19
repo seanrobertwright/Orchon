@@ -105,6 +105,7 @@ Written by `scripts/record-fixtures.ts`. Do not edit these files by hand: record
 
 - server.json: this release wrote no server.json into its Archon home
 - respond accepted with a string expectedGate: the gate this release paused at has a pause id, and the node id alone answered 409; that answer is in respond.json
+- a null removal on PATCH /api/config/assistants: the release's UpdateAssistantConfigBody in openapi.json takes an object for each assistant and never null, so there is no removal to record; the tiers and aliases routes record theirs
 
 ## What was scrubbed
 
