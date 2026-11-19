@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
+import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
 import type { SystemAnswer, SystemView } from './system-view'
 
@@ -21,6 +22,22 @@ declare module 'orca' {
     'system.refresh': { output: SystemAnswer }
     /** The Settings section no longer shows: health is no longer read on the timer. */
     'system.close': { output: null }
+    /**
+     * Reads Archon's config and its providers. A group with unsaved edits keeps them and is not
+     * refilled. It takes no input.
+     */
+    'forms.read': { output: FormsAnswer }
+    /** New values for some fields of one group, kept in the worker's unsaved form. */
+    'forms.edit': { input: FormsEdit; output: FormsAnswer }
+    /** Returns one group to its loaded values. */
+    'forms.discard': { input: { group: FormGroupId }; output: FormsAnswer }
+    /**
+     * Saves one group. The answer comes at once, with the group saving; the outcome is posted as
+     * `forms.changed`.
+     */
+    'forms.save': { input: { group: FormGroupId }; output: FormsAnswer }
+    /** Settles a save stopped by an outside change: load, overwrite or keep editing. */
+    'forms.resolve': { input: { group: FormGroupId; choice: ConflictChoice }; output: FormsAnswer }
   }
   interface PluginPanelEvents {
     /** A hint that the person asked to see runs. It carries no data. */
@@ -29,5 +46,7 @@ declare module 'orca' {
     'connection.changed': ConnectionView
     /** The System group, posted when a read that no request waits for has ended. */
     'system.changed': SystemView
+    /** The editable groups, posted when a save or a read that no request waits for has ended. */
+    'forms.changed': FormsView
   }
 }

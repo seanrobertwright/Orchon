@@ -4,6 +4,7 @@ import type { OrcaWorkerApi } from 'orca/worker'
 import { startConnection, type WorkerPorts } from './connection'
 import { realPorts } from './ports'
 import { startRunsTable } from './runs-table'
+import { startSettingsForms } from './settings-forms'
 
 /** The manifest text of the status bar item, and what its press answers until runs are counted. */
 const STATUS_TEXT = 'Orchon'
@@ -21,7 +22,9 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const connection = startConnection(orca, ports)
   const runsTable = startRunsTable(orca, connection)
+  const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
+    forms.dispose()
     runsTable.dispose()
     connection.stop()
   }
