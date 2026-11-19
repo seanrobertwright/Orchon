@@ -9,7 +9,9 @@ import { LEVEL_LABELS, type NotificationsTestAnswer, type NotificationsView } fr
 const notifications = atom<NotificationsView | null>(null)
 
 /** The last test: on its way, or what became of it. Null before the first press. */
-const tested = atom<NotificationsTestAnswer | { kind: 'sending' } | null>(null)
+type TestState = NotificationsTestAnswer | { kind: 'sending' } | null
+
+const tested = atom<TestState>(null)
 
 /** Hears every change of the setting. It sends no request: the group asks when it is opened. */
 export function startNotificationsGroup(ctx: PanelContext): void {
@@ -35,7 +37,7 @@ function sendTest(): void {
   )
 }
 
-function testOutcome(outcome: NotificationsTestAnswer | { kind: 'sending' } | null): OrcaNode {
+function testOutcome(outcome: TestState): OrcaNode {
   if (outcome === null || outcome.kind === 'sending') return null
   if (outcome.kind === 'delivered') return <Text>Orca delivered the test notification.</Text>
   if (outcome.kind === 'failed') return <Text>Orchon could not send the test notification.</Text>

@@ -4,7 +4,8 @@
 // project name, and nothing else: never a question, an option label, run output, Archon's error
 // text, a path or a run id, because Orca also relays it to paired phones.
 import type { Timers } from './client'
-import { cutAt } from './cutter'
+import { cutAt, oneLine } from './cutter'
+import type { NotificationsView } from './notifications-view'
 
 /** The setting's key in the manifest, and its three values. */
 export const NOTIFICATIONS_KEY = 'notifications'
@@ -28,11 +29,8 @@ export const PROJECT_CAP = 80
 /** The test notification "Send test notification" sends. It names no run. */
 export const TEST_NOTIFICATION = { title: 'Test notification', body: 'Notifications from Orchon reach this computer.' } as const
 
-/** The setting as read: one of its values, and whether the stored value was one of them. */
-export type NotificationSetting = { level: NotificationLevel; recognised: boolean }
-
 /** The setting's stored value. Missing is the default; any other value is not recognised and reads as the default. */
-export function parseNotificationSetting(value: unknown): NotificationSetting {
+export function parseNotificationSetting(value: unknown): NotificationsView {
   if (value === undefined || value === null) return { level: DEFAULT_LEVEL, recognised: true }
   const level = NOTIFICATION_LEVELS.find((known) => known === value)
   return level === undefined ? { level: DEFAULT_LEVEL, recognised: false } : { level, recognised: true }
@@ -40,8 +38,27 @@ export function parseNotificationSetting(value: unknown): NotificationSetting {
 
 /** Why a run needs you, as a notification says it. */
 export type NoticeKind = 'gate' | 'wait' | 'unreadable'
+/** The final statuses of a run, each said in a notification. */
+export const ENDED_STATUSES = ['completed', 'failed', 'cancelled'] as const
 /** How a run ended, as a notification says it. */
-export type EndedStatus = 'completed' | 'failed' | 'cancelled'
+export type EndedStatus = (typeof ENDED_STATUSES)[number]
+/** Whether a run's status, or a notice's kind, is one of the final statuses. */
+export const isEnded = (status: string): status is EndedStatus => ENDED_STATUSES.some((ended) => ended === status)
+
+/**
+ * The identities of notifiable events, one constructor each, so the seen record's keys have one
+ * encoding: the event's kind first, then the parts that tell it from the next of that kind.
+ */
+export const identities = {
+  /** A gate: its run, node and pause id. */
+  gate: (runId: string, nodeId: string, pauseId: string): string => JSON.stringify(['gate', runId, nodeId, pauseId]),
+  /** An attention wait: its run and `occurrence`. */
+  wait: (runId: string, occurrence: string): string => JSON.stringify(['wait', runId, occurrence]),
+  /** An unreadable run: its run and `reason`. */
+  unreadable: (runId: string, reason: string): string => JSON.stringify(['unreadable', runId, reason]),
+  /** A run's ending: its run and final status. */
+  ended: (runId: string, status: EndedStatus): string => JSON.stringify(['ended', runId, status])
+}
 
 /**
  * One notifiable event: what tells it from the next (`identity`), the workflow name and the
@@ -63,8 +80,6 @@ const PHRASES: Record<Notice['kind'], string> = {
   cancelled: 'Cancelled'
 }
 
-const isEnding = (kind: Notice['kind']): kind is EndedStatus => kind === 'completed' || kind === 'failed' || kind === 'cancelled'
-
 /** A project name that looks like a folder path is left out, so no path reaches a notification. */
 function looksLikePath(name: string): boolean {
   return /[\\/]{2}|\\|^[/~]|^[A-Za-z]:/.test(name)
@@ -72,7 +87,7 @@ function looksLikePath(name: string): boolean {
 
 /** The title and body of one event's notification. */
 export function noticeText(notice: Notice): { title: string; body: string } {
-  const project = notice.project === null || looksLikePath(notice.project) ? '' : cutAt(notice.project.replace(/\s+/g, ' ').trim(), PROJECT_CAP)
+  const project = notice.project === null || looksLikePath(notice.project) ? '' : cutAt(oneLine(notice.project), PROJECT_CAP)
   const phrase = PHRASES[notice.kind]
   return { title: cutAt(notice.workflow, TITLE_CAP), body: project === '' ? phrase : `${phrase} · ${project}` }
 }
@@ -81,7 +96,7 @@ const runs = (count: number): string => (count === 1 ? '1 run' : `${String(count
 
 /** The title of a folded batch: the count of each kind of event, with no body. */
 export function foldedTitle(notices: readonly Notice[]): string {
-  const ended = notices.filter((notice) => isEnding(notice.kind)).length
+  const ended = notices.filter((notice) => isEnded(notice.kind)).length
   const waiting = notices.length - ended
   const parts: string[] = []
   if (waiting > 0) parts.push(`${runs(waiting)} ${waiting === 1 ? 'needs' : 'need'} you`)
@@ -148,7 +163,7 @@ export function createNotifications(ports: NotificationsPorts): Notifications {
   function send(): void {
     timer = undefined
     const level = ports.level()
-    const batch = queue.filter((notice) => level === 'needs-you-and-ended' || (level === 'needs-you' && !isEnding(notice.kind)))
+    const batch = queue.filter((notice) => level === 'needs-you-and-ended' || (level === 'needs-you' && !isEnded(notice.kind)))
     queue = []
     if (batch.length === 0) return
     lastBatch = ports.now()

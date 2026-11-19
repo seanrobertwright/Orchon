@@ -15,9 +15,9 @@ import {
   DEFAULT_LEVEL,
   NOTIFICATIONS_KEY,
   parseNotificationSetting,
-  TEST_NOTIFICATION,
-  type NotificationSetting
+  TEST_NOTIFICATION
 } from './notifications'
+import type { NotificationsView } from './notifications-view'
 import type { NotificationsTestAnswer } from './notifications-view'
 import { checkPaths } from './path-check'
 import { createRunEndings } from './run-endings'
@@ -354,7 +354,7 @@ export type StartedConnection = {
   /** The status bar sentence now, as the "Orchon: Show runs" command returns it. */
   showRunsSentence(): string
   /** The Notifications setting as last read. */
-  notificationSetting(): NotificationSetting
+  notificationSetting(): NotificationsView
   stop(): void
 }
 
@@ -379,7 +379,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     failed: (call, failure) => connection.callFailed(call.baseUrl, failure)
   })
   /** The Notifications setting, as the settings were last read. */
-  let setting: NotificationSetting = { level: DEFAULT_LEVEL, recognised: true }
+  let setting: NotificationsView = { level: DEFAULT_LEVEL, recognised: true }
   const connection = createConnection({
     // The one read of the settings also gives the Notifications setting; a failed read keeps its last value.
     async readSettings() {

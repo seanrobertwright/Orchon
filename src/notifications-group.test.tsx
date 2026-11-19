@@ -6,6 +6,7 @@ import { afterEach, assert, describe, mockHost, mount, test, type TestPanel } fr
 import { answering, connected, notRunning, systemRead } from '../scripts/connection-samples.ts'
 import { repoRoot } from '../scripts/repo-files.ts'
 import type { ConnectionView } from './connection-view'
+import { oneLine } from './cutter'
 import type { NotificationsTestAnswer, NotificationsView } from './notifications-view'
 import * as panelModule from './panel'
 
@@ -47,7 +48,7 @@ function texts(view: TestPanel): string[] {
   return view
     .findAll({ type: 'Text' })
     .filter((element) => element.path.startsWith(`${group.path}/`))
-    .map((element) => element.text.replace(/\s+/g, ' ').trim())
+    .map((element) => oneLine(element.text))
 }
 
 const requests = (view: TestPanel): string[] => view.host.callsOf('plugin.request').map((params) => (params as { name: string }).name)

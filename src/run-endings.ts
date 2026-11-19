@@ -4,16 +4,13 @@
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected } from './connection-view'
-import type { EndedStatus, Notice } from './notifications'
+import { identities, isEnded, type Notice } from './notifications'
 import { readRun } from './run-detail'
 
 /** How many runs may wait to be read; the frames of more are dropped and said in the log. */
 export const ENDINGS_QUEUE_CAP = 50
 /** How long a read of the project names is used before it is made again. */
 export const PROJECT_NAMES_MS = 30_000
-
-const ENDED: readonly EndedStatus[] = ['completed', 'failed', 'cancelled']
-const isEnded = (status: string): status is EndedStatus => ENDED.some((ended) => ended === status)
 
 export type RunEndingsPorts = {
   client: Client
@@ -60,7 +57,7 @@ export function createRunEndings(ports: RunEndingsPorts): RunEndings {
     const { status, workflow, codebaseId } = read.run
     const project = await projectName(target, codebaseId, signal)
     if (signal.aborted) return
-    ports.ended(target.storeId, { identity: JSON.stringify(['ended', runId, status]), kind: status, workflow, project })
+    ports.ended(target.storeId, { identity: identities.ended(runId, status), kind: status, workflow, project })
   }
 
   /** Reads what waits, one run at a time, while Connected and opted in. */

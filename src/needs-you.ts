@@ -5,10 +5,10 @@
 // the "runs need you" callout, the "Needs you" filter and notifications, so those cannot disagree.
 import type { Client, Timers } from './client'
 import type { Connected } from './connection-view'
-import { cutAt } from './cutter'
+import { cutAt, oneLine } from './cutter'
 import { DASHBOARD_RUNS_PATH, parseDashboardRunsPage, parseRun } from './dashboard-runs'
 import type { RunsHint, ShowRuns } from './hint-view'
-import type { Notice } from './notifications'
+import { identities, type Notice } from './notifications'
 import { isRecord, own, ownRecord } from './records'
 import { CALLOUT_CAP, ROWS_CAP, type NeedsYouView, type RunRow, type Waiting } from './runs-view'
 import type { SnapshotCounts } from './status-bar'
@@ -35,7 +35,6 @@ export const QUESTION_CAP = 200
 type Entry = { row: RunRow & { waiting: Waiting }; codebaseId: string | null; identity: string | null }
 
 /** Text on one line: every run of white space, line breaks included, becomes one space. */
-const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
 /** What a row's `attention` says: the run needs you and why, it does not, or the field cannot be read. */
 type Attention = { kind: 'needs-you'; waiting: Waiting; identity: string | null } | { kind: 'not-needed' } | { kind: 'unread' }
@@ -55,13 +54,13 @@ function textOf(record: Record<string, unknown>, key: string): string | null {
 function identityOf(run: Record<string, unknown>, attention: Record<string, unknown>, kind: string): string | null {
   const runId = textOf(run, 'id')
   if (runId === null) return null
-  if (kind === 'unreadable') return JSON.stringify(['unreadable', runId, textOf(attention, 'reason') ?? ''])
+  if (kind === 'unreadable') return identities.unreadable(runId, textOf(attention, 'reason') ?? '')
   const occurrence = textOf(attention, 'occurrence')
-  if (kind === 'attention') return occurrence === null ? null : JSON.stringify(['wait', runId, occurrence])
+  if (kind === 'attention') return occurrence === null ? null : identities.wait(runId, occurrence)
   const approval = ownRecord(ownRecord(run, 'metadata'), 'approval')
   const nodeId = textOf(ownRecord(attention, 'respondTo'), 'nodeId') ?? textOf(approval, 'nodeId')
   const pauseId = textOf(approval, 'pauseId') ?? occurrence
-  return nodeId === null || pauseId === null ? null : JSON.stringify(['gate', runId, nodeId, pauseId])
+  return nodeId === null || pauseId === null ? null : identities.gate(runId, nodeId, pauseId)
 }
 
 const NOT_NEEDED: Attention = { kind: 'not-needed' }
