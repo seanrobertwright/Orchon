@@ -31,6 +31,8 @@ export type ChatRow = {
    * project Archon lists. Left out under "This project".
    */
   project?: string | null
+  /** Set when the worker reads the conversation's stream and it says the agent is working. */
+  working?: true
 }
 
 export type ChatsView =

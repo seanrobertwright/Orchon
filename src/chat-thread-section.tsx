@@ -2,8 +2,9 @@
 // first, in the panel's own scroll. It draws only the worker's view model and fetches it under
 // the shared per-view fetch rules, every 30 seconds while it shows and every 3 seconds while a
 // turn is in flight. The composer of `chat-composer.tsx` sits at its top. A workflow's dispatch is a
-// row and its result a card, each with Open run, which hands the run to the Runs section. It reads
-// saved messages only, with no stream: a turn is inferred from them.
+// row and its result a card, each with Open run, which hands the run to the Runs section. It draws
+// saved messages only. While the worker reads the conversation's stream, its hints read the thread
+// again and the answer says whether a turn is in flight; otherwise a turn is inferred from them.
 import {
   atom,
   Badge,
@@ -37,6 +38,7 @@ import {
   type ThreadToolCall
 } from './chat-thread-view'
 import { BUSY_REFETCH_MS, chatBusy, composer, observeThread, type ComposerHooks } from './chat-composer'
+import { observeLive } from './chat-working'
 import type { ChatRunAnswer } from './chat-run-view'
 import type { ConnectionView } from './connection-view'
 import { CONVERSATION_ID_CAP } from './conversations'
@@ -81,6 +83,8 @@ export type ChatThreadHooks = {
 
 let fetcher: ViewFetch | undefined
 let hooks: ChatThreadHooks | undefined
+/** Set when the person opened the thread or the panel mounted on it, until a read answers: the worker may read its stream again. */
+let opening = true
 
 function report(message: string, tryAgain = true): void {
   set(problem, { message, lastGood: read(lastGood), tryAgain })
@@ -99,6 +103,8 @@ function apply(answer: ThreadAnswer | null): void {
   hooks?.keep(answer.connection)
   const { thread } = answer
   if (thread.kind === 'ready' && thread.thread.id === openChatId()) {
+    opening = false
+    observeLive(thread.thread.id, thread.thread.live)
     observeThread(thread.thread)
     set(loaded, thread.thread)
     set(gone, false)
@@ -122,6 +128,7 @@ export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks
       if (conversationId === null || given.connection()?.kind !== 'connected' || !given.showing()) return Promise.resolve(null)
       const request: ThreadRequest = { conversationId, limit: read(limit) }
       if (showingToolCalls()) request.toolCalls = true
+      if (opening) request.open = true
       return plugin.request('chat.read', request, { signal })
     },
     apply,
@@ -139,6 +146,13 @@ export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks
     timers: frameTimers
   })
   fetcher = view
+  opening = true
+  // The worker's hint that the conversation's stream said something: the open thread is read again.
+  ctx.subscriptions.push(
+    plugin.on('chat.changed', (hint) => {
+      if (hint.conversationId === openChatId()) view.refresh()
+    })
+  )
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -160,6 +174,7 @@ function resetView(): void {
 /** Opens a conversation in place of the list. */
 export function openChatThread(conversationId: string): void {
   set(openChat, conversationId)
+  opening = true
   resetView()
   fetcher?.restart()
 }

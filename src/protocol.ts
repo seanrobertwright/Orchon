@@ -3,7 +3,7 @@
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
 import type { ChatRunAnswer, ChatRunRequest } from './chat-run-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
-import type { ThreadAnswer, ThreadRequest } from './chat-thread-view'
+import type { ChatHint, ThreadAnswer, ThreadRequest } from './chat-thread-view'
 import type { ChatProjectsAnswer, ChatProjectsRequest, ChatSendAnswer, ChatSendRequest } from './chat-send-view'
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { ConflictChoice, FormGroupId, FormsAnswer, FormsEdit, FormsView } from './forms-view'
@@ -155,5 +155,10 @@ declare module 'orca' {
     'forms.changed': FormsView
     /** A hint that a launch changed: its run was found, or it waited 60 seconds. It carries no data. */
     'launch.changed': null
+    /**
+     * A hint that a conversation's stream said something, at most one a second per conversation:
+     * the panel reads the thread again. It names the conversation and carries no message data.
+     */
+    'chat.changed': ChatHint
   }
 }

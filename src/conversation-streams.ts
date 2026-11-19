@@ -17,13 +17,18 @@ export const STREAM_CAPS: Readonly<Record<StreamPurpose, number>> = { launch: 20
 /** Archon's stream of one conversation. The id is the conversation's platform id. */
 export const conversationStreamPath = (conversationId: string): string => `/api/stream/${encodeURIComponent(conversationId)}`
 
+/**
+ * Why a stream ended. `closed`: the server ended the body, as it does when another reader takes
+ * the stream, or the reader stopped at the frame cap. `network`: the stream could not be opened
+ * (nothing took the connection, or the server answered with an error status or something other
+ * than an event stream), or its body broke.
+ */
+export type EndCause = 'closed' | 'network'
+
 export type ConversationEvent =
   | { kind: 'frame'; frame: ConversationFrame }
-  /**
-   * The stream ended, broke or could not be opened: another reader took it, or the server let it
-   * go. It is not opened again for anyone listening now.
-   */
-  | { kind: 'ended' }
+  /** The stream ended, broke or could not be opened. It is not opened again for anyone listening now. */
+  | { kind: 'ended'; cause: EndCause }
 
 export type StreamListener = (event: ConversationEvent) => void
 
@@ -73,19 +78,24 @@ export function createConversationStreams(ports: ConversationStreamsPorts): Conv
     }
   }
 
-  function end(reader: Reader): void {
+  function end(reader: Reader, cause: EndCause = 'closed'): void {
     if (reader.ended) return
     reader.ended = true
     if (readers.get(reader.key) === reader) readers.delete(reader.key)
-    if (!reader.controller.signal.aborted) tell(reader, { kind: 'ended' })
+    if (!reader.controller.signal.aborted) tell(reader, { kind: 'ended', cause })
     reader.controller.abort()
   }
 
   async function read(reader: Reader, baseUrl: string, conversationId: string): Promise<void> {
     const { signal } = reader.controller
+    let cause: EndCause = 'closed'
     try {
       const opened = await ports.client.stream({ baseUrl, path: conversationStreamPath(conversationId), signal })
-      if (!opened.ok) return
+      if (!opened.ok) {
+        // No takeover: a listener may try again. A cancelled open was aborted, and nobody hears it.
+        cause = 'network'
+        return
+      }
       const parser = createFrameParser()
       for await (const text of opened.text) {
         const frames = parser.push(text)
@@ -95,8 +105,11 @@ export function createConversationStreams(ports: ConversationStreamsPorts): Conv
           if (read !== null && !signal.aborted) tell(reader, { kind: 'frame', frame: read })
         }
       }
+    } catch (error) {
+      cause = 'network'
+      throw error
     } finally {
-      end(reader)
+      end(reader, cause)
     }
   }
 

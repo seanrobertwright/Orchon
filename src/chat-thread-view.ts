@@ -43,7 +43,25 @@ export const THREAD_GAP_MS = 2_000
  * What a panel sends: the conversation's platform id, how many of its newest messages to read,
  * a multiple of `THREAD_PAGE` up to `ARCHON_MESSAGES_CAP`, and whether to carry tool calls.
  */
-export type ThreadRequest = { conversationId: string; limit: number; toolCalls?: boolean }
+export type ThreadRequest = {
+  conversationId: string
+  limit: number
+  toolCalls?: boolean
+  /**
+   * Set on the first read after the person opened the thread, or after the panel mounted on it:
+   * a stream another reader took is read again only then.
+   */
+  open?: true
+}
+
+/**
+ * What the conversation's stream has said of its turn, while the worker reads it. `busy` is null
+ * until a `conversation_lock` frame says; `tool` names the tool the agent is using, or is null.
+ */
+export type ThreadLive = { busy: boolean | null; tool: string | null }
+
+/** The hint that a conversation's stream said something: which conversation, and no message data. */
+export type ChatHint = { conversationId: string }
 
 /** One tool call of a saved message, as its collapsed row shows it. */
 export type ThreadToolCall = {
@@ -111,6 +129,8 @@ export type Thread = {
   unreadable: number
   /** How many older messages were left out because the answer to the panel was full. */
   cut: number
+  /** Set while the worker reads the conversation's stream and it has said something of the turn. */
+  live?: ThreadLive
 }
 
 export type ThreadView =

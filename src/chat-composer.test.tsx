@@ -386,7 +386,7 @@ describe('New chat', () => {
     await view.type(MESSAGE, '/help')
     await view.submit(MESSAGE)
     assert.deepEqual(sent(view, 'chat.send'), [{ codebaseId: 'cb-web', message: '/help' }])
-    assert.deepEqual(sent(view, 'chat.read'), [{ conversationId: 'web-new-1', limit: 50 }])
+    assert.deepEqual(sent(view, 'chat.read'), [{ conversationId: 'web-new-1', limit: 50, open: true }])
     assert.ok(view.find(WORKING))
     assert.equal(view.find(MESSAGE)?.props.value, '')
     clean(view)

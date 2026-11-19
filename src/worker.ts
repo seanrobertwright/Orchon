@@ -5,6 +5,7 @@ import { startArtifacts } from './artifacts'
 import { startBuilder } from './builder'
 import { startChatList } from './chat-list'
 import { startChatSend } from './chat-send'
+import { createChatStreams } from './chat-stream'
 import { startChatRun } from './chat-run'
 import { startChatThread } from './chat-thread'
 import { startConnection, type WorkerPorts } from './connection'
@@ -82,13 +83,16 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     lists: launch.lists,
     builderOff: wideTabs.builderOff
   })
-  const chatList = startChatList(orca, { client: connection.client, current: connection.current })
-  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current })
+  // Chat's leases on conversation streams, read through the same shared reader as the launcher's.
+  const chatStreams = createChatStreams({ streams, now: ports.now, timers: ports.timers, hint: (hint) => orca.panels.post('chat.changed', hint) })
+  const chatList = startChatList(orca, { client: connection.client, current: connection.current, chatStreams })
+  const chatThread = startChatThread(orca, { client: connection.client, current: connection.current, chatStreams })
   const chatSend = startChatSend(orca, { client: connection.client, current: connection.current })
   const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
+    chatStreams.stop()
     streams.stop()
     workflows.dispose()
     chatList.dispose()

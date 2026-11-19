@@ -1,10 +1,12 @@
 // The Chat section of the panel: the list of the scope's conversations with Archon's agent. It
 // draws only the worker's view model and fetches it under the shared per-view fetch rules, under
-// the project scope of `scope-section.tsx`. It ignores run hints and has no search. A row opens
-// the conversation's thread, drawn by `chat-thread-section.tsx` in place of the list. **New chat**
-// opens an empty thread, drawn by `chat-new.tsx`, whose first send creates the conversation.
+// the project scope of `scope-section.tsx`. It ignores run hints, reads the list again on a chat
+// hint, and has no search. A row opens the conversation's thread, drawn by `chat-thread-section.tsx`
+// in place of the list. **New chat** opens an empty thread, drawn by `chat-new.tsx`, whose first
+// send creates the conversation.
 import {
   atom,
+  Badge,
   Button,
   Callout,
   EmptyState,
@@ -105,6 +107,12 @@ export function startChatSection(ctx: PanelContext, given: ChatSectionHooks): vo
   })
   fetcher = view
   sectionHooks = given
+  // A conversation's stream said something, so a row's Working badge may have changed.
+  ctx.subscriptions.push(
+    plugin.on('chat.changed', () => {
+      if (openChatId() === null && !newChatShowing()) view.refresh()
+    })
+  )
   startChatThreadSection(ctx, { ...given, back: () => view.restart() })
   ctx.subscriptions.push({
     dispose() {
@@ -153,6 +161,7 @@ function chatRow(chat: ChatRow, allProjects: boolean): OrcaNode {
   const project = allProjects ? (chat.project ?? 'No project') : undefined
   return (
     <ListItem key={chat.id} title={title} description={project} onPress={() => openChatThread(chat.id)}>
+      {chat.working === true ? <Badge tone="accent">Working</Badge> : null}
       {chat.lastActivityAt === null ? null : (
         <Text muted size="sm">
           <RelativeTime at={chat.lastActivityAt} />

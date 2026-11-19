@@ -70,7 +70,7 @@ describe('Open conversation in run detail', () => {
     )
     await view.press(OPEN_CONVERSATION)
     assert.equal(view.valueOf(SECTION_BAR), 'chat')
-    assert.deepEqual(requests(view, 'chat.read'), [{ conversationId: 'web-launch-7', limit: 50 }])
+    assert.deepEqual(requests(view, 'chat.read'), [{ conversationId: 'web-launch-7', limit: 50, open: true }])
     // An ordinary thread: its header, its title and its messages.
     assert.ok(view.find({ type: 'Button', text: 'Chats' }))
     assert.ok(view.find({ type: 'Heading', text: 'The launch conversation' }))
