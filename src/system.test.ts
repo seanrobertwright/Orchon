@@ -309,6 +309,41 @@ describe('the System group', () => {
     await mounted.worker.deactivate()
   })
 
+  test('opened before Connected, reads health and the update check once it connects', async () => {
+    const stage = scene()
+    const mounted = await stage.mount()
+    assert.equal(mounted.latest().kind, 'not-found')
+    await mounted.worker.request('system.open')
+    stage.archon.answer(DEFAULT_HEALTH, recorded('0.14.0', 'health'))
+    stage.archon.answer(DEFAULT_OPENAPI, recorded('0.14.0', 'openapi'))
+    stage.archon.answer(UPDATE_CHECK, recorded('0.14.0', 'update-check'))
+    const mark = stage.archon.calls.length
+    await mounted.worker.request('connection.retry')
+    await settle()
+    assert.equal(mounted.latest().kind, 'connected')
+    assert.deepEqual(callsSince(stage, mark).updates, 1)
+    const view = newest(systemPosts(mounted))
+    assert.equal(view.health?.version, '0.14.0')
+    assert.deepEqual(view.updates, { kind: 'up-to-date', version: '0.14.0' })
+    await mounted.worker.deactivate()
+  })
+
+  test('opened and closed before Connected, reads nothing once it connects', async () => {
+    const stage = scene()
+    const mounted = await stage.mount()
+    await mounted.worker.request('system.open')
+    await mounted.worker.request('system.close')
+    stage.archon.answer(DEFAULT_HEALTH, recorded('0.14.0', 'health'))
+    stage.archon.answer(DEFAULT_OPENAPI, recorded('0.14.0', 'openapi'))
+    stage.archon.answer(UPDATE_CHECK, recorded('0.14.0', 'update-check'))
+    await mounted.worker.request('connection.retry')
+    await settle()
+    assert.equal(mounted.latest().kind, 'connected')
+    assert.deepEqual(systemPosts(mounted), [])
+    assert.equal(stage.archon.calls.some((call) => call.url === UPDATE_CHECK), false)
+    await mounted.worker.deactivate()
+  })
+
   test('says why a health read failed, in the words of the failed-read table', async () => {
     const { stage, mounted } = await connectedTo('0.14.0')
     await mounted.worker.request('system.open')

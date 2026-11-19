@@ -118,10 +118,14 @@ export type SystemPorts = {
 }
 
 export type System = {
+  /** The section began to show: reads both, or, while not Connected, as soon as it connects. */
   open(): Promise<SystemView>
+  /** Refresh: the same reads as open. Kept as its own request because the panel sends it for another reason. */
   refresh(): Promise<SystemView>
+  /** The connection state changed. The first Connected after an open that could not read reads both. */
+  connectionChanged(): void
+  /** The section stopped showing, or the worker stops: no timer and no read waiting to connect. */
   close(): void
-  stop(): void
 }
 
 export function createSystem(ports: SystemPorts): System {
@@ -147,6 +151,8 @@ export function createSystem(ports: SystemPorts): System {
   let timer: unknown
   /** Whether the section shows, so the timer is to be set again after each timed read. */
   let watching = false
+  /** Whether the section opened while not Connected, so both are read once it connects. */
+  let waitingToConnect = false
 
   function clearTimer(): void {
     if (timer !== undefined) ports.timers.clear(timer)
@@ -173,10 +179,17 @@ export function createSystem(ports: SystemPorts): System {
     watching = true
     readLater()
     const connection = ports.connection()
+    waitingToConnect = connection.kind !== 'connected'
     if (connection.kind !== 'connected') return view
     change({ ...view, updates: { kind: 'checking' } })
     void checkUpdates(connection.baseUrl)
     return (await readHealth()) ?? view
+  }
+
+  function close(): void {
+    watching = false
+    waitingToConnect = false
+    clearTimer()
   }
 
   /** The health read in flight, so a second one waits for it instead of starting its own. */
@@ -202,13 +215,10 @@ export function createSystem(ports: SystemPorts): System {
   return {
     open: readBoth,
     refresh: readBoth,
-    close() {
-      watching = false
-      clearTimer()
+    connectionChanged() {
+      if (!watching || !waitingToConnect || ports.connection().kind !== 'connected') return
+      void readBoth().then((next) => ports.changed(next))
     },
-    stop() {
-      watching = false
-      clearTimer()
-    }
+    close
   }
 }

@@ -289,6 +289,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
     changed(view) {
       orca.panels.post('connection.changed', view)
       statusBar.show(statusItem(view))
+      system.connectionChanged()
     }
   })
 
@@ -332,7 +333,7 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): () => 
   return () => {
     for (const subscription of subscriptions) subscription.dispose()
     connection.stop()
-    system.stop()
+    system.close()
     statusBar.stop()
   }
 }
