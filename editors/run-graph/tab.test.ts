@@ -443,3 +443,64 @@ describe('the canvas tools', () => {
     assert.equal(help?.textContent, 'Arrow keys pan, plus and minus zoom, and zero fits the graph.')
   })
 })
+
+describe('the direction and the loop groups', () => {
+  const looped: GraphView = {
+    kind: 'ready',
+    header,
+    mismatch: null,
+    steps: [
+      step('forge'),
+      step('rounds', { kind: 'loop_group', isGroup: true, state: 'running', glyph: '●', word: 'Running' }),
+      step('rounds.implement', { name: 'implement', group: 'rounds' }),
+      step('rounds.pr', { name: 'pr', group: 'rounds', state: 'running', glyph: '●', word: 'Running' })
+    ],
+    edges: [
+      { from: 'forge', to: 'rounds' },
+      { from: 'rounds.implement', to: 'rounds.pr' }
+    ]
+  }
+
+  test('draws top to bottom or left to right, chosen in a labelled radio group, and fits the new layout', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    const legend = find(stage.app, (element) => element.tagName === 'legend')
+    assert.equal(legend?.textContent, 'Direction')
+    const radios = findAll(stage.app, (element) => element.tagName === 'input' && element.getAttribute('type') === 'radio')
+    const labels = radios.map((radio) => find(stage.app, (element) => element.tagName === 'label' && element.getAttribute('for') === radio.id)?.textContent)
+    assert.deepEqual(labels, ['Top to bottom', 'Left to right'])
+    assert.deepEqual(radios.map((radio) => radio.checked), [true, false])
+    assert.equal(new Set(radios.map((radio) => radio.getAttribute('name'))).size, 1)
+    const before = one(stage.app, 'graph')
+    one(stage.app, 'viewport').dispatch('keydown', { key: 'ArrowRight' })
+    const across = radios[1]
+    assert.ok(across !== undefined)
+    across.checked = true
+    across.dispatch('change')
+    assert.notEqual(one(stage.app, 'graph'), before)
+    // Two steps side by side lay out 444 wide and 92 high.
+    near(viewBox(stage), [-178, -204, 800, 500])
+  })
+
+  test('a loop group starts collapsed as one step that says how many steps it holds, and a switch draws its steps', async () => {
+    const stage = await open({ connection, graph: looped })
+    const drawnSteps = (): (string | null)[] => withClass(stage.app, 'step').map((box) => box.getAttribute('aria-label'))
+    assert.deepEqual(drawnSteps(), ['forge, exec, ✓ Completed', 'rounds, loop_group, ● Running, holds 2 steps'])
+    assert.equal(withClass(stage.app, 'group').length, 0)
+    assert.equal(withClass(stage.app, 'edge').length, 1)
+    const toggle = named(stage.app, 'Show loop steps')
+    assert.equal(toggle.getAttribute('aria-pressed'), 'false')
+    toggle.click()
+    assert.equal(toggle.getAttribute('aria-pressed'), 'true')
+    assert.deepEqual(drawnSteps(), ['forge, exec, ✓ Completed', 'implement, exec, ✓ Completed', 'pr, exec, ● Running'])
+    assert.equal(withClass(stage.app, 'group').length, 1)
+    toggle.click()
+    assert.equal(toggle.getAttribute('aria-pressed'), 'false')
+    assert.equal(withClass(stage.app, 'group').length, 0)
+  })
+
+  test('a graph with no loop group shows no switch for one', async () => {
+    const stage = await open({ connection, graph: readyGraph })
+    const toggle = find(stage.app, (element) => element.tagName === 'button' && element.textContent === 'Show loop steps')
+    assert.ok(toggle === null || toggle.hidden)
+  })
+})
