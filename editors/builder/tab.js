@@ -16,7 +16,7 @@ import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph } from "../shared/graph-layout.js";
 import { isRecord } from "../shared/records.js";
 import { VARIANTS, VARIANT_REGISTRY } from "./archon/variants/index.js";
-import { mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
+import { DEFINITION_CAP_BYTES, mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
 import { openSession } from "./edit-session.js";
 import { fieldControl, option } from "./field-control.js";
 import { formFields } from "./node-form.js";
@@ -50,6 +50,7 @@ export const VALID_LINE = "Archon's validation found no problems.";
 export const WRITE_NOT_CONNECTED = 'Orchon is not connected to Archon, so this workflow cannot be saved or validated now.';
 export const WRITE_SAVING = 'A save is waiting for Archon.';
 export const WRITE_VALIDATING = 'Archon is validating this workflow.';
+export const TOO_LARGE_TO_SEND = `This workflow is over ${mib(DEFINITION_CAP_BYTES)}, the most the builder sends, so nothing was sent.`;
 export const SHOWN_CHANGED = 'This workflow changed outside the builder while the tab was away. The builder now shows the copy Archon serves.';
 const NOT_CONNECTED_BANNER = 'Orchon is not connected to Archon. What is shown was read before.';
 const PICK_A_NODE = 'Choose a node on the canvas or in the outline to see it here.';
@@ -80,8 +81,19 @@ export function parseBuilderPointer(text) {
 function isAnswer(value) {
     return isRecord(value) && isRecord(value.connection) && isRecord(value.builder) && typeof value.builder.kind === 'string' && typeof value.connection.kind === 'string';
 }
-const isSaveAnswer = (value) => isRecord(value) && isRecord(value.connection) && typeof value.connection.kind === 'string' && isRecord(value.save) && typeof value.save.kind === 'string';
-const isValidateAnswer = (value) => isRecord(value) && isRecord(value.connection) && typeof value.connection.kind === 'string' && isRecord(value.validate) && typeof value.validate.kind === 'string';
+/** A Save's or Validate's answer: the connection, and the outcome under `key`, or null when it is not in that shape. */
+function writeAnswer(value, key) {
+    if (!isRecord(value) || !isRecord(value.connection) || typeof value.connection.kind !== 'string')
+        return null;
+    const outcome = value[key];
+    return isRecord(outcome) && typeof outcome.kind === 'string' ? { connection: value.connection, outcome: outcome } : null;
+}
+const encoder = new TextEncoder();
+/** A definition's size as the worker measures it: its JSON text in UTF-8. */
+const bytesOf = (value) => encoder.encode(JSON.stringify(value)).length;
+const serverCheckOf = (outcome, checked) => outcome.kind === 'valid' ? { kind: 'valid', checked } : { kind: 'invalid', errors: outcome.errors, more: outcome.more, checked };
+/** When two reasons wait for the same read, the later in this order wins. */
+const REASON_ORDER = ['poll', 'shown', 'person', 'reload-discard'];
 const SIDECAR_TABS = [
     { id: 'inspector', name: 'Inspector' },
     { id: 'outline', name: 'Outline' },
@@ -298,16 +310,12 @@ export function startBuilderTab(ports) {
     let base = null;
     /** A definition the person chose to keep editing over: a read that brings it again asks nothing. */
     let keptOver = null;
-    let saving = false;
-    let validating = false;
+    /** The write request waiting for the worker, if any: one at a time. */
+    let writing = null;
     /** Archon's last validation, shown at the top of the issues while the copy is the one it checked. */
     let serverCheck = null;
     /** The lines Save and Validate last said, under the connection's. */
     let writeLines = [];
-    /** Whether the read in flight was sent because the tab was shown again. */
-    let shownAgain = false;
-    /** Whether the next read replaces the copy being edited without asking: the person chose to reload and lose their edits. */
-    let forceOpen = false;
     /** The read that would replace the copy being edited, held until the person chooses. */
     let waiting = null;
     let editable = false;
@@ -335,8 +343,8 @@ export function startBuilderTab(ports) {
     let counter = 0;
     let inFlight = false;
     let queued = false;
-    /** Whether the person asked for the read now in flight, by Reload. */
-    let asked = false;
+    /** Why the next read is sent; each read takes it and leaves `poll`. */
+    let nextReason = 'poll';
     /** Whether the last answer found Archon: a post that it is found again reads once more. */
     let connected = false;
     let stopped = false;
@@ -377,10 +385,7 @@ export function startBuilderTab(ports) {
         const actions = el('p', undefined, 'actions');
         if (view.openYaml)
             actions.appendChild(button('Open YAML', openYaml));
-        actions.appendChild(button('Reload', () => {
-            asked = true;
-            load();
-        }));
+        actions.appendChild(button('Reload', () => readFor('person')));
         parts.push(actions);
         if (!view.viewOnly)
             parts.push(writeBar, editBar);
@@ -412,9 +417,9 @@ export function startBuilderTab(ports) {
     function whyNoWrite() {
         if (!connected)
             return WRITE_NOT_CONNECTED;
-        if (saving)
+        if (writing === 'save')
             return WRITE_SAVING;
-        if (validating)
+        if (writing === 'validate')
             return WRITE_VALIDATING;
         if (session === null)
             return UNREADABLE_DEFINITION;
@@ -422,6 +427,39 @@ export function startBuilderTab(ports) {
     }
     /** The definition as it stands, as a save would write it. */
     const definitionNow = () => (session === null ? null : session.definition());
+    /**
+     * Sends Save's or Validate's request while no other waits, and gives `settle` the worker's
+     * outcome. A copy over the open limit is not sent, and the tab says so; no answer says `unanswered`.
+     */
+    function sendWrite(kind, input, settle, unanswered) {
+        if (bytesOf(input.definition) > DEFINITION_CAP_BYTES) {
+            setWrite([TOO_LARGE_TO_SEND]);
+            return;
+        }
+        writing = kind;
+        drawEditState();
+        void ports
+            .request(`builder.${kind}`, input)
+            .then((value) => {
+            if (stopped)
+                return;
+            const answer = writeAnswer(value, kind);
+            if (answer === null) {
+                setWrite([unanswered]);
+                return;
+            }
+            connected = answer.connection.kind === 'connected';
+            settle(answer.outcome);
+        }, () => {
+            if (!stopped)
+                setWrite([unanswered]);
+        })
+            .finally(() => {
+            writing = null;
+            if (!stopped)
+                drawEditState();
+        });
+    }
     /** Save: the local blocking rules here, then the worker's outside-change check, Archon's validation and the write. */
     function save() {
         const definition = definitionNow();
@@ -432,29 +470,8 @@ export function startBuilderTab(ports) {
             return;
         }
         const checked = session?.workflow();
-        saving = true;
         setWrite([]);
-        drawEditState();
-        void ports
-            .request('builder.save', { ...identity, locale: ports.locale, definition, base })
-            .then((answer) => {
-            if (stopped)
-                return;
-            if (!isSaveAnswer(answer))
-                setWrite([SAVE_UNANSWERED]);
-            else {
-                connected = answer.connection.kind === 'connected';
-                settleSave(answer.save, definition, checked);
-            }
-        }, () => {
-            if (!stopped)
-                setWrite([SAVE_UNANSWERED]);
-        })
-            .finally(() => {
-            saving = false;
-            if (!stopped)
-                drawEditState();
-        });
+        sendWrite('save', { ...identity, locale: ports.locale, definition, base }, (outcome) => settleSave(outcome, definition, checked), SAVE_UNANSWERED);
     }
     /** What a save's outcome changes: the copy later checks compare against, Archon's sentences, or the three choices. */
     function settleSave(outcome, definition, checked) {
@@ -470,7 +487,7 @@ export function startBuilderTab(ports) {
                 setWrite([outcome.message]);
                 break;
             case 'invalid':
-                serverCheck = { kind: 'invalid', errors: outcome.errors, more: outcome.more, checked };
+                serverCheck = serverCheckOf(outcome, checked);
                 setWrite([SAVE_REJECTED]);
                 break;
             case 'changed':
@@ -505,8 +522,7 @@ export function startBuilderTab(ports) {
         waiting = null;
         const reload = button('Reload and lose my edits', () => {
             closePrompt();
-            forceOpen = true;
-            load();
+            readFor('reload-discard');
         });
         const overwrite = button('Overwrite the outside change', () => {
             closePrompt();
@@ -523,36 +539,16 @@ export function startBuilderTab(ports) {
         if (definition === null || !editable || whyNoWrite() !== null)
             return;
         const checked = session?.workflow();
-        validating = true;
-        drawEditState();
-        void ports
-            .request('builder.validate', { definition, locale: ports.locale })
-            .then((answer) => {
-            if (stopped)
-                return;
-            if (!isValidateAnswer(answer)) {
-                setWrite([WORKER_UNANSWERED]);
-                return;
-            }
-            connected = answer.connection.kind === 'connected';
-            const outcome = answer.validate;
+        sendWrite('validate', { definition, locale: ports.locale }, (outcome) => {
             if (outcome.kind === 'valid' || outcome.kind === 'invalid') {
-                serverCheck = outcome.kind === 'valid' ? { kind: 'valid', checked } : { kind: 'invalid', errors: outcome.errors, more: outcome.more, checked };
+                serverCheck = serverCheckOf(outcome, checked);
                 setWrite([]);
             }
             else
                 setWrite([outcome.message]);
             if (facts !== null)
                 drawIssues(facts);
-        }, () => {
-            if (!stopped)
-                setWrite([WORKER_UNANSWERED]);
-        })
-            .finally(() => {
-            validating = false;
-            if (!stopped)
-                drawEditState();
-        });
+        }, WORKER_UNANSWERED);
     }
     function openYaml() {
         if (identity === null)
@@ -1138,13 +1134,14 @@ export function startBuilderTab(ports) {
     /** Whether the person has changes a read must not replace without asking. */
     const editing = () => session !== null && editable && session.dirty();
     /** Draws a read workflow. A copy with unsaved changes is never replaced without asking. */
-    function drawReady(view, lines, byPerson, byShow) {
+    function drawReady(view, lines, reason) {
         drawHeader(view.header);
         setBanners(lines);
         drawEditState();
         const same = opened !== null && sameDefinition(view.definition, opened);
-        if (editing() && !forceOpen) {
-            if (byPerson)
+        const forced = reason === 'reload-discard';
+        if (editing() && !forced) {
+            if (reason === 'person')
                 ask(view, RELOAD_ASKED);
             else if (!same && (keptOver === null || !sameDefinition(view.definition, keptOver)))
                 ask(view, OUTSIDE_CHANGE);
@@ -1152,11 +1149,9 @@ export function startBuilderTab(ports) {
                 content.replaceChildren(layout);
             return;
         }
-        const forced = forceOpen;
-        forceOpen = false;
         if (session === null || !same || shown?.kind !== 'ready' || forced) {
             // Shown again over a copy with no unsaved changes, an outside change replaces it, with a notice.
-            const notice = byShow && session !== null && shown?.kind === 'ready' && !same;
+            const notice = reason === 'shown' && session !== null && shown?.kind === 'ready' && !same;
             openView(view);
             if (notice)
                 setWrite([SHOWN_CHANGED]);
@@ -1191,7 +1186,7 @@ export function startBuilderTab(ports) {
         else
             drawTooLarge(shown, lines);
     }
-    function apply(answer, byPerson, byShow) {
+    function apply(answer, reason) {
         const tabConnection = answer.connection;
         const { builder } = answer;
         connected = tabConnection.kind === 'connected';
@@ -1244,8 +1239,14 @@ export function startBuilderTab(ports) {
                 drawTooLarge(builder, []);
                 return;
             case 'ready':
-                drawReady(builder, [], byPerson, byShow);
+                drawReady(builder, [], reason);
         }
+    }
+    /** Reads the workflow for `reason`, kept for the next read sent if one is in flight now. */
+    function readFor(reason) {
+        if (REASON_ORDER.indexOf(reason) > REASON_ORDER.indexOf(nextReason))
+            nextReason = reason;
+        load();
     }
     /** Reads the workflow: one read in flight, and at most one more queued. */
     function load() {
@@ -1258,16 +1259,14 @@ export function startBuilderTab(ports) {
         inFlight = true;
         counter += 1;
         const mine = counter;
-        const byPerson = asked;
-        asked = false;
-        const byShow = shownAgain;
-        shownAgain = false;
+        const reason = nextReason;
+        nextReason = 'poll';
         const request = { ...identity, locale: ports.locale };
         void ports
             .request('builder.read', request)
             .then((answer) => {
             if (!stopped && mine === counter && isAnswer(answer))
-                apply(answer, byPerson, byShow);
+                apply(answer, reason);
         }, () => {
             if (stopped || mine !== counter)
                 return;
@@ -1349,10 +1348,7 @@ export function startBuilderTab(ports) {
         load();
     }));
     // Shown again: the same comparison as a save's, with a notice when the workflow changed outside.
-    const onShown = ports.onShown?.(() => {
-        shownAgain = true;
-        load();
-    });
+    const onShown = ports.onShown?.(() => readFor('shown'));
     if (onShown !== undefined)
         subscriptions.push(onShown);
     void ports.readPointer().then((text) => {

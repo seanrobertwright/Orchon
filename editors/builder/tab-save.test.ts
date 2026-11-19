@@ -308,6 +308,15 @@ describe("the builder's Save", () => {
     assert.deepEqual(host?.edits, [])
   })
 
+  test('a copy edited past the 1 MiB the builder sends is not sent, and the tab says why', async () => {
+    const stage = await open(readyFor(SMALL))
+    await describeAs(stage, 'x'.repeat(1024 * 1024))
+    await press(buttonNamed(stage.app, 'Save'))
+    assert.deepEqual(saves(stage), [])
+    assert.ok(banners(stage).includes('This workflow is over 1.0 MiB, the most the builder sends, so nothing was sent.'))
+    assert.equal(unsaved(stage), 'Unsaved changes')
+  })
+
   test("an installed workflow stays view-only: it has no Save or Validate, and the save keys send nothing", async () => {
     const stage = await open(readyFor(SMALL, { source: 'installed', viewOnly: true }))
     assert.equal(find(stage.app, (element) => element.tagName === 'button' && element.textContent === 'Save'), null)
@@ -329,6 +338,14 @@ describe("the builder's Validate", () => {
     assert.deepEqual(texts(withClass(strip, 'server-check')[0] as FakeElement, 'li'), ['✖ Archon: First problem', '✖ Archon: Second problem'])
     await press(buttonNamed(stage.app, 'Validate'))
     assert.deepEqual(texts(withClass(strip, 'server-check')[0] as FakeElement, 'p'), ["Archon's validation found no problems."])
+  })
+
+  test('a copy over the 1 MiB the builder sends is not sent, and the tab says why', async () => {
+    const stage = await open(readyFor(SMALL))
+    await describeAs(stage, 'x'.repeat(1024 * 1024))
+    await press(buttonNamed(stage.app, 'Validate'))
+    assert.deepEqual(stage.sent.filter((call) => call.name === 'builder.validate'), [])
+    assert.ok(banners(stage).includes('This workflow is over 1.0 MiB, the most the builder sends, so nothing was sent.'))
   })
 
   test("Archon's sentences are let go once the copy they were about changes", async () => {
