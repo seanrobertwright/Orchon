@@ -17,7 +17,7 @@ import {
   unsupported
 } from '../scripts/connection-samples.ts'
 import { formsWithEdits } from '../scripts/forms-samples.ts'
-import { answeringRuns, busyRuns } from '../scripts/runs-samples.ts'
+import { answeringRun, answeringRuns, busyRuns, sampleDetail } from '../scripts/runs-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
 import type { RunsRequest } from './runs-view'
 
@@ -45,6 +45,29 @@ const workerUnreachable = {
   }
 }
 
+/** Run detail, opened on a paused run of the busy list: the panel reopens on the run last shown. */
+const onRun = { persisted: { workspace: { section: 'runs', openRun: 'run-1' } } }
+const runDetail = answeringRun(
+  (request) => busyRuns(40, request),
+  () => ({ kind: 'ready', detail: sampleDetail(1) })
+)
+const runWaitingOnSubRuns = answeringRun(
+  (request) => busyRuns(40, request),
+  () => ({
+    kind: 'ready',
+    detail: sampleDetail(1, {
+      waiting: {
+        kind: 'children',
+        children: [
+          { id: 'run-7', workflow: 'workflow-7', status: 'running' },
+          { id: 'run-8', workflow: null, status: null }
+        ],
+        more: 3
+      }
+    })
+  })
+)
+
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
 
@@ -54,6 +77,9 @@ export default defineCheck({
   'runs, busy': answeringRuns((request) => busyRuns(140, request, 2)),
   'runs, this project': answeringScope(() => matchedWeb, (request) => busyRuns(40, request)),
   'runs, unmatched project': answeringScope(() => unmatchedGit, (request) => busyRuns(40, request)),
+  'run detail': { ...runDetail, ...onRun },
+  'run detail, waiting on sub-runs': { ...runWaitingOnSubRuns, ...onRun },
+  'run detail, no longer exists': { ...answeringRun((request) => busyRuns(40, request), () => ({ kind: 'gone' })), ...onRun },
   'runs, remote workspace': answeringScope(() => remote, (request) => busyRuns(40, request)),
   'connected, reopened on settings': { ...answering(connected), ...onSettings },
   'searching with nothing loaded': answering(searching),
