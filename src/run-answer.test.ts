@@ -71,10 +71,26 @@ describe('the question run detail carries', () => {
           { id: 'approve', label: null },
           { id: 'reject', label: null }
         ],
+        moreDecisions: 0,
         authored: false,
         completionSignaled: false
       })
       assert.equal(detail.waiting, null)
+    })
+
+    test(`a gate of ${release} with more than 50 decisions carries the first 50 and how many more, and a decision past them is refused as stale`, async () => {
+      const { stage, worker, runId, detail } = await atGate(release, (run) => {
+        const approval = (run.metadata as { approval: Record<string, unknown> }).approval
+        approval.decisions = Array.from({ length: 53 }, (_, index) => ({ id: `d${String(index)}`, label: null }))
+        approval.decisionsAuthored = true
+      })
+      const question = detail.question
+      if (question?.kind !== 'gate') throw new Error('The gate was not read.')
+      assert.deepEqual(question.decisions.map((decision) => decision.id), Array.from({ length: 50 }, (_, index) => `d${String(index)}`))
+      assert.equal(question.moreDecisions, 3)
+      const answer = (await worker.request('run.answer', { runId, kind: 'gate', ...gateIdentity(detail), decision: 'd50', text: 'Past the cap' })) as RunControlAnswer
+      assert.deepEqual(answer.outcome, { kind: 'refused', status: null, message: STALE })
+      assert.equal(writes(stage).length, 0)
     })
   }
 })

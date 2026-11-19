@@ -52,6 +52,7 @@ const GATE: Question = {
     { id: 'approve', label: null },
     { id: 'reject', label: null }
   ],
+  moreDecisions: 0,
   authored: false,
   completionSignaled: false
 }
@@ -134,6 +135,14 @@ describe('pressing a gate decision', () => {
     for (const label of ['Ship it', 'Send back', 'park']) assert.ok(view.find({ type: 'Button', text: label }), label)
     await view.press({ type: 'Button', text: 'park' })
     assert.ok(view.find({ type: 'Textarea', label: 'Your reason to park' }))
+  })
+
+  test("decisions past 50 point to Archon's console", async () => {
+    const view = await openOn(() => paused({ ...GATE, moreDecisions: 1 }))
+    assert.ok(view.find({ type: 'Text', text: "1 more decision is not shown. Open Archon's console to choose it." }))
+    await view.unmount()
+    const more = await openOn(() => paused({ ...GATE, moreDecisions: 3 }))
+    assert.ok(more.find({ type: 'Text', text: "3 more decisions are not shown. Open Archon's console to choose one of them." }))
   })
 
   test('a gate whose step signalled it finished reads "Accept & complete" until a comment is typed', async () => {

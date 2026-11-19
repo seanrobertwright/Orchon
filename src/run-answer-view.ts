@@ -8,6 +8,9 @@ export const ANSWER_TEXT_CAP = 10_000
 /** How many options of an attention wait are shown and can be chosen. Past that the block points to Archon's console. */
 export const OPTIONS_CAP = 50
 
+/** How many decisions of a gate are shown and can be chosen. Past that the block points to Archon's console. */
+export const DECISIONS_CAP = 50
+
 /** One decision a gate offers. `label` is the authored one, or null when it has none. */
 export type GateDecision = { id: string; label: string | null }
 
@@ -20,8 +23,9 @@ export type WaitOption = { id: string; label: string | null; does: string | null
 export type Question =
   /**
    * A gate. Its identity is the node id and the pause id, which is null when the gate has none.
-   * `decisions` are the gate's own, or approve and reject when it declares none. `message` is
-   * Markdown, cut at 16 KiB, `messageCut` when it was.
+   * `decisions` are at most `DECISIONS_CAP` of the gate's own, or approve and reject when it
+   * declares none, and `moreDecisions` is how many more there are. `message` is Markdown, cut at
+   * 16 KiB, `messageCut` when it was.
    */
   | {
       kind: 'gate'
@@ -30,6 +34,7 @@ export type Question =
       message: string
       messageCut: boolean
       decisions: GateDecision[]
+      moreDecisions: number
       /** Whether the decisions and their labels were written by the workflow's author. */
       authored: boolean
       /** Whether the step said it has finished its work, so approving completes it. */

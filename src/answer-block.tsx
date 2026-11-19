@@ -20,8 +20,8 @@ type Draft = {
   decision: string | null
 }
 
-/** How many runs' drafts are kept. The one written to longest ago goes first. */
-const DRAFTS_KEPT = 50
+/** How many runs the block remembers drafts, moved-on runs and answers for. The one written to longest ago goes first. */
+const RUNS_KEPT = 50
 
 /** The drafts by run. A run's draft belongs to one question: its `key`. */
 const drafts = atom<ReadonlyMap<string, Draft>>(new Map())
@@ -57,12 +57,12 @@ function draftOf(runId: string, key: string): Draft {
 
 function editDraft(runId: string, key: string, change: Partial<Omit<Draft, 'key'>>): void {
   const next = { ...draftOf(runId, key), ...change }
-  update(drafts, (held) => withEntry(held, runId, next, DRAFTS_KEPT))
+  update(drafts, (held) => withEntry(held, runId, next, RUNS_KEPT))
   if (read(movedOn).includes(runId)) update(movedOn, (held) => held.filter((id) => id !== runId))
 }
 
 function dropDraft(runId: string): void {
-  if (read(drafts).has(runId)) update(drafts, (held) => withEntry(held, runId, undefined, DRAFTS_KEPT))
+  if (read(drafts).has(runId)) update(drafts, (held) => withEntry(held, runId, undefined, RUNS_KEPT))
 }
 
 /**
@@ -76,12 +76,12 @@ export function answerBlockRead(detail: RunDetail): void {
   if (draft !== undefined && draft.key !== key) {
     if (key !== null) {
       dropDraft(detail.id)
-      update(movedOn, (held) => [...held.filter((id) => id !== detail.id), detail.id].slice(-DRAFTS_KEPT))
+      update(movedOn, (held) => [...held.filter((id) => id !== detail.id), detail.id].slice(-RUNS_KEPT))
     } else if (detail.status !== 'paused') dropDraft(detail.id)
   }
   const done = read(answered).get(detail.id)
   if (done !== undefined && (detail.status !== 'paused' || (key !== null && key !== done.key))) {
-    update(answered, (held) => withEntry(held, detail.id, undefined, DRAFTS_KEPT))
+    update(answered, (held) => withEntry(held, detail.id, undefined, RUNS_KEPT))
   }
 }
 
@@ -117,7 +117,7 @@ function answer(question: Question, input: Parameters<typeof sendAnswer>[0], hoo
   sendAnswer(input, hooks, (outcome: Shown): Shown => {
     if (outcome.kind === 'done') {
       dropDraft(runId)
-      update(answered, (held) => withEntry(held, runId, { key, pauseless: question.kind === 'gate' && question.pauseId === null }, DRAFTS_KEPT))
+      update(answered, (held) => withEntry(held, runId, { key, pauseless: question.kind === 'gate' && question.pauseId === null }, RUNS_KEPT))
     }
     if (outcome.kind === 'refused' && outcome.status === 409) {
       dropDraft(runId)
@@ -222,6 +222,13 @@ function gateBlock(detail: RunDetail, question: Extract<Question, { kind: 'gate'
           </Button>
         ))}
       </Row>
+      {question.moreDecisions > 0 ? (
+        <Text muted size="sm">
+          {question.moreDecisions === 1
+            ? "1 more decision is not shown. Open Archon's console to choose it."
+            : `${String(question.moreDecisions)} more decisions are not shown. Open Archon's console to choose one of them.`}
+        </Text>
+      ) : null}
     </>
   )
 }

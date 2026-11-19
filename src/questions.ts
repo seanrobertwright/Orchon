@@ -4,7 +4,7 @@
 // A question that cannot be read is none: the run then offers nothing to answer.
 import { BLOCK_LIMIT, cutMarkdown } from './cutter'
 import { isRecord, isText, own, ownRecord } from './records'
-import { OPTIONS_CAP, type GateDecision, type Question, type WaitForm, type WaitOption } from './run-answer-view'
+import { DECISIONS_CAP, OPTIONS_CAP, type GateDecision, type Question, type WaitForm, type WaitOption } from './run-answer-view'
 
 /** What a gate offers when it declares no decisions. */
 const DEFAULT_DECISIONS: readonly GateDecision[] = [
@@ -22,6 +22,19 @@ function messageOf(value: unknown): { message: string; messageCut: boolean } {
 
 const optionalText = (value: unknown): string | null => (isText(value) ? value : null)
 
+/** The entries of a list that `parse` reads, in order, keeping the first of each id. Not a list is none. */
+function uniqueById<T extends { id: string }>(list: unknown, parse: (value: unknown) => T | null): T[] {
+  const seen = new Set<string>()
+  const kept: T[] = []
+  for (const value of Array.isArray(list) ? (list as unknown[]) : []) {
+    const entry = parse(value)
+    if (entry === null || seen.has(entry.id)) continue
+    seen.add(entry.id)
+    kept.push(entry)
+  }
+  return kept
+}
+
 function decisionOf(value: unknown): GateDecision | null {
   if (!isRecord(value)) return null
   const id = own(value, 'id')
@@ -34,17 +47,16 @@ function gateOf(metadata: Record<string, unknown>): Question | null {
   if (!isRecord(approval)) return null
   const nodeId = own(approval, 'nodeId')
   if (!isText(nodeId)) return null
-  const list = own(approval, 'decisions')
-  const read = (Array.isArray(list) ? (list as unknown[]) : []).map(decisionOf).filter((decision) => decision !== null)
-  const ids = new Set(read.map((decision) => decision.id))
-  const decisions = read.filter((decision, index) => read.findIndex((other) => other.id === decision.id) === index)
+  const declared = uniqueById(own(approval, 'decisions'), decisionOf)
+  const shown = declared.length === 0 ? [...DEFAULT_DECISIONS] : declared.slice(0, DECISIONS_CAP)
   return {
     kind: 'gate',
     nodeId,
     pauseId: optionalText(own(approval, 'pauseId')),
     ...messageOf(own(approval, 'message')),
-    decisions: ids.size === 0 ? [...DEFAULT_DECISIONS] : decisions,
-    authored: own(approval, 'decisionsAuthored') === true && ids.size > 0,
+    decisions: shown,
+    moreDecisions: Math.max(0, declared.length - DECISIONS_CAP),
+    authored: own(approval, 'decisionsAuthored') === true && declared.length > 0,
     completionSignaled: own(approval, 'completionSignaled') === true
   }
 }
@@ -64,9 +76,7 @@ function waitOf(attention: Record<string, unknown>): Question | null {
   if (!isText(nodeId) || !isText(occurrence)) return null
   const given = own(attention, 'form')
   const form: WaitForm = occurrence.startsWith('legacy:') ? 'legacy' : (FORMS.find((known) => known === given) ?? 'unknown')
-  const list = own(attention, 'options')
-  const read = (Array.isArray(list) ? (list as unknown[]) : []).map(optionOf).filter((option) => option !== null)
-  const options = read.filter((option, index) => read.findIndex((other) => other.id === option.id) === index)
+  const options = uniqueById(own(attention, 'options'), optionOf)
   const shown = form === 'message' || form === 'legacy' || form === 'unknown' ? [] : options.slice(0, OPTIONS_CAP)
   const recommended = ownRecord(attention, 'recommendation')
   const option = own(recommended, 'option')
