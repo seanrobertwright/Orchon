@@ -101,10 +101,12 @@ describe('the Notifications group', () => {
   })
 
   test('the button is disabled while a test is on its way', async () => {
+    const disabled = (): unknown => panel?.find({ type: 'Button', text: 'Send test notification' })?.props.disabled
     let during: unknown
     const view = await mountOn({ level: 'needs-you', recognised: true }, async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      during = panel?.find({ type: 'Button', text: 'Send test notification' })?.props.disabled
+      // The answer is held back until the panel has drawn the press, however long that takes.
+      for (let tick = 0; tick < 100 && disabled() !== true; tick++) await new Promise((resolve) => setTimeout(resolve, 0))
+      during = disabled()
       return { kind: 'delivered' }
     })
     await view.press({ type: 'Button', text: 'Send test notification' })
