@@ -23,12 +23,13 @@ afterEach(async () => {
   panel = undefined
 })
 
-/** What a person notices first: the selected tab and the placeholder under it. */
+/**
+ * What a person notices first: the selected tab and the placeholder under it. Settings is built,
+ * so it has no placeholder; its own tests are in settings.test.tsx.
+ */
 function showing(view: TestPanel, label: string): void {
-  assert.deepEqual(view.summary(), [
-    `Tabs "Orchon sections": "${label}" selected`,
-    `EmptyState "${label}"`
-  ])
+  const placeholder = label === 'Settings' ? [] : [`EmptyState "${label}"`]
+  assert.deepEqual(view.summary(), [`Tabs "Orchon sections": "${label}" selected`, ...placeholder])
 }
 
 function clean(view: TestPanel): void {

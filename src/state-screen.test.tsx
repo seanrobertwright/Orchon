@@ -365,8 +365,11 @@ describe('the Connection group of the Settings section', () => {
       assert.ok(group, state.kind)
       assert.ok(group.text.includes(WHERE), state.kind)
       assert.equal(rows(view).length, 4, state.kind)
+      // Other groups have their own controls: only this group's are counted.
+      const within = `${group.path}/`
       for (const type of ['Input', 'Textarea', 'Select', 'Switch', 'Checkbox', 'RadioGroup', 'Button']) {
-        assert.equal(view.findAll({ type }).length, 0, `${type} in ${state.kind}`)
+        const inGroup = view.findAll({ type }).filter((element) => element.path.startsWith(within))
+        assert.equal(inGroup.length, 0, `${type} in ${state.kind}`)
       }
       clean(view)
       await view.unmount()

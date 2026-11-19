@@ -19,6 +19,11 @@ export const UNSUPPORTED_TITLE = 'This Archon is not supported.'
 
 /** The oldest Archon release Orchon works with. It is said to the person, never compared. */
 export const FLOOR_RELEASE = '0.12.1'
+/** The newest Archon release Orchon has recorded fixtures for. It too is only said, never compared. */
+export const NEWEST_TESTED_RELEASE = '0.14.0'
+/** The System group's "Tested range" row: the oldest and newest releases with recorded fixtures. */
+export const TESTED_RANGE = `Tested with Archon ${FLOOR_RELEASE} to ${NEWEST_TESTED_RELEASE}`
+
 /** The release that first served the metrics paths. It too is only said, never compared. */
 export const METRICS_RELEASE = '0.14.0'
 
