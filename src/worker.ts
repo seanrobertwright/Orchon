@@ -2,6 +2,7 @@
 // status bar item beside `main`, and loads this file as written: there is no build step.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { startArtifacts } from './artifacts'
+import { startChatList } from './chat-list'
 import { startConnection, type WorkerPorts } from './connection'
 import { startLaunch } from './launch'
 import { realPorts } from './ports'
@@ -61,9 +62,11 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     now: ports.now,
     timers: ports.timers
   })
+  const chatList = startChatList(orca, { client: connection.client, current: connection.current })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
+    chatList.dispose()
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()

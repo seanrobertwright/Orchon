@@ -77,6 +77,21 @@ export const workflowGoneNote = (workflow: string): string =>
 /** What saved data is stored under: the server's store id, or its base URL when it reports none. */
 const storeKey = (server: Connected): string => server.storeId ?? server.baseUrl
 
+/**
+ * The ids of the conversations the launcher created for this Archon store, as it keeps them in
+ * plugin storage. Storage that cannot be read, or holds something else, gives none.
+ */
+export async function launchedConversationIds(orca: OrcaWorkerApi, server: Connected): Promise<Set<string>> {
+  let stored: unknown
+  try {
+    stored = await orca.storage.get(CONVERSATIONS_KEY)
+  } catch {
+    return new Set()
+  }
+  const ids = isRecord(stored) ? own(stored, storeKey(server)) : undefined
+  return new Set(Array.isArray(ids) ? (ids as unknown[]).filter(isText) : [])
+}
+
 type Draft = {
   /** Undefined: not chosen, so the panel's project is the default. Null: chosen empty. */
   codebaseId?: string | null
