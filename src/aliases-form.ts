@@ -2,7 +2,7 @@
 // effort. It shows the first 100 aliases in name order; the rest are counted, never shown and
 // never sent. A saved alias's name is read-only. Remove keeps the row, struck through with Undo,
 // until Save sends `null` for it or Discard brings it back. An alias is one Archon key, its name:
-// a change to any of its fields sends the whole preset (#20, part 6).
+// a change to any of its fields sends the whole preset.
 import { TIER_NAMES, type ConfigFacts } from './config'
 import {
   CHOOSE_A_PROVIDER,
