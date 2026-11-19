@@ -30,6 +30,12 @@ export const FILE_NAME_CAP = 200
 /** The most of an error's message that its callout shows. */
 export const ERROR_TEXT_CAP = 2_000
 
+/** The most of a workflow result's summary that its card shows; Open run shows the rest of the run. */
+export const RESULT_SUMMARY_CAP = 2_000
+
+/** The most characters of a workflow's name that a dispatch row or a result card shows. */
+export const WORKFLOW_NAME_CAP = 200
+
 /** The least time between two reads of the thread that no person asked for. */
 export const THREAD_GAP_MS = 2_000
 
@@ -70,6 +76,17 @@ export type ThreadMessage = {
   files?: { names: string[]; notShown: number }
   /** Only when the request asked for tool calls and the message has some. */
   toolCalls?: { calls: ThreadToolCall[]; notShown: number }
+  /**
+   * Set on a message that started a workflow: the row draws it in place of the content, so
+   * `blocks` is empty. `workerId` is the platform id of the conversation the run works in, which
+   * finds the run, or null when Archon saved none the worker accepts.
+   */
+  dispatch?: { workflow: string; workerId: string | null }
+  /**
+   * Set on a workflow's result: the card names the workflow and opens its run, and `blocks` hold
+   * the summary, cut at `RESULT_SUMMARY_CAP` with `notShown` saying how much is not shown.
+   */
+  result?: { workflow: string; runId: string }
 }
 
 /** The conversation and its newest messages. */
@@ -79,7 +96,10 @@ export type Thread = {
   title: string | null
   /** The conversation's Archon project, or null when it has none Archon lists. */
   project: { name: string; defaultCwd: string } | null
-  /** Newest first, without framework messages and rows that could not be read. */
+  /**
+   * Newest first, without rows that could not be read and without framework messages other than
+   * a workflow's dispatch and its result.
+   */
   messages: ThreadMessage[]
   /** The limit this answer read with. */
   limit: number
@@ -116,6 +136,8 @@ export function messageDrawCost(view: ThreadMessage): number {
   if (view.files !== undefined) cost += 2
   if (view.error !== undefined) cost += 3
   if (view.toolCalls !== undefined) cost += 2 + 8 * view.toolCalls.calls.length
+  if (view.dispatch !== undefined) cost += 8
+  if (view.result !== undefined) cost += 6
   return cost
 }
 

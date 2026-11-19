@@ -41,7 +41,8 @@ export function drawGraph(doc, laid, steps, options) {
     }
     for (const edge of laid.edges) {
         const d = edge.points.map((point, at) => `${at === 0 ? 'M' : 'L'}${String(point.x)} ${String(point.y)}`).join(' ');
-        svg.appendChild(make('path', { d, class: edge.dashed ? 'edge dashed' : 'edge', 'marker-end': `url(#${arrow})` }));
+        // Each edge names its ends, so a press on it can tell which one it is.
+        svg.appendChild(make('path', { d, class: edge.dashed ? 'edge dashed' : 'edge', 'marker-end': `url(#${arrow})`, 'data-from': edge.from, 'data-to': edge.to }));
     }
     for (const box of laid.steps) {
         const step = steps.get(box.id) ?? { name: box.id, kind: null, state: 'not-reached', stateText: '', note: null };
@@ -50,9 +51,10 @@ export function drawGraph(doc, laid, steps, options) {
         const stateText = readOnly ? `${LOCK_GLYPH} ${step.stateText}` : step.stateText;
         // A read-only step's state line repeats its kind, so its name says read-only in its place.
         const said = readOnly ? (step.stateText === step.kind ? READ_ONLY_LINE : `${step.stateText}, ${READ_ONLY_LINE}`) : step.stateText;
-        const label = [step.name, step.kind, said, holds].filter((part) => part !== null && part !== '').join(', ');
+        const fault = step.fault === undefined ? null : `${step.fault.glyph} ${step.fault.words}`;
+        const label = [step.name, step.kind, said, holds, step.fault?.words ?? null].filter((part) => part !== null && part !== '').join(', ');
         const group = svg.appendChild(make('g', {
-            class: `step state-${step.state}${readOnly ? ' read-only' : ''}`,
+            class: `step state-${step.state}${readOnly ? ' read-only' : ''}${fault === null ? '' : ' fault'}`,
             role: 'button',
             tabindex: 0,
             'aria-label': label,
@@ -66,7 +68,7 @@ export function drawGraph(doc, laid, steps, options) {
         group.appendChild(make('rect', { width: 4, height: box.height, rx: 2, class: 'bar' }));
         group.appendChild(text(cut(step.name), { x: 12, y: 19, class: 'name' }));
         group.appendChild(text(stateText, { x: 12, y: 37, class: 'state' }));
-        const note = [readOnly ? READ_ONLY_LINE : null, step.holds === undefined ? null : holdsPhrase(step.holds, 'upper'), step.note].filter((part) => part !== null).join(' · ');
+        const note = [fault, readOnly ? READ_ONLY_LINE : null, step.holds === undefined ? null : holdsPhrase(step.holds, 'upper'), step.note].filter((part) => part !== null).join(' · ');
         if (note !== '')
             group.appendChild(text(note, { x: 12, y: box.height - 8, class: 'note' }));
     }

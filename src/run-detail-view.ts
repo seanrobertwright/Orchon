@@ -108,6 +108,12 @@ export type RunDetail = {
   question?: Question
   /** Set when Archon's `owner_observation` says the run's owner is unreachable. Left out otherwise. */
   ownerUnreachable?: true
+  /**
+   * The platform id of the conversation that started the run, Archon's `parent_platform_id`, which
+   * Open conversation opens. Left out for a run with none, as one started from the CLI, and for an
+   * id the conversation id rule refuses.
+   */
+  conversationId?: string
 }
 
 export type RunDetailView =

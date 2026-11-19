@@ -1,6 +1,7 @@
 // The one sidebar panel. Orca draws it with its own components: no DOM, and state lives in atoms.
 import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
 import { chatSection, chatsHaveData, clearChats, rescopeChats, restartChats, startChatSection } from './chat-section'
+import { openChatThread } from './chat-thread-section'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { now } from './dates'
@@ -204,6 +205,11 @@ export function setup(ctx: PanelContext): void {
     async rerun(runId) {
       await rerunLaunch(runId)
       show('launch')
+    },
+    // The thread is set first, so showing the Chat section reads it and not the list.
+    openConversation(conversationId) {
+      openChatThread(conversationId)
+      show('chat')
     }
   })
   startScope(ctx, {
@@ -242,7 +248,11 @@ export function setup(ctx: PanelContext): void {
   startChatSection(ctx, {
     connection: () => read(connection),
     showing: () => parseSection(read(section)) === 'chat',
-    keep: keepNewest
+    keep: keepNewest,
+    openRun(runId) {
+      show('runs')
+      openRunDetail(runId)
+    }
   })
   ctx.subscriptions.push(plugin.on('show-runs', applyShowRuns))
   ctx.subscriptions.push(plugin.on('needs-you.changed', refreshRuns))

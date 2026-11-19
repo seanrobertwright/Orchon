@@ -195,3 +195,161 @@
   stroke: var(--orca-ring);
   stroke-width: 2;
 }
+
+/* Editing (#28). A state is never told by colour alone: a fault carries a glyph and words, the
+   chosen edge is drawn thicker, and connect mode says so in a banner. */
+.edit-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: flex-start;
+  position: relative;
+}
+
+.add-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  flex-basis: 100%;
+}
+
+.add-menu[hidden] {
+  display: none;
+}
+
+.unsaved:not(:empty) {
+  font-weight: 600;
+}
+
+.outside-change {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--step-border);
+  border-radius: var(--orca-radius);
+  background: var(--orca-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.outside-change[hidden] {
+  display: none;
+}
+
+.outside-change p {
+  margin: 0;
+  flex-basis: 100%;
+}
+
+.outline-row {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.outline-row .outline-node {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-action,
+.issue-link {
+  font: inherit;
+  color: var(--orca-foreground);
+  background: transparent;
+  border: 1px solid var(--step-border);
+  border-radius: var(--orca-radius);
+  padding: 0 0.4rem;
+  cursor: pointer;
+}
+
+.issue-link {
+  border-color: transparent;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+}
+
+.row-action:focus-visible,
+.issue-link:focus-visible,
+.field-input:focus-visible {
+  outline: 2px solid var(--orca-ring);
+  outline-offset: 2px;
+}
+
+.badge.fault {
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0 0 0.6rem;
+}
+
+.field.check {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.field-input {
+  font: inherit;
+  color: var(--orca-foreground);
+  background: var(--orca-background);
+  border: 1px solid var(--step-border);
+  border-radius: var(--orca-radius);
+  padding: 0.25rem 0.4rem;
+}
+
+textarea.field-input {
+  font: 12px/1.45 ui-monospace, monospace;
+  resize: vertical;
+}
+
+.field-input[aria-invalid='true'] {
+  border-width: 2px;
+}
+
+.field-error {
+  margin: 0;
+  flex-basis: 100%;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+.add-dependency {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.add-dependency label {
+  flex-basis: 100%;
+}
+
+.depends {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.depends li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.edge {
+  cursor: pointer;
+}
+
+.edge.selected {
+  stroke: var(--orca-ring);
+  stroke-width: 3;
+}
+
+.step.fault .box {
+  stroke-width: 2;
+}

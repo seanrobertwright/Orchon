@@ -1,8 +1,8 @@
 // Run detail, the second level of the Runs section: what one run is and how far it got. It draws
 // only the worker's view model and fetches it under the shared per-view fetch rules, refetching
 // on a hint that names the run, at most once a second, and on the safety refetch. The answer
-// block is drawn by `answer-block.tsx` and the action row by `run-actions.tsx`; the rest of the
-// row of small buttons comes with its own tickets.
+// block is drawn by `answer-block.tsx` and the action row by `run-actions.tsx`. Open conversation
+// hands the run's conversation to the Chat section, which reads it by id.
 import {
   atom,
   Badge,
@@ -92,6 +92,8 @@ export type RunDetailHooks = {
   back(): void
   /** Re-run: fills the launcher from the run and shows it. Rejects with the worker's refusal. */
   rerun(runId: string): Promise<void>
+  /** Open conversation: shows the Chat section on the thread of the conversation that started the run. */
+  openConversation(conversationId: string): void
 }
 
 let fetcher: ViewFetch | undefined
@@ -543,8 +545,14 @@ async function openBuilder(detail: RunDetail): Promise<void> {
   }
 }
 
+/** Open conversation: the run's conversation shows in the Chat section, read by its id. */
+function openConversation(conversationId: string | undefined): void {
+  if (conversationId !== undefined) hooks?.openConversation(conversationId)
+}
+
 /**
- * Open graph and Open workflow in builder, under the folds. It is off, with the worker's reason beside it, when no local
+ * Open graph, Open workflow in builder and, for a run started from a conversation, Open
+ * conversation, under the folds. It is off, with the worker's reason beside it, when no local
  * workspace is focused, in a remote one, for a run with no project and after a failed write;
  * and off while Orchon is not connected, which the Searching banner says. Open workflow in
  * builder is off for the same reasons but a run with no project, whose workflow is read with none.
@@ -566,6 +574,11 @@ function graphRow(detail: RunDetail): OrcaNode {
         <Button size="sm" variant="outline" disabled={flowOff !== null || !connected} onPress={() => void openBuilder(detail)}>
           Open workflow in builder
         </Button>
+        {detail.conversationId === undefined ? null : (
+          <Button size="sm" variant="outline" onPress={() => openConversation(detail.conversationId)}>
+            Open conversation
+          </Button>
+        )}
       </Row>
       {reasons.map((reason) => (
         <Text key={reason} muted size="sm">
@@ -582,7 +595,7 @@ function body(detail: RunDetail, writable: boolean): OrcaNode {
   const showing = read(shown)
   // The answer block, which takes the waiting callout's place for a question (a run waiting on a
   // question has no waiting state), goes above the action row; the row of small buttons goes under the folds: Open graph, Open workflow
-  // in builder and, with its own ticket, Open conversation.
+  // in builder and Open conversation.
   return (
     <>
       {answerBlock(detail, writable, actionHooks)}

@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
+import type { ChatRunAnswer, ChatRunRequest } from './chat-run-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
 import type { ThreadAnswer, ThreadRequest } from './chat-thread-view'
 import type { ChatProjectsAnswer, ChatProjectsRequest, ChatSendAnswer, ChatSendRequest } from './chat-send-view'
@@ -129,6 +130,8 @@ declare module 'orca' {
     'chat.send': { input: ChatSendRequest; output: ChatSendAnswer }
     /** A new chat's projects: Archon's list read afresh, and the scope's project when it names one. */
     'chat.projects': { input: ChatProjectsRequest; output: ChatProjectsAnswer }
+    /** Open run on a dispatch row: the run that works in the worker conversation the dispatch named, once. */
+    'chat.findRun': { input: ChatRunRequest; output: ChatRunAnswer }
   }
   interface PluginPanelEvents {
     /**

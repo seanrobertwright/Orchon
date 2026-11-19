@@ -16,6 +16,10 @@ export const CONVERSATION_ID = /^[\w-]+$/
 /** The most characters a conversation id may have; Archon's are about 25. */
 export const CONVERSATION_ID_CAP = 200
 
+/** Whether `value` is a conversation id the worker accepts: at most `CONVERSATION_ID_CAP` characters matching `CONVERSATION_ID`. */
+export const isConversationId = (value: unknown): value is string =>
+  typeof value === 'string' && value.length <= CONVERSATION_ID_CAP && CONVERSATION_ID.test(value)
+
 /** One conversation as the worker reads it. */
 export type Conversation = {
   /** The platform id, which Archon's conversation routes take. */
@@ -43,7 +47,7 @@ export function parseConversation(value: unknown): Conversation | null {
   if (!isRecord(value)) return null
   const id = own(value, 'platform_conversation_id')
   const platform = own(value, 'platform_type')
-  if (typeof id !== 'string' || id.length > CONVERSATION_ID_CAP || !CONVERSATION_ID.test(id)) return null
+  if (!isConversationId(id)) return null
   if (typeof platform !== 'string' || platform === '') return null
   const title = optionalText(value, 'title')
   const lastActivity = optionalText(value, 'last_activity_at')

@@ -5,6 +5,7 @@ import { startArtifacts } from './artifacts'
 import { startBuilder } from './builder'
 import { startChatList } from './chat-list'
 import { startChatSend } from './chat-send'
+import { startChatRun } from './chat-run'
 import { startChatThread } from './chat-thread'
 import { startConnection, type WorkerPorts } from './connection'
 import { createConversationStreams } from './conversation-streams'
@@ -84,6 +85,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const chatList = startChatList(orca, { client: connection.client, current: connection.current })
   const chatThread = startChatThread(orca, { client: connection.client, current: connection.current })
   const chatSend = startChatSend(orca, { client: connection.client, current: connection.current })
+  const chatRun = startChatRun(orca, { client: connection.client, current: connection.current })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     launch.dispose()
@@ -92,6 +94,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     chatList.dispose()
     chatThread.dispose()
     chatSend.dispose()
+    chatRun.dispose()
     forms.dispose()
     wideTabs.dispose()
     runGraph.dispose()
