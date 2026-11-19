@@ -64,6 +64,22 @@ describe('the graph drawing', () => {
     assert.match(waiting.textContent, /Answered in the Orchon panel\./)
   })
 
+  test('a step is a focusable button that names its step, and a collapsed loop group says how many steps it holds', () => {
+    const doc = fakeDocument()
+    const laid = layoutGraph([{ id: 'rounds', group: null, isGroup: true, conditional: false }, layoutSteps[0] as LayoutStep], [])
+    const steps = new Map([facts('forge', 'forge', 'completed', '✓ Completed'), facts('rounds', 'rounds', 'running', '● Running', { kind: 'loop_group', holds: 3 })])
+    const svg = drawGraph(doc as unknown as Document, laid, steps, { label: 'g', idPrefix: 'g3' }) as unknown as FakeElement
+    const boxes = withClass(svg, 'step')
+    for (const box of boxes) {
+      assert.equal(box.getAttribute('role'), 'button')
+      assert.equal(box.getAttribute('tabindex'), '0')
+    }
+    assert.deepEqual(boxes.map((box) => box.getAttribute('data-step')), ['rounds', 'forge'])
+    const rounds = boxes[0]
+    assert.equal(rounds?.getAttribute('aria-label'), 'rounds, loop_group, ● Running, holds 3 steps')
+    assert.match(rounds?.textContent ?? '', /Holds 3 steps/)
+  })
+
   test("sets Archon's text as text, never as markup", () => {
     const { svg } = drawn()
     assert.ok(find(svg, (element) => element.tagName === 'text' && element.textContent === '<b>pr</b>'))
