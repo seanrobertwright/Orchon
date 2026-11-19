@@ -46,7 +46,33 @@ export type RunRow = {
   workingPath: string | null
   /** The `workspace.list` row whose path is the run's folder, once normalised. Left out when Orca lists none. */
   workspaceId?: string
+  /** What the run waits for from the person, when it needs you. Left out when it does not. */
+  waiting?: Waiting
 }
+
+/**
+ * Why a run needs you: an unanswered gate or attention wait, with its question cut to one line,
+ * or a run Archon cannot describe, which only Archon's console can help with.
+ */
+export type Waiting = { kind: 'gate' | 'wait'; question: string } | { kind: 'unreadable' }
+
+/** How many rows the "runs need you" callout shows before its "and N more" row. */
+export const CALLOUT_CAP = 10
+
+/**
+ * The runs that need you under the scope the panel asked for, from the worker's snapshot: the
+ * callout's rows and the "Needs you" count. `unavailable` when Archon's waiting runs could not be
+ * read.
+ */
+export type NeedsYouView =
+  | {
+      kind: 'ready'
+      /** How many runs need you in the scope. */
+      total: number
+      /** The first runs in the order Archon returned them, at most `CALLOUT_CAP`. */
+      rows: RunRow[]
+    }
+  | { kind: 'unavailable' }
 
 export type RunsView =
   /** Orchon is not connected, so Archon was not asked. */

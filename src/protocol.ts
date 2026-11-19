@@ -64,6 +64,8 @@ declare module 'orca' {
     'connection.changed': ConnectionView
     /** A hint that runs changed in Archon, at most one a second. It carries no run data. */
     'runs.changed': RunsHint
+    /** A hint that the snapshot of runs that need you changed. It carries no data. */
+    'needs-you.changed': null
     /** The System group, posted when a read that no request waits for has ended. */
     'system.changed': SystemView
     /** The editable groups, posted when a save or a read that no request waits for has ended. */

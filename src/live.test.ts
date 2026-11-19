@@ -295,8 +295,8 @@ describe('keeping the stream open', () => {
     await settle()
     stream.send(frame({ type: 'dag_node', runId: 'run-2' }))
     await settle()
-    // The watchdog, the second hint and the status bar item wait.
-    assert.equal(stage.clock.waiting().length, 3)
+    // The watchdog, the second hint, the status bar item and the snapshot's safety read wait.
+    assert.equal(stage.clock.waiting().length, 4)
     await mounted.worker.deactivate()
     assert.deepEqual(stage.clock.waiting(), [])
     assert.equal(stream.closed, true)
