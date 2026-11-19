@@ -355,7 +355,7 @@ function table(runs: Ready, status: TableFilter): OrcaNode {
 
 /** The section while connected or under the Searching banner. `writable` is false when its controls that write are off. */
 export function runsSection(state: Connected, writable: boolean): OrcaNode {
-  if (openRunId() !== null) return runDetailSection()
+  if (openRunId() !== null) return runDetailSection(writable)
   const status = read(filter)
   const runs = read(loaded)
   const held = read(problem)

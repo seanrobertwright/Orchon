@@ -11,6 +11,7 @@ import { matchProject, type ArchonProject } from './project-match'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { isRecord, isText, own, parseOneText, refuseRequest } from './records'
 import { CHOICES_CAP, PROJECT_ID_CAP, REMOTE_WORKSPACE, type LinkChoices, type LinkRequest, type OpenRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
+import { NOT_CONNECTED_TEXT } from './worker-words'
 import { localAndWritable, normalisePath, originUrl } from './workspaces'
 
 /** The longest Git config file the worker reads. */
@@ -93,7 +94,6 @@ function choicesOf(projects: readonly ArchonProject[], unreadable: number): Link
 
 /** What a refused press says. */
 export const NOT_LISTED = 'Archon no longer lists that project. Choose another.'
-const NOT_CONNECTED = 'Orchon is not connected to Archon.'
 const NO_WORKSPACE = 'No workspace is focused in Orca.'
 export const NOT_GIT = 'Only a Git repository can be registered. Link this folder to an Archon project instead.'
 export const FOLDER_CHANGED = 'The folder to register has changed. Check it and confirm again.'
@@ -261,7 +261,7 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
   async function answer(signal: AbortSignal, press?: Press): Promise<ScopeAnswer> {
     const connection = await ports.current()
     const refusing = (text: string): { refused?: string } => (press === undefined ? {} : { refused: text })
-    if (connection.kind !== 'connected') return { connection, scope: { kind: 'not-connected' }, ...refusing(NOT_CONNECTED) }
+    if (connection.kind !== 'connected') return { connection, scope: { kind: 'not-connected' }, ...refusing(NOT_CONNECTED_TEXT) }
     const focused = await focus()
     if (focused.kind === 'none') return { connection, scope: { kind: 'no-workspace' }, ...refusing(NO_WORKSPACE) }
     // In a remote workspace no matching is done at all, the Git remote included, and Link and

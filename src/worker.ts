@@ -1,9 +1,11 @@
 // The resident worker. Orca starts it when the plugin is enabled, because the manifest has a
 // status bar item beside `main`, and loads this file as written: there is no build step.
 import type { OrcaWorkerApi } from 'orca/worker'
+import { startArtifacts } from './artifacts'
 import { startConnection, type WorkerPorts } from './connection'
 import { realPorts } from './ports'
 import { startProjectScope } from './project-scope'
+import { startRunControl } from './run-control'
 import { startRunDetail } from './run-detail'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
@@ -28,12 +30,16 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const runsTable = startRunsTable(orca, { ...connection, workspaces: projectScope.workspaces })
   const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, now: ports.now })
+  const artifacts = startArtifacts(orca, connection)
+  const runControl = startRunControl(orca, connection)
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     forms.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()
+    artifacts.dispose()
+    runControl.dispose()
     connection.stop()
   }
 }
