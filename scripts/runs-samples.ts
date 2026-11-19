@@ -26,7 +26,6 @@ export function sampleRun(index: number, status: RunStatus = 'completed'): RunRo
   }
 }
 
-
 /** The counts of a busy list of `total` runs, as `busyRun` spreads the statuses. */
 export function busyCounts(total: number): StatusCounts {
   const counts: StatusCounts = { ...EMPTY_COUNTS, all: total }

@@ -92,7 +92,6 @@ function apply(answer: RunsAnswer | null, hooks: RunsSectionHooks): void {
   }
 }
 
-
 /** Starts the section's fetch rules for this panel run. They stop when the panel closes. */
 export function startRunsSection(ctx: PanelContext, given: RunsSectionHooks): void {
   const view = createViewFetch<RunsAnswer | null>({
