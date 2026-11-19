@@ -37,6 +37,7 @@ import {
   type ThreadToolCall
 } from './chat-thread-view'
 import { BUSY_REFETCH_MS, chatBusy, composer, observeThread, type ComposerHooks } from './chat-composer'
+import { closeDelete, deleteButton, deleteCallout, type DeleteHooks } from './chat-delete-section'
 import type { ChatRunAnswer } from './chat-run-view'
 import type { ConnectionView } from './connection-view'
 import { CONVERSATION_ID_CAP } from './conversations'
@@ -144,6 +145,7 @@ export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks
 }
 
 function resetView(): void {
+  closeDelete()
   set(loaded, null)
   set(problem, null)
   set(lastGood, null)
@@ -370,13 +372,26 @@ function messageNode(message: ThreadMessage, withToolCalls: boolean): OrcaNode {
   )
 }
 
-function header(): OrcaNode {
+/** Whether the open thread's writes that change it are off: writes are off, or its turn is in flight. */
+const deleteOff = (conversationId: string, writable: boolean): boolean => !writable || chatBusy(conversationId)
+
+/** What the Delete of the open thread tells the thread. */
+const threadDeleteHooks: DeleteHooks = {
+  keep: (view) => hooks?.keep(view),
+  deleted: back,
+  refetch: () => fetcher?.restart()
+}
+
+function header(thread: Thread | null, writable: boolean): OrcaNode {
   return (
     <Row gap="sm" align="center" justify="between" wrap>
       <Button size="sm" variant="ghost" tooltip="Back to the conversations" onPress={back}>
         Chats
       </Button>
-      <Switch label="Show tool calls" checked={showingToolCalls()} onChange={toggleToolCalls} />
+      <Row gap="sm" align="center" wrap>
+        <Switch label="Show tool calls" checked={showingToolCalls()} onChange={toggleToolCalls} />
+        {thread === null ? null : deleteButton(thread.id, deleteOff(thread.id, writable))}
+      </Row>
     </Row>
   )
 }
@@ -445,7 +460,8 @@ export function chatThreadSection(writable: boolean): OrcaNode {
   else body = threadBody(thread, writable)
   return (
     <Stack gap="sm">
-      {header()}
+      {header(thread, writable)}
+      {thread === null ? null : deleteCallout(thread.id, deleteOff(thread.id, writable), threadDeleteHooks)}
       {held === null ? null : problemLine(held, thread !== null, () => fetcher?.restart())}
       {body}
     </Stack>
