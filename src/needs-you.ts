@@ -2,7 +2,7 @@
 // person's action will move, and the count of running runs. It is built from two reads,
 // `GET /api/runs/attention` (its `runs` and each row's `attention`, never `items`) and
 // `GET /api/dashboard/runs?limit=1` (the `running` count), and it answers the status bar item,
-// the "runs need you" callout and the "Needs you" filter, so those cannot disagree.
+// the "runs need you" callout, the "Needs you" filter and notifications, so those cannot disagree.
 import type { Client, Timers } from './client'
 import type { Connected } from './connection-view'
 import { cutAt } from './cutter'

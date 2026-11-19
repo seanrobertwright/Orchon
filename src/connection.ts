@@ -1,7 +1,7 @@
 // The connection state: the worker's one record of whether Archon is reachable, shared by every
 // frame. This file owns the state and when discovery runs; `startConnection` ties it to Orca
-// (the settings, the frames' requests, the posts and the status bar item) and holds the
-// dashboard stream while Connected.
+// (the settings, the frames' requests, the posts, the status bar item and the desktop
+// notifications) and holds the dashboard stream while Connected.
 import type { OrcaWorkerApi } from 'orca/worker'
 import { createClient, type Client, type ClientFailure, type FetchLike, type Timers } from './client'
 import { parseConnectionSettings, shown, type ParsedSettings, type TypedSettings } from './connection-settings'
@@ -445,6 +445,17 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
     ended: (storeId, notice) => notifications.ended(storeId, notice),
     log: (message) => orca.log(message)
   })
+  /** The test notification on its way, while it is. */
+  let testing: Promise<NotificationsTestAnswer> | undefined
+  async function sendTest(): Promise<NotificationsTestAnswer> {
+    try {
+      const { delivered } = await orca.host.call('notifications.show', { ...TEST_NOTIFICATION })
+      return delivered ? { kind: 'delivered' } : { kind: 'blocked' }
+    } catch (error) {
+      orca.log(`Orchon could not send the test notification: ${error instanceof Error ? error.message : String(error)}`)
+      return { kind: 'failed' }
+    }
+  }
   /** The snapshot's counts while Connected; in any other state the item reads without them. */
   const countsFor = (view: ConnectionView): SnapshotCounts | undefined => (view.kind === 'connected' ? needsYou.counts() : undefined)
   /** The item for the state now and, while Connected, the snapshot's counts. */
@@ -502,15 +513,13 @@ export function startConnection(orca: OrcaWorkerApi, ports: WorkerPorts): Starte
       await connection.current()
       return setting
     }),
-    orca.panels.handle('notifications.test', async (input): Promise<NotificationsTestAnswer> => {
+    orca.panels.handle('notifications.test', (input) => {
       refuseInput(input)
-      try {
-        const { delivered } = await orca.host.call('notifications.show', { ...TEST_NOTIFICATION })
-        return delivered ? { kind: 'delivered' } : { kind: 'blocked' }
-      } catch (error) {
-        orca.log(`Orchon could not send the test notification: ${error instanceof Error ? error.message : String(error)}`)
-        return { kind: 'failed' }
-      }
+      // Orca puts no limit on notifications.show: presses while a test is on its way share its answer.
+      testing ??= sendTest().finally(() => {
+        testing = undefined
+      })
+      return testing
     }),
     orca.panels.handle('system.close', (input) => {
       refuseInput(input)
