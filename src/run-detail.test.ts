@@ -430,3 +430,87 @@ describe("the run's project", () => {
     assert.equal(codebaseCalls(stage), before)
   })
 })
+
+describe('the waiting states with nothing to answer, and the owner', () => {
+  test('a usage-limit pause carries the time Archon tries again', async () => {
+    const stage = connectedScene()
+    const attention = { kind: 'usage_limit', runId: FLOOR_ID, nodeId: 'write', resumeAt: '2026-11-19T03:30:00.000Z' }
+    const detail = await readFloor(stage, runWith({ status: 'paused', run: { attention } }))
+    assert.deepEqual(detail.waiting, { kind: 'usage-limit', resumeAt: Date.UTC(2026, 10, 19, 3, 30) })
+  })
+
+  test('a usage-limit time that does not parse is dropped and the pause kept', async () => {
+    const stage = connectedScene()
+    const attention = { kind: 'usage_limit', runId: FLOOR_ID, nodeId: 'write', resumeAt: 'soon' }
+    const detail = await readFloor(stage, runWith({ status: 'paused', run: { attention } }))
+    assert.deepEqual(detail.waiting, { kind: 'usage-limit', resumeAt: null })
+  })
+
+  test("an unreadable run carries Archon's detail, cut at 2,000 characters", async () => {
+    const stage = connectedScene()
+    const attention = { kind: 'unreadable', runId: FLOOR_ID, reason: 'malformed_gate', detail: 'd'.repeat(2_100) }
+    const detail = await readFloor(stage, runWith({ status: 'paused', run: { attention } }))
+    assert.deepEqual(detail.waiting, { kind: 'unreadable', detail: 'd'.repeat(2_000) })
+  })
+
+  test('stalled tool calls list at most 10 by name and how long each has not returned, then how many more', async () => {
+    const stage = connectedScene()
+    const calls = Array.from({ length: 12 }, (_, index) => ({
+      streamId: 's',
+      nodeId: 'write',
+      provider: 'claude',
+      toolCallId: `call-${String(index)}`,
+      name: `Tool${String(index)}`,
+      ...(index === 0 ? { title: 'Reading a file' } : {}),
+      startedAt: '2026-11-19T01:00:00.000Z',
+      lastProgressAt: '2026-11-19T01:00:00.000Z',
+      raisedAt: '2026-11-19T01:05:00.000Z',
+      elapsedMs: 600_000,
+      stalledForMs: 300_000 + index
+    }))
+    const attention = { kind: 'stalled_tool_calls', runId: FLOOR_ID, status: 'running', calls }
+    const detail = await readFloor(stage, runWith({ status: 'running', run: { attention } }))
+    assert.deepEqual(detail.waiting, {
+      kind: 'stalled',
+      calls: calls.slice(0, 10).map((call, index) => ({ name: call.name, title: index === 0 ? 'Reading a file' : null, stalledForMs: call.stalledForMs })),
+      more: 2
+    })
+  })
+
+  test('a kind this version does not know is passed through as unknown, and nothing else is read from it', async () => {
+    const stage = connectedScene()
+    const attention = { kind: 'needs_a_hug', runId: FLOOR_ID, detail: 'x' }
+    const detail = await readFloor(stage, runWith({ status: 'paused', run: { attention } }))
+    assert.deepEqual(detail.waiting, { kind: 'unknown' })
+  })
+
+  test('a question, a terminal run and no attention are no waiting state here', async () => {
+    const stage = connectedScene()
+    const gate = { kind: 'awaiting_response', runId: FLOOR_ID, respondTo: { runId: FLOOR_ID, nodeId: 'gate' }, message: 'm', occurrence: 'o' }
+    assert.equal((await readFloor(stage, runWith({ status: 'paused', run: { attention: gate } }))).waiting, null)
+    const terminal = { kind: 'terminal', runId: FLOOR_ID, status: 'failed', at: null }
+    assert.equal((await readFloor(stage, runWith({ status: 'failed', run: { attention: terminal } }))).waiting, null)
+    assert.equal((await readFloor(stage, runWith({ status: 'running', run: { attention: null } }))).waiting, null)
+  })
+
+  for (const release of RELEASES) {
+    test(`the recorded running run of ${release} has no unreachable owner`, async () => {
+      const stage = connectedScene(release)
+      const answer = recorded(release, 'run-control-running', release === '0.14.0' ? 36 : 41)
+      const runId = answer.kind === 'json' ? String((answer.value as { run: { id: string } }).run.id) : ''
+      stage.archon.answer(`${RUN_PATH}${runId}`, answer)
+      const detail = ready(await readDetail(stage, { runId }))
+      assert.equal(detail.status, 'running')
+      assert.equal(detail.ownerUnreachable, undefined)
+      assert.equal(detail.waiting, null)
+    })
+  }
+
+  test("an owner_observation of unreachable is carried, and reachable, unknown and null are not", async () => {
+    const stage = connectedScene()
+    for (const [observation, expected] of [['unreachable', true], ['reachable', undefined], ['unknown', undefined], [null, undefined]] as const) {
+      const detail = await readFloor(stage, runWith({ status: 'running', run: { owner_observation: observation } }))
+      assert.equal(detail.ownerUnreachable, expected, String(observation))
+    }
+  })
+})

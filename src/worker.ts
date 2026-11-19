@@ -4,6 +4,7 @@ import type { OrcaWorkerApi } from 'orca/worker'
 import { startConnection, type WorkerPorts } from './connection'
 import { realPorts } from './ports'
 import { startProjectScope } from './project-scope'
+import { startRunControl } from './run-control'
 import { startRunDetail } from './run-detail'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
@@ -31,12 +32,14 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const runsTable = startRunsTable(orca, { ...connection, workspaces: projectScope.workspaces })
   const runDetail = startRunDetail(orca, { ...connection, workspaces: projectScope.workspaces, now: ports.now })
+  const runControl = startRunControl(orca, connection)
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   return () => {
     forms.dispose()
     projectScope.dispose()
     runsTable.dispose()
     runDetail.dispose()
+    runControl.dispose()
     connection.stop()
   }
 }
