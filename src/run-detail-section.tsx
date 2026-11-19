@@ -27,6 +27,7 @@ import {
   type OrcaNode,
   type PanelContext
 } from 'orca'
+import { artifactsBody, openArtifacts, resetArtifacts, startArtifactsView } from './artifacts-section'
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import { formatDateTime, formatDuration, now } from './dates'
@@ -126,6 +127,7 @@ export function startRunDetail(ctx: PanelContext, given: RunDetailHooks): void {
     timers: frameTimers
   })
   fetcher = view
+  startArtifactsView(ctx)
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -285,6 +287,7 @@ function resetView(): void {
   set(flipped, [])
   set(selectedStep, null)
   set(shown, 'steps')
+  resetArtifacts()
   resetRunActions()
 }
 
@@ -351,7 +354,12 @@ function stepsBody(detail: RunDetail): OrcaNode {
 }
 
 function chooseShown(value: string): void {
-  if (value === 'steps' || value === 'artifacts') set(shown, value)
+  if (value !== 'steps' && value !== 'artifacts') return
+  const before = read(shown)
+  set(shown, value)
+  // The list is asked for only when Artifacts is chosen.
+  const runId = openRunId()
+  if (value === 'artifacts' && before !== 'artifacts' && runId !== null) openArtifacts(runId)
 }
 
 /** A wait's time in the person's locale, or null when Archon's did not parse. */
@@ -501,7 +509,7 @@ function body(detail: RunDetail, writable: boolean): OrcaNode {
         ]}
         onChange={chooseShown}
       />
-      {showing === 'steps' ? stepsBody(detail) : <Text muted>Artifacts are not shown in this version of Orchon.</Text>}
+      {showing === 'steps' ? stepsBody(detail) : artifactsBody(detail.id)}
     </>
   )
 }
