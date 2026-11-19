@@ -23,6 +23,8 @@ import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswe
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 import type {
   BuilderAnswer,
+  BuilderDraftWrite,
+  BuilderDraftWriteAnswer,
   BuilderIdentity,
   BuilderRequest,
   BuilderSaveAnswer,
@@ -31,7 +33,7 @@ import type {
   BuilderValidateRequest,
   YamlOpenAnswer
 } from '../editors/builder/builder-view'
-import type { DeleteAnswer, WorkflowDelete, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
+import type { DeleteAnswer, WorkflowDelete, WorkflowNew, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
 
 declare module 'orca' {
   interface PluginRequests {
@@ -139,6 +141,12 @@ declare module 'orca' {
     'builder.save': { input: BuilderSaveRequest; output: BuilderSaveAnswer }
     /** Validate: Archon's validation of a definition. Nothing is written. */
     'builder.validate': { input: BuilderValidateRequest; output: BuilderValidateAnswer }
+    /** A builder tab's draft: the copy as it stands, kept in plugin storage after a pause, or refused at the cap. */
+    'builder.draft.write': { input: BuilderDraftWrite; output: BuilderDraftWriteAnswer }
+    /** Deletes a workflow's builder draft at once. */
+    'builder.draft.discard': { input: BuilderIdentity; output: null }
+    /** New workflow: checks the name, keeps a draft of one empty prompt node and opens its tab. Nothing is written to Archon. */
+    'workflows.new': { input: WorkflowNew; output: BuilderOpenAnswer }
     /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */
     'chats.read': { input: ChatsRequest; output: ChatsAnswer }
     /** A chat thread: the conversation, its project and its newest saved messages, newest first. */

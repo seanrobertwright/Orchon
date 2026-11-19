@@ -5,7 +5,17 @@ import type { MockHostOptions } from 'orca/testing'
 import type { ConnectionView } from '../src/connection-view.ts'
 import type { ScopeView } from '../src/scope-view.ts'
 import type { BuilderOpenAnswer, BuilderOpenRequest } from '../src/wide-tabs-view.ts'
-import { SECTION_WORKFLOWS_CAP, type DeleteAnswer, type DeleteOutcome, type SectionWorkflow, type WorkflowDelete, type WorkflowsAnswer, type WorkflowsRequest, type WorkflowsSectionView } from '../src/workflows-section-view.ts'
+import {
+  SECTION_WORKFLOWS_CAP,
+  type DeleteAnswer,
+  type DeleteOutcome,
+  type SectionWorkflow,
+  type WorkflowDelete,
+  type WorkflowNew,
+  type WorkflowsAnswer,
+  type WorkflowsRequest,
+  type WorkflowsSectionView
+} from '../src/workflows-section-view.ts'
 import { connected } from './connection-samples.ts'
 import { answeringScope, choices, matchedWeb } from './scope-samples.ts'
 import { busyRuns } from './runs-samples.ts'
@@ -23,6 +33,20 @@ export const webWorkflows: Extract<WorkflowsSectionView, { kind: 'ready' }> = {
   folder: 'C:/Projects/web',
   readFrom: null,
   list: { kind: 'ready', rows: [packed, deliverWorkflow, shipIt, tidy], total: 4, matching: 4, unreadable: 0 }
+}
+
+/** The section for acme/web with a draft of ship-it, two new workflows never saved, one of another project, and one draft that could not be read. */
+export const draftedWorkflows: Extract<WorkflowsSectionView, { kind: 'ready' }> = {
+  ...webWorkflows,
+  list: { kind: 'ready', rows: [packed, deliverWorkflow, { ...shipIt, draft: true }, tidy], total: 4, matching: 4, unreadable: 0 },
+  drafts: {
+    fresh: [
+      { name: 'my-flow', codebaseId: 'cb-web', scope: 'project' },
+      { name: 'wide', codebaseId: null, scope: 'global' }
+    ],
+    elsewhere: 1,
+    dropped: 1
+  }
 }
 
 /** The section with no project: global, bundled and installed workflows. */
@@ -44,6 +68,8 @@ export type WorkflowsScript = {
   workflows: (request: WorkflowsRequest) => WorkflowsSectionView
   remove?: (input: WorkflowDelete) => DeleteOutcome
   open?: (input: BuilderOpenRequest) => BuilderOpenAnswer
+  /** What New workflow answers; it opens when left out. */
+  create?: (input: WorkflowNew) => BuilderOpenAnswer
   scope?: () => ScopeView
   connection?: ConnectionView
 }
@@ -64,7 +90,9 @@ export function answeringWorkflows(script: WorkflowsScript): MockHostOptions {
         ...answer(input.codebaseId === null ? {} : { project: input.codebaseId }),
         outcome: script.remove?.(input) ?? { kind: 'deleted', name: input.name }
       }),
-      'builder.open': (input: BuilderOpenRequest): BuilderOpenAnswer => script.open?.(input) ?? { opened: true }
+      'builder.open': (input: BuilderOpenRequest): BuilderOpenAnswer => script.open?.(input) ?? { opened: true },
+      'workflows.new': (input: WorkflowNew): BuilderOpenAnswer => script.create?.(input) ?? { opened: true },
+      'builder.draft.discard': (): null => null
     }
   }
 }

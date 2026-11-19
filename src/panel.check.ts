@@ -19,7 +19,7 @@ import {
 import { formsWithEdits } from '../scripts/forms-samples.ts'
 import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail } from '../scripts/runs-samples.ts'
 import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
-import { answeringWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
+import { answeringWorkflows, draftedWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
 import { answeringChats, sampleChats } from '../scripts/chat-samples.ts'
 import { answeringThread, sampleDispatch, sampleResult, sampleThread, sampleThreadWith } from '../scripts/chat-thread-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
@@ -147,6 +147,7 @@ export default defineCheck({
   },
   'launcher, unmatched project': { ...answeringLaunch({ launch: () => ({ ...webForm, codebaseId: null, workflows: { kind: 'none' }, workflow: null, description: '' }), scope: () => unmatchedGit }), ...onLaunch },
   workflows: { ...answeringWorkflows({ workflows: () => ({ ...webWorkflows, readFrom: 'C:/Projects/web' }) }), ...onWorkflows },
+  'workflows with builder drafts': { ...answeringWorkflows({ workflows: () => draftedWorkflows }), ...onWorkflows },
   chat: { ...answeringChats((request) => sampleChats(8, request)), ...onChat },
   'chat, all projects at 50': { ...answeringChats((request) => sampleChats(50, request), { scope: () => unmatchedGit }), ...onChat },
   'chat, empty': { ...answeringChats((request) => sampleChats(0, request)), ...onChat },

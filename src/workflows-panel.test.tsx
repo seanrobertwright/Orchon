@@ -4,7 +4,7 @@
 import { afterEach, assert, describe, mockHost, mount, test, type MountOptions, type TestPanel } from 'orca/testing'
 import { connected, notRunning, searching } from '../scripts/connection-samples.ts'
 import { unmatchedGit } from '../scripts/scope-samples.ts'
-import { answeringWorkflows, manyWorkflows, unscopedWorkflows, webWorkflows, type WorkflowsScript } from '../scripts/workflows-samples.ts'
+import { answeringWorkflows, draftedWorkflows, manyWorkflows, unscopedWorkflows, webWorkflows, type WorkflowsScript } from '../scripts/workflows-samples.ts'
 import type { WorkflowsRequest } from './workflows-section-view'
 import * as panelModule from './panel'
 import { NO_PROJECT, SEARCH_PAUSE_MS } from './workflows-panel'
@@ -196,5 +196,104 @@ describe('Open in builder', () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
     await view.post('connection.changed', { ...searching, since: connected.since + 1 })
     assert.equal(view.find(openButton('ship-it'))?.disabled, true)
+  })
+
+  test('under the Searching banner works only for a workflow that has a draft', async () => {
+    const view = await mountWorkflows({ workflows: () => draftedWorkflows })
+    await view.post('connection.changed', { ...searching, since: connected.since + 1 })
+    assert.equal(view.find(openButton('ship-it'))?.disabled, false)
+    assert.equal(view.find(openButton('my-flow'))?.disabled, false)
+    assert.equal(view.find(openButton('tidy'))?.disabled, true)
+    await view.press(openButton('ship-it'))
+    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'ship-it', codebaseId: 'cb-web', source: 'project' }])
+  })
+})
+
+const NEW_WORKFLOW = { type: 'Button', text: 'New workflow' }
+const NAME = { type: 'Input', label: 'Workflow name' }
+const PLACE = { type: 'RadioGroup', label: 'Save the new workflow' }
+const CREATE = { type: 'Button', text: 'Create and open' }
+const REMOTE = 'This workspace is on another host. Orchon works with the Archon on this computer.'
+
+describe('New workflow', () => {
+  test('asks for a name and a place before any tab opens, then sends them once', async () => {
+    const view = await mountWorkflows({ workflows: () => webWorkflows })
+    assert.equal(view.find(NAME), null)
+    await view.press(NEW_WORKFLOW)
+    assert.deepEqual(sent(view, 'workflows.new'), [])
+    assert.equal(view.valueOf(PLACE), 'project')
+    await view.type(NAME, 'my-flow')
+    await view.press(CREATE)
+    assert.deepEqual(sent(view, 'workflows.new'), [{ name: 'my-flow', codebaseId: 'cb-web', place: 'project' }])
+    assert.equal(view.find(NAME), null)
+    clean(view)
+  })
+
+  test('can save the new workflow as global, and with no project offers only global', async () => {
+    const view = await mountWorkflows({ workflows: () => webWorkflows })
+    await view.press(NEW_WORKFLOW)
+    await view.type(NAME, 'everywhere')
+    await view.select(PLACE, 'global')
+    await view.press(CREATE)
+    assert.deepEqual(sent(view, 'workflows.new'), [{ name: 'everywhere', codebaseId: 'cb-web', place: 'global' }])
+    await view.unmount()
+    const unscoped = await mountWorkflows({ workflows: () => unscopedWorkflows, scope: () => unmatchedGit })
+    await unscoped.press(NEW_WORKFLOW)
+    assert.equal(unscoped.valueOf(PLACE), 'global')
+    await unscoped.type(NAME, 'lone')
+    await unscoped.press(CREATE)
+    assert.deepEqual(sent(unscoped, 'workflows.new'), [{ name: 'lone', codebaseId: null, place: 'global' }])
+  })
+
+  test("keeps the form open under the worker's sentence when it refuses the name", async () => {
+    const reason = 'A workflow named ship-it is already in use here. Choose another name.'
+    const view = await mountWorkflows({ workflows: () => webWorkflows, create: () => ({ opened: false, reason }) })
+    await view.press(NEW_WORKFLOW)
+    await view.type(NAME, 'ship-it')
+    await view.press(CREATE)
+    assert.ok(view.find(text(reason)))
+    assert.ok(view.find(NAME))
+  })
+
+  test('is disabled with the reason in a remote workspace, as Open in builder is', async () => {
+    const view = await mountWorkflows({ workflows: () => ({ ...webWorkflows, builderOff: REMOTE }) })
+    assert.equal(view.find(NEW_WORKFLOW)?.disabled, true)
+    assert.equal(view.find(openButton('ship-it'))?.disabled, true)
+    assert.equal(view.findAll(text(REMOTE)).length, 1)
+  })
+})
+
+describe('the builder drafts in the section', () => {
+  test('marks a workflow with a draft in words, lists the new workflows never saved, and says what is not shown', async () => {
+    const view = await mountWorkflows({ workflows: () => draftedWorkflows })
+    assert.equal(view.findAll(text('Draft with unsaved changes')).length, 1)
+    assert.ok(view.find(text('New workflows not saved yet')))
+    for (const [name, place] of [
+      ['my-flow', 'This project'],
+      ['wide', 'Global']
+    ] as const) {
+      assert.ok(view.find(text(name)), name)
+      assert.ok(view.find(text(place)), place)
+      assert.equal(view.find(openButton(name))?.disabled, false, name)
+      assert.ok(view.find({ type: 'Button', text: `Discard ${name}` }), name)
+    }
+    assert.ok(view.find(text('1 new workflow of another project is not shown.')))
+    assert.ok(view.find(text('1 builder draft could not be read, so Orchon deleted it.')))
+    clean(view)
+  })
+
+  test('Open on a new workflow opens its tab from its draft', async () => {
+    const view = await mountWorkflows({ workflows: () => draftedWorkflows })
+    await view.press(openButton('wide'))
+    assert.deepEqual(sent(view, 'builder.open'), [{ name: 'wide', codebaseId: null, source: 'global' }])
+  })
+
+  test('Discard asks first, and only then deletes the draft', async () => {
+    const view = await mountWorkflows({ workflows: () => draftedWorkflows })
+    await view.press({ type: 'Button', text: 'Discard my-flow' })
+    assert.deepEqual(sent(view, 'builder.draft.discard'), [])
+    assert.ok(view.find(text('Its draft is deleted, and Archon holds nothing of it, so nothing of it is left. There is no undo.')))
+    await view.press({ type: 'Button', text: 'Discard my-flow for good' })
+    assert.deepEqual(sent(view, 'builder.draft.discard'), [{ name: 'my-flow', codebaseId: 'cb-web', scope: 'project' }])
   })
 })
