@@ -3,6 +3,7 @@
 //
 // The fields that do have an editor are the ones the inspector's form edits (`node-form.ts`), which
 // follows Archon's own builder inspector at v0.14.0, plus the id and the "Depends on" list.
+import { isRecord } from "../shared/records.js";
 import { toWorkflowDefinition } from "./archon/model/index.js";
 import { formFields } from "./node-form.js";
 /** The node fields that hold an object whose own fields the inspector edits one by one. */
@@ -21,7 +22,7 @@ export function notEditableHere(node) {
     const edited = (path) => keys.some((key) => key === path || key.startsWith(`${path}.`));
     const listed = [];
     for (const [key, value] of Object.entries(saved)) {
-        if (node.variant !== 'opaque' && NESTED.includes(key) && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        if (node.variant !== 'opaque' && NESTED.includes(key) && isRecord(value)) {
             for (const inner of Object.keys(value)) {
                 if (!edited(`${key}.${inner}`))
                     listed.push(`${key}.${inner}`);
