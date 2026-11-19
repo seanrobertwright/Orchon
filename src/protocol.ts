@@ -1,6 +1,7 @@
 // The contract between the worker and the frames, declared once. The panel and the worker both
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ArtifactAnswer, ArtifactRequest, ArtifactsAnswer, ArtifactsRequest } from './artifacts-view'
+import type { ChatRunAnswer, ChatRunRequest } from './chat-run-view'
 import type { ChatsAnswer, ChatsRequest } from './chats-view'
 import type { ThreadAnswer, ThreadRequest } from './chat-thread-view'
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
@@ -121,6 +122,8 @@ declare module 'orca' {
     'chats.read': { input: ChatsRequest; output: ChatsAnswer }
     /** A chat thread: the conversation, its project and its newest saved messages, newest first. */
     'chat.read': { input: ThreadRequest; output: ThreadAnswer }
+    /** Open run on a dispatch row: the run that works in the worker conversation the dispatch named, once. */
+    'chat.findRun': { input: ChatRunRequest; output: ChatRunAnswer }
   }
   interface PluginPanelEvents {
     /**
