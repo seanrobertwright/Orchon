@@ -1,10 +1,11 @@
 // The Settings section: its groups in their fixed order, under one line saying that every value
 // here is install-wide. It takes no scope: the values apply to the whole install.
-import { Code, Collapsible, Stack, Text, type OrcaNode } from 'orca'
+import { Code, Stack, Text, type OrcaNode } from 'orca'
 import { accessGroup } from './access-group'
 import { connectionGroup } from './connection-group'
 import type { ConnectionView } from './connection-view'
 import { formGroups } from './form-groups'
+import { notificationsGroup } from './notifications-group'
 import { systemGroup } from './system-group'
 import type { SystemView } from './system-view'
 import { searchingBanner } from './view-notices'
@@ -12,15 +13,6 @@ import { searchingBanner } from './view-notices'
 export type SettingsActions = {
   /** Reads health, the update check, the config and the providers again. */
   refresh(): void
-}
-
-/** A group whose content another ticket builds, in its place in the order. */
-function notBuilt(title: string): OrcaNode {
-  return (
-    <Collapsible key={title} title={title}>
-      <Text muted>This group is not built yet.</Text>
-    </Collapsible>
-  )
 }
 
 /**
@@ -55,7 +47,7 @@ export function settingsSection(connection: ConnectionView | null, system: Syste
       </Text>
       {connectionGroup(connection)}
       {archonGroups(connection, system, actions)}
-      {notBuilt('Notifications')}
+      {notificationsGroup()}
       {accessGroup()}
       <Text muted>Provider keys and logins are set up in Archon itself.</Text>
     </Stack>

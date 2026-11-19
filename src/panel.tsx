@@ -5,6 +5,7 @@ import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
 import { liveOffLine } from './live-line'
+import { startNotificationsGroup } from './notifications-group'
 import { hintRunDetail, startRunDetail } from './run-detail-section'
 import {
   clearRuns,
@@ -194,6 +195,7 @@ export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('runs.changed', hintRunDetail))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
   startFormGroups(ctx, { keep: keepNewest })
+  startNotificationsGroup(ctx)
   // The first read, then one on the safety refetch: a worker that did not answer is tried again.
   const fetch = createViewFetch<ConnectionReadAnswer>({
     load: (signal) => plugin.request('connection.read', undefined, { signal }),
