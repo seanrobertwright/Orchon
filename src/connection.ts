@@ -49,7 +49,8 @@ function canonical(value: unknown): string {
   )
 }
 
-const sameTyped = (first: TypedSettings, second: TypedSettings): boolean =>
+/** Compares the stored values, never the text cut for display: the cut can hide a change. */
+const sameStored = (first: TypedSettings, second: TypedSettings): boolean =>
   first.baseUrl === second.baseUrl && first.archonHome === second.archonHome
 
 export type Connection = {
@@ -85,8 +86,8 @@ export type ConnectionPorts = {
 
 export function createConnection(ports: ConnectionPorts): Connection {
   let view: ConnectionView = { kind: 'searching', since: ports.now(), settings: NO_SETTINGS }
-  /** The settings as last parsed, or null before the first read. */
-  let typed: TypedSettings | null = null
+  /** The settings as last stored, uncut, or null before the first read. */
+  let stored: TypedSettings | null = null
   /** Rises whenever a new pass begins, so an older pass still in flight changes nothing. */
   let generation = 0
   let inFlight = new AbortController()
@@ -140,7 +141,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
     try {
       const parsed = known ?? parseConnectionSettings(await ports.readSettings(), { homeDir: ports.homeDir })
       if (mine !== generation) return
-      typed = parsed.typed
+      stored = parsed.stored
       const settings: SettingsView = { ...parsed.typed, homeFolder: parsed.home === null ? null : shown(parsed.home) }
       if (!parsed.ok) {
         // Nothing is repaired and nothing is called until the setting changes.
@@ -236,7 +237,7 @@ export function createConnection(ports: ConnectionPorts): Connection {
         return
       }
       // A pass that began meanwhile has read the settings itself.
-      if (mine !== generation || (typed !== null && sameTyped(parsed.typed, typed))) return
+      if (mine !== generation || (stored !== null && sameStored(parsed.stored, stored))) return
       retryDelay = FIRST_RETRY_MS
       await look(parsed)
     },
