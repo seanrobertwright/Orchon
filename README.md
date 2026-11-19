@@ -22,7 +22,7 @@ Orchon talks only to this computer's loopback address, and counts an address as 
 
 Once an address answers, Orchon reads its list of API paths from `/api/openapi.json` before it counts as connected. An Archon whose list lacks a path Orchon needs, or that answers something other than that document, is not supported. The version Archon reports is shown and decides nothing: Orchon works with Archon 0.12.1 or newer because those releases serve the paths it needs.
 
-When nothing answers, Orchon looks again after 2 seconds and then at longer intervals, up to one try every 30 seconds, until Archon answers. An Archon that is not supported is checked again every 30 seconds. It never starts or stops Archon. Both settings are changed in Orca's Settings, and Orchon looks again as soon as one changes.
+When nothing answers, Orchon looks again after 2 seconds and then at longer intervals, up to one try every 30 seconds, until Archon answers. An Archon that is not supported is checked again every 30 seconds. Orchon never starts or stops Archon. Both settings are changed in Orca's Settings, and Orchon looks again as soon as one changes.
 
 ## Requirements
 
