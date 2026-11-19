@@ -4,6 +4,7 @@ import { assert } from 'orca/testing'
 import {
   compareEditorOutput,
   compileEditors,
+  isTestOnlyEditorSource,
   readCommittedEditorJavaScript
 } from './check-editor-output.ts'
 import { listRepoFiles } from './repo-files.ts'
@@ -50,6 +51,15 @@ describe('the editor output check', () => {
     ])
   })
 
+  test("names Archon's builder test fixtures and test helpers as the only test-only editor sources", () => {
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/fixtures/index.ts'), true)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/fixtures/loop.fixture.ts'), true)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/validation/test-helpers.ts'), true)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/validation/structural.ts'), false)
+    assert.equal(isTestOnlyEditorSource('editors/builder/archon/fixtures.ts'), false)
+    assert.equal(isTestOnlyEditorSource('editors/shared/fixtures/index.ts'), false)
+  })
+
   test('reads every JavaScript file under editors/ and none outside it', () => {
     const committed = readCommittedEditorJavaScript()
     const paths = listRepoFiles()
@@ -68,6 +78,7 @@ describe('the editor output check', () => {
     const sources = listRepoFiles()
       .map((file) => file.path)
       .filter((path) => /^editors\/.*\.ts$/.test(path) && !/\.(?:test|d)\.ts$/.test(path))
+      .filter((path) => !isTestOnlyEditorSource(path))
     assert.ok(sources.length > 0)
     assert.deepEqual(
       [...compiled.outputs.keys()].sort(),
