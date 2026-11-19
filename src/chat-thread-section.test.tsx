@@ -346,6 +346,24 @@ describe('when the thread is read', () => {
     clean(panel)
   })
 
+  test("a panel that mounts again on a thread draws the worker's last answer for it, which a failed read keeps under its warning line", async () => {
+    const remembered = sampleThread(2, { conversationId: 'web-chat-3', limit: 50 }, { title: 'As the worker last read it' })
+    const base = answeringThread(() => ({ kind: 'failed', message: 'Archon answered with an error (500).' }))
+    panel = await mount(panelModule, {
+      host: mockHost({
+        requests: {
+          ...base.requests,
+          'chat.last': (request: { conversationId: string }) => ({ thread: request.conversationId === 'web-chat-3' && remembered.kind === 'ready' ? remembered.thread : null })
+        }
+      }),
+      persisted: { workspace: { section: 'chat', openChat: 'web-chat-3' } }
+    })
+    assert.ok(panel.find({ type: 'Heading', text: 'As the worker last read it' }))
+    assert.ok(panel.find({ type: 'Callout', text: /Archon answered with an error \(500\)\./ }))
+    assert.deepEqual(sent(panel), [{ conversationId: 'web-chat-3', limit: 50 }])
+    clean(panel)
+  })
+
   test('a failed read keeps the thread under one warning line', async () => {
     let fail = false
     const view = await openFirst((request) => (fail ? { kind: 'failed', message: 'Archon answered with an error (500).' } : sampleThread(2, request)))

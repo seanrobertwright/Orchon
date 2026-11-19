@@ -38,6 +38,7 @@ import {
 } from './chat-thread-view'
 import { BUSY_REFETCH_MS, chatBusy, composer, observeThread, type ComposerHooks } from './chat-composer'
 import { closeDelete, deleteButton, deleteCallout, type DeleteHooks } from './chat-delete-section'
+import type { ChatLastAnswer } from './chat-last-view'
 import type { ChatRunAnswer } from './chat-run-view'
 import type { ConnectionView } from './connection-view'
 import { CONVERSATION_ID_CAP } from './conversations'
@@ -136,12 +137,29 @@ export function startChatThreadSection(ctx: PanelContext, given: ChatThreadHooks
     timers: frameTimers
   })
   fetcher = view
+  const remembered = openChatId()
+  if (remembered !== null) readLast(remembered)
   ctx.subscriptions.push({
     dispose() {
       view.stop()
       if (fetcher === view) fetcher = undefined
     }
   })
+}
+
+/**
+ * Draws the worker's last answer for the thread while the thread is read afresh, when nothing
+ * newer has arrived: a panel that mounted again shows the thread at once.
+ */
+function readLast(conversationId: string): void {
+  plugin.request('chat.last', { conversationId }).then(
+    (answer: ChatLastAnswer) => {
+      const thread = answer.thread
+      if (thread === null || thread.id !== conversationId || openChatId() !== conversationId || read(loaded) !== null) return
+      set(loaded, thread)
+    },
+    () => {}
+  )
 }
 
 function resetView(): void {
@@ -158,6 +176,7 @@ function resetView(): void {
 export function openChatThread(conversationId: string): void {
   set(openChat, conversationId)
   resetView()
+  readLast(conversationId)
   fetcher?.restart()
 }
 
