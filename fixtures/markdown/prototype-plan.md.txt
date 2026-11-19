@@ -1,0 +1,988 @@
+# Implementation plan: issue #412
+
+Two call sites in the server package still use the old helper and need the same change. The
+existing tests pass a fake clock, so the new test can reuse that harness. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. The regression test needs a seam to stop the process between the two writes.
+
+I will pass the transaction handle down instead of opening a second connection.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+Two call sites in the server package still use the old helper and need the same change. A
+crash between them leaves the flag unset, which is the safe direction, but the reverse order
+is what the route does. Two call sites in the server package still use the old helper and
+need the same change. The regression test needs a seam to stop the process between the two
+writes.
+
+A crash between them leaves the flag unset, which is the safe direction, but the reverse
+order is what the route does. The regression test needs a seam to stop the process between
+the two writes. The existing tests pass a fake clock, so the new test can reuse that
+harness. The wizard writes the admin row first and the completion flag second, in two
+separate statements. The existing tests pass a fake clock, so the new test can reuse that
+harness. The regression test needs a seam to stop the process between the two writes.
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional. The
+existing tests pass a fake clock, so the new test can reuse that harness. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The regression test needs a seam to stop the process between the two writes.
+
+- `packages/core/src/dal/setup.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/dal/setup.test.ts`: The public shape of declareSetupComplete stays the same: the new parameter is optional.
+- `packages/core/src/db/migrate.ts`: declareSetupComplete is called from three places, and only one of them holds a transaction.
+- `packages/core/src/db/transaction.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+
+## 1. I will pass the transaction handle
+
+> The existing tests pass a fake clock, so the new test can reuse that harness.
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+> The existing tests pass a fake clock, so the new test can reuse that harness. The public
+> shape of declareSetupComplete stays the same: the new parameter is optional.
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The docs describe the old order and have to be corrected in the same change. The
+docs describe the old order and have to be corrected in the same change. The regression test
+needs a seam to stop the process between the two writes.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The wizard writes the admin row first and the completion flag second, in two
+separate statements. A crash between them leaves the flag unset, which is the safe
+direction, but the reverse order is what the route does. The public shape of
+declareSetupComplete stays the same: the new parameter is optional.
+
+The existing tests pass a fake clock, so the new test can reuse that harness. The wizard
+writes the admin row first and the completion flag second, in two separate statements. The
+wizard writes the admin row first and the completion flag second, in two separate
+statements. A crash between them leaves the flag unset, which is the safe direction, but the
+reverse order is what the route does.
+
+I will pass the transaction handle down instead of opening a second connection. The public
+shape of declareSetupComplete stays the same: the new parameter is optional. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+
+## 2. The public shape of declareSetupComplete stays
+
+Two call sites in the server package still use the old helper and need the same change. The
+docs describe the old order and have to be corrected in the same change. Two call sites in
+the server package still use the old helper and need the same change. The regression test
+needs a seam to stop the process between the two writes.
+
+## 3. The regression test needs a seam
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The public shape of declareSetupComplete stays the same: the new parameter is
+optional. The wizard writes the admin row first and the completion flag second, in two
+separate statements. declareSetupComplete is called from three places, and only one of them
+holds a transaction. The wizard writes the admin row first and the completion flag second,
+in two separate statements.
+
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+I will pass the transaction handle down instead of opening a second connection. Two call
+sites in the server package still use the old helper and need the same change. A crash
+between them leaves the flag unset, which is the safe direction, but the reverse order is
+what the route does.
+
+- `packages/core/src/dal/setup.ts`: The existing tests pass a fake clock, so the new test can reuse that harness.
+- `packages/core/src/dal/setup.test.ts`: declareSetupComplete is called from three places, and only one of them holds a transaction.
+- `packages/core/src/db/migrate.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+- `packages/core/src/db/transaction.ts`: declareSetupComplete is called from three places, and only one of them holds a transaction.
+
+## 4. I will pass the transaction handle
+
+The existing tests pass a fake clock, so the new test can reuse that harness. The wizard
+writes the admin row first and the completion flag second, in two separate statements. The
+wizard writes the admin row first and the completion flag second, in two separate
+statements. The existing tests pass a fake clock, so the new test can reuse that harness.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+
+The existing tests pass a fake clock, so the new test can reuse that harness. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. A
+crash between them leaves the flag unset, which is the safe direction, but the reverse order
+is what the route does.
+
+- `packages/core/src/dal/setup.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/dal/setup.test.ts`: The docs describe the old order and have to be corrected in the same change.
+- `packages/core/src/db/migrate.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/db/transaction.ts`: Two call sites in the server package still use the old helper and need the same change.
+
+The docs describe the old order and have to be corrected in the same change. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. The migration runner opens its own connection, so it cannot join the caller’s
+transaction as written.
+
+The docs describe the old order and have to be corrected in the same change. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. I will pass the transaction handle down instead of opening a second connection.
+A crash between them leaves the flag unset, which is the safe direction, but the reverse
+order is what the route does.
+
+I will pass the transaction handle down instead of opening a second connection. The public
+shape of declareSetupComplete stays the same: the new parameter is optional. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. A
+crash between them leaves the flag unset, which is the safe direction, but the reverse order
+is what the route does. A crash between them leaves the flag unset, which is the safe
+direction, but the reverse order is what the route does.
+
+I will pass the transaction handle down instead of opening a second connection. Two call
+sites in the server package still use the old helper and need the same change. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. I
+will pass the transaction handle down instead of opening a second connection. I will pass
+the transaction handle down instead of opening a second connection.
+
+> Two call sites in the server package still use the old helper and need the same change. The
+> migration runner opens its own connection, so it cannot join the caller’s transaction as
+> written. The regression test needs a seam to stop the process between the two writes. The
+> docs describe the old order and have to be corrected in the same change. The public shape of
+> declareSetupComplete stays the same: the new parameter is optional. The wizard writes the
+> admin row first and the completion flag second, in two separate statements.
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional. I
+will pass the transaction handle down instead of opening a second connection. Two call sites
+in the server package still use the old helper and need the same change. The wizard writes
+the admin row first and the completion flag second, in two separate statements.
+
+A crash between them leaves the flag unset, which is the safe direction, but the reverse
+order is what the route does. The wizard writes the admin row first and the completion flag
+second, in two separate statements. The migration runner opens its own connection, so it
+cannot join the caller’s transaction as written. declareSetupComplete is called from three
+places, and only one of them holds a transaction. Two call sites in the server package still
+use the old helper and need the same change. The migration runner opens its own connection,
+so it cannot join the caller’s transaction as written.
+
+- `packages/core/src/dal/setup.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+- `packages/core/src/dal/setup.test.ts`: Two call sites in the server package still use the old helper and need the same change.
+- `packages/core/src/db/migrate.ts`: declareSetupComplete is called from three places, and only one of them holds a transaction.
+- `packages/core/src/db/transaction.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+
+## 5. I will pass the transaction handle
+
+The existing tests pass a fake clock, so the new test can reuse that harness. I will pass
+the transaction handle down instead of opening a second connection. The wizard writes the
+admin row first and the completion flag second, in two separate statements.
+
+- `packages/core/src/dal/setup.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/dal/setup.test.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/db/migrate.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/db/transaction.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The wizard writes the admin row first and the completion flag second, in two
+separate statements. declareSetupComplete is called from three places, and only one of them
+holds a transaction. The migration runner opens its own connection, so it cannot join the
+caller’s transaction as written. The docs describe the old order and have to be corrected in
+the same change. The public shape of declareSetupComplete stays the same: the new parameter
+is optional.
+
+- `packages/core/src/dal/setup.ts`: The docs describe the old order and have to be corrected in the same change.
+- `packages/core/src/dal/setup.test.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/db/migrate.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+- `packages/core/src/db/transaction.ts`: The public shape of declareSetupComplete stays the same: the new parameter is optional.
+
+## 6. The existing tests pass a fake
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The public shape of declareSetupComplete stays the same: the new parameter is
+optional. The public shape of declareSetupComplete stays the same: the new parameter is
+optional. The docs describe the old order and have to be corrected in the same change. The
+wizard writes the admin row first and the completion flag second, in two separate
+statements. The docs describe the old order and have to be corrected in the same change.
+
+## 7. The docs describe the old order
+
+Two call sites in the server package still use the old helper and need the same change. The
+regression test needs a seam to stop the process between the two writes. I will pass the
+transaction handle down instead of opening a second connection.
+
+## 8. The existing tests pass a fake
+
+The regression test needs a seam to stop the process between the two writes. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. The migration runner opens its own connection, so it cannot join the caller’s
+transaction as written. The docs describe the old order and have to be corrected in the same
+change. The public shape of declareSetupComplete stays the same: the new parameter is
+optional.
+
+- `packages/core/src/dal/setup.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+- `packages/core/src/dal/setup.test.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/db/migrate.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/db/transaction.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+
+### The new transaction helper
+
+```ts
+export async function step0(tx: Transaction): Promise<void> {
+  await tx.run(sql`update setup set stage = 1 where id = 1`) // line 1
+  await tx.run(sql`update setup set stage = 2 where id = 1`) // line 2
+  await tx.run(sql`update setup set stage = 3 where id = 1`) // line 3
+  await tx.run(sql`update setup set stage = 4 where id = 1`) // line 4
+  await tx.run(sql`update setup set stage = 5 where id = 1`) // line 5
+  await tx.run(sql`update setup set stage = 6 where id = 1`) // line 6
+  await tx.run(sql`update setup set stage = 7 where id = 1`) // line 7
+  await tx.run(sql`update setup set stage = 8 where id = 1`) // line 8
+}
+export async function step10(tx: Transaction): Promise<void> {
+  await tx.run(sql`update setup set stage = 11 where id = 1`) // line 11
+  await tx.run(sql`update setup set stage = 12 where id = 1`) // line 12
+  await tx.run(sql`update setup set stage = 13 where id = 1`) // line 13
+  await tx.run(sql`update setup set stage = 14 where id = 1`) // line 14
+  await tx.run(sql`update setup set stage = 15 where id = 1`) // line 15
+  await tx.run(sql`update setup set stage = 16 where id = 1`) // line 16
+  await tx.run(sql`update setup set stage = 17 where id = 1`) // line 17
+  await tx.run(sql`update setup set stage = 18 where id = 1`) // line 18
+}
+export async function step20(tx: Transaction): Promise<void> {
+  await tx.run(sql`update setup set stage = 21 where id = 1`) // line 21
+  await tx.run(sql`update setup set stage = 22 where id = 1`) // line 22
+  await tx.run(sql`update setup set stage = 23 where id = 1`) // line 23
+  await tx.run(sql`update setup set stage = 24 where id = 1`) // line 24
+  await tx.run(sql`update setup set stage = 25 where id = 1`) // line 25
+  await tx.run(sql`update setup set stage = 26 where id = 1`) // line 26
+  await tx.run(sql`update setup set stage = 27 where id = 1`) // line 27
+  await tx.run(sql`update setup set stage = 28 where id = 1`) // line 28
+}
+export async function step30(tx: Transaction): Promise<void> {
+  await tx.run(sql`update setup set stage = 31 where id = 1`) // line 31
+  await tx.run(sql`update setup set stage = 32 where id = 1`) // line 32
+  await tx.run(sql`update setup set stage = 33 where id = 1`) // line 33
+  await tx.run(sql`update setup set stage = 34 where id = 1`) // line 34
+  await tx.run(sql`update setup set stage = 35 where id = 1`) // line 35
+  await tx.run(sql`update setup set stage = 36 where id = 1`) // line 36
+  await tx.run(sql`update setup set stage = 37 where id = 1`) // line 37
+  await tx.run(sql`update setup set stage = 38 where id = 1`) // line 38
+}
+export async function step40(tx: Transaction): Promise<void> {
+  await tx.run(sql`update setup set stage = 41 where id = 1`) // line 41
+  await tx.run(sql`update setup set stage = 42 where id = 1`) // line 42
+  await tx.run(sql`update setup set stage = 43 where id = 1`) // line 43
+  await tx.run(sql`update setup set stage = 44 where id = 1`) // line 44
+  await tx.run(sql`update setup set stage = 45 where id = 1`) // line 45
+  await tx.run(sql`update setup set stage = 46 where id = 1`) // line 46
+  await tx.run(sql`update setup set stage = 47 where id = 1`) // line 47
+  await tx.run(sql`update setup set stage = 48 where id = 1`) // line 48
+}
+export async function step50(tx: Transaction): Promise<void> {
+  await tx.run(sql`update setup set stage = 51 where id = 1`) // line 51
+  await tx.run(sql`update setup set stage = 52 where id = 1`) // line 52
+  await tx.run(sql`update setup set stage = 53 where id = 1`) // line 53
+  await tx.run(sql`update setup set stage = 54 where id = 1`) // line 54
+  await tx.run(sql`update setup set stage = 55 where id = 1`) // line 55
+  await tx.run(sql`update setup set stage = 56 where id = 1`) // line 56
+  await tx.run(sql`update setup set stage = 57 where id = 1`) // line 57
+  await tx.run(sql`update setup set stage = 58 where id = 1`) // line 58
+}
+export async function step60(tx: Transaction): Promise<void> {
+  await tx.run(sql`update setup set stage = 61 where id = 1`) // line 61
+  await tx.run(sql`update setup set stage = 62 where id = 1`) // line 62
+  await tx.run(sql`update setup set stage = 63 where id = 1`) // line 63
+  await tx.run(sql`update setup set stage = 64 where id = 1`) // line 64
+  await tx.run(sql`update setup set stage = 65 where id = 1`) // line 65
+  await tx.run(sql`update setup set stage = 66 where id = 1`) // line 66
+  await tx.run(sql`update setup set stage = 67 where id = 1`) // line 67
+  await tx.run(sql`update setup set stage = 68 where id = 1`) // line 68
+}
+```
+
+## 9. A crash between them leaves the
+
+> I will pass the transaction handle down instead of opening a second connection. The public
+> shape of declareSetupComplete stays the same: the new parameter is optional. I will pass the
+> transaction handle down instead of opening a second connection.
+
+> The existing tests pass a fake clock, so the new test can reuse that harness. The migration
+> runner opens its own connection, so it cannot join the caller’s transaction as written. A
+> crash between them leaves the flag unset, which is the safe direction, but the reverse order
+> is what the route does. The docs describe the old order and have to be corrected in the same
+> change. The existing tests pass a fake clock, so the new test can reuse that harness. The
+> migration runner opens its own connection, so it cannot join the caller’s transaction as
+> written.
+
+The regression test needs a seam to stop the process between the two writes. The existing
+tests pass a fake clock, so the new test can reuse that harness. The docs describe the old
+order and have to be corrected in the same change. declareSetupComplete is called from three
+places, and only one of them holds a transaction. The existing tests pass a fake clock, so
+the new test can reuse that harness.
+
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+> The existing tests pass a fake clock, so the new test can reuse that harness. The docs
+> describe the old order and have to be corrected in the same change. A crash between them
+> leaves the flag unset, which is the safe direction, but the reverse order is what the route
+> does. I will pass the transaction handle down instead of opening a second connection.
+
+The wizard writes the admin row first and the completion flag second, in two separate
+statements. The regression test needs a seam to stop the process between the two writes. The
+wizard writes the admin row first and the completion flag second, in two separate
+statements. The existing tests pass a fake clock, so the new test can reuse that harness.
+
+- `packages/core/src/dal/setup.ts`: Two call sites in the server package still use the old helper and need the same change.
+- `packages/core/src/dal/setup.test.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+- `packages/core/src/db/migrate.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/db/transaction.ts`: The docs describe the old order and have to be corrected in the same change.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. Two call sites in the server package still use the old helper and need the same
+change. The regression test needs a seam to stop the process between the two writes. Two
+call sites in the server package still use the old helper and need the same change. A crash
+between them leaves the flag unset, which is the safe direction, but the reverse order is
+what the route does. A crash between them leaves the flag unset, which is the safe
+direction, but the reverse order is what the route does.
+
+The docs describe the old order and have to be corrected in the same change. I will pass the
+transaction handle down instead of opening a second connection. The regression test needs a
+seam to stop the process between the two writes. The existing tests pass a fake clock, so
+the new test can reuse that harness. The wizard writes the admin row first and the
+completion flag second, in two separate statements.
+
+## 10. Two call sites in the server
+
+The wizard writes the admin row first and the completion flag second, in two separate
+statements. The public shape of declareSetupComplete stays the same: the new parameter is
+optional. Two call sites in the server package still use the old helper and need the same
+change. The docs describe the old order and have to be corrected in the same change.
+
+The existing tests pass a fake clock, so the new test can reuse that harness. Two call sites
+in the server package still use the old helper and need the same change. The regression test
+needs a seam to stop the process between the two writes. declareSetupComplete is called from
+three places, and only one of them holds a transaction.
+
+> Two call sites in the server package still use the old helper and need the same change. The
+> public shape of declareSetupComplete stays the same: the new parameter is optional. The
+> wizard writes the admin row first and the completion flag second, in two separate
+> statements. declareSetupComplete is called from three places, and only one of them holds a
+> transaction.
+
+## 11. The public shape of declareSetupComplete stays
+
+The docs describe the old order and have to be corrected in the same change. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. I will pass the transaction handle down instead of opening a second connection.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The docs describe the old order and have to be corrected in the same change.
+
+- `packages/core/src/dal/setup.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+- `packages/core/src/dal/setup.test.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/db/migrate.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+- `packages/core/src/db/transaction.ts`: The existing tests pass a fake clock, so the new test can reuse that harness.
+
+The regression test needs a seam to stop the process between the two writes. The public
+shape of declareSetupComplete stays the same: the new parameter is optional. I will pass the
+transaction handle down instead of opening a second connection. A crash between them leaves
+the flag unset, which is the safe direction, but the reverse order is what the route does.
+
+- `packages/core/src/dal/setup.ts`: The existing tests pass a fake clock, so the new test can reuse that harness.
+- `packages/core/src/dal/setup.test.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+- `packages/core/src/db/migrate.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+- `packages/core/src/db/transaction.ts`: The regression test needs a seam to stop the process between the two writes.
+
+> The wizard writes the admin row first and the completion flag second, in two separate
+> statements. The existing tests pass a fake clock, so the new test can reuse that harness. A
+> crash between them leaves the flag unset, which is the safe direction, but the reverse order
+> is what the route does.
+
+The regression test needs a seam to stop the process between the two writes. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. The docs describe the old order and have to be corrected in the same change.
+
+## 12. declareSetupComplete is called from three places,
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional. The
+regression test needs a seam to stop the process between the two writes. The docs describe
+the old order and have to be corrected in the same change.
+
+> The regression test needs a seam to stop the process between the two writes. The public
+> shape of declareSetupComplete stays the same: the new parameter is optional. Two call sites
+> in the server package still use the old helper and need the same change. The wizard writes
+> the admin row first and the completion flag second, in two separate statements. The public
+> shape of declareSetupComplete stays the same: the new parameter is optional.
+
+The docs describe the old order and have to be corrected in the same change. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. A
+crash between them leaves the flag unset, which is the safe direction, but the reverse order
+is what the route does. The wizard writes the admin row first and the completion flag
+second, in two separate statements. The existing tests pass a fake clock, so the new test
+can reuse that harness.
+
+I will pass the transaction handle down instead of opening a second connection. The
+regression test needs a seam to stop the process between the two writes. The regression test
+needs a seam to stop the process between the two writes.
+
+I will pass the transaction handle down instead of opening a second connection.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+I will pass the transaction handle down instead of opening a second connection. The existing
+tests pass a fake clock, so the new test can reuse that harness. A crash between them leaves
+the flag unset, which is the safe direction, but the reverse order is what the route does.
+
+## 13. declareSetupComplete is called from three places,
+
+The existing tests pass a fake clock, so the new test can reuse that harness. The docs
+describe the old order and have to be corrected in the same change. The public shape of
+declareSetupComplete stays the same: the new parameter is optional. The migration runner
+opens its own connection, so it cannot join the caller’s transaction as written. I will pass
+the transaction handle down instead of opening a second connection. The existing tests pass
+a fake clock, so the new test can reuse that harness.
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional. The
+wizard writes the admin row first and the completion flag second, in two separate
+statements. A crash between them leaves the flag unset, which is the safe direction, but the
+reverse order is what the route does. I will pass the transaction handle down instead of
+opening a second connection.
+
+> Two call sites in the server package still use the old helper and need the same change. The
+> regression test needs a seam to stop the process between the two writes. The migration
+> runner opens its own connection, so it cannot join the caller’s transaction as written. The
+> docs describe the old order and have to be corrected in the same change. The existing tests
+> pass a fake clock, so the new test can reuse that harness.
+
+The docs describe the old order and have to be corrected in the same change. The existing
+tests pass a fake clock, so the new test can reuse that harness. The existing tests pass a
+fake clock, so the new test can reuse that harness. The existing tests pass a fake clock, so
+the new test can reuse that harness. The migration runner opens its own connection, so it
+cannot join the caller’s transaction as written.
+
+- `packages/core/src/dal/setup.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+- `packages/core/src/dal/setup.test.ts`: The public shape of declareSetupComplete stays the same: the new parameter is optional.
+- `packages/core/src/db/migrate.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+- `packages/core/src/db/transaction.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+
+### Call sites to change
+
+| File | Symbol | Change | Risk |
+| --- | --- | --- | --- |
+| `packages/core/src/config/config-loader.ts` | `handler0` | pass the transaction handle down | high |
+| `packages/core/src/config/config-loader.ts` | `handler1` | pass the transaction handle down | high |
+| `packages/core/src/db/transaction.ts` | `handler2` | pass the transaction handle down | medium |
+| `packages/core/src/config/config-loader.ts` | `handler3` | pass the transaction handle down | medium |
+| `packages/web/src/routes/SetupWizard.tsx` | `handler4` | pass the transaction handle down | medium |
+| `packages/web/src/routes/SetupWizard.tsx` | `handler5` | pass the transaction handle down | high |
+| `packages/core/src/dal/setup.test.ts` | `handler6` | pass the transaction handle down | high |
+| `packages/core/src/db/transaction.ts` | `handler7` | pass the transaction handle down | medium |
+| `packages/core/src/config/config-loader.ts` | `handler8` | pass the transaction handle down | low |
+| `docs/setup.md` | `handler9` | pass the transaction handle down | medium |
+| `packages/server/src/routes/setup.ts` | `handler10` | pass the transaction handle down | medium |
+| `packages/core/src/db/transaction.ts` | `handler11` | pass the transaction handle down | low |
+| `packages/core/src/config/config-loader.ts` | `handler12` | pass the transaction handle down | low |
+| `packages/server/src/routes/setup.ts` | `handler13` | pass the transaction handle down | high |
+| `docs/setup.md` | `handler14` | pass the transaction handle down | low |
+| `docs/adr/0014-setup-transaction.md` | `handler15` | pass the transaction handle down | low |
+| `packages/server/src/routes/setup.test.ts` | `handler16` | pass the transaction handle down | high |
+| `packages/core/src/db/transaction.ts` | `handler17` | pass the transaction handle down | high |
+| `packages/core/src/db/transaction.ts` | `handler18` | pass the transaction handle down | low |
+| `packages/core/src/dal/setup.ts` | `handler19` | pass the transaction handle down | low |
+| `packages/core/src/dal/setup.ts` | `handler20` | pass the transaction handle down | high |
+| `packages/core/src/dal/setup.test.ts` | `handler21` | pass the transaction handle down | low |
+| `packages/server/src/routes/setup.ts` | `handler22` | pass the transaction handle down | medium |
+| `packages/core/src/config/config-loader.ts` | `handler23` | pass the transaction handle down | low |
+| `packages/server/src/routes/setup.ts` | `handler24` | pass the transaction handle down | medium |
+| `packages/server/src/routes/setup.ts` | `handler25` | pass the transaction handle down | medium |
+| `packages/core/src/db/migrate.ts` | `handler26` | pass the transaction handle down | high |
+| `packages/core/src/dal/setup.ts` | `handler27` | pass the transaction handle down | high |
+| `packages/core/src/config/config-loader.ts` | `handler28` | pass the transaction handle down | medium |
+| `packages/web/src/routes/SetupWizard.tsx` | `handler29` | pass the transaction handle down | low |
+| `docs/adr/0014-setup-transaction.md` | `handler30` | pass the transaction handle down | medium |
+| `docs/adr/0014-setup-transaction.md` | `handler31` | pass the transaction handle down | low |
+| `docs/adr/0014-setup-transaction.md` | `handler32` | pass the transaction handle down | medium |
+| `packages/core/src/dal/setup.test.ts` | `handler33` | pass the transaction handle down | medium |
+| `packages/server/src/routes/setup.ts` | `handler34` | pass the transaction handle down | low |
+| `packages/core/src/dal/setup.test.ts` | `handler35` | pass the transaction handle down | high |
+| `packages/core/src/config/config-loader.ts` | `handler36` | pass the transaction handle down | low |
+| `packages/core/src/dal/setup.test.ts` | `handler37` | pass the transaction handle down | low |
+| `docs/setup.md` | `handler38` | pass the transaction handle down | low |
+| `packages/server/src/routes/setup.ts` | `handler39` | pass the transaction handle down | medium |
+| `packages/core/src/db/transaction.ts` | `handler40` | pass the transaction handle down | low |
+| `packages/core/src/db/migrate.ts` | `handler41` | pass the transaction handle down | low |
+| `packages/web/src/routes/SetupWizard.tsx` | `handler42` | pass the transaction handle down | medium |
+| `packages/core/src/dal/setup.test.ts` | `handler43` | pass the transaction handle down | medium |
+| `docs/adr/0014-setup-transaction.md` | `handler44` | pass the transaction handle down | high |
+| `packages/core/src/config/config-loader.ts` | `handler45` | pass the transaction handle down | high |
+| `packages/core/src/dal/setup.ts` | `handler46` | pass the transaction handle down | medium |
+| `packages/core/src/config/config-loader.ts` | `handler47` | pass the transaction handle down | low |
+| `packages/server/src/routes/setup.ts` | `handler48` | pass the transaction handle down | low |
+| `docs/adr/0014-setup-transaction.md` | `handler49` | pass the transaction handle down | low |
+| `packages/core/src/dal/setup.test.ts` | `handler50` | pass the transaction handle down | low |
+| `packages/core/src/config/config-loader.ts` | `handler51` | pass the transaction handle down | medium |
+| `docs/setup.md` | `handler52` | pass the transaction handle down | medium |
+| `packages/core/src/config/config-loader.ts` | `handler53` | pass the transaction handle down | high |
+| `packages/core/src/db/migrate.ts` | `handler54` | pass the transaction handle down | low |
+| `packages/web/src/routes/SetupWizard.tsx` | `handler55` | pass the transaction handle down | low |
+| `packages/server/src/routes/setup.ts` | `handler56` | pass the transaction handle down | low |
+| `packages/core/src/dal/setup.test.ts` | `handler57` | pass the transaction handle down | low |
+| `packages/core/src/db/transaction.ts` | `handler58` | pass the transaction handle down | low |
+| `docs/adr/0014-setup-transaction.md` | `handler59` | pass the transaction handle down | low |
+
+A crash between them leaves the flag unset, which is the safe direction, but the reverse
+order is what the route does. A crash between them leaves the flag unset, which is the safe
+direction, but the reverse order is what the route does. declareSetupComplete is called from
+three places, and only one of them holds a transaction. I will pass the transaction handle
+down instead of opening a second connection. Two call sites in the server package still use
+the old helper and need the same change.
+
+## 14. The wizard writes the admin row
+
+The docs describe the old order and have to be corrected in the same change. The regression
+test needs a seam to stop the process between the two writes. I will pass the transaction
+handle down instead of opening a second connection. The wizard writes the admin row first
+and the completion flag second, in two separate statements. I will pass the transaction
+handle down instead of opening a second connection.
+
+A crash between them leaves the flag unset, which is the safe direction, but the reverse
+order is what the route does. The regression test needs a seam to stop the process between
+the two writes. The public shape of declareSetupComplete stays the same: the new parameter
+is optional.
+
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The public shape of declareSetupComplete stays the same: the new parameter is optional. I
+will pass the transaction handle down instead of opening a second connection.
+
+The docs describe the old order and have to be corrected in the same change. The public
+shape of declareSetupComplete stays the same: the new parameter is optional. I will pass the
+transaction handle down instead of opening a second connection. declareSetupComplete is
+called from three places, and only one of them holds a transaction. declareSetupComplete is
+called from three places, and only one of them holds a transaction. declareSetupComplete is
+called from three places, and only one of them holds a transaction.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. I will pass the transaction handle down instead of opening a second connection. The
+docs describe the old order and have to be corrected in the same change.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The existing tests pass a fake clock, so the new test can reuse that harness. A crash
+between them leaves the flag unset, which is the safe direction, but the reverse order is
+what the route does.
+
+## 15. The public shape of declareSetupComplete stays
+
+The regression test needs a seam to stop the process between the two writes. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. The existing tests pass a fake clock, so the new test can reuse that harness.
+The public shape of declareSetupComplete stays the same: the new parameter is optional. The
+migration runner opens its own connection, so it cannot join the caller’s transaction as
+written.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The public shape of declareSetupComplete stays the same: the new parameter is
+optional. declareSetupComplete is called from three places, and only one of them holds a
+transaction.
+
+> Two call sites in the server package still use the old helper and need the same change. The
+> regression test needs a seam to stop the process between the two writes. I will pass the
+> transaction handle down instead of opening a second connection. The regression test needs a
+> seam to stop the process between the two writes.
+
+The regression test needs a seam to stop the process between the two writes. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. A
+crash between them leaves the flag unset, which is the safe direction, but the reverse order
+is what the route does. I will pass the transaction handle down instead of opening a second
+connection.
+
+The docs describe the old order and have to be corrected in the same change. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. A
+crash between them leaves the flag unset, which is the safe direction, but the reverse order
+is what the route does.
+
+The docs describe the old order and have to be corrected in the same change. The wizard
+writes the admin row first and the completion flag second, in two separate statements. The
+migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. Two call sites in the server package still use the old helper and need the same
+change. The migration runner opens its own connection, so it cannot join the caller’s
+transaction as written.
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional. Two
+call sites in the server package still use the old helper and need the same change. The
+migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The public shape of declareSetupComplete stays the same: the new parameter is
+optional. The public shape of declareSetupComplete stays the same: the new parameter is
+optional.
+
+## 16. The wizard writes the admin row
+
+The docs describe the old order and have to be corrected in the same change. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. Two call sites in the server package still use the old helper and need the same
+change. I will pass the transaction handle down instead of opening a second connection. The
+public shape of declareSetupComplete stays the same: the new parameter is optional. Two call
+sites in the server package still use the old helper and need the same change.
+
+> The docs describe the old order and have to be corrected in the same change. I will pass the
+> transaction handle down instead of opening a second connection. I will pass the transaction
+> handle down instead of opening a second connection. The public shape of declareSetupComplete
+> stays the same: the new parameter is optional. The existing tests pass a fake clock, so the
+> new test can reuse that harness.
+
+> The existing tests pass a fake clock, so the new test can reuse that harness. I will pass
+> the transaction handle down instead of opening a second connection. I will pass the
+> transaction handle down instead of opening a second connection. The migration runner opens
+> its own connection, so it cannot join the caller’s transaction as written. A crash between
+> them leaves the flag unset, which is the safe direction, but the reverse order is what the
+> route does.
+
+The wizard writes the admin row first and the completion flag second, in two separate
+statements. declareSetupComplete is called from three places, and only one of them holds a
+transaction. declareSetupComplete is called from three places, and only one of them holds a
+transaction.
+
+## 17. The public shape of declareSetupComplete stays
+
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The wizard writes the admin row first and the completion flag second, in two separate
+statements. Two call sites in the server package still use the old helper and need the same
+change. The wizard writes the admin row first and the completion flag second, in two
+separate statements. The migration runner opens its own connection, so it cannot join the
+caller’s transaction as written. The regression test needs a seam to stop the process
+between the two writes.
+
+- `packages/core/src/dal/setup.ts`: The docs describe the old order and have to be corrected in the same change.
+- `packages/core/src/dal/setup.test.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/db/migrate.ts`: declareSetupComplete is called from three places, and only one of them holds a transaction.
+- `packages/core/src/db/transaction.ts`: The existing tests pass a fake clock, so the new test can reuse that harness.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. Two call sites in the server package still use the old helper and need the same
+change. The migration runner opens its own connection, so it cannot join the caller’s
+transaction as written.
+
+- `packages/core/src/dal/setup.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+- `packages/core/src/dal/setup.test.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/db/migrate.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+- `packages/core/src/db/transaction.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+
+## 18. The migration runner opens its own
+
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+> The regression test needs a seam to stop the process between the two writes.
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+> The public shape of declareSetupComplete stays the same: the new parameter is optional. Two
+> call sites in the server package still use the old helper and need the same change.
+
+The existing tests pass a fake clock, so the new test can reuse that harness. The wizard
+writes the admin row first and the completion flag second, in two separate statements. The
+docs describe the old order and have to be corrected in the same change. The existing tests
+pass a fake clock, so the new test can reuse that harness. The docs describe the old order
+and have to be corrected in the same change. The docs describe the old order and have to be
+corrected in the same change.
+
+### Order of work
+
+1. The docs describe the old order and have to be corrected in the same change.
+   - touches `packages/server/src/routes/setup.test.ts`
+   - check: pnpm typecheck
+2. The public shape of declareSetupComplete stays the same: the new parameter is optional.
+   - touches `packages/core/src/dal/setup.test.ts`
+   - check: pnpm lint packages/core
+3. declareSetupComplete is called from three places, and only one of them holds a transaction.
+   - touches `docs/setup.md`
+   - check: pnpm typecheck
+4. declareSetupComplete is called from three places, and only one of them holds a transaction.
+   - touches `packages/core/src/dal/setup.test.ts`
+   - check: git diff --stat
+5. Two call sites in the server package still use the old helper and need the same change.
+   - touches `packages/web/src/routes/SetupWizard.tsx`
+   - check: pnpm typecheck
+6. The existing tests pass a fake clock, so the new test can reuse that harness.
+   - touches `packages/core/src/dal/setup.ts`
+   - check: pnpm lint packages/core
+7. The existing tests pass a fake clock, so the new test can reuse that harness.
+   - touches `packages/web/src/routes/SetupWizard.tsx`
+   - check: git status --short
+8. The docs describe the old order and have to be corrected in the same change.
+   - touches `packages/core/src/dal/setup.test.ts`
+   - check: pnpm typecheck
+9. The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: git status --short
+10. The docs describe the old order and have to be corrected in the same change.
+   - touches `packages/web/src/routes/SetupWizard.tsx`
+   - check: git diff --stat
+11. The public shape of declareSetupComplete stays the same: the new parameter is optional.
+   - touches `packages/web/src/routes/SetupWizard.tsx`
+   - check: git status --short
+12. The docs describe the old order and have to be corrected in the same change.
+   - touches `packages/web/src/routes/SetupWizard.tsx`
+   - check: git diff --stat
+13. The regression test needs a seam to stop the process between the two writes.
+   - touches `packages/core/src/db/transaction.ts`
+   - check: git diff --stat
+14. The wizard writes the admin row first and the completion flag second, in two separate statements.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: git status --short
+15. The docs describe the old order and have to be corrected in the same change.
+   - touches `packages/core/src/dal/setup.ts`
+   - check: pnpm typecheck
+16. declareSetupComplete is called from three places, and only one of them holds a transaction.
+   - touches `packages/core/src/db/transaction.ts`
+   - check: git status --short
+17. The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+   - touches `packages/core/src/dal/setup.test.ts`
+   - check: pnpm lint packages/core
+18. The docs describe the old order and have to be corrected in the same change.
+   - touches `packages/core/src/db/migrate.ts`
+   - check: pnpm typecheck
+19. A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+   - touches `packages/core/src/db/transaction.ts`
+   - check: pnpm lint packages/core
+20. The public shape of declareSetupComplete stays the same: the new parameter is optional.
+   - touches `docs/adr/0014-setup-transaction.md`
+   - check: pnpm typecheck
+21. I will pass the transaction handle down instead of opening a second connection.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: pnpm typecheck
+22. Two call sites in the server package still use the old helper and need the same change.
+   - touches `packages/core/src/db/migrate.ts`
+   - check: pnpm test --filter core
+23. The existing tests pass a fake clock, so the new test can reuse that harness.
+   - touches `docs/adr/0014-setup-transaction.md`
+   - check: git diff --stat
+24. The regression test needs a seam to stop the process between the two writes.
+   - touches `docs/setup.md`
+   - check: git status --short
+25. The public shape of declareSetupComplete stays the same: the new parameter is optional.
+   - touches `packages/core/src/dal/setup.ts`
+   - check: pnpm lint packages/core
+26. The wizard writes the admin row first and the completion flag second, in two separate statements.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: git diff --stat
+27. The public shape of declareSetupComplete stays the same: the new parameter is optional.
+   - touches `packages/core/src/db/transaction.ts`
+   - check: pnpm test --filter core
+28. The wizard writes the admin row first and the completion flag second, in two separate statements.
+   - touches `docs/adr/0014-setup-transaction.md`
+   - check: git diff --stat
+29. The regression test needs a seam to stop the process between the two writes.
+   - touches `packages/core/src/db/migrate.ts`
+   - check: git diff --stat
+30. The wizard writes the admin row first and the completion flag second, in two separate statements.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: git status --short
+31. Two call sites in the server package still use the old helper and need the same change.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: pnpm test --filter core
+32. Two call sites in the server package still use the old helper and need the same change.
+   - touches `packages/server/src/routes/setup.ts`
+   - check: pnpm test --filter core
+33. The wizard writes the admin row first and the completion flag second, in two separate statements.
+   - touches `docs/setup.md`
+   - check: pnpm typecheck
+34. The regression test needs a seam to stop the process between the two writes.
+   - touches `docs/setup.md`
+   - check: pnpm test --filter core
+35. The regression test needs a seam to stop the process between the two writes.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: pnpm test --filter core
+36. A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+   - touches `packages/server/src/routes/setup.test.ts`
+   - check: pnpm lint packages/core
+37. The docs describe the old order and have to be corrected in the same change.
+   - touches `docs/setup.md`
+   - check: pnpm lint packages/core
+38. The wizard writes the admin row first and the completion flag second, in two separate statements.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: pnpm lint packages/core
+39. The regression test needs a seam to stop the process between the two writes.
+   - touches `packages/core/src/config/config-loader.ts`
+   - check: pnpm test --filter core
+40. The public shape of declareSetupComplete stays the same: the new parameter is optional.
+   - touches `packages/core/src/db/transaction.ts`
+   - check: pnpm typecheck
+
+The docs describe the old order and have to be corrected in the same change. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. I
+will pass the transaction handle down instead of opening a second connection.
+
+> I will pass the transaction handle down instead of opening a second connection. The wizard
+> writes the admin row first and the completion flag second, in two separate statements. The
+> existing tests pass a fake clock, so the new test can reuse that harness.
+> declareSetupComplete is called from three places, and only one of them holds a transaction.
+> I will pass the transaction handle down instead of opening a second connection.
+
+Two call sites in the server package still use the old helper and need the same change. The
+public shape of declareSetupComplete stays the same: the new parameter is optional. I will
+pass the transaction handle down instead of opening a second connection. The existing tests
+pass a fake clock, so the new test can reuse that harness. Two call sites in the server
+package still use the old helper and need the same change. Two call sites in the server
+package still use the old helper and need the same change.
+
+## 19. The wizard writes the admin row
+
+> The existing tests pass a fake clock, so the new test can reuse that harness. A crash
+> between them leaves the flag unset, which is the safe direction, but the reverse order is
+> what the route does. The docs describe the old order and have to be corrected in the same
+> change. The wizard writes the admin row first and the completion flag second, in two
+> separate statements. Two call sites in the server package still use the old helper and need
+> the same change. The existing tests pass a fake clock, so the new test can reuse that
+> harness.
+
+- `packages/core/src/dal/setup.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+- `packages/core/src/dal/setup.test.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+- `packages/core/src/db/migrate.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+- `packages/core/src/db/transaction.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+
+> The public shape of declareSetupComplete stays the same: the new parameter is optional. The
+> public shape of declareSetupComplete stays the same: the new parameter is optional. A crash
+> between them leaves the flag unset, which is the safe direction, but the reverse order is
+> what the route does. I will pass the transaction handle down instead of opening a second
+> connection. declareSetupComplete is called from three places, and only one of them holds a
+> transaction. The docs describe the old order and have to be corrected in the same change.
+
+> Two call sites in the server package still use the old helper and need the same change. A
+> crash between them leaves the flag unset, which is the safe direction, but the reverse order
+> is what the route does. A crash between them leaves the flag unset, which is the safe
+> direction, but the reverse order is what the route does.
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional. The
+docs describe the old order and have to be corrected in the same change. A crash between
+them leaves the flag unset, which is the safe direction, but the reverse order is what the
+route does. I will pass the transaction handle down instead of opening a second connection.
+
+The existing tests pass a fake clock, so the new test can reuse that harness. A crash
+between them leaves the flag unset, which is the safe direction, but the reverse order is
+what the route does. The public shape of declareSetupComplete stays the same: the new
+parameter is optional. A crash between them leaves the flag unset, which is the safe
+direction, but the reverse order is what the route does. The docs describe the old order and
+have to be corrected in the same change.
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The regression test needs a seam to stop the process between the two writes. The wizard
+writes the admin row first and the completion flag second, in two separate statements.
+
+- `packages/core/src/dal/setup.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/dal/setup.test.ts`: The existing tests pass a fake clock, so the new test can reuse that harness.
+- `packages/core/src/db/migrate.ts`: declareSetupComplete is called from three places, and only one of them holds a transaction.
+- `packages/core/src/db/transaction.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+
+The regression test needs a seam to stop the process between the two writes.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The regression test needs a seam to stop the process between the two writes. The public
+shape of declareSetupComplete stays the same: the new parameter is optional.
+
+A crash between them leaves the flag unset, which is the safe direction, but the reverse
+order is what the route does. The regression test needs a seam to stop the process between
+the two writes. The regression test needs a seam to stop the process between the two writes.
+I will pass the transaction handle down instead of opening a second connection.
+
+> A crash between them leaves the flag unset, which is the safe direction, but the reverse
+> order is what the route does. The wizard writes the admin row first and the completion flag
+> second, in two separate statements. The regression test needs a seam to stop the process
+> between the two writes. A crash between them leaves the flag unset, which is the safe
+> direction, but the reverse order is what the route does. A crash between them leaves the
+> flag unset, which is the safe direction, but the reverse order is what the route does. Two
+> call sites in the server package still use the old helper and need the same change.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The public shape of declareSetupComplete stays the same: the new parameter is
+optional. declareSetupComplete is called from three places, and only one of them holds a
+transaction. The docs describe the old order and have to be corrected in the same change.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written.
+
+## 20. The existing tests pass a fake
+
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+I will pass the transaction handle down instead of opening a second connection. The wizard
+writes the admin row first and the completion flag second, in two separate statements. A
+crash between them leaves the flag unset, which is the safe direction, but the reverse order
+is what the route does.
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. I will pass the transaction handle down instead of opening a second connection. The
+public shape of declareSetupComplete stays the same: the new parameter is optional. A crash
+between them leaves the flag unset, which is the safe direction, but the reverse order is
+what the route does. The public shape of declareSetupComplete stays the same: the new
+parameter is optional.
+
+> The wizard writes the admin row first and the completion flag second, in two separate
+> statements. declareSetupComplete is called from three places, and only one of them holds a
+> transaction. A crash between them leaves the flag unset, which is the safe direction, but
+> the reverse order is what the route does. The public shape of declareSetupComplete stays the
+> same: the new parameter is optional. The existing tests pass a fake clock, so the new test
+> can reuse that harness. declareSetupComplete is called from three places, and only one of
+> them holds a transaction.
+
+- `packages/core/src/dal/setup.ts`: A crash between them leaves the flag unset, which is the safe direction, but the reverse order is what the route does.
+- `packages/core/src/dal/setup.test.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+- `packages/core/src/db/migrate.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+- `packages/core/src/db/transaction.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+
+## 21. The wizard writes the admin row
+
+> The regression test needs a seam to stop the process between the two writes. I will pass the
+> transaction handle down instead of opening a second connection. declareSetupComplete is
+> called from three places, and only one of them holds a transaction.
+
+- `packages/core/src/dal/setup.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/dal/setup.test.ts`: The existing tests pass a fake clock, so the new test can reuse that harness.
+- `packages/core/src/db/migrate.ts`: The docs describe the old order and have to be corrected in the same change.
+- `packages/core/src/db/transaction.ts`: Two call sites in the server package still use the old helper and need the same change.
+
+The docs describe the old order and have to be corrected in the same change. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. Two
+call sites in the server package still use the old helper and need the same change. I will
+pass the transaction handle down instead of opening a second connection. The regression test
+needs a seam to stop the process between the two writes.
+
+- `packages/core/src/dal/setup.ts`: Two call sites in the server package still use the old helper and need the same change.
+- `packages/core/src/dal/setup.test.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+- `packages/core/src/db/migrate.ts`: The wizard writes the admin row first and the completion flag second, in two separate statements.
+- `packages/core/src/db/transaction.ts`: The migration runner opens its own connection, so it cannot join the caller’s transaction as written.
+
+The regression test needs a seam to stop the process between the two writes. I will pass the
+transaction handle down instead of opening a second connection. declareSetupComplete is
+called from three places, and only one of them holds a transaction. The docs describe the
+old order and have to be corrected in the same change. The regression test needs a seam to
+stop the process between the two writes. The wizard writes the admin row first and the
+completion flag second, in two separate statements.
+
+## 22. The wizard writes the admin row
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. A crash between them leaves the flag unset, which is the safe direction, but the
+reverse order is what the route does. I will pass the transaction handle down instead of
+opening a second connection.
+
+The existing tests pass a fake clock, so the new test can reuse that harness. A crash
+between them leaves the flag unset, which is the safe direction, but the reverse order is
+what the route does. The migration runner opens its own connection, so it cannot join the
+caller’s transaction as written. The public shape of declareSetupComplete stays the same:
+the new parameter is optional. The public shape of declareSetupComplete stays the same: the
+new parameter is optional. The wizard writes the admin row first and the completion flag
+second, in two separate statements.
+
+- `packages/core/src/dal/setup.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/dal/setup.test.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/db/migrate.ts`: The docs describe the old order and have to be corrected in the same change.
+- `packages/core/src/db/transaction.ts`: The public shape of declareSetupComplete stays the same: the new parameter is optional.
+
+The regression test needs a seam to stop the process between the two writes. The public
+shape of declareSetupComplete stays the same: the new parameter is optional. The migration
+runner opens its own connection, so it cannot join the caller’s transaction as written. Two
+call sites in the server package still use the old helper and need the same change.
+
+- `packages/core/src/dal/setup.ts`: I will pass the transaction handle down instead of opening a second connection.
+- `packages/core/src/dal/setup.test.ts`: The existing tests pass a fake clock, so the new test can reuse that harness.
+- `packages/core/src/db/migrate.ts`: The regression test needs a seam to stop the process between the two writes.
+- `packages/core/src/db/transaction.ts`: I will pass the transaction handle down instead of opening a second connection.
+
+The public shape of declareSetupComplete stays the same: the new parameter is optional.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+The wizard writes the admin row first and the completion flag second, in two separate
+statements. declareSetupComplete is called from three places, and only one of them holds a
+transaction.
+
+Two call sites in the server package still use the old helper and need the same change. The
+public shape of declareSetupComplete stays the same: the new parameter is optional. I will
+pass the transaction handle down instead of opening a second connection.
+declareSetupComplete is called from three places, and only one of them holds a transaction.
+
+## 23. The wizard writes the admin row
+
+The migration runner opens its own connection, so it cannot join the caller’s transaction as
+written. The existing tests pass a fake clock, so the new test can reuse that harness. I
+will pass the transaction handle down instead of opening a second connection.
+
+## Links
+
+- [The issue](https://github.com/acme/storefront/issues/412)
+- [A link the plugin must refuse](javascript:alert(1))
