@@ -5,20 +5,18 @@ import { assert, describe, hostError, test } from 'orca/testing'
 import {
   ARCHON_HOME,
   CLOCK_START as START,
+  DEFAULT,
   DEFAULT_HEALTH,
+  DEFAULT_OPENAPI,
   HANG,
   health,
   json,
+  kinds,
   REFUSE,
   scene,
-  type MountedScene,
   type Scene
 } from '../scripts/scripted-archon.ts'
 import { REASONS } from './connection-settings'
-
-const DEFAULT = 'http://127.0.0.1:3090'
-
-const kinds = (mounted: MountedScene): string[] => mounted.posted().map((state) => state.kind)
 
 /** Records the clock time of every health call to the default address, which is refused. */
 function timedRefusals(stage: Scene): number[] {
@@ -457,7 +455,7 @@ describe('the status bar item', () => {
   test('reads "Archon setup", as a warning, for Unsupported', async () => {
     const stage = scene()
     stage.archon.answer(DEFAULT_HEALTH, health({ version: '0.11.1' }))
-    stage.archon.answer(`${DEFAULT}/api/openapi.json`, json({ openapi: '3.0.0', paths: { '/api/health': {} } }))
+    stage.archon.answer(DEFAULT_OPENAPI, json({ openapi: '3.0.0', paths: { '/api/health': {} } }))
     const mounted = await stage.mount()
     await stage.clock.advance(1_000)
     assert.deepEqual(

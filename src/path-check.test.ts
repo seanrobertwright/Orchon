@@ -5,26 +5,23 @@ import { assert, describe, test } from 'orca/testing'
 import {
   ARCHON_HOME,
   CLOCK_START as START,
+  DEFAULT,
   DEFAULT_HEALTH,
+  DEFAULT_OPENAPI,
   HANG,
   health,
   html,
   json,
+  kinds,
   pathListWithout,
   RELEASES,
   recorded,
   REFUSE,
   scene,
-  type MountedScene,
+  urls,
   type Scene,
   type Scripted
 } from '../scripts/scripted-archon.ts'
-
-const DEFAULT = 'http://127.0.0.1:3090'
-const DEFAULT_OPENAPI = `${DEFAULT}/api/openapi.json`
-
-const kinds = (mounted: MountedScene): string[] => mounted.posted().map((state) => state.kind)
-const urls = (stage: { archon: { calls: { url: string }[] } }): string[] => stage.archon.calls.map((call) => call.url)
 
 describe('the path check', () => {
   test('reads the path list after health and before Connected, and a full list connects', async () => {

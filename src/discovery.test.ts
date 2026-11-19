@@ -3,17 +3,18 @@
 import { assert, describe, test } from 'orca/testing'
 import {
   ARCHON_HOME,
+  DEFAULT,
   DEFAULT_HEALTH,
+  DEFAULT_OPENAPI,
   HANG,
   health,
   html,
   json,
   scene,
   SERVER_RECORD,
+  urls,
   type Scene
 } from '../scripts/scripted-archon.ts'
-
-const DEFAULT = 'http://127.0.0.1:3090'
 
 /** A scene whose Archon home folder exists and holds this `server.json`. */
 function withRecord(record: unknown): Scene {
@@ -22,8 +23,6 @@ function withRecord(record: unknown): Scene {
   stage.disk.files.set(SERVER_RECORD, typeof record === 'string' ? record : JSON.stringify(record))
   return stage
 }
-
-const urls = (stage: Scene): string[] => stage.archon.calls.map((call) => call.url)
 
 describe('discovery', () => {
   test('with nothing set and no server.json, finds Archon at the default address', async () => {
@@ -170,7 +169,7 @@ describe('discovery', () => {
       stage.archon.answer(DEFAULT_HEALTH, health())
       const state = (await stage.mount()).latest()
       assert.equal(state.kind === 'connected' && state.source, 'default', JSON.stringify(record))
-      assert.deepEqual(urls(stage), [DEFAULT_HEALTH, `${DEFAULT}/api/openapi.json`], JSON.stringify(record))
+      assert.deepEqual(urls(stage), [DEFAULT_HEALTH, DEFAULT_OPENAPI], JSON.stringify(record))
     }
   })
 
