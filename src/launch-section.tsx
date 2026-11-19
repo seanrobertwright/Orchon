@@ -347,7 +347,7 @@ function form(view: Ready, writable: boolean): OrcaNode {
   const message = messageOf(view)
   const reason = startReason(view, message, writable)
   const { projects } = view
-  const notes = view.rerunNotes ?? []
+  const notes = view.notes ?? []
   return (
     <Stack gap="sm">
       {notes.length === 0 ? null : (

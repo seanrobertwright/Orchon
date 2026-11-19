@@ -118,7 +118,7 @@ export type LaunchView =
        */
       inputs?: DraftInput[]
       /** Sentences about what Re-run filled and what it could not. Left out when there are none. */
-      rerunNotes?: string[]
+      notes?: string[]
       /** The Starting view, which replaces the form. */
       starting?: StartingView
     }

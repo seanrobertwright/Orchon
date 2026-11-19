@@ -416,7 +416,7 @@ export function startLaunch(orca: OrcaWorkerApi, ports: LaunchPorts): Disposable
     }
     if (draft.error !== undefined) view.error = draft.error
     if (draft.inputs !== undefined && draft.inputs.length > 0 && workflow !== null && workflow === draft.workflow) view.inputs = draft.inputs
-    if (draft.notes !== undefined && draft.notes.length > 0) view.rerunNotes = draft.notes
+    if (draft.notes !== undefined && draft.notes.length > 0) view.notes = draft.notes
     const starting = draft.starting === undefined ? undefined : records.find((record) => record.launchId === draft.starting)
     if (starting !== undefined) view.starting = startingOf(starting)
     return view

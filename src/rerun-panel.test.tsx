@@ -25,7 +25,7 @@ const filled: LaunchView = {
   workflow: null,
   description: '',
   message: 'Ship the change again.',
-  rerunNotes: ['The workflow old-deliver is no longer listed for this project, so no workflow is chosen. Choose one.', 'Not filled, because the workflow no longer declares them: ticket.']
+  notes: ['The workflow old-deliver is no longer listed for this project, so no workflow is chosen. Choose one.', 'Not filled, because the workflow no longer declares them: ticket.']
 }
 
 /** Mounts the panel on run-1 in run detail, with Re-run offered when `offered` says so. */
@@ -72,7 +72,7 @@ describe('Re-run in run detail', () => {
     assert.deepEqual(sent(view, 'launch.rerun'), [{ runId: 'run-1' }])
     assert.equal(view.valueOf(SECTION_BAR), 'launch')
     assert.equal(view.valueOf(MESSAGE), 'Ship the change again.')
-    for (const note of filled.kind === 'ready' ? (filled.rerunNotes ?? []) : []) assert.ok(view.find({ type: 'Text', text: note }), note)
+    for (const note of filled.kind === 'ready' ? (filled.notes ?? []) : []) assert.ok(view.find({ type: 'Text', text: note }), note)
     assert.deepEqual(sent(view, 'launch.start'), [])
     assert.deepEqual(view.errors, [])
     assert.deepEqual(view.refusals, [])

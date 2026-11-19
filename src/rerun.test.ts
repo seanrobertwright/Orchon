@@ -70,7 +70,7 @@ describe('Re-run', () => {
       assert.equal(view.workflow, 'orchon-recorder-echo')
       assert.equal(view.message, RECORDED_MESSAGE)
       assert.equal(view.starting, undefined)
-      assert.deepEqual(view.rerunNotes ?? [], [])
+      assert.deepEqual(view.notes ?? [], [])
       assert.equal(stage.archon.calls.filter((call) => call.method !== 'GET').length, 0)
       // The draft stays: the next read of the section shows it.
       const again = ready(((await mounted.worker.request('launch.read', {})) as LaunchAnswer).launch)
@@ -97,10 +97,10 @@ describe('Re-run', () => {
     const view = ready(answer.launch)
     assert.equal(view.workflow, 'orchon-recorder-inputs')
     assert.deepEqual(view.inputs, [{ name: 'item', value: 'the item' }])
-    assert.deepEqual(view.rerunNotes, ['Not filled, because the workflow no longer declares them: not_declared, gone_too.'])
+    assert.deepEqual(view.notes, ['Not filled, because the workflow no longer declares them: not_declared, gone_too.'])
     // The recorded run has model bindings in its metadata; none reach the launcher.
     assert.ok(!JSON.stringify(answer).includes('model_bindings'))
-    assert.deepEqual(Object.keys(view).sort(), ['codebaseId', 'description', 'inputs', 'kind', 'message', 'posting', 'projects', 'rerunNotes', 'workflow', 'workflows'])
+    assert.deepEqual(Object.keys(view).sort(), ['codebaseId', 'description', 'inputs', 'kind', 'message', 'notes', 'posting', 'projects', 'workflow', 'workflows'])
     // Choosing another workflow drops the inputs filled for this one.
     const edited = ready(((await mounted.worker.request('launch.edit', { workflow: 'orchon-recorder-echo' })) as LaunchAnswer).launch)
     assert.equal(edited.inputs, undefined)
@@ -123,7 +123,7 @@ describe('Re-run', () => {
     assert.equal(view.workflow, null)
     assert.equal(view.message, RECORDED_MESSAGE)
     assert.equal(view.inputs, undefined)
-    assert.deepEqual(view.rerunNotes, ['The workflow a-removed-workflow is no longer listed for this project, so no workflow is chosen. Choose one.'])
+    assert.deepEqual(view.notes, ['The workflow a-removed-workflow is no longer listed for this project, so no workflow is chosen. Choose one.'])
     await mounted.worker.deactivate()
   })
 
@@ -142,7 +142,7 @@ describe('Re-run', () => {
     assert.equal(view.codebaseId, RECORDED['0.12.1'].project)
     assert.equal(view.message, RECORDED_MESSAGE)
     assert.equal(view.inputs, undefined)
-    assert.deepEqual(view.rerunNotes, ["Not filled, because the project's workflow list could not be read: item, other."])
+    assert.deepEqual(view.notes, ["Not filled, because the project's workflow list could not be read: item, other."])
     await mounted.worker.deactivate()
   })
 
@@ -159,7 +159,7 @@ describe('Re-run', () => {
     const mounted = await stage.mount(orcaWith('ws-local'))
     const view = ready((await rerun(mounted, id)).launch)
     assert.equal(view.message, `${'a'.repeat(15_999)}b`)
-    assert.deepEqual(view.rerunNotes, ["The run's message is longer than 16,000 characters, so it was cut to fit."])
+    assert.deepEqual(view.notes, ["The run's message is longer than 16,000 characters, so it was cut to fit."])
     await mounted.worker.deactivate()
   })
 
