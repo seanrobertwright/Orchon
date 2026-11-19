@@ -9,8 +9,10 @@ import type {
   SettingsView,
   Unsupported
 } from '../src/connection-view.ts'
+import type { FormsAnswer, FormsView } from '../src/forms-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
 import type { SystemAnswer, SystemView } from '../src/system-view.ts'
+import { formsRead, formsUnread } from './forms-samples.ts'
 
 export const HOME = '/home/ada/.archon'
 export const OTHER_HOME = '/srv/archon-home'
@@ -148,18 +150,25 @@ type Answers = {
   'system.open': SystemAnswer
   'system.refresh': SystemAnswer
   'system.close': null
+  'forms.read': FormsAnswer
+  'forms.edit': FormsAnswer
+  'forms.discard': FormsAnswer
+  'forms.save': FormsAnswer
+  'forms.resolve': FormsAnswer
 }
 
 /**
  * A stand-in for the worker that answers every connection request with one state, the runs table
- * as `runs` says, and every System request with one view: by default the read one while
+ * as `runs` says, and every System and forms request with one view: by default the read one while
  * Connected and the unread one otherwise.
  */
 export function answeringRuns(
   runs: RunsView | ((request: RunsRequest) => RunsView),
   connection: ConnectionView = connected,
-  system: SystemView = connection.kind === 'connected' ? systemRead : systemUnread
+  system: SystemView = connection.kind === 'connected' ? systemRead : systemUnread,
+  forms: FormsView = connection.kind === 'connected' ? formsRead : formsUnread
 ): { requests: Answers } {
+  const formsAnswer: FormsAnswer = { connection, forms }
   return {
     requests: {
       'connection.read': { connection },
@@ -167,14 +176,19 @@ export function answeringRuns(
       'runs.read': (request) => ({ connection, runs: typeof runs === 'function' ? runs(request) : runs }),
       'system.open': { connection, system },
       'system.refresh': { connection, system },
-      'system.close': null
+      'system.close': null,
+      'forms.read': formsAnswer,
+      'forms.edit': formsAnswer,
+      'forms.discard': formsAnswer,
+      'forms.save': formsAnswer,
+      'forms.resolve': formsAnswer
     }
   }
 }
 
 /**
  * A stand-in for the worker that answers every connection request with one state, the runs table
- * with no runs, and every System request as `answeringRuns` does.
+ * with no runs, and every System and forms request as `answeringRuns` does.
  */
-export const answering = (connection: ConnectionView, system?: SystemView): { requests: Answers } =>
-  answeringRuns(noRuns, connection, system)
+export const answering = (connection: ConnectionView, system?: SystemView, forms?: FormsView): { requests: Answers } =>
+  answeringRuns(noRuns, connection, system, forms)

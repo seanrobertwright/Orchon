@@ -2,6 +2,7 @@
 import { atom, EmptyState, plugin, read, set, Tab, Tabs, update, type OrcaNode, type PanelContext } from 'orca'
 import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
+import { readForms, startFormGroups } from './form-groups'
 import { restartRuns, runsSection, startRunsSection } from './runs-section'
 import { DEFAULT_SECTION, parseSection, SECTIONS, type SectionId } from './sections'
 import { settingsSection } from './settings-section'
@@ -26,7 +27,11 @@ function keepNewest(next: ConnectionView): void {
   if (held !== null && next.since <= held.since) return
   set(connection, next)
   // On return to Connected every view that is showing fetches again.
-  if (next.kind === 'connected' && held?.kind !== 'connected') restartRuns()
+  if (next.kind === 'connected' && held?.kind !== 'connected') {
+    restartRuns()
+    // The section's own first read is sent when it shows, so only a return to Connected reads again.
+    if (held !== null && parseSection(read(section)) === 'settings') readForms()
+  }
 }
 
 /** Sends a connection request and keeps the state its answer carries. A failed request changes nothing. */
@@ -73,7 +78,10 @@ function show(next: SectionId): void {
   set(section, next)
   if (next === 'runs') restartRuns()
   if (before === next) return
-  if (next === 'settings') askSystem('system.open')
+  if (next === 'settings') {
+    readForms()
+    askSystem('system.open')
+  }
   if (before === 'settings') closeSystem()
 }
 
@@ -92,10 +100,14 @@ export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('show-runs', () => show('runs')))
   ctx.subscriptions.push(plugin.on('connection.changed', keepNewest))
   ctx.subscriptions.push(plugin.on('system.changed', keepSystem))
+  startFormGroups(ctx, { keep: keepNewest })
   ask('connection.read')
   // Orca unmounts a hidden panel, so the Settings section shows from setup until it is left or
   // the panel closes.
-  if (parseSection(read(section)) === 'settings') askSystem('system.open')
+  if (parseSection(read(section)) === 'settings') {
+    readForms()
+    askSystem('system.open')
+  }
   ctx.subscriptions.push({
     dispose: () => {
       if (parseSection(read(section)) === 'settings') closeSystem()
@@ -106,7 +118,12 @@ export function setup(ctx: PanelContext): void {
 /** What one section shows below the section bar. */
 function sectionBody(id: SectionId, label: string, state: ConnectionView | null): OrcaNode {
   const placeholder = <EmptyState title={label} description="This section is not built yet." />
-  if (id === 'settings') return settingsSection(state, read(system), { refresh: () => askSystem('system.refresh') })
+  if (id === 'settings') return settingsSection(state, read(system), {
+      refresh: () => {
+        readForms()
+        askSystem('system.refresh')
+      }
+    })
   // Without its paths the Metrics section says which release it needs, and asks Archon nothing.
   if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
     return <EmptyState title={label} description={metricsMissing(state)} />
