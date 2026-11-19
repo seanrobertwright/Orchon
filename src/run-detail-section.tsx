@@ -1,7 +1,8 @@
 // Run detail, the second level of the Runs section: what one run is and how far it got. It draws
 // only the worker's view model and fetches it under the shared per-view fetch rules, refetching
-// on a hint that names the run, at most once a second, and on the safety refetch. The answer
-// block, the action row and the row of small buttons come with their own tickets.
+// on a hint that names the run, at most once a second, and on the safety refetch. The action row
+// is drawn by `run-actions.tsx`; the answer block and the row of small buttons come with their
+// own tickets.
 import {
   atom,
   Badge,
@@ -31,6 +32,7 @@ import { cutAt } from './cutter'
 import { formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
+import { actionRow, outcomeCallout, resetRunActions, runActionsRead, type RunActionHooks } from './run-actions'
 import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type StalledCall, type Step, type ChildRow, type Waiting } from './run-detail-view'
 import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
@@ -86,6 +88,7 @@ function apply(answer: RunDetailAnswer | null): void {
   const { run } = answer
   if (run.kind === 'ready' && run.detail.id === openRunId()) {
     set(loaded, run.detail)
+    runActionsRead(run.detail)
     set(gone, false)
     set(problem, null)
     set(lastGood, now())
@@ -282,6 +285,7 @@ function resetView(): void {
   set(flipped, [])
   set(selectedStep, null)
   set(shown, 'steps')
+  resetRunActions()
 }
 
 function toggle(tree: StepTree, key: string, expanded: boolean): void {
@@ -462,14 +466,29 @@ function waitingCallout(waiting: Waiting | null): OrcaNode {
   }
 }
 
-function body(detail: RunDetail): OrcaNode {
+/** What the action row reaches in run detail. */
+const actionHooks: RunActionHooks = {
+  openRunId,
+  restart: restartRunDetail,
+  openRun: openRunDetail,
+  gone() {
+    set(loaded, null)
+    set(gone, true)
+    set(problem, null)
+  },
+  keep: (view) => hooks?.keep(view)
+}
+
+function body(detail: RunDetail, writable: boolean): OrcaNode {
   const showing = read(shown)
-  // The answer block, which takes the waiting callout's place for a question, and the action row
-  // go above the folds; the row of small buttons (Open graph, Open workflow in builder, Open
-  // conversation) goes under them.
+  // The answer block, which takes the waiting callout's place for a question, goes above the
+  // action row; the row of small buttons (Open graph, Open workflow in builder, Open
+  // conversation) goes under the folds.
   return (
     <>
       {waitingCallout(detail.waiting)}
+      {actionRow(detail, writable, actionHooks)}
+      {outcomeCallout(detail, actionHooks)}
       {factsFold(detail)}
       {messageFold(detail)}
       <Select
@@ -487,13 +506,23 @@ function body(detail: RunDetail): OrcaNode {
   )
 }
 
-/** Run detail while connected or under the Searching banner. It has no control that writes yet. */
-export function runDetailSection(): OrcaNode {
+/** Run detail while connected or under the Searching banner. `writable` is false when its controls that write are off. */
+export function runDetailSection(writable: boolean): OrcaNode {
   const detail = read(loaded)
   const held = read(problem)
   let content: OrcaNode
-  if (read(gone)) content = <Text>This run no longer exists.</Text>
-  else if (detail !== null) content = body(detail)
+  if (read(gone)) {
+    content = (
+      <Stack gap="xs">
+        <Text>This run no longer exists.</Text>
+        <Row>
+          <Button size="sm" variant="outline" onPress={back}>
+            Back to runs
+          </Button>
+        </Row>
+      </Stack>
+    )
+  } else if (detail !== null) content = body(detail, writable)
   else content = held === null ? <Spinner label="Loading the run…" /> : null
   return (
     <Stack gap="sm">
