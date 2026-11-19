@@ -276,11 +276,14 @@ test('a longer or indented fence is closed with its own marks', () => {
   const input = `1. A step\n${opening}${code}${closing}2. The next step\n`
   const cut = cutMarkdown(input, 256 * KIB)
   assertSound(input, cut)
-  assert.ok(cut.blocks.length > 1)
-  for (const [index, block] of cut.blocks.entries()) {
-    const last = index === cut.blocks.length - 1
+  // The fence is longer than a block, so it starts one of its own before it is cut.
+  assert.equal(cut.blocks[0]?.text, '1. A step\n')
+  const pieces = cut.blocks.slice(1)
+  assert.ok(pieces.length > 1)
+  for (const [index, block] of pieces.entries()) {
+    const last = index === pieces.length - 1
     assert.equal(block.addedBefore, index === 0 ? 0 : opening.length)
-    assert.ok(index === 0 || block.text.startsWith(opening))
+    assert.ok(block.text.startsWith(opening))
     assert.ok(last || block.text.endsWith('\n   ````\n'))
     assert.equal(block.addedAfter, last ? 0 : 8)
   }
@@ -294,24 +297,67 @@ test('a line of inline code that starts with three backticks opens no fence', ()
   assert.ok(cut.blocks.every((block) => block.addedBefore === 0 && block.addedAfter === 0))
 })
 
-test('a fence with an opening line too long to say again is cut as plain lines', () => {
-  const input = `\`\`\`${'x'.repeat(5000)}\n${lines(300, 80, 'code')}\`\`\`\n`
+/** An opening line longer than the quarter of a block that is said again. */
+const LONG_OPENING = `\`\`\`${'x'.repeat(5000)}\n`
+
+test('a fence with an opening line too long to say again still ends at its closing line', () => {
+  // Read as an opening line, the closing line would put every paragraph after it in a fence.
+  const input = `${LONG_OPENING}${lines(5, 80, 'code')}\`\`\`\n\n${paragraphs(40 * KIB)}`
   const cut = cutMarkdown(input, 256 * KIB)
   assertSound(input, cut)
-  assert.ok(cut.blocks.length > 1)
+  assert.equal(cut.blocks.length, 3)
+  for (const block of cut.blocks.slice(0, -1)) assert.ok(block.text.endsWith('\n\n'), 'a block ends at a blank line')
   assert.ok(cut.blocks.every((block) => block.addedBefore === 0 && block.addedAfter === 0))
 })
 
-/** A list item with nested lines and no blank line, 56 short of a full block. */
-const NESTED_TO_THE_END = `1. Step\n${lines(204, 80, '   nested')}`
-
-test('a fence is not cut right after its opening line', () => {
-  // The opening line fits the first block and the first line of code does not.
-  const fence = `   \`\`\`ts\n${lines(5, 80, '   code')}   \`\`\`\n`
-  const input = `${NESTED_TO_THE_END}${fence}`
+test('a fence with an opening line too long to say again is opened again with its marks alone', () => {
+  const input = `${LONG_OPENING}${lines(300, 80, 'code')}\`\`\`\n`
   const cut = cutMarkdown(input, 256 * KIB)
   assertSound(input, cut)
-  assert.deepEqual(texts(cut), [NESTED_TO_THE_END, fence])
+  assert.equal(cut.blocks.length, 2)
+  assert.ok(cut.blocks[0]?.text.endsWith('x\n```\n'))
+  assert.ok(cut.blocks[1]?.text.startsWith('```\ncode '))
+  assert.deepEqual(
+    cut.blocks.map((block) => [block.addedBefore, block.addedAfter]),
+    [
+      [0, 4],
+      [4, 0]
+    ]
+  )
+})
+
+test('a fence with marks too long to say again is cut between its lines with nothing added', () => {
+  const marks = '`'.repeat(5000)
+  // A line of three backticks inside it is code, and opens nothing.
+  const input = `${marks}\n\`\`\`\n${lines(300, 80, 'code')}${marks}\n\n${paragraphs(20 * KIB)}`
+  const cut = cutMarkdown(input, 256 * KIB)
+  assertSound(input, cut)
+  assert.ok(cut.blocks.length > 2)
+  assert.ok(cut.blocks.every((block) => block.addedBefore === 0 && block.addedAfter === 0))
+  assert.ok(cut.blocks.at(-2)?.text.endsWith('\n\n'), 'after the fence a block ends at a blank line')
+
+  // Nor is anything added where a line of it is cut.
+  const long = `${marks}\n${'y'.repeat(40 * KIB)}\n${marks}\n`
+  const inside = cutMarkdown(long, 256 * KIB)
+  assertSound(long, inside)
+  assert.equal(texts(inside).join(''), long)
+})
+
+/** A list item with nested lines and no blank line, `short` short of a full block. */
+function nestedToTheEnd(short: 56 | 376): string {
+  return `1. Step\n${lines(short === 56 ? 204 : 200, 80, '   nested')}`
+}
+
+test('a fence that fits one block is moved to the next whole when no blank line comes before it', () => {
+  const fence = `   \`\`\`ts\n${lines(6, 80, '   code')}   \`\`\`\n`
+  // The first block is full after the opening line, then in the middle of the code.
+  for (const short of [56, 376] as const) {
+    const before = nestedToTheEnd(short)
+    assert.equal(before.length, BLOCK_LIMIT - short)
+    const cut = cutMarkdown(`${before}${fence}`, 256 * KIB)
+    assert.deepEqual(texts(cut), [before, fence])
+    assert.ok(cut.blocks.every((block) => block.addedBefore === 0 && block.addedAfter === 0))
+  }
 })
 
 test('a fence is not cut right before its closing line', () => {
@@ -389,6 +435,16 @@ test('a table longer than a block has its header rows repeated in the next block
   assert.ok(pieces.at(-1)?.text.endsWith('| low |\n\nAfter the table.\n'))
 })
 
+test('a delimiter row that starts like a list item is still a header row', () => {
+  const head = 'File | Risk\n- | -\n'
+  const input = `${head}${lines(300, 80, 'setup.ts | low')}`
+  const cut = cutMarkdown(input, 256 * KIB)
+  assertSound(input, cut)
+  assert.equal(cut.blocks.length, 2)
+  assert.ok(cut.blocks[1]?.text.startsWith(`${head}setup.ts | low `))
+  assert.equal(cut.blocks[1]?.addedBefore, head.length)
+})
+
 test('lines that only look like a table are not given header rows', () => {
   for (const start of [
     // No delimiter row under the first line.
@@ -422,21 +478,38 @@ test('a table ends at a heading or a fence with no blank line before it', () => 
   }
 })
 
-test('a table with header rows too long to say again is cut as plain lines', () => {
-  const input = `| ${'File '.repeat(1000)}| Change | Risk |\n| --- | :-: | ---: |\n${rows(300)}`
+test('a list item right under a table is not a row of it', () => {
+  const table = `${TABLE_HEAD}${rows(3)}`
+  for (const item of ['- item', '* item', '+ item', '12. item', '3) item']) {
+    const input = `${table}${lines(300, 80, item)}`
+    const cut = cutMarkdown(input, 256 * KIB)
+    assertSound(input, cut)
+    assert.ok(cut.blocks.length > 1)
+    assert.ok(cut.blocks.every((block) => block.addedBefore === 0 && block.addedAfter === 0), item)
+  }
+})
+
+test('a table with header rows too long to say again is still cut between its rows as a table', () => {
+  const table = `| ${'File '.repeat(1000)}| Change | Risk |\n| --- | :-: | ---: |\n${rows(300)}`
+  const input = `Before the table.\n${table}`
   const cut = cutMarkdown(input, 256 * KIB)
   assertSound(input, cut)
-  assert.ok(cut.blocks.length > 1)
+  // Like any table longer than a block, it starts a block of its own before it is cut.
+  assert.equal(cut.blocks[0]?.text, 'Before the table.\n')
+  assert.ok(cut.blocks.length > 2)
+  for (const block of cut.blocks.slice(2)) assert.ok(block.text.startsWith('| `setup-'))
   assert.ok(cut.blocks.every((block) => block.addedBefore === 0 && block.addedAfter === 0))
 })
 
-test('a table is not cut right after its header rows', () => {
-  // The header rows fit the first block and the first row does not.
+test('a table that fits one block is moved to the next whole when no blank line comes before it', () => {
   const table = `   | File | Change | Risk |\n   | --- | :-: | ---: |\n${rows(5)}`
-  const input = `${NESTED_TO_THE_END}${table}`
-  const cut = cutMarkdown(input, 256 * KIB)
-  assertSound(input, cut)
-  assert.deepEqual(texts(cut), [NESTED_TO_THE_END, table])
+  // The first block is full after the header rows, then in the middle of the rows.
+  for (const short of [56, 376] as const) {
+    const before = nestedToTheEnd(short)
+    const cut = cutMarkdown(`${before}${table}`, 256 * KIB)
+    assert.deepEqual(texts(cut), [before, table])
+    assert.ok(cut.blocks.every((block) => block.addedBefore === 0 && block.addedAfter === 0))
+  }
 })
 
 function nestedList(items: number, from = 1): string {
@@ -521,6 +594,27 @@ test('cutMarkdown with a cap under the first line cuts that line at the cap', ()
   assert.deepEqual(cutMarkdown(input, 0), { blocks: [], notShown: input.length })
 })
 
+test('a line longer than a block is shown up to the cap, however little of it is left', () => {
+  // After the first block, what is left of the line would fit a block but not the cap.
+  const input = `${'x'.repeat(20 * KIB)}\nmore\n`
+  const cut = cutMarkdown(input, 18 * KIB)
+  assertSound(input, cut)
+  assert.deepEqual(own(cut), [input.slice(0, BLOCK_LIMIT), input.slice(BLOCK_LIMIT, 18 * KIB)])
+  assert.equal(cut.notShown, input.length - 18 * KIB)
+
+  const fenced = `\`\`\`json\n${'x'.repeat(20 * KIB)}\n\`\`\`\n`
+  const inFence = cutMarkdown(fenced, 18 * KIB)
+  assertSound(fenced, inFence)
+  assert.equal(own(inFence).join(''), fenced.slice(0, 18 * KIB))
+  assert.deepEqual(
+    inFence.blocks.map((block) => [block.addedBefore, block.addedAfter]),
+    [
+      [0, 5],
+      [8, 0]
+    ]
+  )
+})
+
 test('a fence the cap ends is left open and gets no closing line', () => {
   const input = `\`\`\`ts\n${lines(300, 80, 'code')}\`\`\`\n`
   const cut = cutMarkdown(input, 4 * KIB)
@@ -528,13 +622,37 @@ test('a fence the cap ends is left open and gets no closing line', () => {
   assert.equal(cut.blocks.length, 1)
   assert.equal(cut.blocks[0]?.addedAfter, 0)
   assert.ok(cut.blocks[0]?.text.endsWith('x\n'))
+
+  // The first block is full inside the fence, and the next line of code is over the cap.
+  const atTheLimit = cutMarkdown(input, BLOCK_LIMIT + 6)
+  assertSound(input, atTheLimit)
+  assert.deepEqual(texts(atTheLimit), [input.slice(0, 6 + 204 * 80)])
 })
+
+/** How much of the input a Markdown cut has to show, by the rule of the cap. */
+function assertShownToTheCap(input: string, cut: Cut, cap: number): void {
+  const shown = input.length - cut.notShown
+  assert.equal(cut.blocks.at(-1)?.addedAfter ?? 0, 0, 'nothing is added after the last block')
+  if (input.length <= cap) {
+    assert.equal(cut.notShown, 0)
+    return
+  }
+  assert.ok(shown <= cap, 'no more than the cap is shown')
+  if (cap === 0) return
+  // The line the cap falls in. Every line before it is shown.
+  const lineStart = input.lastIndexOf('\n', cap - 1) + 1
+  const lineBreak = input.indexOf('\n', lineStart)
+  const lineSize = (lineBreak === -1 ? input.length : lineBreak + 1) - lineStart
+  assert.ok(shown >= lineStart, `${shown} shown, and whole lines up to ${lineStart} fit under the cap`)
+  // The first line, and a line no block can hold, are shown up to the cap, to within a character.
+  if (lineStart === 0 || lineSize > BLOCK_LIMIT) assert.ok(shown >= cap - 1, `${shown} shown under a cap of ${cap}`)
+}
 
 test('the long Markdown file of the run detail prototype is cut at blank lines with nothing added', () => {
   // fixtures/markdown/prototype-plan.md.txt is what `planMarkdown()` returns in
   // prototypes/run-detail/plugin/src/fixtures.ts on the prototype/run-detail branch, byte for
   // byte. It has a fence, a table and a nested list, each lying across a multiple of 16 KiB.
-  // Its name ends in .txt so that markdownlint does not lint a recorded file.
+  // README.md says why its name ends in .txt.
   const input = readRepoText('fixtures/markdown/prototype-plan.md.txt')
   assert.ok(input.length > 4 * BLOCK_LIMIT)
   for (const multiple of [1, 2, 3]) {
@@ -575,13 +693,17 @@ test('every cut of generated Markdown is sound, at any cap', () => {
     () => `${nestedList(Math.ceil(size() / 70))}${pick(['\n', ''])}`,
     () => `${pick(['a', ASTRAL, '| ', '   '])}${ASTRAL.repeat(size())}${pick(['\n', '\n\n', '\r\n'])}`,
     () => `${'-'.repeat(size())}|${' '.repeat(size())}x\n`,
-    () => lines(Math.ceil(size() / 60), 60, pick(['> quote', '   indented', '\t```', '|'])).replaceAll('\n', pick(['\n', '\r\n']))
+    () => lines(Math.ceil(size() / 60), 60, pick(['> quote', '   indented', '\t```', '|', '- item'])).replaceAll('\n', pick(['\n', '\r\n'])),
+    () => `${pick([LONG_OPENING, `${'~'.repeat(5000)}\n`])}${lines(Math.ceil(size() / 80), 80, 'code')}${pick(['```\n', '\n', ''])}`,
+    () => `| ${'File '.repeat(1000)}| Change |\n| --- | --- |\n${rows(Math.ceil(size() / 90))}`
   ]
   for (let round = 0; round < 150; round++) {
     let input = ''
     for (let part = Math.ceil(random() * 8); part > 0; part--) input += pick(parts)()
     for (const cap of [256 * KIB, 64 * KIB, BLOCK_LIMIT, Math.floor(random() * 40 * KIB)]) {
-      assertSound(input, cutMarkdown(input, cap))
+      const markdown = cutMarkdown(input, cap)
+      assertSound(input, markdown)
+      assertShownToTheCap(input, markdown, cap)
       const plain = cutText(input, cap)
       assertSound(input, plain)
       assert.equal(plain.notShown, Math.max(0, input.length - cap) + (splits(input, cap) ? 1 : 0))
