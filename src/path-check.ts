@@ -3,6 +3,7 @@
 // string: a release, a fork and a source build are all judged by the paths they serve.
 import type { Client } from './client'
 import type { Features } from './connection-view'
+import { isRecord } from './records'
 
 export const OPENAPI_PATH = '/api/openapi.json'
 
@@ -53,10 +54,6 @@ export type PathCheck =
    * or it came back with an error status or past the read cap.
    */
   | { kind: 'unreachable' }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 /** Decides from a parsed document. The path list is its `paths` object's own keys. */
 export function judgePathList(document: unknown): PathCheck {

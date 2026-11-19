@@ -6,6 +6,7 @@ import type { Client } from './client'
 import type { AddressSource, HomeFolder } from './connection-view'
 import type { Disk } from './disk'
 import { isLoopbackHost } from './loopback'
+import { isRecord } from './records'
 
 /** Where Archon listens when neither a setting nor `server.json` says otherwise. */
 export const DEFAULT_BASE_URL = 'http://127.0.0.1:3090'
@@ -18,10 +19,6 @@ const SERVER_RECORD_CAP_BYTES = 64 * 1024
 const VERSION_LENGTH = 40
 const HOST_LENGTH = 100
 const STORE_ID_LENGTH = 200
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 /** A field of its own on a record, or undefined when the record does not have it. */
 function own(record: Record<string, unknown>, key: string): unknown {

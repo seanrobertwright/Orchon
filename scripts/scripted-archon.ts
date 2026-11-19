@@ -6,7 +6,9 @@ import { mockHost, mountWorker, type MockHost, type MockHostOptions, type TestWo
 import type { OrcaWorkerApi } from 'orca/worker'
 import type { FetchAnswer, FetchInit, FetchLike, Timers } from '../src/client.ts'
 import type { ConnectionView } from '../src/connection-view.ts'
+import { DEFAULT_BASE_URL } from '../src/discovery.ts'
 import type { Disk, FolderState, TextFile } from '../src/disk.ts'
+import { OPENAPI_PATH } from '../src/path-check.ts'
 import { start } from '../src/worker.ts'
 import { readRepoText } from './repo-files.ts'
 import { field } from './shape.ts'
@@ -113,8 +115,6 @@ export const health = (fields: Record<string, unknown> = {}): Scripted =>
 /** The releases with recorded fixtures, oldest first. */
 export const RELEASES = ['0.12.1', '0.13.2', '0.14.0'] as const
 export type Release = (typeof RELEASES)[number]
-
-export const OPENAPI_PATH = '/api/openapi.json'
 
 /**
  * The first answer a recorded fixture holds, as the scripted Archon gives it: the recorded
@@ -242,7 +242,10 @@ export function scriptDisk(): ScriptedDisk {
 export const HOME_DIR = join(parse(process.cwd()).root, 'home', 'someone')
 export const ARCHON_HOME = join(HOME_DIR, '.archon')
 export const SERVER_RECORD = join(ARCHON_HOME, 'server.json')
-export const DEFAULT_HEALTH = 'http://127.0.0.1:3090/api/health'
+/** The default address, and the two calls a pass makes there. */
+export const DEFAULT = DEFAULT_BASE_URL
+export const DEFAULT_HEALTH = `${DEFAULT}/api/health`
+export const DEFAULT_OPENAPI = `${DEFAULT}${OPENAPI_PATH}`
 
 export type Scene = {
   archon: ScriptedArchon
@@ -266,6 +269,12 @@ export type MountedScene = {
   /** Every `statusBar.update` the worker sent, in order. */
   statusBar(): unknown[]
 }
+
+/** The kind of every connection state the worker posted, in order. */
+export const kinds = (mounted: MountedScene): string[] => mounted.posted().map((state) => state.kind)
+
+/** The address of every call made to the scripted Archon, in order. */
+export const urls = (stage: Scene): string[] => stage.archon.calls.map((call) => call.url)
 
 /**
  * A scripted Archon, clock and disk, and the worker mounted on them. Script what Archon answers
