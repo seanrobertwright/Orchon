@@ -82,6 +82,29 @@ describe('the runs table under the project scope', () => {
     await worker.deactivate()
   })
 
+  test('Open in Orca shows a workspace Orca lists, through workspace.open', async () => {
+    const stage = connectedScene()
+    const { worker, host } = await stage.mount({
+      results: {
+        'workspace.list': { workspaces: [{ id: 'ws-task-1', kind: 'worktree', name: 't', projectId: null, path: 'C:/w/t', branch: null, hostId: 'local' }], truncated: false },
+        'workspace.open': { opened: true }
+      }
+    })
+    assert.equal(await worker.request('workspace.open', { workspaceId: 'ws-task-1' }), null)
+    assert.deepEqual(host.callsOf('workspace.open'), [{ workspaceId: 'ws-task-1' }])
+    await worker.deactivate()
+  })
+
+  test('Open in Orca refuses a workspace Orca does not list, and a malformed request', async () => {
+    const stage = connectedScene()
+    const { worker, host } = await stage.mount({ results: { 'workspace.list': { workspaces: [], truncated: false }, 'workspace.open': { opened: true } } })
+    for (const input of [{ workspaceId: 'ws-gone' }, {}, { workspaceId: '' }, { workspaceId: 'a', path: 'b' }, null]) {
+      await assert.rejects(worker.request('workspace.open', input as never), (error: unknown) => (error as { code?: string }).code === 'invalid_params')
+    }
+    assert.deepEqual(host.callsOf('workspace.open'), [])
+    await worker.deactivate()
+  })
+
   test('when Orca does not list its workspaces, the runs are still answered without one', async () => {
     const stage = connectedScene()
     stage.archon.answer(`${RUNS}?limit=50&offset=0`, recorded('0.12.1', 'dashboard-runs'))

@@ -2,7 +2,7 @@
 // read it through the type-check, so a name spelled differently on one side does not compile.
 import type { ConnectionAnswer, ConnectionView } from './connection-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
-import type { LinkRequest, RegisterRequest, ScopeAnswer } from './scope-view'
+import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
 
 declare module 'orca' {
@@ -21,6 +21,8 @@ declare module 'orca' {
     'scope.unlink': { output: ScopeAnswer }
     /** Registers the main checkout folder the person confirmed with Archon, then reads the scope again. */
     'scope.register': { input: RegisterRequest; output: ScopeAnswer }
+    /** Open in Orca: shows a workspace Orca lists, through `workspace.open`. */
+    'workspace.open': { input: OpenRequest; output: null }
     /**
      * The Settings section began to show: reads health and the update check at once, then health
      * every 30 seconds until `system.close`. The System requests take no input.

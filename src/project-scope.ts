@@ -10,7 +10,7 @@ import type { Disk } from './disk'
 import { matchProject, type ArchonProject } from './project-match'
 import { readFailureText, unreadableAnswerText } from './read-failure'
 import { isRecord, own, refuseRequest } from './records'
-import { CHOICES_CAP, type LinkChoices, type LinkRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
+import { CHOICES_CAP, type LinkChoices, type LinkRequest, type OpenRequest, type RegisterRequest, type ScopeAnswer, type ScopeView } from './scope-view'
 import { localAndWritable, normalisePath, originUrl } from './workspaces'
 
 /** The longest Git config file the worker reads. */
@@ -136,6 +136,15 @@ export function parseRegisterRequest(input: unknown): RegisterRequest {
   if (!isText(folder) || folder.length > 4096) refuseRequest('The folder must be text of 1 to 4096 characters.')
   for (const key of Object.keys(input)) if (key !== 'folder') refuseRequest(`Register does not take ${key}.`)
   return { folder }
+}
+
+/** Open in Orca's input, or a refusal: a workspace id and nothing else. */
+export function parseOpenRequest(input: unknown): OpenRequest {
+  if (!isRecord(input)) refuseRequest('Open in Orca takes a workspace id.')
+  const workspaceId = own(input, 'workspaceId')
+  if (!isText(workspaceId) || workspaceId.length > 1024) refuseRequest('The workspace id must be text of 1 to 1024 characters.')
+  for (const key of Object.keys(input)) if (key !== 'workspaceId') refuseRequest(`Open in Orca does not take ${key}.`)
+  return { workspaceId }
 }
 
 export type ProjectScopePorts = {
@@ -326,6 +335,13 @@ export function startProjectScope(orca: OrcaWorkerApi, ports: ProjectScopePorts)
       return answer(context.signal, link(null))
     }),
     orca.panels.handle('scope.register', (input, context) => answer(context.signal, register(parseRegisterRequest(input).folder))),
+    // Open in Orca: only a workspace Orca lists now is shown.
+    orca.panels.handle('workspace.open', async (input) => {
+      const { workspaceId } = parseOpenRequest(input)
+      if (!(await workspaces()).some((row) => row.id === workspaceId)) refuseRequest('Orca no longer lists that workspace.')
+      await orca.host.call('workspace.open', { workspaceId })
+      return null
+    }),
     // The event also fires when the focused workspace's terminals change, and once on subscribing:
     // only a different workspace, or none, is a hint worth posting.
     orca.events.on('workspace.changed', (payload) => {

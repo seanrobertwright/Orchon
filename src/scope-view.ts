@@ -52,3 +52,6 @@ export type LinkRequest = { projectId: string }
 
 /** What Register sends: the exact folder the person confirmed. */
 export type RegisterRequest = { folder: string }
+
+/** What Open in Orca sends: the workspace a run's folder belongs to. */
+export type OpenRequest = { workspaceId: string }
