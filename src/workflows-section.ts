@@ -4,6 +4,9 @@
 // the boundary: it checks every request itself, sends a Delete once with the write timeout, and
 // never sends one again.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
+import { isArchonWorkflowName, newWorkflowDefinition, newWorkflowFile, WORKFLOW_NAME_CAP, type BuilderIdentity } from '../editors/builder/builder-view'
+import { PROJECT_GONE } from './builder'
+import type { BuilderDraft, BuilderDrafts } from './builder-drafts'
 import type { Client } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
@@ -22,6 +25,9 @@ import {
   DELETE_TIMED_OUT,
   isDeletableName,
   isOwnedSource,
+  NAME_REFUSED,
+  nameInUse,
+  NEEDS_PROJECT,
   NOT_DELETABLE,
   SECTION_DESCRIPTION_CAP,
   SECTION_PROJECTS_CAP,
@@ -31,7 +37,9 @@ import {
   type DeleteOutcome,
   type SectionList,
   type SectionWorkflow,
+  type SectionDrafts,
   type WorkflowDelete,
+  type WorkflowNew,
   type WorkflowsAnswer,
   type WorkflowsRequest,
   type WorkflowsSectionView
@@ -81,6 +89,31 @@ export function parseWorkflowDelete(input: unknown): WorkflowDelete {
   return { name, codebaseId }
 }
 
+/** A frame's `workflows.new`, or a refusal: a name of at most the cap, a project id or null, and a place. The name rule is checked after, with a sentence. */
+export function parseWorkflowNew(input: unknown): WorkflowNew {
+  if (!isRecord(input)) refuseRequest('New workflow takes a name, a project and a place.')
+  refuseOtherKeys(input, ['name', 'codebaseId', 'place'], 'New workflow')
+  const name = own(input, 'name')
+  if (typeof name !== 'string' || name.length > WORKFLOW_NAME_CAP) refuseRequest(`The workflow name must be text of at most ${String(WORKFLOW_NAME_CAP)} characters.`)
+  if (!Object.hasOwn(input, 'codebaseId')) refuseRequest('New workflow takes a project id, or null for none.')
+  const codebaseId = own(input, 'codebaseId')
+  if (codebaseId !== null && !isCappedText(codebaseId, PROJECT_ID_CAP)) refuseRequest(cappedTextRefusal('The project id', PROJECT_ID_CAP))
+  const place = own(input, 'place')
+  if (place !== 'project' && place !== 'global') refuseRequest('The place must be project or global.')
+  if (place === 'project' && codebaseId === null) refuseRequest(NEEDS_PROJECT)
+  return { name, codebaseId, place }
+}
+
+/** The drafts the section names, for the chosen project or none; undefined when there are none to name. */
+function sectionDrafts(all: readonly BuilderDraft[], dropped: number, codebaseId: string | null): SectionDrafts | undefined {
+  if (all.length === 0 && dropped === 0) return undefined
+  const fresh = all.filter((draft) => draft.isNew && (draft.codebaseId === null || draft.codebaseId === codebaseId))
+  const rows = fresh
+    .map((draft) => ({ name: draft.name, codebaseId: draft.codebaseId, scope: draft.scope === 'global' ? ('global' as const) : ('project' as const) }))
+    .sort((first, second) => first.name.localeCompare(second.name) || first.scope.localeCompare(second.scope))
+  return { fresh: rows, elsewhere: all.filter((draft) => draft.isNew).length - fresh.length, dropped }
+}
+
 /** Archon's `error` words, cut, or null when its answer holds none. */
 function archonWords(body: unknown): string | null {
   const error = isRecord(body) ? own(body, 'error') : undefined
@@ -95,6 +128,10 @@ export type WorkflowsSectionPorts = {
   lists: LaunchLists
   /** Why Open in builder is off, or null when it is on. Never off when left out. */
   builderOff?(): Promise<string | null>
+  /** The builder drafts, which the section marks and lists, and New workflow keeps. */
+  drafts?: Pick<BuilderDrafts, 'list' | 'keep' | 'remove'>
+  /** Writes a builder pointer file for an identity and opens it, for New workflow. */
+  openIdentity?(identity: BuilderIdentity): Promise<{ opened: true } | { opened: false; reason: string }>
 }
 
 export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSectionPorts): Disposable {
@@ -127,10 +164,16 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
     return { result, rows }
   }
 
-  function sectionList(result: ListResult, listed: ListedWorkflow[], filter: string): SectionList {
+  function sectionList(result: ListResult, listed: ListedWorkflow[], filter: string, drafted: (row: ListedWorkflow) => boolean): SectionList {
     if (result.kind !== 'ready') return result
     const all: SectionWorkflow[] = listed
-      .map((row) => ({ name: row.name, description: cutAt(row.description, SECTION_DESCRIPTION_CAP), source: row.source, deletable: isOwnedSource(row.source) && isDeletableName(row.name) }))
+      .map((row) => ({
+        name: row.name,
+        description: cutAt(row.description, SECTION_DESCRIPTION_CAP),
+        source: row.source,
+        deletable: isOwnedSource(row.source) && isDeletableName(row.name),
+        ...(drafted(row) ? { draft: true as const } : {})
+      }))
       .sort((first, second) => first.name.localeCompare(second.name) || first.source.localeCompare(second.source))
     const matching = filter === '' ? all : all.filter((row) => contains(row.name, filter) || contains(row.description, filter))
     return { kind: 'ready', rows: matching.slice(0, SECTION_WORKFLOWS_CAP), total: all.length, matching: matching.length, unreadable: result.list.unreadable }
@@ -156,15 +199,59 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
     if (project !== undefined && !rows.some((row) => row.id === project.id)) rows.unshift({ id: project.id, name: project.name })
     const { result, rows: workflows } = await listFor(connection, project, reload)
     const builderOff = ports.builderOff === undefined ? null : await ports.builderOff()
+    const kept = ports.drafts === undefined ? { drafts: [], dropped: 0 } : await ports.drafts.list()
+    const codebaseId = project?.id ?? null
+    const drafted = (row: ListedWorkflow): boolean => kept.drafts.some((draft) => draft.name === row.name && draft.scope === row.source && draft.codebaseId === codebaseId)
+    const drafts = sectionDrafts(kept.drafts, kept.dropped, codebaseId)
     return {
       kind: 'ready',
       projects: { rows, more: Math.max(0, found.length - SECTION_PROJECTS_CAP), unreadable: listed.unreadable },
       codebaseId: project?.id ?? null,
       folder: project?.defaultCwd ?? null,
       readFrom: readFromOf(await ports.focused(), project),
-      list: sectionList(result, workflows, request.filter ?? ''),
-      ...(builderOff === null ? {} : { builderOff })
+      list: sectionList(result, workflows, request.filter ?? '', drafted),
+      ...(builderOff === null ? {} : { builderOff }),
+      ...(drafts === undefined ? {} : { drafts })
     }
+  }
+
+  /**
+   * New workflow: checks the name against Archon's rule and against the names in use here, keeps
+   * a draft of one empty prompt node, and opens its tab. Archon is written nothing: the first
+   * Save writes the workflow. A tab that does not open lets the draft go.
+   */
+  async function createNew(input: WorkflowNew): Promise<{ opened: true } | { opened: false; reason: string }> {
+    const refused = (reason: string) => ({ opened: false as const, reason })
+    const connection = await ports.current()
+    if (connection.kind !== 'connected') return refused(NOT_CONNECTED_TEXT)
+    const off = ports.builderOff === undefined ? null : await ports.builderOff()
+    if (off !== null) return refused(off)
+    if (ports.drafts === undefined || ports.openIdentity === undefined) return refused(NOT_CONNECTED_TEXT)
+    const { name, place } = input
+    if (!isArchonWorkflowName(name)) return refused(NAME_REFUSED)
+    let project: ArchonProject | undefined
+    if (input.codebaseId !== null) {
+      const read = await ports.lists.projects(connection, false)
+      if (read.kind === 'failed') return refused(read.message)
+      project = read.listed.projects.find((entry) => entry.id === input.codebaseId)
+      if (project === undefined) return refused(PROJECT_GONE)
+    }
+    // The names in use: those Archon lists for the project, and for a global workflow those it lists with none.
+    const lists = [await listFor(connection, project, false), ...(place === 'global' ? [await listFor(connection, undefined, false)] : [])]
+    for (const { result } of lists) {
+      if (result.kind === 'failed') return refused(`Orchon could not read the workflows to check the name. ${result.message}`)
+      if (result.kind === 'too-large') return refused("Orchon could not check the name: Archon's workflow list is too large to read.")
+    }
+    const codebaseId = place === 'global' ? null : input.codebaseId
+    const { drafts } = await ports.drafts.list()
+    const drafted = drafts.some((draft) => draft.name === name && (draft.codebaseId === codebaseId || draft.codebaseId === null || codebaseId === null))
+    if (drafted || lists.some(({ rows }) => rows.some((row) => row.name === name))) return refused(nameInUse(name))
+    const identity: BuilderIdentity = { name, codebaseId, scope: place }
+    const kept = await ports.drafts.keep({ ...identity, definition: newWorkflowDefinition(name), base: null, file: newWorkflowFile(place) }, true)
+    if (!kept.kept) return refused(kept.reason)
+    const opened = await ports.openIdentity(identity)
+    if (!opened.opened) await ports.drafts.remove(identity)
+    return opened
   }
 
   async function answer(request: WorkflowsRequest, reload: boolean): Promise<WorkflowsAnswer> {
@@ -217,7 +304,8 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
       const request = parseWorkflowsRequest(input)
       return answer(request, request.reload === true)
     }),
-    orca.panels.handle('workflows.delete', (input) => remove(parseWorkflowDelete(input)))
+    orca.panels.handle('workflows.delete', (input) => remove(parseWorkflowDelete(input))),
+    orca.panels.handle('workflows.new', (input) => createNew(parseWorkflowNew(input)))
   ]
 
   return {

@@ -14,6 +14,7 @@ import { parseBase, parseDefinition } from './builder-save'
 import type { Timers } from './client'
 import type { ConnectionView } from './connection-view'
 import { cappedTextRefusal, isCappedText, isRecord, own, refuseRequest } from './records'
+import { nameInUse } from './workflows-section-view'
 import {
   BUILDER_DRAFT_WRITE_PAUSE_MS,
   BUILDER_DRAFTS_CAP,
@@ -151,6 +152,8 @@ export function startBuilderDrafts(orca: OrcaWorkerApi, ports: BuilderDraftsPort
     // Nothing is awaited from here on, so no other write slips in between the lookup and the keep.
     let slot = slotOf(write)
     let draft: BuilderDraft
+    // A new workflow is new once: a second of one identity is refused.
+    if (isNew && slot !== undefined) return { kept: false, reason: nameInUse(name) }
     if (slot === undefined) {
       if (slots.size >= BUILDER_DRAFTS_CAP) return { kept: false, reason: DRAFTS_FULL }
       if (storeId === undefined) return { kept: false, reason: NO_STORE_KNOWN }

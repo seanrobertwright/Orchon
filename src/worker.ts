@@ -47,12 +47,15 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     openDisk: ports.openDisk
   })
   const runsTable = startRunsTable(orca, { ...connection, workspaces: projectScope.workspaces })
+  // The builder's drafts, which the tabs, the Workflows section and Open in builder share.
+  const builderDrafts = startBuilderDrafts(orca, { timers: ports.timers, current: connection.current })
   const wideTabs = startWideTabs(orca, {
     client: connection.client,
     current: connection.current,
     focused: projectScope.focused,
     openDisk: ports.openDisk,
-    now: ports.now
+    now: ports.now,
+    drafts: builderDrafts
   })
   // The question run detail last read for each run, which an answer is checked against.
   const questions = createQuestionMemory()
@@ -68,7 +71,6 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   const artifacts = startArtifacts(orca, connection)
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
-  const builderDrafts = startBuilderDrafts(orca, { timers: ports.timers, current: connection.current })
   const builder = startBuilder(orca, {
     client: connection.client,
     current: connection.current,
@@ -95,7 +97,9 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     current: connection.current,
     focused: projectScope.focused,
     lists: launch.lists,
-    builderOff: wideTabs.builderOff
+    builderOff: wideTabs.builderOff,
+    drafts: builderDrafts,
+    openIdentity: wideTabs.openIdentity
   })
   // Chat's leases on conversation streams, read through the same shared reader as the launcher's.
   const chatStreams = createChatStreams({ streams, now: ports.now, timers: ports.timers, hint: (hint) => orca.panels.post('chat.changed', hint) })

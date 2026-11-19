@@ -129,3 +129,22 @@ export type BuilderDraftWriteAnswer = { kept: true } | { kept: false; reason: st
  * saved, and whether it was made on a different Archon from the one connected now.
  */
 export type BuilderDraftView = { definition: Record<string, unknown>; base: BuilderBase | null; file: string; isNew: boolean; otherArchon: boolean }
+
+/**
+ * Archon's rule for the name a workflow is saved under (`isValidCommandName`, which its
+ * `PUT /api/workflows/{name}` applies at 0.12.1): not empty, no `/`, `\` or `..`, and no leading
+ * `.`. The copied builder logic holds no such rule; this is read from Archon's server source.
+ */
+export function isArchonWorkflowName(name: string): boolean {
+  return name !== '' && name.length <= WORKFLOW_NAME_CAP && !name.includes('/') && !name.includes('\\') && !name.includes('..') && !name.startsWith('.')
+}
+
+/** Where a new workflow is saved: into the chosen project, or into Archon's home folder for every project. */
+export type NewWorkflowPlace = 'project' | 'global'
+
+/** A new workflow's first copy: its name, no description, and one empty prompt node, as the copied editor names a first prompt node. */
+export const newWorkflowDefinition = (name: string): Record<string, unknown> => ({ name, description: '', nodes: [{ id: 'prompt-1', prompt: '' }] })
+
+/** Where a new workflow's first Save writes it, in words, for its header until then. */
+export const newWorkflowFile = (place: NewWorkflowPlace): string =>
+  place === 'global' ? "Not saved yet. The first Save writes it to the workflows folder of Archon's home folder." : "Not saved yet. The first Save writes it to the project's .archon/workflows folder."

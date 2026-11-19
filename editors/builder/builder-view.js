@@ -16,3 +16,15 @@ export const BUILDER_DRAFT_WRITE_PAUSE_MS = 1_000;
 export const BUILDER_DRAFT_SEND_PAUSE_MS = 500;
 /** The most characters of the file words a draft keeps, to show while Archon is away. */
 export const DRAFT_FILE_CAP = 2_000;
+/**
+ * Archon's rule for the name a workflow is saved under (`isValidCommandName`, which its
+ * `PUT /api/workflows/{name}` applies at 0.12.1): not empty, no `/`, `\` or `..`, and no leading
+ * `.`. The copied builder logic holds no such rule; this is read from Archon's server source.
+ */
+export function isArchonWorkflowName(name) {
+    return name !== '' && name.length <= WORKFLOW_NAME_CAP && !name.includes('/') && !name.includes('\\') && !name.includes('..') && !name.startsWith('.');
+}
+/** A new workflow's first copy: its name, no description, and one empty prompt node, as the copied editor names a first prompt node. */
+export const newWorkflowDefinition = (name) => ({ name, description: '', nodes: [{ id: 'prompt-1', prompt: '' }] });
+/** Where a new workflow's first Save writes it, in words, for its header until then. */
+export const newWorkflowFile = (place) => place === 'global' ? "Not saved yet. The first Save writes it to the workflows folder of Archon's home folder." : "Not saved yet. The first Save writes it to the project's .archon/workflows folder.";
