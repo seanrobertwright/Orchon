@@ -6,6 +6,7 @@
 import { isAbsolute, join } from 'node:path'
 import type { RefusedSetting, SettingKey } from './connection-view'
 import { isLoopbackHost } from './loopback'
+import { isRecord, own } from './records'
 
 /** Why a value was refused, one sentence each. A word between backticks is shown as code. */
 export const REASONS = {
@@ -59,8 +60,7 @@ export function shown(text: string): string {
 
 /** One setting as it was stored: its own key of a plain object, or absent. */
 function stored(raw: unknown, key: SettingKey): unknown {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
-  return Object.hasOwn(raw, key) ? (raw as Record<string, unknown>)[key] : undefined
+  return isRecord(raw) ? own(raw, key) : undefined
 }
 
 /** A stored value as text: a string as typed, anything else as its JSON. */

@@ -4,7 +4,7 @@
 import type { Client, ClientFailure, Timers } from './client'
 import type { ConnectionView } from './connection-view'
 import { HEALTH_PATH } from './discovery'
-import { isRecord } from './records'
+import { isRecord, own } from './records'
 import type { HealthFacts, Platforms, SystemView, Updates } from './system-view'
 
 /** While the section shows, health is read again this often. */
@@ -20,11 +20,6 @@ export const UPDATE_CHECK_PATH = '/api/update-check'
 
 /** A release link longer than this is not one Archon wrote. */
 const RELEASE_URL_LENGTH = 2_048
-
-/** A field of its own on a record, or undefined when the record does not have it. */
-function own(record: Record<string, unknown>, key: string): unknown {
-  return Object.hasOwn(record, key) ? record[key] : undefined
-}
 
 /** A non-empty string cut for display, or null. */
 function text(value: unknown): string | null {
