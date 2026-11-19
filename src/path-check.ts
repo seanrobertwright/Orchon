@@ -46,7 +46,10 @@ export const METRICS_PATHS: readonly string[] = ['/api/metrics', '/api/metric-vi
 export type PathCheck =
   /** Every required path is listed. The optional features are those whose paths are all listed. */
   | { kind: 'supported'; features: Features }
-  /** The document is not JSON, has no `paths` object, or lacks a required path. */
+  /**
+   * The document is not JSON, has no `paths` object, or lacks a required path. An error status
+   * or an answer past the read cap is not a path list either.
+   */
   | { kind: 'unsupported' }
   /** The document did not arrive: the connection was refused, or it timed out. */
   | { kind: 'unreachable' }
