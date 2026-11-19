@@ -8,6 +8,7 @@ import {
   DEFAULT_HEALTH,
   HANG,
   health,
+  json,
   REFUSE,
   scene,
   type MountedScene,
@@ -451,6 +452,18 @@ describe('the status bar item', () => {
       await stage.clock.advance(1_000)
       assert.deepEqual(mounted.statusBar().at(-1), item('Archon setup', sentence, true))
     }
+  })
+
+  test('reads "Archon setup", as a warning, for Unsupported', async () => {
+    const stage = scene()
+    stage.archon.answer(DEFAULT_HEALTH, health({ version: '0.11.1' }))
+    stage.archon.answer(`${DEFAULT}/api/openapi.json`, json({ openapi: '3.0.0', paths: { '/api/health': {} } }))
+    const mounted = await stage.mount()
+    await stage.clock.advance(1_000)
+    assert.deepEqual(
+      mounted.statusBar().at(-1),
+      item('Archon setup', `The Archon at ${DEFAULT} is not supported. Orchon needs 0.12.1 or newer.`, true)
+    )
   })
 
   test('says "Connected to Archon" with no version when health reports none', async () => {
