@@ -35,6 +35,7 @@ import { formatClock, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
 import { clearRunDetail, openRunDetail, openRunId, restartRunDetail, runDetailHasData, runDetailSection } from './run-detail-section'
+import { worktreeLine } from './worktree-line'
 import { FILTER_ORDER, filterWord, STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
 import { ROWS_CAP, ROWS_STEP, type RunRow, type RunsAnswer, type RunsRequest, type RunsView, type StatusFilter } from './runs-view'
 import { restartScope, scopeChoice, scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
@@ -231,38 +232,6 @@ function unreadableLine(count: number): string {
   return count === 1 ? '1 run could not be read and is not shown.' : `${String(count)} runs could not be read and are not shown.`
 }
 
-/** Opens the workspace a run's folder belongs to. A failed request changes nothing. */
-function openInOrca(workspaceId: string): void {
-  plugin.request('workspace.open', { workspaceId }).then(
-    () => {},
-    () => {}
-  )
-}
-
-/**
- * Under the worktree: **Open in Orca** when Orca lists the run's folder as a workspace, and
- * otherwise the hint about Orca's Non-Orca worktrees setting. Whether the folder exists is not
- * checked: the worker's closed disk list of #32 has no such read.
- */
-function worktreeLine(run: RunRow): OrcaNode {
-  if (run.workingPath === null) return null
-  const { workspaceId } = run
-  if (workspaceId !== undefined) {
-    return (
-      <Row>
-        <Button size="sm" variant="outline" onPress={() => openInOrca(workspaceId)}>
-          Open in Orca
-        </Button>
-      </Row>
-    )
-  }
-  return (
-    <Text muted size="sm">
-      Orca does not show this worktree. To open it in Orca, show it in the project's Non-Orca worktrees setting.
-    </Text>
-  )
-}
-
 function preview(run: RunRow): OrcaNode {
   const facts: KeyValueItem[] = [{ label: 'Project', value: run.project ?? 'No project' }]
   if (run.workingPath !== null) facts.push({ label: 'Worktree', value: run.workingPath, code: true })
@@ -325,7 +294,7 @@ function table(runs: Ready, status: StatusFilter): OrcaNode {
 
 /** The section while connected or under the Searching banner. `writable` is false when its controls that write are off. */
 export function runsSection(state: Connected, writable: boolean): OrcaNode {
-  if (openRunId() !== null) return runDetailSection(state, writable)
+  if (openRunId() !== null) return runDetailSection()
   const status = read(filter)
   const runs = read(loaded)
   const held = read(problem)

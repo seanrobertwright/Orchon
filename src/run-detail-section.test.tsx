@@ -92,3 +92,57 @@ describe('opening a run', () => {
     assert.ok(view.find({ type: 'Text', text: 'workflow-2' }))
   })
 })
+
+const openOn = async (detail: (request: RunDetailRequest) => RunDetailView = readyDetail): Promise<TestPanel> =>
+  mountWith(detail, { section: 'runs', openRun: 'run-1' })
+
+const FACTS = { type: 'Collapsible', label: 'Run facts' }
+const MESSAGE = { type: 'Collapsible', label: 'Launch message' }
+const SHOW = { type: 'Select', label: 'Show' }
+
+describe('run detail, top to bottom', () => {
+  test('the header row, the Run facts and Launch message folds, then the Steps and Artifacts select and the tree', async () => {
+    const view = await openOn()
+    assert.deepEqual(
+      order(view, ['Button', 'Badge', 'Collapsible', 'Select', 'Tree']).filter((type, index, all) => all.indexOf(type) === index),
+      ['Button', 'Badge', 'Collapsible', 'Select', 'Tree']
+    )
+    const folds = view.findAll({ type: 'Collapsible' }).map((fold) => fold.props.title)
+    assert.deepEqual(folds, ['Run facts', 'Launch message'])
+    clean(view)
+  })
+
+  test('Run facts is shut and summarised by duration, cost and project', async () => {
+    const ended = (): RunDetailView => ({ kind: 'ready', detail: sampleDetail(4, { id: 'run-1' }) })
+    const view = await openOn(ended)
+    const fold = view.find(FACTS)
+    assert.equal(fold?.props.open ?? fold?.props.defaultOpen ?? false, false)
+    assert.equal(fold?.props.description, '1m 15s · $0.42 · acme/web')
+  })
+
+  test('a run with no cost or project says so in the summary, and a live run leaves the duration out', async () => {
+    const view = await openOn(() => ({ kind: 'ready', detail: sampleDetail(1, { costUsd: null, project: null }) }))
+    assert.equal(view.find(FACTS)?.props.description, 'No cost reported · No project')
+  })
+
+  test('Launch message is shut, plain text, and says when it was cut at 2,000 characters', async () => {
+    const message = 'm'.repeat(2_000)
+    const view = await openOn(() => ({ kind: 'ready', detail: sampleDetail(1, { message, messageCut: true }) }))
+    const fold = view.find(MESSAGE)
+    assert.equal(fold?.props.open ?? fold?.props.defaultOpen ?? false, false)
+    await view.toggle(MESSAGE)
+    assert.ok(view.find({ type: 'Text', text: message }))
+    assert.ok(view.find({ type: 'Text', text: 'The launch message is cut at 2,000 characters.' }))
+    assert.equal(view.findAll({ type: 'Markdown' }).length, 0)
+  })
+
+  test('the select offers Steps with their count and Artifacts, Steps first', async () => {
+    const view = await openOn()
+    assert.deepEqual(view.find(SHOW)?.props.options, [
+      { value: 'steps', label: 'Steps (6)' },
+      { value: 'artifacts', label: 'Artifacts' }
+    ])
+    assert.equal(view.valueOf(SHOW), 'steps')
+  })
+})
+
