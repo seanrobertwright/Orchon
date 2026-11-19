@@ -38,7 +38,7 @@ npm run types
 
 There is no bundler. Orca loads `src/worker.ts` and `src/panel.tsx` as written. The editors under `editors/` are TypeScript compiled to JavaScript beside each source file, and both are committed. After changing an editor's TypeScript, run `npm run build:editors` and commit the JavaScript with it.
 
-`npm run check` runs every gate below in turn. CI runs the same gates on every pull request and on every push to `main`, against the latest Orca release.
+`npm run check` runs every gate below in turn. CI runs the same gates on every pull request and on every push to `main`, against the latest Orca release. When that release cannot be downloaded, CI runs only `check:tracked`, `lint`, `lint:md` and `check:limits`, skips the gates that need Orca, and names them in a warning and the job summary.
 
 | Command | What it checks |
 | --- | --- |

@@ -1,7 +1,8 @@
 name: CI
 
 # Every gate runs against the newest released Orca: the plugin directory validates a listing
-# with that release, and a tag is installed unattended 12 hours after it is listed.
+# with that release, and a tag is installed unattended 12 hours after it is listed. When that
+# release cannot be downloaded, only the gates that need no Orca run, and the run warns.
 on:
   pull_request:
   push:
@@ -30,7 +31,12 @@ jobs:
           node-version: 24
           cache: npm
 
+      # The download is the one step allowed to fail: when github.com cannot serve Orca, the
+      # gates that need no Orca still run and decide the result, and those that need it are
+      # skipped and named in a warning and the job summary.
       - name: Install the latest Orca release
+        id: orca
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -40,6 +46,27 @@ jobs:
           ditto -x -k "$RUNNER_TEMP"/orca/Orca-*-arm64-mac.zip "$RUNNER_TEMP/orca"
           echo "$RUNNER_TEMP/orca/Orca.app/Contents/Resources/bin" >> "$GITHUB_PATH"
 
+      - name: Report the gates skipped without Orca
+        if: steps.orca.outcome == 'failure'
+        run: |
+          echo "::warning title=Orca is missing::The latest Orca release could not be downloaded, so the gates that need Orca are skipped. This run is a weaker gate than a full run; see the job summary."
+          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+          ## Gates skipped: Orca could not be downloaded
+
+          The latest Orca release could not be downloaded from github.com, so this run skipped
+          every gate that needs Orca's CLI or the typings `orca plugin types .` writes. The gates
+          that need no Orca ran and decide the result. This run is a weaker gate than a full run.
+
+          | Skipped gate | Why it needs Orca |
+          | --- | --- |
+          | `orca plugin types .` | It is Orca's CLI. |
+          | `npm run typecheck` | The tsconfig extends the typings `orca plugin types .` writes. |
+          | `npm run check:editors` | It compiles the editors against the typings `orca plugin types .` writes. |
+          | `orca plugin test .` | It is Orca's CLI. |
+          | `orca plugin check .` | It is Orca's CLI. |
+          | `orca plugin validate .` | It is Orca's CLI. |
+          SUMMARY
+
       - name: Install the development dependencies
         run: npm ci --ignore-scripts
 
@@ -47,12 +74,15 @@ jobs:
         run: npm run check:tracked
 
       - name: Generate Orca's types
+        if: steps.orca.outcome == 'success'
         run: orca plugin types .
 
       - name: Type-check the whole repository
+        if: steps.orca.outcome == 'success'
         run: npm run typecheck
 
       - name: Committed editor JavaScript equals the compiler output
+        if: steps.orca.outcome == 'success'
         run: npm run check:editors
 
       - name: ESLint
@@ -62,12 +92,15 @@ jobs:
         run: npm run lint:md
 
       - name: Tests
+        if: steps.orca.outcome == 'success'
         run: orca plugin test .
 
       - name: Render the panel and check the editors
+        if: steps.orca.outcome == 'success'
         run: orca plugin check .
 
       - name: Validate the plugin as Orca loads it
+        if: steps.orca.outcome == 'success'
         run: orca plugin validate .
 
       - name: Install limits
