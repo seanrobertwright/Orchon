@@ -67,8 +67,10 @@ export function answeringMetrics(
         const view = await metrics(request)
         // The worker's report names the scope it covers, as `startMetrics` does.
         if (view.kind !== 'ready') return { connection, window, metrics: view }
-        const { codebaseId: _covered, ...rest } = view
-        return { connection, window, metrics: request.codebaseId === undefined ? rest : { ...rest, codebaseId: request.codebaseId } }
+        const stamped = { ...view }
+        delete stamped.codebaseId
+        if (request.codebaseId !== undefined) stamped.codebaseId = request.codebaseId
+        return { connection, window, metrics: stamped }
       }
     }
   }
