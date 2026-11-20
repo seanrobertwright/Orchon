@@ -14,6 +14,7 @@ import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
+import { formatNumber, formatShare, isMetricName } from './metric-figures'
 import {
   DEFAULT_WINDOW,
   DETAILS_ROWS_CAP,
@@ -39,9 +40,6 @@ export const WINDOW_STORAGE_KEY = 'metrics-window'
 /** How long a chosen window waits before it is written, so quick presses write once. */
 export const WINDOW_WRITE_PAUSE_MS = 1_000
 
-/** Archon's metric-name pattern and length, from `metricNameSchema`. */
-const METRIC_NAME = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/
-const METRIC_NAME_CAP = 128
 /** Archon's free text is cut here. */
 export const METRICS_TEXT_CAP = 500
 /** A plain name or a unit longer than this is not read as one. */
@@ -74,8 +72,6 @@ export function parseMetricsRequest(input: unknown): MetricsRequest {
   return request
 }
 
-const isMetricName = (value: unknown): value is string =>
-  typeof value === 'string' && value.length <= METRIC_NAME_CAP && METRIC_NAME.test(value)
 const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isCount = (value: unknown): value is number => isFiniteNumber(value) && Number.isInteger(value) && value >= 0
 const isNullableText = (value: unknown): value is string | null => value === null || typeof value === 'string'
@@ -195,13 +191,6 @@ export function parseReport(value: unknown): Report | null {
   }
 }
 
-/** Two decimals, except a nonzero value below 0.01 keeps two significant digits rather than showing 0. */
-function formatNumber(value: number): string {
-  return value !== 0 && Math.abs(value) < 0.01
-    ? value.toLocaleString('en-US', { maximumSignificantDigits: 2 })
-    : value.toLocaleString('en-US', { maximumFractionDigits: 2 })
-}
-const formatShare = (share: number): string => share.toLocaleString('en-US', { style: 'percent', maximumSignificantDigits: 2 })
 /** A value in its unit's terms: a `ratio` is a percentage, anything else a plain number. */
 const formatFigure = (value: number, unit: string): string => (unit === 'ratio' ? formatShare(value) : formatNumber(value))
 /** `prs` is the guide's own example unit; other units read with their underscores as spaces. */
