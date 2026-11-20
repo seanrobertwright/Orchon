@@ -43,7 +43,7 @@ const isNullableNumber = (value: unknown): value is number | null => value === n
 const isNullableText = (value: unknown): value is string | null => value === null || typeof value === 'string'
 const isTextList = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
 
-export const sameIdentity = (a: Identity, b: Identity): boolean =>
+const sameIdentity = (a: Identity, b: Identity): boolean =>
   a.instrument === b.instrument && a.measuredBy.length === b.measuredBy.length && a.measuredBy.every((model, i) => model === b.measuredBy[i])
 
 function parseInterval(value: unknown): InstrumentFigures['interval'] | undefined {

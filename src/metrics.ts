@@ -78,10 +78,6 @@ export function parseMetricsRequest(input: unknown): MetricsRequest {
 
 export const isMetricName = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= METRIC_NAME_CAP && METRIC_NAME.test(value)
-const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
-const isCount = (value: unknown): value is number => isFiniteNumber(value) && Number.isInteger(value) && value >= 0
-const isNullableText = (value: unknown): value is string | null => value === null || typeof value === 'string'
-const isTextList = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
 
 /** Thrown inside the report's parse: the whole answer could not be read. */
 class Unreadable extends Error {}
@@ -105,32 +101,9 @@ export function parseNames(value: unknown): Map<string, string> | null {
   return names
 }
 
-type Identity = { instrument: string | null; measuredBy: string[] }
-const sameIdentity = (a: Identity, b: Identity): boolean =>
-  a.instrument === b.instrument && a.measuredBy.length === b.measuredBy.length && a.measuredBy.every((model, i) => model === b.measuredBy[i])
-
-/** One instrument's figures the Details table reads. */
-type Figures = { value: number; n: number; usd: number | null; latest: number }
-
-function parseInstrument(value: unknown): Identity & Figures {
-  need(isRecord(value))
-  const instrument = own(value, 'instrument')
-  const measuredBy = own(value, 'measured_by')
-  const figure = own(value, 'value')
-  const n = own(value, 'n')
-  const cost = own(value, 'cost')
-  const latest = own(value, 'latest')
-  need(isNullableText(instrument) && isTextList(measuredBy) && isFiniteNumber(figure) && isCount(n))
-  need(isRecord(cost) && isRecord(latest))
-  const usd = own(cost, 'usd')
-  const latestValue = own(latest, 'value')
-  need((usd === null || isFiniteNumber(usd)) && isFiniteNumber(latestValue))
-  return { instrument, measuredBy, value: figure, n, usd, latest: latestValue }
-}
-
 /** A metric as the table reads it: unknown kinds carry nothing but their name. */
 export type Metric =
-  | { name: string; kind: 'known'; unit: string; calibration: boolean; headline: Figures; figures: MetricFigures }
+  | { name: string; kind: 'known'; unit: string; calibration: boolean; figures: MetricFigures }
   | { name: string; kind: 'unknown'; calibration: boolean }
 
 function parseMetric(value: unknown): Metric {
@@ -144,19 +117,11 @@ function parseMetric(value: unknown): Metric {
   const calibration = typeof calibrates === 'string'
   if (!KNOWN_KINDS.has(kind)) return { name, kind: 'unknown', calibration }
   const unit = own(value, 'unit')
-  const headlineInstrument = own(value, 'headline_instrument')
-  const headlineMeasuredBy = own(value, 'headline_measured_by')
-  const instruments = own(value, 'instruments')
   need(isCappedText(unit, LABEL_CAP) && calibrates !== undefined)
-  need(isNullableText(headlineInstrument) && isTextList(headlineMeasuredBy) && Array.isArray(instruments))
-  const parsed = instruments.map(parseInstrument)
-  // Archon always reports the headline judge version among the metric's instruments.
-  const headline = parsed.find((instrument) => sameIdentity(instrument, { instrument: headlineInstrument, measuredBy: headlineMeasuredBy }))
-  need(headline !== undefined)
-  // The rest of the figures, which a metric's view shows: a part that fails fails the whole answer.
+  // Every judge version's figures, the headline's among them: a part that fails fails the whole answer.
   const figures = parseMetricFigures(value)
   need(figures !== null)
-  return { name, kind: 'known', unit, calibration, headline, figures }
+  return { name, kind: 'known', unit, calibration, figures }
 }
 
 function parseRefusal(value: unknown): RefusalRow | null {
@@ -225,15 +190,16 @@ export function detailsRows(report: Report, names: ReadonlyMap<string, string>):
     .map((metric): MetricRow => {
       const label = names.get(metric.name) ?? metric.name
       if (metric.kind === 'unknown') return { name: metric.name, label, state: 'unknown-kind' }
-      const { headline, unit } = metric
+      const { unit } = metric
+      const { headline } = metric.figures
       return {
         name: metric.name,
         label,
         state: 'shown',
         value: formatValue(headline.value, unit),
         records: headline.n,
-        knownCost: headline.usd === null ? 'none recorded' : `≥ $${formatNumber(headline.usd)}`,
-        latest: formatFigure(headline.latest, unit)
+        knownCost: headline.cost.usd === null ? 'none recorded' : `≥ $${formatNumber(headline.cost.usd)}`,
+        latest: formatFigure(headline.latest.value, unit)
       }
     })
   return { rows: all.slice(0, DETAILS_ROWS_CAP), more: Math.max(0, all.length - DETAILS_ROWS_CAP) }
