@@ -144,6 +144,70 @@ export function assertReadWithoutAgent(workflow: unknown): void {
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Spend mode: the one workflow with an agent step, written into the throwaway project only for
+// the agent-step scenario, and the one chat message the chat-turn scenario sends.
+// ---------------------------------------------------------------------------------------------
+
+/** The agent step's whole prompt: two or three tool calls at most. */
+export const AGENT_STEP_PROMPT = 'List the files in this folder, then stop.'
+
+/** The tier the agent step runs on. The throwaway home's config pins it to Haiku. */
+export const SMALL_TIER = 'small'
+
+/** The one tool the agent step may use. Listing files needs no other. */
+export const AGENT_STEP_TOOLS: readonly string[] = ['Glob']
+
+/**
+ * One agent step on the small tier that lists the files of the throwaway project. Only Glob is
+ * allowed, only the project's own Claude settings are read, it is tried once, and Claude itself
+ * stops it past a small budget: a second guard beside the recorder's own ceilings.
+ */
+export const AGENT_STEP = {
+  name: 'orchon-recorder-agent-step',
+  description: 'Orchon fixture recorder, spend mode: one agent step on the small tier that lists the files of the throwaway project.',
+  worktree: { enabled: false },
+  nodes: [
+    {
+      id: 'list',
+      prompt: AGENT_STEP_PROMPT,
+      model: SMALL_TIER,
+      allowed_tools: [...AGENT_STEP_TOOLS],
+      settingSources: ['project'],
+      maxBudgetUsd: 0.3,
+      retry: { max_attempts: 1 }
+    }
+  ]
+} as const
+
+/** The chat turn's whole message: it asks Archon to run the recorder's shell-step workflow. */
+export const CHAT_TURN_MESSAGE = `run workflow ${RECORDER_WORKFLOWS.echo.name}`
+
+/** The agent step's file for the throwaway project. JSON is YAML. */
+export function agentStepFile(): { name: string; text: string } {
+  return { name: `${AGENT_STEP.name}.yaml`, text: `${JSON.stringify(AGENT_STEP, null, 2)}\n` }
+}
+
+const sameList = (value: unknown, expected: readonly string[]): boolean =>
+  Array.isArray(value) && value.length === expected.length && value.every((item, index) => item === expected[index])
+
+/**
+ * Fails unless Archon reads the agent-step workflow as the recorder wrote it: one agent step
+ * with the recorder's prompt, the small tier and Glob alone. Run before it is launched.
+ */
+export function assertAgentStepAsRead(workflow: unknown): void {
+  const nodes = nodesOf(workflow)
+  const [node] = nodes
+  if (nodes.length !== 1 || typeof node !== 'object' || node === null) throw new LaunchRefused('Archon reads the agent step as more than one step.')
+  const step = node as Record<string, unknown>
+  const source = step.source as Record<string, unknown> | undefined
+  if (step.kind !== 'agent' || typeof source !== 'object' || source === null || source.kind !== 'inline' || source.prompt !== AGENT_STEP_PROMPT) {
+    throw new LaunchRefused('Archon does not read the agent step as one agent with the recorder prompt.')
+  }
+  if (step.model !== SMALL_TIER) throw new LaunchRefused(`Archon reads the agent step's model as ${String(step.model)}, not the ${SMALL_TIER} tier.`)
+  if (!sameList(step.allowed_tools, AGENT_STEP_TOOLS)) throw new LaunchRefused('Archon reads the agent step with tools other than Glob.')
+}
+
 /** Fails unless `name` is one of the recorder's own workflows. Called before every launch. */
 export function assertLaunchable(name: string): void {
   if (FORBIDDEN_WORKFLOWS.includes(name)) throw new LaunchRefused(`The recorder never launches ${name}.`)

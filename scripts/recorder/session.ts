@@ -47,7 +47,8 @@ export function fixtureText(value: unknown): string {
 /** A fixture name is lower-case words, so it is a safe file name on every system. */
 const NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/
 
-export function createSession(release: string, client: LoopbackClient): Session {
+/** `now` is the clock every tape of the session reads; a test passes one it moves by hand. */
+export function createSession(release: string, client: LoopbackClient, now?: () => number): Session {
   const files: FixtureFile[] = []
   const gaps: Gap[] = []
   const add = (path: string, holds: string, text: string): void => {
@@ -60,7 +61,7 @@ export function createSession(release: string, client: LoopbackClient): Session 
     client,
     files,
     gaps,
-    tape: () => createTape(client),
+    tape: () => (now === undefined ? createTape(client) : createTape(client, now)),
     save(name, holds, tape) {
       const recording: Recording = { release, scenario: name, log: tape.log }
       add(`${name}.json`, holds, fixtureText(recording))
