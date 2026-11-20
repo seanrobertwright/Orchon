@@ -13,7 +13,7 @@
 // read from `metricViewsListingSchema` beside it. The figures are written as Archon's console
 // writes them (`formatValue`, `formatFigure` and `formatUsd` in the console's metrics `model.ts`).
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
-import { CALIBRATIONS_LOADING, calibrationsPost, readCalibrations, unmatchedCalibrations, type Calibrations } from './calibrations'
+import { CALIBRATIONS_LOADING, calibrationsPost, readCalibrations, unmatchedCalibrations, type CalibratedRatio, type Calibrations } from './calibrations'
 import type { Client, ClientFailure, Timers } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
@@ -104,8 +104,8 @@ export function parseNames(value: unknown): Map<string, string> | null {
  * their name and the metric they calibrate, or null.
  */
 export type Metric =
-  | { name: string; kind: 'count' | 'score'; unit: string; calibration: boolean; calibrates: string | null; figures: MetricFigures }
-  | { name: string; kind: 'unknown'; calibration: boolean; calibrates: string | null }
+  | { name: string; kind: 'count' | 'score'; unit: string; calibrates: string | null; figures: MetricFigures }
+  | { name: string; kind: 'unknown'; calibrates: string | null }
 
 function parseMetric(value: unknown): Metric {
   need(isRecord(value))
@@ -115,15 +115,14 @@ function parseMetric(value: unknown): Metric {
   need(isMetricName(name) && isText(kind))
   // A calibration names the metric it calibrates; one whose kind Orchon does not know is still one.
   need(calibrates === undefined || calibrates === null || isMetricName(calibrates))
-  const calibration = typeof calibrates === 'string'
-  const target = calibration ? calibrates : null
-  if (kind !== 'count' && kind !== 'score') return { name, kind: 'unknown', calibration, calibrates: target }
+  const target = typeof calibrates === 'string' ? calibrates : null
+  if (kind !== 'count' && kind !== 'score') return { name, kind: 'unknown', calibrates: target }
   const unit = own(value, 'unit')
   need(isCappedText(unit, LABEL_CAP) && calibrates !== undefined)
   // Every judge version's figures, the headline's among them: a part that fails fails the whole answer.
   const figures = parseMetricFigures(value)
   need(figures !== null)
-  return { name, kind, unit, calibration, calibrates: target, figures }
+  return { name, kind, unit, calibrates: target, figures }
 }
 
 function parseRefusal(value: unknown): RefusalRow | null {
@@ -180,7 +179,7 @@ export const formatKnownCost = (usd: number | null): string => (usd === null ? '
 /** The Details table: by name, calibrations left out, at most `DETAILS_ROWS_CAP` rows. */
 export function detailsRows(report: Report, names: ReadonlyMap<string, string>): { rows: MetricRow[]; more: number } {
   const all = report.metrics
-    .filter((metric) => !metric.calibration)
+    .filter((metric) => metric.calibrates === null)
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map((metric): MetricRow => {
       const label = names.get(metric.name) ?? metric.name
@@ -252,11 +251,13 @@ type Held = {
   report: Report
   cards: CardDeclarations
   names: ReadonlyMap<string, string>
+  /** The ratio cards of `cards` that declare a calibration, worked out once for the read. */
+  ratios: CalibratedRatio[]
   calibrations: Calibrations
 }
 
 /** What a metric's view reads of the held report beside the report itself. */
-export type HeldCalibrations = Pick<Held, 'calibrations' | 'names'> & { ratios: ReturnType<typeof calibratedRatios> }
+export type HeldCalibrations = { calibrations: Calibrations; names: ReadonlyMap<string, string>; ratios: readonly CalibratedRatio[] }
 
 /**
  * The metrics reads, and the report the worker holds for a key of `reportKey`, if it holds that
@@ -271,7 +272,7 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
   let window: MetricsWindow = DEFAULT_WINDOW
   let pending: unknown
   /** The year-long report in flight, which a new read of Archon stops, so one request runs at a time. */
-  let year: AbortController | undefined
+  let calibrationRead: AbortController | undefined
 
   function keptWindow(): Promise<MetricsWindow> {
     chosen ??= orca.storage.get(WINDOW_STORAGE_KEY).then(
@@ -301,7 +302,7 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
     if (!connection.features.metrics) return { kind: 'missing', message: metricsMissing(connection) }
     const key = reportKey(connection, request.codebaseId, requestedWindow)
     if (request.refresh !== true && held?.key === key && ports.now() - held.view.fetchedAt <= METRICS_MAX_AGE_MS) return held.view
-    year?.abort()
+    calibrationRead?.abort()
     const call = { baseUrl: connection.baseUrl, signal, errorBody: true } as const
     const views = await ports.client.request({ ...call, path: viewsPath(request.codebaseId), timeout: 'read' })
     const failed = (failure: ClientFailure): MetricsView => failedView(failure, connection)
@@ -333,17 +334,17 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
       ...unmatchedCalibrations(report)
     }
     if (request.codebaseId !== undefined) view.codebaseId = request.codebaseId
-    const mine: Held = { key, view, report, cards, names, calibrations: CALIBRATIONS_LOADING }
-    held = mine
+    const thisRead: Held = { key, view, report, cards, names, ratios: calibratedRatios(cards), calibrations: CALIBRATIONS_LOADING }
+    held = thisRead
     // After the window's report, the year's: the cards go out again with their calibration markers.
     const controller = new AbortController()
-    year = controller
+    calibrationRead = controller
     void readCalibrations(ports.client, connection.baseUrl, request.codebaseId, controller.signal).then((calibrations) => {
       if (controller.signal.aborted) return
-      if (year === controller) year = undefined
-      mine.calibrations = calibrations
-      mine.view = { ...mine.view, overview: overviewOf(cards, cardReport, names, calibrations) }
-      orca.panels.post('metrics.calibrations', calibrationsPost(mine.view))
+      if (calibrationRead === controller) calibrationRead = undefined
+      thisRead.calibrations = calibrations
+      thisRead.view = { ...thisRead.view, overview: overviewOf(cards, cardReport, names, calibrations) }
+      orca.panels.post('metrics.calibrations', calibrationsPost(thisRead.view))
     })
     return view
   }
@@ -357,10 +358,10 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
   })
   return {
     held: (key) => (held?.key === key ? held.report : undefined),
-    calibrations: (key) => (held?.key === key ? { calibrations: held.calibrations, names: held.names, ratios: calibratedRatios(held.cards) } : undefined),
+    calibrations: (key) => (held?.key === key ? { calibrations: held.calibrations, names: held.names, ratios: held.ratios } : undefined),
     dispose() {
       handle.dispose()
-      year?.abort()
+      calibrationRead?.abort()
       // A window that waits for the pause is written now, so the choice outlives the worker.
       flush()
     }
