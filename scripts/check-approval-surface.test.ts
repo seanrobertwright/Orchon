@@ -14,17 +14,25 @@ function manifest(version: string, change?: (parsed: Record<string, unknown>) =>
   return JSON.stringify(parsed)
 }
 
+/** The release v0.1.0, tagged on this repository's manifest. */
+const RELEASED = { tag: 'v0.1.0', manifest: manifest('0.1.0') }
+
+/** This repository's manifest at `version`, asking for one capability more than it does. */
+function withNewCapability(version: string): string {
+  return manifest(version, (parsed) => {
+    ;(parsed['capabilities'] as unknown[]).push({ kind: 'secrets:own' })
+  })
+}
+
 describe('the approval-surface check', () => {
   test('passes when no release has been tagged yet', () => {
     assert.deepEqual(checkApprovalSurface({ released: null, manifest: manifestText, changelog: '' }), [])
   })
 
   test('fails a new capability when only the patch number rises', () => {
-    const current = manifest('0.1.1', (parsed) => {
-      ;(parsed['capabilities'] as unknown[]).push({ kind: 'secrets:own' })
-    })
+    const current = withNewCapability('0.1.1')
     assert.deepEqual(
-      checkApprovalSurface({ released: { tag: 'v0.1.0', manifest: manifest('0.1.0') }, manifest: current, changelog: '' }),
+      checkApprovalSurface({ released: RELEASED, manifest: current, changelog: '' }),
       [
         'The approval surface differs from v0.1.0 in: capabilities.',
         'A change to the approval surface needs a higher minor version than 0.1.0; this tree is 0.1.1.',
@@ -34,19 +42,20 @@ describe('the approval-surface check', () => {
   })
 
   test('passes a new capability in a higher minor version whose changelog asks you to approve again', () => {
-    const current = manifest('0.2.0', (parsed) => {
-      ;(parsed['capabilities'] as unknown[]).push({ kind: 'secrets:own' })
-    })
+    const current = withNewCapability('0.2.0')
     assert.deepEqual(
-      checkApprovalSurface({ released: { tag: 'v0.1.0', manifest: manifest('0.1.0') }, manifest: current, changelog: ASKS_AGAIN }),
+      checkApprovalSurface({ released: RELEASED, manifest: current, changelog: ASKS_AGAIN }),
       []
+    )
+    assert.deepEqual(
+      checkApprovalSurface({ released: RELEASED, manifest: current, changelog: ASKS_AGAIN.replaceAll('\n', '\r\n') }),
+      [],
+      'a changelog with CRLF line endings'
     )
   })
 
   test('fails a higher minor version whose changelog does not ask you to approve again', () => {
-    const current = manifest('0.2.0', (parsed) => {
-      ;(parsed['capabilities'] as unknown[]).push({ kind: 'secrets:own' })
-    })
+    const current = withNewCapability('0.2.0')
     const changelogs = [
       '# Changelog\n\n## 0.2.0\n\n- Something new.\n',
       '# Changelog\n\n## 0.2.0\n\n### Asks you to approve again\n\n## 0.1.0\n\n- First release.\n',
@@ -54,7 +63,7 @@ describe('the approval-surface check', () => {
     ]
     for (const changelog of changelogs) {
       assert.deepEqual(
-        checkApprovalSurface({ released: { tag: 'v0.1.0', manifest: manifest('0.1.0') }, manifest: current, changelog }),
+        checkApprovalSurface({ released: RELEASED, manifest: current, changelog }),
         [
           'The approval surface differs from v0.1.0 in: capabilities.',
           'CHANGELOG.md has no "Asks you to approve again" entry under 0.2.0.'
@@ -65,11 +74,9 @@ describe('the approval-surface check', () => {
   })
 
   test('fails a changelog entry that asks you to approve again when the minor version has not risen', () => {
-    const current = manifest('0.1.1', (parsed) => {
-      ;(parsed['capabilities'] as unknown[]).push({ kind: 'secrets:own' })
-    })
+    const current = withNewCapability('0.1.1')
     const changelog = ASKS_AGAIN.replace('## 0.2.0', '## 0.1.1')
-    assert.deepEqual(checkApprovalSurface({ released: { tag: 'v0.1.0', manifest: manifest('0.1.0') }, manifest: current, changelog }), [
+    assert.deepEqual(checkApprovalSurface({ released: RELEASED, manifest: current, changelog }), [
       'The approval surface differs from v0.1.0 in: capabilities.',
       'A change to the approval surface needs a higher minor version than 0.1.0; this tree is 0.1.1.'
     ])
@@ -85,7 +92,7 @@ describe('the approval-surface check', () => {
       const setting = contributes['settings']?.[0] as Record<string, unknown>
       contributes['settings']?.splice(0, 1, Object.fromEntries(Object.entries(setting).reverse()))
     })
-    assert.deepEqual(checkApprovalSurface({ released: { tag: 'v0.1.0', manifest: manifest('0.1.0') }, manifest: current, changelog: '' }), [])
+    assert.deepEqual(checkApprovalSurface({ released: RELEASED, manifest: current, changelog: '' }), [])
   })
 
   test('counts each part of the surface #32 freezes, and the execution level', () => {
@@ -102,7 +109,7 @@ describe('the approval-surface check', () => {
       ['shortcuts', (parsed) => void ((parsed['contributes'] as Record<string, unknown>)['shortcuts'] = [{ key: 'ctrl+o' }])]
     ]
     for (const [part, change] of changes) {
-      const problems = checkApprovalSurface({ released: { tag: 'v0.1.0', manifest: manifest('0.1.0') }, manifest: manifest('0.1.1', change), changelog: '' })
+      const problems = checkApprovalSurface({ released: RELEASED, manifest: manifest('0.1.1', change), changelog: '' })
       assert.equal(problems[0], `The approval surface differs from v0.1.0 in: ${part}.`, part)
     }
   })
