@@ -129,6 +129,22 @@ describe('when the section reads', () => {
     clean(view)
   })
 
+  test("a change of scope never shows the last scope's figures: a spinner while the new scope loads, and only the callout when its read fails", async () => {
+    const held = heldAnswers()
+    const view = await mountMetrics((request) => (request.codebaseId === undefined ? held.answer() : sampleReport()))
+    assert.equal(view.rowsOf(TABLE).length, 3)
+    const selecting = view.select({ type: 'RadioGroup', label: 'Scope' }, 'all')
+    await drawn()
+    assert.equal(view.find({ type: 'Table' }), null)
+    assert.equal(view.find({ text: /^Last 7 days · / }), null)
+    assert.ok(view.find({ type: 'Spinner', label: 'Loading metrics…' }))
+    held.release({ kind: 'timeout' })
+    await selecting
+    assert.match(view.find({ type: 'Callout' })?.text ?? '', /^Archon took too long to answer\./)
+    assert.equal(view.find({ type: 'Table' }), null)
+    clean(view)
+  })
+
   test('it has no safety refetch and ignores run hints; a return to the section asks the worker, which keeps a fresh report', async () => {
     const view = await mountMetrics(() => sampleReport())
     await advance(view, 600_000)

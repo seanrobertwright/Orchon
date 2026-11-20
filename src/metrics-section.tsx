@@ -3,7 +3,8 @@
 // and window. It draws only the worker's view model and fetches it under the shared per-view fetch
 // rules with no safety refetch: on opening the section, on a change of scope or window, and on
 // Refresh. A return to the section asks the worker, which reads Archon again only when its report
-// is more than 5 minutes old. It ignores run hints. Overview is filled by a later version.
+// is older than `METRICS_MAX_AGE_MS`. It ignores run hints. Figures are shown only for the scope
+// chosen now. Overview is filled by a later version.
 import {
   atom,
   Button,
@@ -91,6 +92,15 @@ let fetcher: ViewFetch | undefined
 /** What the next read adds to the scope: the person's window and whether to read Archon again. */
 let next: Omit<MetricsRequest, 'codebaseId'> = {}
 
+/** Whether the section may read: Connected to a server that has the metrics paths. */
+export const metricsReadable = (state: ConnectionView | null): state is Connected => state?.kind === 'connected' && state.features.metrics
+
+/** The report on screen when it covers the scope chosen now: another scope's figures are never shown. */
+function shownReport(): Ready | null {
+  const report = read(loaded)
+  return report !== null && report.codebaseId === scopedProjectId() ? report : null
+}
+
 const lastDays = (window: MetricsWindow): string => `last ${String(WINDOW_DAYS[window])} days`
 
 function problemOf(view: MetricsView): Problem | null {
@@ -130,9 +140,8 @@ function apply(answer: MetricsAnswer | null, hooks: MetricsSectionHooks): void {
 export function startMetricsSection(ctx: PanelContext, given: MetricsSectionHooks): void {
   const view = createViewFetch<MetricsAnswer | null>({
     load(signal) {
-      const state = given.connection()
       // The report waits for the scope, so it never reads one project and then another.
-      if (state?.kind !== 'connected' || !state.features.metrics || !given.showing() || !scopeSettled()) return Promise.resolve(null)
+      if (!metricsReadable(given.connection()) || !given.showing() || !scopeSettled()) return Promise.resolve(null)
       const codebaseId = scopedProjectId()
       const request: MetricsRequest = { ...next }
       if (codebaseId !== undefined) request.codebaseId = codebaseId
@@ -169,7 +178,7 @@ function readNow(request: Omit<MetricsRequest, 'codebaseId'>): void {
 
 /**
  * The section began to show, or Orchon is connected again: the worker answers from its report
- * while that is at most 5 minutes old.
+ * while that is at most `METRICS_MAX_AGE_MS` old.
  */
 export function openMetrics(): void {
   readNow({})
@@ -198,7 +207,7 @@ function chooseWindow(value: string): void {
 
 /** Whether the section holds a report to show, as Searching keeps it under its banner. */
 export function metricsHaveData(): boolean {
-  return read(loaded) !== null
+  return shownReport() !== null
 }
 
 /** A different Archon store: what the section loaded belongs to the old one. */
@@ -298,7 +307,7 @@ export function metricsSection(state: Connected, writable: boolean): OrcaNode {
   // Without its paths the section says which release it needs, and asks Archon nothing.
   const without = state.features.metrics ? read(missing) : metricsMissing(state)
   if (without !== null) return <EmptyState title="Metrics" description={without} />
-  const report = read(loaded)
+  const report = shownReport()
   const held = read(problem)
   const inFlight = read(loading)
   const window = read(chosen) ?? report?.window ?? null

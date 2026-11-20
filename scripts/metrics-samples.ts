@@ -47,7 +47,8 @@ export function sampleReport(
 
 /**
  * A stand-in for the worker that answers the Metrics section with `metrics(request)` as it stands
- * at each request, the window it names or `7d`, the scope with `scope()`, and the runs table as
+ * at each request, stamped with the request's project id as the worker stamps its report, the
+ * window it names or `7d`, the scope with `scope()`, and the runs table as
  * `answeringScope` does.
  */
 export function answeringMetrics(
@@ -63,7 +64,11 @@ export function answeringMetrics(
       'metrics.read': async (request: MetricsRequest): Promise<MetricsAnswer> => {
         if (request.window !== undefined) kept = request.window
         const window = kept
-        return { connection, window, metrics: await metrics(request) }
+        const view = await metrics(request)
+        // The worker's report names the scope it covers, as `startMetrics` does.
+        if (view.kind !== 'ready') return { connection, window, metrics: view }
+        const { codebaseId: _covered, ...rest } = view
+        return { connection, window, metrics: request.codebaseId === undefined ? rest : { ...rest, codebaseId: request.codebaseId } }
       }
     }
   }
