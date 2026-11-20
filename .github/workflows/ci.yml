@@ -22,9 +22,12 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
+      # The whole history with its tags, so the approval surface can be compared with the last
+      # released tag.
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -105,3 +108,15 @@ jobs:
 
       - name: Install limits
         run: npm run check:limits
+
+      # The approval surface may change only in a release whose minor version rises and whose
+      # changelog entry asks you to approve again. Before the first tag there is nothing to compare.
+      - name: Approval surface against the last released tag
+        run: |
+          set -euo pipefail
+          tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$tag" ]; then
+            node scripts/check-approval-surface.ts
+          else
+            git show "$tag:orca-plugin.json" | node scripts/check-approval-surface.ts --tag "$tag"
+          fi
