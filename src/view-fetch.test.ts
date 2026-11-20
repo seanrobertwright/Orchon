@@ -7,7 +7,7 @@ import { canWrite, createViewFetch, type ViewFetch } from './view-fetch'
 /** A load the test answers by hand, recording when each one started and whether it was aborted. */
 type Pending = { at: number; signal: AbortSignal; answer(value: string): void; reject(error: unknown): void }
 
-function harness(options: { minGapMs?: number; safetyMs?: () => number } = {}) {
+function harness(options: { minGapMs?: number; safetyMs?: () => number | null } = {}) {
   const clock = createClock(0)
   const loads: Pending[] = []
   const applied: string[] = []
@@ -186,6 +186,30 @@ describe('the per-view fetch rules', () => {
     assert.deepEqual(clock.waiting(), [5_000])
     await clock.advance(5_000)
     assert.equal(loads.length, 3)
+    view.stop()
+  })
+
+  test('a view with no safety wait, as Metrics has, sets no timer after an answer or a failure', async () => {
+    const { view, clock, loads, last } = harness({ safetyMs: () => null })
+    view.restart()
+    last().answer('first')
+    await settle()
+    assert.deepEqual(clock.waiting(), [])
+    view.restart()
+    last().reject(new Error('Archon took too long.'))
+    await settle()
+    assert.deepEqual(clock.waiting(), [])
+    await clock.advance(600_000)
+    assert.equal(loads.length, 2)
+    view.stop()
+  })
+
+  test('a rate-limited read of a view with no safety wait is still sent once more after retryAfterMs', async () => {
+    const { view, clock, loads, last } = harness({ safetyMs: () => null })
+    view.restart()
+    last().reject(hostError('rate_limited', 'Too many requests.', 1_500))
+    await clock.advance(1_500)
+    assert.equal(loads.length, 2)
     view.stop()
   })
 
