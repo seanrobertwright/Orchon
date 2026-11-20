@@ -1,7 +1,7 @@
 // The per-view fetch rules, one piece every view of the panel and the tabs reuses (#13, part 5):
 // a request counter so only the answer to the newest request is applied; one fetch in flight and
 // at most one more queued; a minimum gap between the starts of two fetches; a user action that
-// aborts the fetch in flight and starts at once; a safety refetch; and every timer cleared when
+// aborts the fetch in flight and starts at once; a safety refetch, unless the view has none; and every timer cleared when
 // the view closes. It also holds what a view does when Orca rejects its request to the worker
 // (#22, part 9): a read rejected as `rate_limited` waits `retryAfterMs` and is sent once more,
 // and `consent_required` sets no timer. It is pure logic on the clock and timers it is given; the
@@ -24,9 +24,10 @@ export type ViewFetchOptions<T> = {
   minGapMs: number
   /**
    * How long after its last fetch ended the view fetches again, whatever else happened. It is
-   * asked each time the timer is set, so the wait can follow whether live updates are on.
+   * asked each time the timer is set, so the wait can follow whether live updates are on. Null
+   * sets no such timer: the view fetches only when it is asked to, as the Metrics section does.
    */
-  safetyMs(): number
+  safetyMs(): number | null
   now(): number
   timers: Timers
 }
@@ -140,7 +141,7 @@ export function createViewFetch<T>(options: ViewFetchOptions<T>): ViewFetch {
         },
         (error: unknown) => {
           if (!current()) return
-          const rejection = rejectionOf(error, options.safetyMs())
+          const rejection = rejectionOf(error, options.safetyMs() ?? undefined)
           if (rejection.kind === 'rate-limited' && !retried) {
             // Still in flight: a refresh meanwhile queues behind the one sent again.
             retryTimer = options.timers.set(() => {
@@ -157,11 +158,12 @@ export function createViewFetch<T>(options: ViewFetchOptions<T>): ViewFetch {
       .finally(() => {
         if (!current() || retryTimer !== undefined) return
         inFlight = false
-        if (!consent) {
+        const safety = consent ? null : options.safetyMs()
+        if (safety !== null) {
           safetyTimer = options.timers.set(() => {
             safetyTimer = undefined
             refresh()
-          }, options.safetyMs())
+          }, safety)
         }
         if (queued) {
           queued = false

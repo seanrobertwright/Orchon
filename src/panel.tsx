@@ -3,11 +3,11 @@ import { atom, EmptyState, plugin, read, set, Stack, Tab, Tabs, update, type Orc
 import { chatSection, chatsHaveData, clearChats, rescopeChats, restartChats, startChatSection } from './chat-section'
 import { openChatThread } from './chat-thread-section'
 import type { Connected, ConnectionView } from './connection-view'
-import { metricsMissing } from './connection-words'
 import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
 import { clearLaunch, hideLaunch, launchHasData, launchNotices, launchSection, openLaunch, rerunLaunch, restartLaunch, startLaunchSection } from './launch-section'
 import { liveOffLine } from './live-line'
+import { clearMetrics, metricsHaveData, metricsReadable, metricsSection, openMetrics, rescopeMetrics, startMetricsSection } from './metrics-section'
 import { startNotificationsGroup } from './notifications-group'
 import { hintRunDetail, openRunDetail, startRunDetail } from './run-detail-section'
 import {
@@ -62,6 +62,7 @@ function keepNewest(next: ConnectionView): void {
       clearLaunch()
       clearWorkflows()
       clearChats()
+      clearMetrics()
     }
     set(lastConnected, next)
   }
@@ -71,6 +72,7 @@ function keepNewest(next: ConnectionView): void {
   if (held?.kind !== 'connected') {
     restartRunsView()
     restartChats()
+    if (held !== null && parseSection(read(section)) === 'metrics') openMetrics()
     // The section's own first read is sent when it shows, so only a return to Connected reads again.
     if (held !== null && parseSection(read(section)) === 'settings') readForms()
   } else if (held.live !== next.live) {
@@ -169,6 +171,11 @@ function show(next: SectionId): void {
     restartChats()
   }
   if (before === next) return
+  // Showing the Metrics section reads the scope, and the report unless the worker's is fresh.
+  if (next === 'metrics') {
+    restartScope()
+    openMetrics()
+  }
   // Opening the Launch section reads Archon's projects and the workflow list again.
   if (next === 'launch') openLaunch()
   if (before === 'launch') hideLaunch()
@@ -214,9 +221,11 @@ export function setup(ctx: PanelContext): void {
   })
   startScope(ctx, {
     connection: () => read(connection),
-    // The Launch and Workflows sections' default project is the scope's, and the chat list follows it, so they read the scope too.
+    // The Launch and Workflows sections' default project is the scope's, and the chat list and Metrics follow it, so they read the scope too.
     showing: () => {
       const showing = parseSection(read(section))
+      // Metrics reads it only from a server that has metrics: without them it asks nothing.
+      if (showing === 'metrics') return metricsReadable(read(connection))
       return showing === 'runs' || showing === 'launch' || showing === 'workflows' || showing === 'chat'
     },
     keep: keepNewest,
@@ -225,6 +234,7 @@ export function setup(ctx: PanelContext): void {
       restartLaunch()
       restartWorkflows()
       rescopeChats()
+      rescopeMetrics()
     }
   })
   startLaunchSection(ctx, {
@@ -253,6 +263,11 @@ export function setup(ctx: PanelContext): void {
       show('runs')
       openRunDetail(runId)
     }
+  })
+  startMetricsSection(ctx, {
+    connection: () => read(connection),
+    showing: () => parseSection(read(section)) === 'metrics',
+    keep: keepNewest
   })
   ctx.subscriptions.push(plugin.on('show-runs', applyShowRuns))
   ctx.subscriptions.push(plugin.on('needs-you.changed', refreshRuns))
@@ -301,7 +316,8 @@ const DATA_VIEWS: Partial<Record<SectionId, DataView>> = {
   runs: { hasData: runsHaveData, draw: runsSection },
   launch: { hasData: launchHasData, draw: (state, writable) => launchSection(state, writable, scopeNotice(writable)) },
   workflows: { hasData: workflowsHaveData, draw: workflowsSection },
-  chat: { hasData: chatsHaveData, draw: chatSection }
+  chat: { hasData: chatsHaveData, draw: chatSection },
+  metrics: { hasData: metricsHaveData, draw: metricsSection }
 }
 
 /** What one section shows below the section bar. */
@@ -322,10 +338,6 @@ function sectionBody(id: SectionId, label: string, state: ConnectionView | null)
     return underLine(line, settingsSection(state, read(system), { refresh }))
   }
   if (state === null && line !== null) return line
-  // Without its paths the Metrics section says which release it needs, and asks Archon nothing.
-  if (id === 'metrics' && state?.kind === 'connected' && !state.features.metrics) {
-    return underLine(line, <EmptyState title={label} description={metricsMissing(state)} />)
-  }
   const screen = stateScreen(state, actions)
   return underLine(line, screen ?? <EmptyState title={label} description="This section is not built yet." />)
 }

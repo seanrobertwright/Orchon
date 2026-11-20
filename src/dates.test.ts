@@ -1,6 +1,6 @@
 // Pure logic: the one date helper. Everything about time in the shipped code goes through it.
 import { assert, describe, test } from 'orca/testing'
-import { formatClock, formatDateTime, formatDuration, now, parseInstant } from './dates'
+import { formatClock, formatDateTime, formatDay, formatDuration, now, parseInstant } from './dates'
 
 describe('the date helper', () => {
   test('now is the current time in milliseconds since the epoch', () => {
@@ -72,6 +72,18 @@ describe('the date helper', () => {
     assert.match(formatDateTime(Date.UTC(2026, 10, 19, 12), 'not a locale'), /2026/)
     assert.equal(formatDateTime(Number.NaN, 'en-GB'), '')
     assert.equal(formatDateTime(8.64e15 + 1, 'en-GB'), '')
+  })
+
+  test('formats a local day as a month and a day, as the locale writes them', () => {
+    // Noon UTC is the same day in every zone from UTC-11 to UTC+11.
+    assert.equal(formatDay(Date.UTC(2026, 10, 11, 12), 'en-US'), 'Nov 11')
+    assert.equal(formatDay(Date.UTC(2026, 10, 11, 12), 'en-GB'), '11 Nov')
+  })
+
+  test('formats a day with the default locale when the given one is not a locale, and nothing for a time no date can hold', () => {
+    assert.match(formatDay(Date.UTC(2026, 10, 19, 12), 'not a locale'), /19/)
+    assert.equal(formatDay(Number.NaN, 'en-US'), '')
+    assert.equal(formatDay(8.64e15 + 1, 'en-US'), '')
   })
 
   test('writes a duration in its two largest units, the shortest form', () => {

@@ -92,9 +92,9 @@ describe('the client', () => {
     assert.deepEqual(await client.request(read('/api/health')), { ok: false, failure: { kind: 'refused' } })
   })
 
-  test('gives health 3 seconds, a read 10 and a write 30', async () => {
-    assert.deepEqual(TIMEOUT_MS, { health: 3_000, read: 10_000, write: 30_000 })
-    for (const timeout of ['health', 'read', 'write'] as const) {
+  test('gives health 3 seconds, a read 10, a write 30 and a metrics report 30', async () => {
+    assert.deepEqual(TIMEOUT_MS, { health: 3_000, read: 10_000, write: 30_000, report: 30_000 })
+    for (const timeout of ['health', 'read', 'write', 'report'] as const) {
       const { archon, clock, client } = scripted()
       archon.answer(HEALTH, HANG)
       let result: unknown

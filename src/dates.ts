@@ -83,6 +83,22 @@ export function formatDateTime(at: number, locale: string): string {
   }
 }
 
+const DAY: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
+
+/**
+ * The local day of an instant, such as "Nov 11", in the machine's own zone and written as
+ * `locale` writes it. A locale the runtime does not know falls back to the runtime's default; a
+ * time no date can hold gives an empty text.
+ */
+export function formatDay(at: number, locale: string): string {
+  if (!Number.isFinite(at) || Math.abs(at) > LAST_INSTANT) return ''
+  try {
+    return new Intl.DateTimeFormat(locale, DAY).format(at)
+  } catch {
+    return new Intl.DateTimeFormat(undefined, DAY).format(at)
+  }
+}
+
 const UNITS: readonly [string, number][] = [
   ['d', 86_400_000],
   ['h', 3_600_000],
