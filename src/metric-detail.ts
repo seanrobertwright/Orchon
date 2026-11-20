@@ -18,6 +18,7 @@ import { BY_DAY_CAP, OLDER_VERSIONS_CAP, type MetricAnswer, type MetricDetail, t
 import {
   failedView,
   formatFigure,
+  formatKnownCost,
   formatValue,
   METRICS_PATH,
   parseReport,
@@ -72,7 +73,7 @@ export function metricDetail(metric: Metric): MetricView {
     value: formatValue(headline.value, unit),
     interval: interval === null ? null : `${formatFigure(interval.low, unit)} – ${formatFigure(interval.high, unit)}`,
     records: headline.n,
-    knownCost: cost.usd === null ? 'none recorded' : `≥ $${formatNumber(cost.usd)}`,
+    knownCost: formatKnownCost(cost.usd),
     runs: cost.runs,
     gaps: { withoutCost: cost.withoutCost, withoutTokens: cost.withoutTokens, partialCost: cost.partialCost, missing: cost.missing },
     tokens: tokensText(cost),

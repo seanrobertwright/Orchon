@@ -167,6 +167,9 @@ export function formatValue(value: number, unit: string): string {
   return unit === 'ratio' ? figure : `${figure} ${UNIT_WORDS.get(unit) ?? unit.replaceAll('_', ' ')}`
 }
 
+/** A known cost as the console writes it: at least the dollars recorded, or none recorded. */
+export const formatKnownCost = (usd: number | null): string => (usd === null ? 'none recorded' : `≥ $${formatNumber(usd)}`)
+
 /** The Details table: by name, calibrations left out, at most `DETAILS_ROWS_CAP` rows. */
 export function detailsRows(report: Report, names: ReadonlyMap<string, string>): { rows: MetricRow[]; more: number } {
   const all = report.metrics
@@ -183,7 +186,7 @@ export function detailsRows(report: Report, names: ReadonlyMap<string, string>):
         state: 'shown',
         value: formatValue(headline.value, unit),
         records: headline.n,
-        knownCost: headline.cost.usd === null ? 'none recorded' : `≥ $${formatNumber(headline.cost.usd)}`,
+        knownCost: formatKnownCost(headline.cost.usd),
         latest: formatFigure(headline.latest.value, unit)
       }
     })
