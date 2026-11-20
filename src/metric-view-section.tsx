@@ -29,6 +29,7 @@ import type { ConnectionView } from './connection-view'
 import { formatDateTime } from './dates'
 import type { MetricDetail, MetricRequest, MetricView } from './metric-view'
 import { METRICS_REQUEST_TIMEOUT_MS, WINDOW_DAYS, type MetricsView, type MetricsWindow } from './metrics-view'
+import { moreLine } from './overview-section'
 import { UNREACHABLE_TEXT } from './worker-words'
 
 /** The report on screen, as far as a metric's view reads it. */
@@ -179,12 +180,8 @@ function buildOf(metric: MetricDetail): { items: KeyValueItem[]; days: TableRow[
   return found
 }
 
-const more = (count: number): OrcaNode =>
-  count > 0 ? (
-    <Text muted size="sm">
-      {`and ${String(count)} more in Archon's console`}
-    </Text>
-  ) : null
+/** A window in the section's words, as in "in the last 7 days". */
+export const lastDays = (window: MetricsWindow): string => `last ${String(WINDOW_DAYS[window])} days`
 
 function figures(label: string, metric: MetricDetail): OrcaNode {
   const { items, days } = buildOf(metric)
@@ -199,20 +196,19 @@ function figures(label: string, metric: MetricDetail): OrcaNode {
               {version}
             </Text>
           ))}
-          {more(metric.olderMore)}
+          {moreLine(metric.olderMore)}
         </Stack>
       )}
       <Collapsible title="By day" open={read(byDayOpen)} onChange={(value) => set(byDayOpen, value)}>
         <Stack gap="xs">
           <Table label="By day" columns={BY_DAY_COLUMNS} rows={days} />
-          {more(metric.byDayMore)}
+          {moreLine(metric.byDayMore)}
         </Stack>
       </Collapsible>
     </Stack>
   )
 }
 
-const lastDays = (window: MetricsWindow): string => `last ${String(WINDOW_DAYS[window])} days`
 
 /**
  * A metric's view in place of the Details table, with the way back. `problemText` gives the words

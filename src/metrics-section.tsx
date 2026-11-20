@@ -36,11 +36,10 @@ import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { formatDay, now } from './dates'
 import { frameTimers } from './frame-timers'
-import { closeMetricView, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
+import { closeMetricView, lastDays, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
 import {
   METRICS_REQUEST_TIMEOUT_MS,
   METRICS_WINDOWS,
-  WINDOW_DAYS,
   type MetricsAnswer,
   type MetricsRequest,
   type MetricsView,
@@ -114,8 +113,6 @@ function shownReport(): Ready | null {
   const report = read(loaded)
   return report !== null && report.codebaseId === scopedProjectId() ? report : null
 }
-
-const lastDays = (window: MetricsWindow): string => `last ${String(WINDOW_DAYS[window])} days`
 
 function problemOf(view: MetricsView): Problem | null {
   switch (view.kind) {
