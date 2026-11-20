@@ -6,12 +6,13 @@
 // A write that fails turns the wide tabs off for that workspace, with the reason, until the
 // worker starts again.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
+import type { BuilderDrafts } from './builder-drafts'
 import type { Client } from './client'
 import type { ConnectionView } from './connection-view'
 import type { Disk } from './disk'
-import { SCOPE_CAP } from '../editors/builder/builder-view'
+import { identityOf, sameIdentity, sameWorkflow, SCOPE_CAP } from '../editors/builder/builder-view'
 import { parseWorkflowIdentity, resolveWorkflow } from './builder'
-import { builderPointerName, builderPointerText, GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan } from './pointer-files'
+import { builderPointerName, builderPointerText, GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan, type BuilderIdentity } from './pointer-files'
 import type { FocusedWorkspace } from './project-scope'
 import { cappedTextRefusal, errorText, isCappedText, own, parseOneText, refuseRequest } from './records'
 import { readRun } from './run-detail'
@@ -46,6 +47,8 @@ export type WideTabsPorts = {
   focused(): Promise<FocusedWorkspace>
   openDisk(roots: readonly string[]): Disk
   now(): number
+  /** The builder drafts: a workflow with one opens from it, without Archon. */
+  drafts?: Pick<BuilderDrafts, 'list'>
 }
 
 export type WideTabs = Disposable & {
@@ -53,6 +56,8 @@ export type WideTabs = Disposable & {
   graphOff(hasProject: boolean): Promise<string | null>
   /** Why Open in builder is off, or null when it is on: no local workspace is focused, or a write failed there. */
   builderOff(): Promise<string | null>
+  /** Writes a builder pointer file for this identity into the focused workspace and opens it. Archon is not asked. */
+  openIdentity(identity: BuilderIdentity): Promise<BuilderOpenAnswer>
 }
 
 /** Open in builder's input, or a refusal: a workflow name, a project id or null, an optional source, and nothing else. */
@@ -147,9 +152,25 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
     return { opened: true }
   }
 
-  /** Open in builder: Archon is asked for the workflow, so its scope names the file. A row's own source must be the one Archon serves. */
+  /** Writes a builder pointer file for this identity into the focused local workspace and opens it. */
+  async function openIdentity(identity: BuilderIdentity): Promise<BuilderOpenAnswer> {
+    const focused = await ports.focused()
+    if (focused.kind !== 'local') return { opened: false, reason: focused.kind === 'none' ? NO_WORKSPACE_TAB : REMOTE_WORKSPACE }
+    const held = off.get(focused.workspaceId)
+    if (held !== undefined) return { opened: false, reason: held }
+    return openPointer(focused, builderPointerName(identity.scope, identity.name), builderPointerText(identity))
+  }
+
+  /**
+   * Open in builder. A workflow the builder keeps a draft of opens from its draft, without Archon,
+   * so it opens while Archon is away and a new workflow never saved opens at all. Any other is
+   * asked of Archon, so its scope names the file; a row's own source must be the one Archon serves.
+   */
   async function openBuilder(request: BuilderOpenRequest, signal: AbortSignal): Promise<BuilderOpenAnswer> {
     const refused = (reason: string): BuilderOpenAnswer => ({ opened: false, reason })
+    const drafts = ports.drafts === undefined ? [] : (await ports.drafts.list()).drafts
+    const draft = drafts.find((held) => (request.source === undefined ? sameWorkflow(held, request) : sameIdentity(held, { ...request, scope: request.source })))
+    if (draft !== undefined) return openIdentity(identityOf(draft))
     const connection = await ports.current()
     if (connection.kind !== 'connected') return refused(NOT_CONNECTED)
     const focused = await ports.focused()
@@ -175,6 +196,7 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
       return (await offReason()) ?? (hasProject ? null : NO_PROJECT_GRAPH)
     },
     builderOff: offReason,
+    openIdentity,
     dispose() {
       for (const subscription of subscriptions) subscription.dispose()
     }

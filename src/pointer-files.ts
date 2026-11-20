@@ -55,7 +55,12 @@ export function builderPointerName(scope: string, workflow: string): string {
   return `${part}-${name}${FLOW_SUFFIX}`
 }
 
-/** A workflow's identity as a builder tab reads it: its name, its Archon project or null, and its scope. */
+/**
+ * A workflow's identity as a builder tab reads it: its name, its Archon project or null, and its
+ * scope. A new workflow never saved has the identity its first Save writes to: its name, its
+ * project (null for a global one) and the scope `project` or `global`. Archon holds no such
+ * workflow yet; the builder draft kept under that identity marks it new.
+ */
 export type BuilderIdentity = { name: string; codebaseId: string | null; scope: string }
 
 /** A builder pointer file's content: the workflow's identity, since the tab never learns its file's name. */

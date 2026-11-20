@@ -23,7 +23,7 @@ export type EditSession = {
   definition(): BuilderWorkflowDefinition
   /** What opening the definition found: read-only nodes and kept fields. */
   readonly openingIssues: readonly Issue[]
-  /** Whether the definition differs from the one opened, or from the one last saved. */
+  /** Whether the definition differs from the one opened (or the copy `openSession` was given to compare with), or from the one last saved. */
   dirty(): boolean
   /** The copy as it stands was saved: from now on `dirty` tells edits apart from it. The undo history is kept. */
   markSaved(): void
@@ -51,8 +51,12 @@ export type EditSession = {
 
 const ORIGIN = { x: 0, y: 0 }
 
-/** Opens a definition for editing, or null when the copied logic cannot read it. */
-export function openSession(definition: Record<string, unknown>): EditSession | null {
+/**
+ * Opens a definition for editing, or null when the copied logic cannot read it. `saved` is the
+ * copy `dirty` tells edits apart from, when it is not the one opened: a restored draft's is the
+ * copy its edit started from, and null, for a new workflow never saved, makes every copy unsaved.
+ */
+export function openSession(definition: Record<string, unknown>, saved?: Record<string, unknown> | null): EditSession | null {
   if (!Array.isArray(definition.nodes)) return null
   let opened: { workflow: BuilderWorkflow; issues: Issue[] }
   try {
@@ -60,7 +64,15 @@ export function openSession(definition: Record<string, unknown>): EditSession | 
   } catch {
     return null
   }
-  let openedText = JSON.stringify(toWorkflowDefinition(opened.workflow))
+  let openedText: string | null = JSON.stringify(toWorkflowDefinition(opened.workflow))
+  if (saved === null) openedText = null
+  else if (saved !== undefined) {
+    try {
+      openedText = Array.isArray(saved.nodes) ? JSON.stringify(toWorkflowDefinition(fromWorkflowDefinition(saved as unknown as WireWorkflowDefinition).workflow)) : null
+    } catch {
+      openedText = null
+    }
+  }
   let state: EditorState = createEditorState(opened.workflow)
   /** The time each edit is stamped with for the history: a burst shares one, any other edit moves on past the coalescing window. */
   let at = 0

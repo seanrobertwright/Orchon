@@ -4,6 +4,7 @@
 // definitions stay in Archon's answer.
 import type { ConnectionAnswer } from './connection-view'
 import type { ProjectRef } from './scope-view'
+import type { NewWorkflowPlace } from '../editors/builder/builder-view'
 
 /** How many workflows the section lists. Past it a line says how many are not shown. */
 export const SECTION_WORKFLOWS_CAP = 200
@@ -52,7 +53,32 @@ export type SectionWorkflow = {
   source: string
   /** Delete is offered: a project or global workflow whose name Delete takes. */
   deletable: boolean
+  /** The builder keeps a draft of it with unsaved changes. Left out when it does not. */
+  draft?: true
 }
+
+/** A new workflow never saved, which only a builder draft holds: Open and Discard are offered. `storeId` names the Archon the draft was made on, which Discard sends back. */
+export type NewDraftRow = { name: string; codebaseId: string | null; scope: NewWorkflowPlace; storeId: string | null }
+
+/**
+ * The builder drafts the section names. There are at most `BUILDER_DRAFTS_CAP` drafts, so every
+ * new workflow of this list is in `fresh`; `elsewhere` counts those of other projects.
+ */
+export type SectionDrafts = {
+  /** The new workflows never saved, of the chosen project and global, by name. */
+  fresh: NewDraftRow[]
+  /** How many new workflows never saved belong to other projects and are not shown. */
+  elsewhere: number
+  /** How many stored drafts could not be read at all and were deleted. */
+  dropped: number
+}
+
+/** What New workflow sends: the name, the chosen project or null, and where the workflow is saved. */
+export type WorkflowNew = { name: string; codebaseId: string | null; place: NewWorkflowPlace }
+
+export const NAME_REFUSED = 'A workflow name cannot be empty, start with ".", or hold "/", "\\" or "..", as Archon requires.'
+export const nameInUse = (name: string): string => `A workflow named ${name} is already in use here. Choose another name.`
+export const NEEDS_PROJECT = 'A project workflow needs a project. Choose one, or save the new workflow as global.'
 
 export type SectionList =
   | {
@@ -92,6 +118,8 @@ export type WorkflowsSectionView =
        * could not be written there. Left out when it is on.
        */
       builderOff?: string
+      /** The builder drafts: left out when there are none and none was dropped. */
+      drafts?: SectionDrafts
     }
 
 export type WorkflowsAnswer = ConnectionAnswer & { workflows: WorkflowsSectionView }

@@ -1,8 +1,10 @@
 // The Workflows section of the panel (#16): its own project select, the workflows Archon lists with
 // where each comes from, Open in builder, and Delete of a project or global workflow behind an
-// inline confirmation.
+// inline confirmation, New workflow, and the builder drafts: a mark on each workflow that has one
+// and the new workflows never saved, each with Open and Discard.
 // It draws only the worker's view model and reads it under the shared per-view fetch rules.
-import { atom, Button, Callout, IconButton, Input, Link, plugin, read, Row, Select, set, shell, Spinner, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
+import { atom, Button, Callout, IconButton, Input, Link, plugin, RadioGroup, read, Row, Select, set, shell, Spinner, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
+import { identityOf, sameIdentity, WORKFLOW_NAME_CAP, type NewWorkflowPlace } from '../editors/builder/builder-view'
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
@@ -15,6 +17,8 @@ import {
   SECTION_WORKFLOWS_CAP,
   type DeleteAnswer,
   type DeleteOutcome,
+  type NewDraftRow,
+  type SectionDrafts,
   type SectionList,
   type SectionWorkflow,
   type WorkflowsAnswer,
@@ -43,6 +47,17 @@ const deleting = atom<boolean>(false)
 const outcome = atom<DeleteOutcome | null>(null)
 /** Why the last press of Open in builder opened nothing, or null. */
 const openRefused = atom<string | null>(null)
+/** The New workflow form while it is open: the name typed and the place chosen; null while closed. */
+const newForm = atom<{ name: string; place: NewWorkflowPlace | null } | null>(null)
+/** Why the worker did not start the new workflow, said in the form, or null. */
+const newRefused = atom<string | null>(null)
+/** New workflow sent and not answered: another press is ignored. */
+const creating = atom<boolean>(false)
+/** The new workflow whose Discard asks for confirmation, or null. */
+const discarding = atom<NewDraftRow | null>(null)
+
+/** The words of a draft mark on a workflow's row: a mark in text, not colour alone. */
+export const DRAFT_MARK = 'Draft with unsaved changes'
 
 /** What a press of Open in builder says when the worker itself does not answer. */
 export const BUILDER_UNANSWERED = "The builder tab did not open: Orchon's worker did not answer."
@@ -155,6 +170,9 @@ export function clearWorkflows(): void {
   set(confirming, null)
   set(outcome, null)
   set(openRefused, null)
+  set(newForm, null)
+  set(newRefused, null)
+  set(discarding, null)
 }
 
 /** Open in builder: the worker writes the tab's file and opens it. A refusal is said under the project select. */
@@ -233,12 +251,14 @@ function confirmation(view: Ready, row: SectionWorkflow, writable: boolean): Orc
 function workflowRow(view: Ready, row: SectionWorkflow, writable: boolean): OrcaNode {
   const held = read(confirming)
   const asking = held !== null && held.name === row.name && held.source === row.source
-  const openOff = view.builderOff ?? (writable ? undefined : NOT_CONNECTED_TEXT)
+  // While Archon is away a workflow with a draft still opens, from its draft.
+  const openOff = view.builderOff ?? (writable || row.draft === true ? undefined : NOT_CONNECTED_TEXT)
   return (
     <Stack key={`${row.source}:${row.name}`} gap="xs">
       <Row gap="sm" align="center" wrap>
         <Text weight="semibold">{row.name}</Text>
         <Text muted size="sm">{`Source: ${row.source}`}</Text>
+        {row.draft === true ? <Text size="sm">{DRAFT_MARK}</Text> : null}
         <Button size="sm" variant="outline" disabled={openOff !== undefined} tooltip={openOff} onPress={() => openInBuilder(view, row)}>
           {`Open ${row.name} in builder`}
         </Button>
@@ -286,6 +306,151 @@ function listPart(view: Ready, list: SectionList, writable: boolean): OrcaNode {
       {list.unreadable > 0 ? (
         <Text muted size="sm">
           {`${plural(list.unreadable, 'workflow could not be read and is', 'workflows could not be read and are')} not shown.`}
+        </Text>
+      ) : null}
+    </Stack>
+  )
+}
+
+/** New workflow: the worker checks the name, keeps the draft and opens the tab. A refusal stays in the form. */
+function createWorkflow(view: Ready, name: string, place: NewWorkflowPlace): void {
+  if (read(creating)) return
+  set(creating, true)
+  set(newRefused, null)
+  plugin
+    .request('workflows.new', { name, codebaseId: view.codebaseId, place })
+    .then(
+      (answer) => {
+        if (answer.opened) {
+          set(newForm, null)
+          fetcher?.restart()
+        } else set(newRefused, answer.reason)
+      },
+      () => set(newRefused, BUILDER_UNANSWERED)
+    )
+    .finally(() => set(creating, false))
+}
+
+/** The place a new workflow is saved to as the form stands: with no project, only global. */
+const placeOf = (view: Ready, chosenPlace: NewWorkflowPlace | null): NewWorkflowPlace => (view.codebaseId === null ? 'global' : (chosenPlace ?? 'project'))
+
+/** New workflow and its form, which asks for a name and a place before any tab opens. */
+function newWorkflowPart(view: Ready, writable: boolean): OrcaNode {
+  const form = read(newForm)
+  const off = view.builderOff ?? (writable ? undefined : NOT_CONNECTED_TEXT)
+  if (form === null) {
+    return (
+      <Row gap="sm" align="center">
+        <Button size="sm" variant="outline" disabled={off !== undefined} tooltip={off} onPress={() => set(newForm, { name: '', place: null })}>
+          New workflow
+        </Button>
+      </Row>
+    )
+  }
+  const place = placeOf(view, form.place)
+  const refused = read(newRefused)
+  return (
+    <Stack gap="xs">
+      <Input label="Workflow name" value={form.name} maxLength={WORKFLOW_NAME_CAP} onChange={(name) => set(newForm, { ...form, name })} />
+      <RadioGroup
+        label="Save the new workflow"
+        value={place}
+        options={[
+          { value: 'project', label: 'In this project', disabled: view.codebaseId === null, ...(view.codebaseId === null ? { description: 'Choose a project to save a workflow into it.' } : {}) },
+          { value: 'global', label: 'Global, for every project' }
+        ]}
+        onChange={(value) => set(newForm, { ...form, place: value === 'global' ? 'global' : 'project' })}
+      />
+      <Text muted size="sm">
+        Nothing is written to Archon until the first Save in the builder.
+      </Text>
+      {refused === null ? null : <Text>{refused}</Text>}
+      <Row gap="sm" wrap>
+        <Button size="sm" disabled={off !== undefined || read(creating)} tooltip={off} onPress={() => createWorkflow(view, form.name, place)}>
+          Create and open
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onPress={() => {
+            set(newForm, null)
+            set(newRefused, null)
+          }}
+        >
+          Cancel
+        </Button>
+      </Row>
+    </Stack>
+  )
+}
+
+/** Discard of a new workflow never saved: its draft is deleted, and Archon holds nothing of it. */
+function discardNew(row: NewDraftRow): void {
+  set(discarding, null)
+  plugin.request('builder.draft.discard', { ...identityOf(row), storeId: row.storeId }).then(
+    () => fetcher?.restart(),
+    () => set(openRefused, "Orchon's worker did not answer, so it is not known whether the draft was discarded. Refresh to check.")
+  )
+}
+
+/** The new workflows never saved, each with Open and Discard, and what is not shown. */
+function draftsPart(view: Ready, drafts: SectionDrafts | undefined): OrcaNode {
+  if (drafts === undefined) return null
+  const asking = read(discarding)
+  return (
+    <Stack gap="xs">
+      {drafts.fresh.length === 0 ? null : <Text weight="semibold">New workflows not saved yet</Text>}
+      {drafts.fresh.map((row) => {
+        const open = (): void => {
+          set(openRefused, null)
+          plugin.request('builder.open', { name: row.name, codebaseId: row.codebaseId, source: row.scope }).then(
+            (answer) => set(openRefused, answer.opened ? null : answer.reason),
+            () => set(openRefused, BUILDER_UNANSWERED)
+          )
+        }
+        const confirming = asking !== null && sameIdentity(asking, row) && asking.storeId === row.storeId
+        return (
+          <Stack key={`${row.scope}:${row.codebaseId ?? ''}:${row.storeId ?? ''}:${row.name}`} gap="xs">
+            <Row gap="sm" align="center" wrap>
+              <Text weight="semibold">{row.name}</Text>
+              <Text muted size="sm">
+                {row.scope === 'global' ? 'Global' : 'This project'}
+              </Text>
+              <Button size="sm" variant="outline" disabled={view.builderOff !== undefined} tooltip={view.builderOff} onPress={open}>
+                {`Open ${row.name} in builder`}
+              </Button>
+              {confirming ? null : (
+                <Button size="sm" variant="outline" onPress={() => set(discarding, row)}>
+                  {`Discard ${row.name}`}
+                </Button>
+              )}
+            </Row>
+            {confirming ? (
+              <Callout tone="danger" title={`Discard ${row.name}?`}>
+                <Stack gap="xs">
+                  <Text>Its draft is deleted, and Archon holds nothing of it, so nothing of it is left. There is no undo.</Text>
+                  <Row gap="sm" wrap>
+                    <Button size="sm" tone="danger" onPress={() => discardNew(row)}>
+                      {`Discard ${row.name} for good`}
+                    </Button>
+                    <Button size="sm" variant="outline" onPress={() => set(discarding, null)}>
+                      Cancel
+                    </Button>
+                  </Row>
+                </Stack>
+              </Callout>
+            ) : null}
+          </Stack>
+        )
+      })}
+      {drafts.elsewhere > 0 ? (
+        <Text muted size="sm">
+          {`${plural(drafts.elsewhere, 'new workflow of another project is', 'new workflows of other projects are')} not shown.`}
+        </Text>
+      ) : null}
+      {drafts.dropped > 0 ? (
+        <Text muted size="sm">
+          {`${plural(drafts.dropped, 'builder draft could not be read, so Orchon deleted it.', 'builder drafts could not be read, so Orchon deleted them.')}`}
         </Text>
       ) : null}
     </Stack>
@@ -346,7 +511,9 @@ function ready(view: Ready, writable: boolean): OrcaNode {
       {view.readFrom === null ? null : <Text muted size="sm">{`Workflows are read from ${view.readFrom}`}</Text>}
       {view.builderOff === undefined ? null : <Text muted size="sm">{view.builderOff}</Text>}
       {read(openRefused) === null ? null : <Text>{read(openRefused)}</Text>}
+      {newWorkflowPart(view, writable)}
       {outcomeLine(read(outcome))}
+      {draftsPart(view, view.drafts)}
       {listPart(view, view.list, writable)}
     </Stack>
   )

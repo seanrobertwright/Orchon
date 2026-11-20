@@ -16,6 +16,17 @@ export const mib = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed
 /** The workflow a builder pointer file names. */
 export type BuilderIdentity = { name: string; codebaseId: string | null; scope: string }
 
+/** The identity alone, from anything that carries one, such as a request or a draft. */
+export const identityOf = ({ name, codebaseId, scope }: BuilderIdentity): BuilderIdentity => ({ name, codebaseId, scope })
+
+/** Whether two identities name the same workflow: the same name, project or none, and scope. */
+export const sameIdentity = (first: BuilderIdentity, second: BuilderIdentity): boolean =>
+  first.name === second.name && first.codebaseId === second.codebaseId && first.scope === second.scope
+
+/** Whether two identities share a name and a project or none, whatever their scope: a row that names no source matches either. */
+export const sameWorkflow = (first: Pick<BuilderIdentity, 'name' | 'codebaseId'>, second: Pick<BuilderIdentity, 'name' | 'codebaseId'>): boolean =>
+  first.name === second.name && first.codebaseId === second.codebaseId
+
 /** What the tab sends to read its workflow: its identity, and Orca's UI language. */
 export type BuilderRequest = BuilderIdentity & { locale: string }
 
@@ -51,7 +62,8 @@ export type BuilderView =
       definition: Record<string, unknown>
     }
 
-export type BuilderAnswer = { connection: TabConnection; builder: BuilderView }
+/** The tab's read: the connection, the workflow as Archon serves it, and its draft, when one is kept. */
+export type BuilderAnswer = { connection: TabConnection; builder: BuilderView; draft?: BuilderDraftView | null }
 
 /** Open YAML: whether Orca opened the file, or the one sentence that says why not. */
 export type YamlOpenAnswer = { opened: true } | { opened: false; reason: string }
@@ -66,7 +78,7 @@ export type BuilderBase = { source: string; authored: Record<string, unknown> }
  * Save: the workflow's identity, the definition to write, and the copy Archon is expected to
  * serve, or null when it is expected to serve none (an overwrite of a workflow removed outside).
  */
-export type BuilderSaveRequest = BuilderRequest & { definition: Record<string, unknown>; base: BuilderBase | null }
+export type BuilderSaveRequest = BuilderRequest & { definition: Record<string, unknown>; base: BuilderBase | null } & DraftStore
 
 /** Validate: the definition to check, and Orca's UI language. Nothing is written. */
 export type BuilderValidateRequest = { definition: Record<string, unknown>; locale: string }
@@ -106,3 +118,65 @@ export type BuilderValidateOutcome =
   | { kind: 'failed'; message: string }
 
 export type BuilderValidateAnswer = { connection: TabConnection; validate: BuilderValidateOutcome }
+
+/** The most drafts plugin storage keeps. At the cap a draft of another workflow is refused until one is saved or discarded. */
+export const BUILDER_DRAFTS_CAP = 20
+/** How long the worker waits after a draft's last change before it writes it to plugin storage. */
+export const BUILDER_DRAFT_WRITE_PAUSE_MS = 1_000
+/** How long the tab waits after the last edit before it hands its draft to the worker. */
+export const BUILDER_DRAFT_SEND_PAUSE_MS = 500
+/** The most characters of the file words a draft keeps, to show while Archon is away. */
+export const DRAFT_FILE_CAP = 2_000
+
+/** The sentence over a draft made on a different Archon from the one connected now. */
+export const OTHER_ARCHON = 'This draft was made on a different Archon.'
+
+/**
+ * Which Archon's draft a request is about: the store id a read gave back with the draft the tab
+ * holds, or the section lists with a new workflow. Left out, it is the draft of the Archon
+ * connected now, or last connected.
+ */
+export type DraftStore = { storeId?: string | null }
+
+/** What a draft discard takes: the workflow's identity, and which Archon's draft it is. */
+export type BuilderDraftDiscard = BuilderIdentity & DraftStore
+
+/** A draft the tab hands to the worker: the workflow's identity, the copy as it stands, the copy the edit started from, the file in words, and which Archon's draft it is. */
+export type BuilderDraftWrite = BuilderIdentity & { definition: Record<string, unknown>; base: BuilderBase | null; file: string } & DraftStore
+
+/** Whether the worker kept the draft, or the one sentence that says why not. */
+export type BuilderDraftWriteAnswer = { kept: true } | { kept: false; reason: string }
+
+/**
+ * A draft as a tab's read gives it back: the copy as it was left, the copy the edit started
+ * from (null when Archon held none), the file in words, whether it is a new workflow never
+ * saved, whether it was made on a different Archon from the one connected now, and that Archon's store id.
+ */
+export type BuilderDraftView = {
+  definition: Record<string, unknown>
+  base: BuilderBase | null
+  file: string
+  isNew: boolean
+  otherArchon: boolean
+  /** The store id of the Archon the draft was made on, which the tab sends back with its writes, discards and saves. */
+  storeId: string | null
+}
+
+/**
+ * Archon's rule for the name a workflow is saved under (`isValidCommandName`, which its
+ * `PUT /api/workflows/{name}` applies at 0.12.1): not empty, no `/`, `\` or `..`, and no leading
+ * `.`. The copied builder logic holds no such rule; this is read from Archon's server source.
+ */
+export function isArchonWorkflowName(name: string): boolean {
+  return name !== '' && name.length <= WORKFLOW_NAME_CAP && !name.includes('/') && !name.includes('\\') && !name.includes('..') && !name.startsWith('.')
+}
+
+/** Where a new workflow is saved: into the chosen project, or into Archon's home folder for every project. */
+export type NewWorkflowPlace = 'project' | 'global'
+
+/** A new workflow's first copy: its name, no description, and one empty prompt node, as the copied editor names a first prompt node. */
+export const newWorkflowDefinition = (name: string): Record<string, unknown> => ({ name, description: '', nodes: [{ id: 'prompt-1', prompt: '' }] })
+
+/** Where a new workflow's first Save writes it, in words, for its header until then. */
+export const newWorkflowFile = (place: NewWorkflowPlace): string =>
+  place === 'global' ? "Not saved yet. The first Save writes it to the workflows folder of Archon's home folder." : "Not saved yet. The first Save writes it to the project's .archon/workflows folder."

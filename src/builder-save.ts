@@ -7,14 +7,17 @@
 // sent it, so content the builder does not understand is written back unchanged. A save that
 // times out is never sent again: the worker reads the workflow to learn whether it landed. One
 // save runs at a time. Between the re-read and the PUT lie a few milliseconds in which an outside
-// change is not seen; that is an accepted limit, stated in the README.
+// change is not seen; that is an accepted limit, stated in the README. A save Archon holds
+// deletes the workflow's builder draft made on that Archon, and a save that names a draft made on
+// another Archon is refused.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
+import type { BuilderDrafts } from './builder-drafts'
 import { isDefinition, NOT_CONNECTED, parseBuilderIdentity, PROJECT_GONE, projectFolder, readWorkflowFile } from './builder'
 import type { Client, ClientFailure } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import { readFailureText, unreadableAnswerText } from './read-failure'
-import { isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
+import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { LOCALE } from './run-graph'
 import { SERVER_TEXT_CAP } from './run-control-view'
 import { tabConnection } from './tab-screen'
@@ -23,6 +26,8 @@ import {
   DEFINITION_CAP_BYTES,
   mib,
   SCOPE_CAP,
+  identityOf,
+  OTHER_ARCHON,
   VALIDATION_ERRORS_CAP,
   type BuilderBase,
   type BuilderSaveAnswer,
@@ -31,6 +36,7 @@ import {
   type BuilderValidateAnswer,
   type BuilderValidateOutcome,
   type BuilderValidateRequest,
+  type DraftStore,
   type ValidationErrors
 } from '../editors/builder/builder-view'
 import { sameDefinition } from '../editors/builder/same-definition'
@@ -55,7 +61,7 @@ const encoder = new TextEncoder()
 const bytesOf = (value: unknown): number => encoder.encode(JSON.stringify(value)).length
 
 /** A definition from the tab: a record with a list of node records, within the open limit, or a refusal. */
-function parseDefinition(value: unknown, what: string): Record<string, unknown> {
+export function parseDefinition(value: unknown, what: string): Record<string, unknown> {
   if (!isRecord(value) || !isDefinition(value)) refuseRequest(`${what} must be a workflow definition: a record with a list of nodes.`)
   if (bytesOf(value) > DEFINITION_CAP_BYTES) refuseRequest(tooLarge(what))
   return value
@@ -69,20 +75,32 @@ const parseLocale = (input: Record<string, unknown>): string => {
 
 /** The tab's Save, or a refusal: the identity, the definition, the copy expected, a language, and nothing else. */
 export function parseSaveRequest(input: unknown): BuilderSaveRequest {
-  const identity = parseBuilderIdentity(input, 'Save', ['definition', 'base', 'locale'])
+  const identity = parseBuilderIdentity(input, 'Save', ['definition', 'base', 'locale', 'storeId'])
   const record = input as Record<string, unknown>
   const definition = parseDefinition(own(record, 'definition'), 'The definition')
   if (!Object.hasOwn(record, 'base')) refuseRequest('Save takes the copy Archon is expected to serve, or null for none.')
-  const rawBase = own(record, 'base')
-  let base: BuilderBase | null = null
-  if (rawBase !== null) {
-    if (!isRecord(rawBase)) refuseRequest('The expected copy must be a source and an authored definition.')
-    refuseOtherKeys(rawBase, ['source', 'authored'], 'The expected copy')
-    const source = own(rawBase, 'source')
-    if (!isText(source) || source.length > SCOPE_CAP) refuseRequest(`The expected source must be text of 1 to ${String(SCOPE_CAP)} characters.`)
-    base = { source, authored: parseDefinition(own(rawBase, 'authored'), 'The expected copy') }
-  }
-  return { ...identity, definition, base, locale: parseLocale(record) }
+  return { ...identity, definition, base: parseBase(own(record, 'base')), locale: parseLocale(record), ...parseDraftStore(record) }
+}
+
+/** The most characters of a store id a draft keeps. */
+export const STORE_ID_CAP = 200
+
+/** The store id a frame names its draft by, when it names one, or a refusal. */
+export function parseDraftStore(record: Record<string, unknown>): DraftStore {
+  if (!Object.hasOwn(record, 'storeId')) return {}
+  const storeId = own(record, 'storeId')
+  if (storeId !== null && !isCappedText(storeId, STORE_ID_CAP)) refuseRequest(cappedTextRefusal("The draft's store id", STORE_ID_CAP))
+  return { storeId }
+}
+
+/** A copy Archon is expected to serve: null for none, or a source and an authored definition within the open limit, or a refusal. */
+export function parseBase(rawBase: unknown): BuilderBase | null {
+  if (rawBase === null) return null
+  if (!isRecord(rawBase)) refuseRequest('The expected copy must be a source and an authored definition.')
+  refuseOtherKeys(rawBase, ['source', 'authored'], 'The expected copy')
+  const source = own(rawBase, 'source')
+  if (!isText(source) || source.length > SCOPE_CAP) refuseRequest(`The expected source must be text of 1 to ${String(SCOPE_CAP)} characters.`)
+  return { source, authored: parseDefinition(own(rawBase, 'authored'), 'The expected copy') }
 }
 
 /** The tab's Validate, or a refusal: a definition and a language, and nothing else. */
@@ -178,7 +196,11 @@ async function saveIn(client: Client, server: Connected, request: BuilderSaveReq
 export type BuilderSavePorts = {
   client: Client
   current(): Promise<ConnectionView>
+  /** The drafts kept: a save Archon holds deletes its workflow's draft made on that Archon. */
+  drafts?: Pick<BuilderDrafts, 'remove'>
 }
+
+export const DRAFT_NOT_SAVED = `${OTHER_ARCHON} It is not saved here, and it is kept.`
 
 /**
  * Answers a write request with the connection read fresh afterwards: `run`'s outcome while
@@ -205,7 +227,12 @@ export function startBuilderSave(orca: OrcaWorkerApi, ports: BuilderSavePorts): 
         if (saving) return { kind: 'refused', message: SAVE_IN_FLIGHT }
         saving = true
         try {
-          return await saveIn(ports.client, server, request)
+          // A draft made on another Archon is never saved here.
+          if (request.storeId !== undefined && request.storeId !== server.storeId) return { kind: 'refused', message: DRAFT_NOT_SAVED }
+          const outcome = await saveIn(ports.client, server, request)
+          // Archon holds the copy now, so its draft of the workflow goes.
+          if (outcome.kind === 'saved' || (outcome.kind === 'timeout' && outcome.landed === true)) await ports.drafts?.remove({ ...identityOf(request), storeId: server.storeId })
+          return outcome
         } finally {
           saving = false
         }

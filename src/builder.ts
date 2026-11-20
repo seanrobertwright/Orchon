@@ -2,9 +2,11 @@
 // answers it, with the project's folder as `cwd`, checked here before anything reaches a frame.
 // Open in builder reads it to learn the workflow's scope; a builder tab reads it to draw it, with
 // which file it shows and whether Open YAML can open that file in Orca. The worker serves the tab
-// from the moment it starts, so a tab Orca restores is answered before any panel opens.
+// from the moment it starts, so a tab Orca restores is answered before any panel opens. A read
+// also gives back the workflow's builder draft, when one is kept, in every connection state.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import { workflowFileIn, yamlTarget, type YamlTarget, type YamlWorkspace } from './builder-file'
+import type { BuilderDrafts } from './builder-drafts'
 import type { Client } from './client'
 import { CODEBASES_PATH, parseCodebases } from './codebases'
 import type { Connected, ConnectionView } from './connection-view'
@@ -12,6 +14,7 @@ import { LOCALE } from './run-graph'
 import { tabConnection } from './tab-screen'
 import {
   DEFINITION_CAP_BYTES,
+  identityOf,
   mib,
   SCOPE_CAP,
   WORKFLOW_NAME_CAP,
@@ -197,6 +200,8 @@ export type BuilderPorts = {
   workspaces(): Promise<readonly YamlWorkspace[]>
   /** `process.platform` of the worker: the WSL share test runs on Windows only. */
   platform: string
+  /** The drafts kept, so a tab's read gives its draft back with what Archon serves. */
+  drafts?: Pick<BuilderDrafts, 'view'>
 }
 
 /** A workflow found, with its file's path when it is a project's, and where Open YAML opens it. */
@@ -247,10 +252,13 @@ export function startBuilder(orca: OrcaWorkerApi, ports: BuilderPorts): Disposab
   const subscriptions = [
     orca.panels.handle('builder.read', async (input, context): Promise<BuilderAnswer> => {
       const request = parseBuilderRequest(input)
+      const identity = identityOf(request)
       const connection = await ports.current()
-      if (connection.kind !== 'connected') return { connection: tabConnection(connection, request.locale), builder: { kind: 'not-connected' } }
+      const draftFor = async (now: ConnectionView) => (ports.drafts === undefined ? {} : { draft: await ports.drafts.view(identity, now) })
+      if (connection.kind !== 'connected') return { connection: tabConnection(connection, request.locale), builder: { kind: 'not-connected' }, ...(await draftFor(connection)) }
       const builder = await read(connection, request, context.signal)
-      return { connection: tabConnection(await ports.current(), request.locale), builder }
+      const after = await ports.current()
+      return { connection: tabConnection(after, request.locale), builder, ...(await draftFor(after)) }
     }),
     orca.panels.handle('builder.openYaml', (input) => openYaml(parseBuilderIdentity(input, 'Open YAML')))
   ]
