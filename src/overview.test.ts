@@ -7,15 +7,24 @@
 // record and every `orchon-synthetic` card in it was made up by the recorder's own pack. It
 // measures nothing.
 import { assert, describe, test } from 'orca/testing'
-import { DEFAULT, DEFAULT_HEALTH, DEFAULT_OPENAPI, HANG, health, json, recorded, scene, settle, type MountedScene, type Scene } from '../scripts/scripted-archon.ts'
+import {
+  DEFAULT,
+  DEFAULT_HEALTH,
+  DEFAULT_OPENAPI,
+  HANG,
+  health,
+  json,
+  METRICS_AT as AT,
+  METRICS_PROJECT as PROJECT,
+  METRICS_SPEND as SPEND,
+  recorded,
+  scene,
+  settle,
+  type MountedScene,
+  type Scene
+} from '../scripts/scripted-archon.ts'
 import type { MetricsAnswer, MetricsView } from './metrics-view'
 import type { MetricsCardsPost } from './overview-view'
-
-const SPEND = 'spend/metrics/metrics'
-/** Where each answer sits in the spend-mode recording's log, read off the fixture by hand. */
-const AT = { views: 9, projectViews: 11, week: 15, projectYear: 19 } as const
-/** The project the recorder registered, read off the fixture by hand. */
-const PROJECT = '5f4afdd455b56667a1e364254e8d353c'
 
 const VIEWS = `${DEFAULT}/api/metric-views`
 const PROJECT_VIEWS = `${VIEWS}?codebaseId=${PROJECT}`

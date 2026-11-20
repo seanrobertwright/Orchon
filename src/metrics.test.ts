@@ -14,6 +14,9 @@ import {
   health,
   html,
   json,
+  METRICS_AT as AT,
+  METRICS_PROJECT as PROJECT,
+  METRICS_SPEND as SPEND,
   pathListWithout,
   recorded,
   scene,
@@ -23,12 +26,6 @@ import {
 } from '../scripts/scripted-archon.ts'
 import { READ_CAP_BYTES } from './client'
 import type { MetricsAnswer, MetricsView } from './metrics-view'
-
-const SPEND = 'spend/metrics/metrics'
-/** Where each answer sits in the spend-mode recording's log, read off the fixture by hand. */
-const AT = { views: 9, projectViews: 11, defaultWindow: 13, week: 15, year: 17, projectYear: 19 } as const
-/** The project the recorder registered, read off the fixture by hand. */
-const PROJECT = '5f4afdd455b56667a1e364254e8d353c'
 
 const VIEWS = `${DEFAULT}/api/metric-views`
 const report = (since: string, codebaseId?: string): string =>

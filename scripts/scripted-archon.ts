@@ -224,6 +224,13 @@ export function recorded(release: Release, scenario: string, index = 0): Scripte
     : { kind: 'json', value: body, status, contentType }
 }
 
+/** The spend-mode metrics recording of 0.14.0, which the Metrics section's tests replay. */
+export const METRICS_SPEND = 'spend/metrics/metrics'
+/** Where each answer sits in `METRICS_SPEND`'s log, read off the fixture by hand. */
+export const METRICS_AT = { views: 9, projectViews: 11, defaultWindow: 13, week: 15, year: 17, projectYear: 19 } as const
+/** The project the recorder registered in `METRICS_SPEND`, read off the fixture by hand. */
+export const METRICS_PROJECT = '5f4afdd455b56667a1e364254e8d353c'
+
 /** The request body a recorded fixture holds at `index`, as Archon was sent it. */
 export function recordedRequest(release: Release, scenario: string, index: number): unknown {
   const log = field(JSON.parse(readRepoText(`fixtures/${release}/${scenario}.json`)), 'log')

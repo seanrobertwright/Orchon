@@ -8,13 +8,9 @@
 // record and every `orchon-synthetic` card in it was made up by the recorder's own pack. It
 // measures nothing.
 import { assert, describe, test } from 'orca/testing'
-import { recorded } from '../scripts/scripted-archon.ts'
+import { METRICS_AT as AT, METRICS_SPEND as SPEND, recorded } from '../scripts/scripted-archon.ts'
 import { parseNames, parseReport } from './metrics'
 import { cardReportOf, overviewOf, parseCardDeclarations } from './overview-cards'
-
-const SPEND = 'spend/metrics/metrics'
-/** Where each answer sits in the spend-mode recording's log, read off the fixture by hand. */
-const AT = { views: 9, projectViews: 11, week: 15, projectYear: 19 } as const
 
 type Body = Record<string, unknown>
 function body(scenario: string, index: number): Body {
