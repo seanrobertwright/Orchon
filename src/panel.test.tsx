@@ -126,8 +126,12 @@ describe('the Metrics section', () => {
       host: mockHost(answering(connectedWithMetrics)),
       persisted: { workspace: { section: 'metrics' } }
     })
-    showing(panel, 'Metrics')
-    assert.equal(panel.find({ type: 'EmptyState' })?.text, 'Metrics This section is not built yet.')
+    assert.deepEqual(panel.summary(), [
+      'Tabs "Orchon sections": "Metrics" selected',
+      'Tabs "Metrics views": "Details" selected',
+      'EmptyState "No measurements in the last 7 days."'
+    ])
+    assert.deepEqual(requests(panel), ['connection.read', 'scope.read', 'metrics.read'])
     clean(panel)
   })
 

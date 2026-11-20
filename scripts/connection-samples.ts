@@ -12,6 +12,7 @@ import type {
 import type { ChatsAnswer } from '../src/chats-view.ts'
 import type { FormsAnswer, FormsView } from '../src/forms-view.ts'
 import type { LaunchAnswer, LaunchView } from '../src/launch-view.ts'
+import type { MetricsAnswer, MetricsView } from '../src/metrics-view.ts'
 import { EMPTY_COUNTS, type RunsAnswer, type RunsRequest, type RunsView } from '../src/runs-view.ts'
 import type { ScopeAnswer } from '../src/scope-view.ts'
 import type { SystemAnswer, SystemView } from '../src/system-view.ts'
@@ -164,6 +165,7 @@ type Answers = {
   'launch.read': LaunchAnswer
   'workflows.read': WorkflowsAnswer
   'chats.read': ChatsAnswer
+  'metrics.read': MetricsAnswer
 }
 
 /** The launcher of an Archon with no projects: nothing to choose, nothing typed. */
@@ -189,6 +191,19 @@ export const noProjectsWorkflows: WorkflowsSectionView = {
   folder: null,
   readFrom: null,
   list: { kind: 'ready', rows: [], total: 0, matching: 0, unreadable: 0 }
+}
+
+/** A week with no metrics recorded, ending at noon UTC on 18 November 2026. */
+export const noMetrics: MetricsView = {
+  kind: 'ready',
+  window: '7d',
+  since: Date.UTC(2026, 10, 11, 12),
+  until: Date.UTC(2026, 10, 18, 12),
+  fetchedAt: Date.UTC(2026, 10, 18, 12),
+  rows: [],
+  more: 0,
+  refused: [],
+  refusedTotal: 0
 }
 
 /**
@@ -220,7 +235,8 @@ export function answeringRuns(
       'forms.resolve': formsAnswer,
       'launch.read': { connection, launch: connection.kind === 'connected' ? noProjectsLaunch : { kind: 'not-connected' }, notices: [] },
       'workflows.read': { connection, workflows: connection.kind === 'connected' ? noProjectsWorkflows : { kind: 'not-connected' } },
-      'chats.read': { connection, chats: connection.kind === 'connected' ? { kind: 'ready', rows: [], capped: false, unreadable: 0 } : { kind: 'not-connected' } }
+      'chats.read': { connection, chats: connection.kind === 'connected' ? { kind: 'ready', rows: [], capped: false, unreadable: 0 } : { kind: 'not-connected' } },
+      'metrics.read': { connection, window: '7d', metrics: connection.kind === 'connected' ? noMetrics : { kind: 'not-connected' } }
     }
   }
 }
