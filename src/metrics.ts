@@ -2,6 +2,8 @@
 // card declarations and the window's report from Archon, in that order, validates them by hand
 // and answers the Overview cards of `overview-cards.ts` and the Details rows of `metrics-view.ts`,
 // never Archon's report. Once the declarations answer it posts their titles as `metrics.cards`.
+// Once it has answered, it reads the year-long report for calibrations (`calibrations.ts`), one
+// request at a time, and posts the cards again with their markers as `metrics.calibrations`.
 // It keeps the last report it read, in memory only, so a return to the section within
 // `METRICS_MAX_AGE_MS` asks Archon nothing and a metric's view (`metric-detail.ts`) answers from
 // it, and it keeps the person's window in plugin storage.

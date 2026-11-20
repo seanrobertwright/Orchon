@@ -2,7 +2,9 @@
 // window of the report on screen, and the worker answers that one metric's figures from the
 // report it holds (`startMetrics` in `metrics.ts`), asking Archon nothing. Only when it holds no
 // report for that scope and window, as after a restart, does it read that one metric from Archon
-// by `name`, under the Details read's timeout, read cap and failure words.
+// by `name`, under the Details read's timeout, read cap and failure words, and lists no
+// calibrations. Otherwise its calibration lines come from the year-long report the Metrics read
+// holds beside it, as that report stands (`metricCalibrations` in `calibrations.ts`).
 //
 // The figures are written as Archon's console writes them in its Details row (`MetricRow` and
 // `CostCell` in `packages/web/src/experiments/console/routes/metrics/MetricsDetails.tsx`, and

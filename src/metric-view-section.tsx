@@ -1,9 +1,10 @@
 // A metric's view, inside the Details tab of the Metrics section: selecting a row of the Details
 // table replaces the table with one metric's labelled figures, the older judge versions its
 // headline hides, and a collapsed "By day" table that stands in for the console's sparkline, with
-// a back control to the table. It draws only the worker's view model, asked for once when the row
-// is selected and again when a new report comes on screen; the worker answers from the report it
-// holds. Nothing here writes, and no timer runs.
+// a back control to the table, and its calibrations (`calibration-section.tsx`). It draws only the
+// worker's view model, asked for once when the row is selected, again when a new report comes on
+// screen and again when the worker posts that report's calibrations; the worker answers from the
+// report it holds. Nothing here writes, and no timer runs.
 import {
   atom,
   Button,
