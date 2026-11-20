@@ -1,6 +1,7 @@
 // The frame seam for a metric's view: src/panel.tsx mounted on a scripted worker that answers the
 // metrics read, a metric's view, the scope and the runs table. These tests cover selecting a
-// Details row, what the metric's view draws, the way back, and the console link from it.
+// Details row, what the metric's view draws, the way back, how a card's Details link meets a
+// metric's view, and the console link from it.
 import { mock } from 'node:test'
 import { afterEach, assert, beforeEach, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
 import { answeringMetric, sampleMetric } from '../scripts/metric-samples.ts'
@@ -28,7 +29,8 @@ async function mountMetric(
   panel = await mount(panelModule, {
     host: mockHost(answeringMetric(metrics, metric, options)),
     locale: 'en-US',
-    persisted: { workspace: { section: 'metrics' } }
+    // The section lands on Overview; the Details table is its other tab.
+    persisted: { workspace: { section: 'metrics', metricsTab: 'details' } }
   })
   return panel
 }
@@ -189,6 +191,42 @@ describe("the metric's view", () => {
       { name: 'sdlc.review_score', window: '30d', codebaseId: 'cb-web' }
     ])
     assert.ok(view.find(FIGURES))
+    clean(view)
+  })
+})
+
+const TABS = { type: 'Tabs', label: 'Metrics views' }
+
+/** Presses the Details link of the Overview card with this title. */
+async function pressCardDetails(view: TestPanel, title: string): Promise<void> {
+  await view.select(TABS, 'overview')
+  const card = view.find({ type: 'Card', label: title })
+  assert.ok(card)
+  const link = view.findAll({ type: 'Link' }).find((each) => each.path.startsWith(card.path) && each.path !== card.path)
+  assert.ok(link)
+  await view.press(link)
+}
+
+describe("a card's Details link and a metric's view", () => {
+  test("a press on the row the card's link selected opens that metric's view", async () => {
+    const view = await mountMetric()
+    await pressCardDetails(view, 'PRs merged')
+    assert.deepEqual(view.valueOf(TABLE), ['sdlc.prs_merged'])
+    assert.deepEqual(sent(view, 'metric.read'), [])
+    // A press on a selected row of a single-selection table clears the selection.
+    await view.selectRows(TABLE, [])
+    assert.equal(view.find(TABLE), null)
+    assert.deepEqual(sent(view, 'metric.read'), [{ name: 'sdlc.prs_merged', window: '7d', codebaseId: 'cb-web' }])
+    clean(view)
+  })
+
+  test("the link closes a metric's view open in Details and shows the table at the card's metric", async () => {
+    const view = await mountMetric()
+    await view.selectRows(TABLE, ['sdlc.review_score'])
+    await pressCardDetails(view, 'PRs merged')
+    assert.equal(view.valueOf(TABS), 'details')
+    assert.equal(view.find(FIGURES), null)
+    assert.deepEqual(view.valueOf(TABLE), ['sdlc.prs_merged'])
     clean(view)
   })
 })

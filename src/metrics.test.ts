@@ -14,6 +14,9 @@ import {
   health,
   html,
   json,
+  METRICS_AT as AT,
+  METRICS_PROJECT as PROJECT,
+  METRICS_SPEND as SPEND,
   pathListWithout,
   recorded,
   scene,
@@ -23,12 +26,6 @@ import {
 } from '../scripts/scripted-archon.ts'
 import { READ_CAP_BYTES } from './client'
 import type { MetricsAnswer, MetricsView } from './metrics-view'
-
-const SPEND = 'spend/metrics/metrics'
-/** Where each answer sits in the spend-mode recording's log, read off the fixture by hand. */
-const AT = { views: 9, projectViews: 11, defaultWindow: 13, week: 15, year: 17, projectYear: 19 } as const
-/** The project the recorder registered, read off the fixture by hand. */
-const PROJECT = '5f4afdd455b56667a1e364254e8d353c'
 
 const VIEWS = `${DEFAULT}/api/metric-views`
 const report = (since: string, codebaseId?: string): string =>
@@ -260,6 +257,8 @@ describe("the report's validator", () => {
     ['a name longer than 128', (body) => (weekMetrics(body)[0]!.name = `a${'.b'.repeat(64)}`)],
     ['a value that is not a number', (body) => (firstInstrument(body, 0).value = '1')],
     ['a record count that is not a whole number', (body) => (firstInstrument(body, 0).n = 1.5)],
+    ["a count's cost without its run count", (body) => delete (firstInstrument(body, 0).cost as Body).runs],
+    ["a score's cost with a run count that is not a whole number", (body) => ((firstInstrument(body, 3).cost as Body).runs_without_cost = 0.5)],
     ['a window that is not a time', (body) => ((body.window as Body).since = 'last week')],
     ['a known kind without its unit', (body) => delete weekMetrics(body)[0]!.unit],
     ['no headline among the instruments', (body) => (weekMetrics(body)[0]!.headline_instrument = 'judge-v2')],

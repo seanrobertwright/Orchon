@@ -4,6 +4,7 @@
 import type { MockHostOptions } from 'orca/testing'
 import type { ConnectionView } from '../src/connection-view.ts'
 import { WINDOW_DAYS, type MetricRow, type MetricsAnswer, type MetricsRequest, type MetricsView, type MetricsWindow } from '../src/metrics-view.ts'
+import type { OverviewView } from '../src/overview-view.ts'
 import type { ScopeView } from '../src/scope-view.ts'
 import { connectedWithMetrics } from './connection-samples.ts'
 import { busyRuns } from './runs-samples.ts'
@@ -24,11 +25,38 @@ export const SAMPLE_ROWS: MetricRow[] = [
   { name: 'sdlc.test_histogram', label: 'Test histogram', state: 'unknown-kind' }
 ]
 
+/** The cards the samples carry: one pack with a count, a ratio, a cost per item and a shape Orchon does not know. */
+export const SAMPLE_OVERVIEW: OverviewView = {
+  packs: [
+    {
+      key: 'bundled:sdlc',
+      name: 'sdlc',
+      cards: [
+        { id: 'count:sdlc.prs_merged', title: 'PRs merged', kind: 'figure', shape: 'count', metric: 'sdlc.prs_merged', figure: '12', line: '14 opened · 2 abandoned' },
+        {
+          id: 'ratio:sdlc.tests_unprotective',
+          title: 'Useless tests',
+          kind: 'figure',
+          shape: 'ratio',
+          metric: 'sdlc.tests_unprotective',
+          figure: '38%',
+          percent: 38,
+          line: '5 of 13 new tests'
+        },
+        { id: 'cost_per:sdlc.prs_merged', title: 'Cost per PR', kind: 'figure', shape: 'cost_per', metric: 'sdlc.prs_merged', figure: '≥ $1.42', line: '8 of 10 runs record cost' },
+        { id: 'unknown:Spread', title: 'Spread', kind: 'unknown-shape' }
+      ],
+      more: 0
+    }
+  ],
+  morePacks: 0
+}
+
 /** A report over `window`, fetched `ageMs` before its end, with the rows given. */
 export function sampleReport(
   window: MetricsWindow = '7d',
   rows: MetricRow[] = SAMPLE_ROWS,
-  options: { more?: number; ageMs?: number; codebaseId?: string } = {}
+  options: { more?: number; ageMs?: number; codebaseId?: string; overview?: OverviewView } = {}
 ): Extract<MetricsView, { kind: 'ready' }> {
   const view: Extract<MetricsView, { kind: 'ready' }> = {
     kind: 'ready',
@@ -39,7 +67,8 @@ export function sampleReport(
     rows,
     more: options.more ?? 0,
     refused: [],
-    refusedTotal: 0
+    refusedTotal: 0,
+    overview: options.overview ?? SAMPLE_OVERVIEW
   }
   if (options.codebaseId !== undefined) view.codebaseId = options.codebaseId
   return view

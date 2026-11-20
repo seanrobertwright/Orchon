@@ -18,11 +18,17 @@ afterEach(async () => {
   mock.timers.reset()
 })
 
+/**
+ * The panel on the Metrics section. These tests are about the header and Details, so the section
+ * opens on the tab a person last chose, Details, unless `tab` is null: then on its landing view.
+ */
 async function mountMetrics(
   metrics: (request: MetricsRequest) => MetricsView | Promise<MetricsView>,
-  options: Parameters<typeof answeringMetrics>[1] = {}
+  options: Parameters<typeof answeringMetrics>[1] & { tab?: 'details' | null } = {}
 ): Promise<TestPanel> {
-  panel = await mount(panelModule, { host: mockHost(answeringMetrics(metrics, options)), persisted: { workspace: { section: 'metrics' } } })
+  const workspace: Record<string, unknown> = { section: 'metrics' }
+  if (options.tab !== null) workspace.metricsTab = 'details'
+  panel = await mount(panelModule, { host: mockHost(answeringMetrics(metrics, options)), persisted: { workspace } })
   return panel
 }
 
@@ -42,8 +48,8 @@ function clean(view: TestPanel): void {
 const TABLE = { type: 'Table', label: 'Metrics' }
 
 describe('the section header', () => {
-  test('a horizontal "Window" radio group of 7d, 30d and 90d on 7d, a named Refresh button, the status line and the Overview and Details tabs', async () => {
-    const view = await mountMetrics(() => sampleReport())
+  test('a horizontal "Window" radio group of 7d, 30d and 90d on 7d, a named Refresh button, the status line and the Overview and Details tabs, on Overview', async () => {
+    const view = await mountMetrics(() => sampleReport(), { tab: null })
     const window = view.find({ type: 'RadioGroup', label: 'Window' })
     assert.equal(window?.props.orientation, 'horizontal')
     assert.deepEqual(
@@ -63,7 +69,7 @@ describe('the section header', () => {
       view.findAll({ type: 'Tab' }).filter((tab) => tab.path.startsWith(tabs.path) && tab.path !== tabs.path).map((tab) => tab.props.label),
       ['Overview', 'Details']
     )
-    assert.equal(view.valueOf({ type: 'Tabs', label: 'Metrics views' }), 'details')
+    assert.equal(view.valueOf({ type: 'Tabs', label: 'Metrics views' }), 'overview')
     clean(view)
   })
 })
@@ -253,11 +259,12 @@ describe('the rest of the section', () => {
     clean(view)
   })
 
-  test('Overview is left for a later version and builds no cards', async () => {
+  test('Details, once chosen, is the tab the section opens on; Overview draws the cards and no table', async () => {
     const view = await mountMetrics(() => sampleReport())
+    assert.equal(view.valueOf({ type: 'Tabs', label: 'Metrics views' }), 'details')
     await view.select({ type: 'Tabs', label: 'Metrics views' }, 'overview')
     assert.equal(view.find({ type: 'Table' }), null)
-    assert.equal(view.find({ type: 'Card' }), null)
+    assert.equal(view.findAll({ type: 'Card' }).length, 4)
     clean(view)
   })
 })

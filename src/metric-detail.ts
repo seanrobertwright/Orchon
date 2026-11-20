@@ -13,16 +13,14 @@ import type { Client } from './client'
 import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { cutAt } from './cutter'
-import type { Identity, InstrumentFigures } from './metric-figures'
+import { formatNumber, isMetricName, METRICS_TEXT_CAP, type Identity, type InstrumentFigures } from './metric-figures'
 import { BY_DAY_CAP, OLDER_VERSIONS_CAP, type MetricAnswer, type MetricDetail, type MetricRequest, type MetricView } from './metric-view'
 import {
   failedView,
   formatFigure,
-  formatNumber,
+  formatKnownCost,
   formatValue,
-  isMetricName,
   METRICS_PATH,
-  METRICS_TEXT_CAP,
   parseReport,
   reportKey,
   type Metric,
@@ -75,7 +73,7 @@ export function metricDetail(metric: Metric): MetricView {
     value: formatValue(headline.value, unit),
     interval: interval === null ? null : `${formatFigure(interval.low, unit)} – ${formatFigure(interval.high, unit)}`,
     records: headline.n,
-    knownCost: cost.usd === null ? 'none recorded' : `≥ $${formatNumber(cost.usd)}`,
+    knownCost: formatKnownCost(cost.usd),
     runs: cost.runs,
     gaps: { withoutCost: cost.withoutCost, withoutTokens: cost.withoutTokens, partialCost: cost.partialCost, missing: cost.missing },
     tokens: tokensText(cost),

@@ -5,7 +5,7 @@
 // rules with no safety refetch: on opening the section, on a change of scope or window, and on
 // Refresh. A return to the section asks the worker, which reads Archon again only when its report
 // is older than `METRICS_MAX_AGE_MS`. It ignores run hints. Figures are shown only for the scope
-// chosen now. Overview is filled by a later version.
+// chosen now. It lands on Overview, the cards of `overview-section.tsx`.
 import {
   atom,
   Button,
@@ -36,16 +36,16 @@ import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { formatDay, now } from './dates'
 import { frameTimers } from './frame-timers'
-import { closeMetricView, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
+import { closeMetricView, lastDays, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
 import {
   METRICS_REQUEST_TIMEOUT_MS,
   METRICS_WINDOWS,
-  WINDOW_DAYS,
   type MetricsAnswer,
   type MetricsRequest,
   type MetricsView,
   type MetricsWindow
 } from './metrics-view'
+import { clearOverview, moreLine, overviewCards, pendingCards, startOverviewSection } from './overview-section'
 import { scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, type ViewFetch } from './view-fetch'
 import { offersTryAgain, troubleText } from './worker-words'
@@ -64,11 +64,22 @@ const problem = atom<Problem | null>(null)
 const chosen = atom<MetricsWindow | null>(null)
 /** The window of the read in flight, or null when none is. */
 const loading = atom<MetricsWindow | null>(null)
-/** Overview or Details, kept per workspace because Orca unmounts a hidden panel. */
-const tab = atom<unknown>('metricsTab', 'details', { persist: 'workspace' })
+/** Overview or Details, kept per workspace because Orca unmounts a hidden panel. Overview is the landing view. */
+const tab = atom<unknown>('metricsTab', 'overview', { persist: 'workspace' })
+/** The metric a card's "Details" link opened Details at, selected in the table. */
+const detailsAt = atom<string | null>(null)
 
 type MetricsTab = 'overview' | 'details'
-const parseTab = (value: unknown): MetricsTab => (value === 'overview' ? 'overview' : 'details')
+const parseTab = (value: unknown): MetricsTab => (value === 'details' ? 'details' : 'overview')
+
+/** A card's "Details" link: the Details table, at the card's metric when it names one. */
+function openDetails(metric?: string): void {
+  // The link shows the Details table itself, so a metric's view open there closes.
+  closeMetricView()
+  set(detailsAt, metric ?? null)
+  set(tab, 'details')
+}
+const overviewHooks = { openDetails }
 
 export const TIMEOUT_TEXT = 'Archon took too long to answer.'
 export const TOO_LARGE_TEXT = "Archon's metrics answer is too large to read."
@@ -102,8 +113,6 @@ function shownReport(): Ready | null {
   const report = read(loaded)
   return report !== null && report.codebaseId === scopedProjectId() ? report : null
 }
-
-const lastDays = (window: MetricsWindow): string => `last ${String(WINDOW_DAYS[window])} days`
 
 function problemOf(view: MetricsView): Problem | null {
   switch (view.kind) {
@@ -165,6 +174,7 @@ export function startMetricsSection(ctx: PanelContext, given: MetricsSectionHook
     timers: frameTimers
   })
   fetcher = view
+  startOverviewSection(ctx)
   startMetricView(ctx, { keep: given.keep })
   ctx.subscriptions.push({
     dispose() {
@@ -220,6 +230,7 @@ export function clearMetrics(): void {
   set(loaded, null)
   set(missing, null)
   set(problem, null)
+  clearOverview()
 }
 
 /**
@@ -300,11 +311,22 @@ function rowsOf(report: Ready): TableRow[] {
   return rows
 }
 
-/** Selecting a row opens its metric's view. */
+const NO_ROWS: readonly string[] = []
+const selectedRows = (metric: string | null): readonly string[] => (metric === null ? NO_ROWS : [metric])
+
+/** Selecting a row opens its metric's view; the row a card's link selected is selected no more. */
 function openRow(report: Ready, key: string | undefined): void {
   const row = key === undefined ? undefined : report.rows.find((each) => each.name === key)
-  if (row !== undefined) openMetricView(row.name, row.label, report)
+  if (row === undefined) return
+  set(detailsAt, null)
+  openMetricView(row.name, row.label, report)
 }
+
+/**
+ * A new selection opens its row. A press on the row a card's link selected clears the selection
+ * rather than changing it, and opens that row too.
+ */
+const selectionChanged = (report: Ready, keys: readonly string[]): void => openRow(report, keys[0] ?? read(detailsAt) ?? undefined)
 
 function details(report: Ready): OrcaNode {
   if (openMetricName() !== null) return metricViewBody((view) => problemOf(view)?.message ?? null, UNKNOWN_KIND_TEXT)
@@ -316,11 +338,11 @@ function details(report: Ready): OrcaNode {
         columns={COLUMNS}
         rows={rowsOf(report)}
         selectionMode="single"
-        selected={[]}
-        onSelectionChange={({ keys }) => openRow(report, keys[0])}
+        selected={selectedRows(read(detailsAt))}
+        onSelectionChange={({ keys }) => selectionChanged(report, keys)}
         onRowAction={({ key }) => openRow(report, key)}
       />
-      {report.more > 0 ? <Text muted size="sm">{`and ${String(report.more)} more in Archon's console`}</Text> : null}
+      {moreLine(report.more)}
       <Text muted size="sm">
         {KNOWN_COST_FOOTNOTE}
       </Text>
@@ -360,9 +382,7 @@ export function metricsSection(state: Connected, writable: boolean): OrcaNode {
       {held === null ? null : problemCallout(held)}
       <Tabs label="Metrics views" value={shownTab} onChange={(value) => set(tab, parseTab(value))}>
         <Tab value="overview" label="Overview">
-          <Text muted size="sm">
-            Overview cards are not built yet. Details lists every metric.
-          </Text>
+          {report === null ? (pendingCards(scopedProjectId(), inFlight, overviewHooks) ?? body) : overviewCards(report.overview, overviewHooks)}
         </Tab>
         <Tab value="details" label="Details">
           {body}

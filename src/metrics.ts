@@ -1,9 +1,10 @@
 // The Metrics section's read: a frame sends the scope and the window, and the worker reads the
-// card declarations and the window's report from Archon, validates them by hand and answers the
-// Details rows of `metrics-view.ts`, never Archon's report. It keeps the last report it read, in
-// memory only, so a return to the section within `METRICS_MAX_AGE_MS` asks Archon nothing and a
-// metric's view (`metric-detail.ts`) answers from it, and it keeps the
-// person's window in plugin storage.
+// card declarations and the window's report from Archon, in that order, validates them by hand
+// and answers the Overview cards of `overview-cards.ts` and the Details rows of `metrics-view.ts`,
+// never Archon's report. Once the declarations answer it posts their titles as `metrics.cards`.
+// It keeps the last report it read, in memory only, so a return to the section within
+// `METRICS_MAX_AGE_MS` asks Archon nothing and a metric's view (`metric-detail.ts`) answers from
+// it, and it keeps the person's window in plugin storage.
 //
 // The report's shape is `metricsReportSchema` in `packages/workflows/src/schemas/metric.ts` of
 // Archon 0.14.0 (commit 8def159a6b2c23e832a5283b4131cfffd9af9344); the declarations' `names` are
@@ -15,7 +16,16 @@ import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
-import { parseMetricFigures, type MetricFigures } from './metric-figures'
+import {
+  formatNumber,
+  formatShare,
+  isMetricName,
+  METRICS_TEXT_CAP,
+  need,
+  parseMetricFigures,
+  readable,
+  type MetricFigures
+} from './metric-figures'
 import {
   DEFAULT_WINDOW,
   DETAILS_ROWS_CAP,
@@ -29,6 +39,7 @@ import {
   type MetricsWindow,
   type RefusalRow
 } from './metrics-view'
+import { cardReportOf, cardsPost, overviewOf, parseCardDeclarations, unknownsLine } from './overview-cards'
 import { readFailureText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { PROJECT_ID_CAP } from './scope-view'
@@ -41,15 +52,8 @@ export const WINDOW_STORAGE_KEY = 'metrics-window'
 /** How long a chosen window waits before it is written, so quick presses write once. */
 export const WINDOW_WRITE_PAUSE_MS = 1_000
 
-/** Archon's metric-name pattern and length, from `metricNameSchema`. */
-const METRIC_NAME = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/
-const METRIC_NAME_CAP = 128
-/** Archon's free text is cut here. */
-export const METRICS_TEXT_CAP = 500
 /** A plain name or a unit longer than this is not read as one. */
 const LABEL_CAP = 200
-
-const KNOWN_KINDS = new Set(['count', 'score'])
 
 const isWindow = (value: unknown): value is MetricsWindow => METRICS_WINDOWS.some((window) => window === value)
 
@@ -76,15 +80,6 @@ export function parseMetricsRequest(input: unknown): MetricsRequest {
   return request
 }
 
-export const isMetricName = (value: unknown): value is string =>
-  typeof value === 'string' && value.length <= METRIC_NAME_CAP && METRIC_NAME.test(value)
-
-/** Thrown inside the report's parse: the whole answer could not be read. */
-class Unreadable extends Error {}
-function need(ok: boolean): asserts ok {
-  if (!ok) throw new Unreadable()
-}
-
 /** The plain names every readable pack declares, the first pack's winning, as the console reads them. */
 export function parseNames(value: unknown): Map<string, string> | null {
   if (!isRecord(value) || !Array.isArray(own(value, 'packs'))) return null
@@ -101,9 +96,9 @@ export function parseNames(value: unknown): Map<string, string> | null {
   return names
 }
 
-/** A metric as the table reads it: unknown kinds carry nothing but their name. */
+/** A metric as the table, the cards and a metric's view read it: unknown kinds carry nothing but their name. */
 export type Metric =
-  | { name: string; kind: 'known'; unit: string; calibration: boolean; figures: MetricFigures }
+  | { name: string; kind: 'count' | 'score'; unit: string; calibration: boolean; figures: MetricFigures }
   | { name: string; kind: 'unknown'; calibration: boolean }
 
 function parseMetric(value: unknown): Metric {
@@ -115,13 +110,13 @@ function parseMetric(value: unknown): Metric {
   // A calibration names the metric it calibrates; one whose kind Orchon does not know is still one.
   need(calibrates === undefined || calibrates === null || isMetricName(calibrates))
   const calibration = typeof calibrates === 'string'
-  if (!KNOWN_KINDS.has(kind)) return { name, kind: 'unknown', calibration }
+  if (kind !== 'count' && kind !== 'score') return { name, kind: 'unknown', calibration }
   const unit = own(value, 'unit')
   need(isCappedText(unit, LABEL_CAP) && calibrates !== undefined)
   // Every judge version's figures, the headline's among them: a part that fails fails the whole answer.
   const figures = parseMetricFigures(value)
   need(figures !== null)
-  return { name, kind: 'known', unit, calibration, figures }
+  return { name, kind, unit, calibration, figures }
 }
 
 function parseRefusal(value: unknown): RefusalRow | null {
@@ -143,7 +138,7 @@ export type Report = { since: number; until: number; metrics: Metric[]; refused:
 
 /** Archon's report, or null when any part the plugin reads fails. */
 export function parseReport(value: unknown): Report | null {
-  try {
+  return readable(() => {
     need(isRecord(value))
     const window = own(value, 'window')
     const metrics = own(value, 'metrics')
@@ -159,19 +154,9 @@ export function parseReport(value: unknown): Report | null {
       if (row !== null) rows.push(row)
     }
     return { since, until, metrics: metrics.map(parseMetric), refused: rows, refusedTotal: refused.length }
-  } catch (error) {
-    if (error instanceof Unreadable) return null
-    throw error
-  }
+  })
 }
 
-/** Two decimals, except a nonzero value below 0.01 keeps two significant digits rather than showing 0. */
-export function formatNumber(value: number): string {
-  return value !== 0 && Math.abs(value) < 0.01
-    ? value.toLocaleString('en-US', { maximumSignificantDigits: 2 })
-    : value.toLocaleString('en-US', { maximumFractionDigits: 2 })
-}
-const formatShare = (share: number): string => share.toLocaleString('en-US', { style: 'percent', maximumSignificantDigits: 2 })
 /** A value in its unit's terms: a `ratio` is a percentage, anything else a plain number. */
 export const formatFigure = (value: number, unit: string): string => (unit === 'ratio' ? formatShare(value) : formatNumber(value))
 /** `prs` is the guide's own example unit; other units read with their underscores as spaces. */
@@ -181,6 +166,9 @@ export function formatValue(value: number, unit: string): string {
   const figure = formatFigure(value, unit)
   return unit === 'ratio' ? figure : `${figure} ${UNIT_WORDS.get(unit) ?? unit.replaceAll('_', ' ')}`
 }
+
+/** A known cost as the console writes it: at least the dollars recorded, or none recorded. */
+export const formatKnownCost = (usd: number | null): string => (usd === null ? 'none recorded' : `≥ $${formatNumber(usd)}`)
 
 /** The Details table: by name, calibrations left out, at most `DETAILS_ROWS_CAP` rows. */
 export function detailsRows(report: Report, names: ReadonlyMap<string, string>): { rows: MetricRow[]; more: number } {
@@ -198,7 +186,7 @@ export function detailsRows(report: Report, names: ReadonlyMap<string, string>):
         state: 'shown',
         value: formatValue(headline.value, unit),
         records: headline.n,
-        knownCost: headline.cost.usd === null ? 'none recorded' : `≥ $${formatNumber(headline.cost.usd)}`,
+        knownCost: formatKnownCost(headline.cost.usd),
         latest: formatFigure(headline.latest.value, unit)
       }
     })
@@ -293,11 +281,17 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
     const failed = (failure: ClientFailure): MetricsView => failedView(failure, connection)
     if (!views.ok) return failed(views.failure)
     const names = parseNames(views.value)
-    if (names === null) return { kind: 'unreadable' }
+    const cards = parseCardDeclarations(views.value)
+    if (names === null || cards === null) return { kind: 'unreadable' }
+    // The titles go out now, so a panel shows them over skeletons while the report is read.
+    orca.panels.post('metrics.cards', cardsPost(request.codebaseId, requestedWindow, cards))
     const answer = await ports.client.request({ ...call, path: reportPath(requestedWindow, request.codebaseId), timeout: 'report' })
     if (!answer.ok) return failed(answer.failure)
     const report = parseReport(answer.value)
     if (report === null) return { kind: 'unreadable' }
+    const cardReport = cardReportOf(report)
+    const unknowns = unknownsLine(cards, cardReport)
+    if (unknowns !== null) orca.log(unknowns)
     const { rows, more } = detailsRows(report, names)
     const view: Extract<MetricsView, { kind: 'ready' }> = {
       kind: 'ready',
@@ -308,7 +302,8 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
       rows,
       more,
       refused: report.refused,
-      refusedTotal: report.refusedTotal
+      refusedTotal: report.refusedTotal,
+      overview: overviewOf(cards, cardReport, names)
     }
     if (request.codebaseId !== undefined) view.codebaseId = request.codebaseId
     held = { key, view, report }

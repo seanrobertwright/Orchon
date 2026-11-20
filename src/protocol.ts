@@ -35,8 +35,9 @@ import type {
   BuilderValidateRequest,
   YamlOpenAnswer
 } from '../editors/builder/builder-view'
-import type { MetricsAnswer, MetricsRequest } from './metrics-view'
 import type { MetricAnswer, MetricRequest } from './metric-view'
+import type { MetricsAnswer, MetricsRequest } from './metrics-view'
+import type { MetricsCardsPost } from './overview-view'
 import type { DeleteAnswer, WorkflowDelete, WorkflowNew, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
 
 declare module 'orca' {
@@ -183,8 +184,8 @@ declare module 'orca' {
     /** The thread as the worker last read it, held in memory while its reads hold their `THREAD_LEASE_MS` lease, or null. */
     'chat.last': { input: ChatLastRequest; output: ChatLastAnswer }
     /**
-     * The Metrics section: the Details rows of the scope's report over one window, read from Archon
-     * or from the report the worker holds while it is at most `METRICS_MAX_AGE_MS` old. A window it names is kept.
+     * The Metrics section: the Overview cards and the Details rows of the scope's report over one
+     * window, read from Archon or from the report the worker holds while it is at most `METRICS_MAX_AGE_MS` old. A window it names is kept.
      */
     'metrics.read': { input: MetricsRequest; output: MetricsAnswer }
     /**
@@ -222,5 +223,10 @@ declare module 'orca' {
      * the panel reads the thread again. It names the conversation and carries no message data.
      */
     'chat.changed': ChatHint
+    /**
+     * The Overview card titles of a metrics read, posted once the card declarations answer and
+     * before the window's report does. It names the scope and window the read is for.
+     */
+    'metrics.cards': MetricsCardsPost
   }
 }

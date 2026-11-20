@@ -129,8 +129,8 @@ describe('the Metrics section', () => {
     })
     assert.deepEqual(panel.summary(), [
       'Tabs "Orchon sections": "Metrics" selected',
-      'Tabs "Metrics views": "Details" selected',
-      'EmptyState "No measurements in the last 7 days."'
+      'Tabs "Metrics views": "Overview" selected',
+      'EmptyState "No pack declares overview cards."'
     ])
     assert.deepEqual(requests(panel), ['connection.read', 'scope.read', 'metrics.read'])
     clean(panel)
