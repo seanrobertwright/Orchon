@@ -87,7 +87,7 @@ describe('a recording session', () => {
     session.saveText('login.txt', 'a note', 'read D:/claude-config/.credentials.json\n')
     session.saveText('email.txt', 'a note', 'signed in as someone.real@mail.example-isp.net\n')
     session.saveText('clean.txt', 'a note', 'nothing here\n')
-    const leaks = { loginFolder: 'D:\\claude-config', homeFolder: 'C:\\Users\\dev', user: 'dev' }
+    const leaks = { claudeConfig: 'D:\\claude-config', homeFolder: 'C:\\Users\\dev', user: 'dev' }
     const { files, refused } = scrubFiles(session.files, scrubber(), leaks)
     assert.deepEqual(refused, [
       { path: 'login.txt', holds: ['the Claude login folder'] },

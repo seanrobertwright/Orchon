@@ -19,17 +19,17 @@ import { basename, join, resolve } from 'node:path'
 import { parseArguments, USAGE } from './recorder/arguments.ts'
 import { BOOT_TIMEOUT_MS, waitUntilHealthy } from './recorder/boot.ts'
 import { nowIso } from './recorder/clock.ts'
-import { claudeLoginFolder } from './recorder/environment.ts'
+import { claudeLoginFolder, type LoginMode } from './recorder/environment.ts'
 import { createThrowawayHome, removeThrowawayHome, writeSpendConfig } from './recorder/home.ts'
 import { createLoopbackClient, type LoopbackClient } from './recorder/http.ts'
 import { untilInterrupted, watchInterrupts } from './recorder/interrupt.ts'
-import { findLeaks } from './recorder/leaks.ts'
+import { findLeaks, type LeakRules } from './recorder/leaks.ts'
 import { recordedLog, type SpendLog } from './recorder/log.ts'
 import { SPEND_FOLDER, writeRecording } from './recorder/output.ts'
 import { runToEnd, startRelease, type RunningRelease } from './recorder/process.ts'
 import { createThrowawayProject } from './recorder/project.ts'
 import { recordRelease } from './recorder/scenarios.ts'
-import { createScrubber, machineRules } from './recorder/scrub.ts'
+import { createScrubber, machineRules, type Machine } from './recorder/scrub.ts'
 import { createSession, scrubFiles } from './recorder/session.ts'
 import { SPEND_SCENARIOS, spendsTokens } from './recorder/spend.ts'
 import { recordSpendScenario, StopTheRelease } from './recorder/spend-scenarios.ts'
@@ -80,6 +80,7 @@ async function record(signal: AbortSignal): Promise<number> {
   }
   const scenario = args.scenario
   const passLogin = scenario !== null && spendsTokens(scenario.name)
+  const login: LoginMode = passLogin ? 'passed' : 'hidden'
   const releaseFolder = join(repoRoot, 'fixtures', args.release)
   const outFolder = args.out !== null ? resolve(args.out) : scenario === null ? releaseFolder : join(releaseFolder, SPEND_FOLDER, scenario.name)
   const client = createLoopbackClient(args.port)
@@ -107,23 +108,21 @@ async function record(signal: AbortSignal): Promise<number> {
   let serverVersion: string | null = null
   const session = createSession(args.release, client)
   let spend: SpendLog | undefined
-  const loginFolder = claudeLoginFolder(process.env, homedir())
-  // What the leak check looks for after scrubbing: by path and name only, nothing is read.
-  const leaks = { loginFolder, homeFolder: homedir(), user: userInfo().username }
-  // Every folder and name of this machine that a fixture must not hold.
-  const scrubber = createScrubber(
-    machineRules({
-      projectFolder: home.projectFolder,
-      archonHome: home.archonHome,
-      recorderFolder: home.root,
-      tempFolder: tmpdir(),
-      homeFolder: homedir(),
-      claudeConfig: loginFolder,
-      binary,
-      user: userInfo().username,
-      host: hostname()
-    })
-  )
+  // Every folder and name of this machine that a fixture must not hold, by path and name only:
+  // nothing in them is read. The scrubber replaces them, and the leak check looks for them after.
+  const machine: Machine = {
+    projectFolder: home.projectFolder,
+    archonHome: home.archonHome,
+    recorderFolder: home.root,
+    tempFolder: tmpdir(),
+    homeFolder: homedir(),
+    claudeConfig: claudeLoginFolder(process.env, homedir()),
+    binary,
+    user: userInfo().username,
+    host: hostname()
+  }
+  const leaks: LeakRules = machine
+  const scrubber = createScrubber(machineRules(machine))
   // Whatever goes wrong, the release is stopped and its home deleted. A rejection nobody awaited
   // is kept as the failure instead of ending the process.
   process.on('unhandledRejection', (reason) => {
@@ -145,7 +144,7 @@ async function record(signal: AbortSignal): Promise<number> {
     if (passLogin) writeSpendConfig(home)
     const projectFolder = await createThrowawayProject(home, signal, { agentStep: scenario?.name === 'agent-step' })
     signal.throwIfAborted()
-    release = startRelease(home, binary, args.port, { login: passLogin ? 'passed' : 'hidden' })
+    release = startRelease(home, binary, args.port, { login })
     console.log(`Started the release on port ${args.port}. Waiting for it to answer.`)
     const health = await waitUntilHealthy({ client, release, signal })
     serverVersion = versionOf(health)
@@ -155,7 +154,7 @@ async function record(signal: AbortSignal): Promise<number> {
       await Promise.race([recordRelease(session, { projectFolder, archonHome: home.archonHome }), untilInterrupted(signal)])
     } else {
       const { wallClockMs } = SPEND_SCENARIOS[scenario.name]
-      spend = { scenario: scenario.name, tokenCeiling: scenario.tokenCeiling, wallClockMs, tokensSeen: 0, crossed: null, login: passLogin ? 'passed' : 'hidden' }
+      spend = { scenario: scenario.name, tokenCeiling: scenario.tokenCeiling, wallClockMs, tokensSeen: 0, crossed: null, login }
       const outcome = await Promise.race([
         recordSpendScenario(session, scenario.name, { projectFolder, tokenCeiling: scenario.tokenCeiling }),
         untilInterrupted(signal)

@@ -1,8 +1,9 @@
 // The leak check: what a fixture or a log may never hold, whatever the scrubber did, and the
 // scrub of a string shaped like a login.
 import { assert, describe, test } from 'orca/testing'
-import { findLeaks, scrubTokens, TOKEN } from './leaks.ts'
+import { findLeaks } from './leaks.ts'
 import { createScrubber, machineRules, PLACEHOLDERS } from './scrub.ts'
+import { scrubTokens, TOKEN } from './tokens.ts'
 
 // Shaped like the real thing, made up here: none of them was ever a credential.
 const OAUTH = ['sk', 'ant', 'oat01', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2RlZg'].join('-')
@@ -11,7 +12,7 @@ const GITHUB = `${['gh', 'o'].join('')}_${'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'
 const JWT = ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiJyZWNvcmRlciJ9', 'c2lnbmF0dXJlc2lnbmF0dXJl'].join('.')
 
 const machine = {
-  loginFolder: 'C:\\Users\\dev\\.claude',
+  claudeConfig: 'C:\\Users\\dev\\.claude',
   homeFolder: 'C:\\Users\\dev',
   user: 'dev'
 }

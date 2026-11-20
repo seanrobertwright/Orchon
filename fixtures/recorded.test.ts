@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
-import { findLeaks } from '../scripts/recorder/leaks.ts'
+import { findLeaks, NO_MACHINE } from '../scripts/recorder/leaks.ts'
 import { SPEND_FOLDER } from '../scripts/recorder/output.ts'
 import { SPEND_SCENARIO_NAMES } from '../scripts/recorder/spend.ts'
 import { FORBIDDEN_WORKFLOWS, RECORDER_WORKFLOWS } from '../scripts/recorder/workflows.ts'
@@ -220,7 +220,7 @@ for (const release of RELEASES) {
         for (const path of filesIn(folder)) {
           const text = readFileSync(join(folder, path), 'utf8')
           for (const [pattern, what] of MACHINE_DETAILS) assert.ok(!pattern.test(text), `${scenario}/${path} holds ${what}`)
-          assert.deepEqual(findLeaks(text, { loginFolder: '', homeFolder: '', user: '' }), [], `${scenario}/${path}`)
+          assert.deepEqual(findLeaks(text, NO_MACHINE), [], `${scenario}/${path}`)
         }
       })
     })
@@ -289,7 +289,7 @@ for (const release of RELEASES) {
 
     test('hold no string shaped like a key or a token, and no email address a person owns', () => {
       for (const path of filesOf(release)) {
-        assert.deepEqual(findLeaks(textOf(release, path), { loginFolder: '', homeFolder: '', user: '' }), [], `fixtures/${release}/${path}`)
+        assert.deepEqual(findLeaks(textOf(release, path), NO_MACHINE), [], `fixtures/${release}/${path}`)
       }
     })
 
