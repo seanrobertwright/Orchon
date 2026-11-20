@@ -162,7 +162,12 @@ export default defineCheck({
   },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
-  'metrics details': { ...answeringMetrics(() => sampleReport('7d', undefined, { more: 4 })), ...onMetrics },
+  'metrics overview': { ...answeringMetrics(() => sampleReport()), ...onMetrics },
+  'metrics overview, no pack declares cards': { ...answeringMetrics(() => sampleReport('7d', undefined, { overview: { packs: [], morePacks: 0 } })), ...onMetrics },
+  'metrics details': {
+    ...answeringMetrics(() => sampleReport('7d', undefined, { more: 4 })),
+    persisted: { workspace: { section: 'metrics', metricsTab: 'details' } }
+  },
   'metrics, timed out': { ...answeringMetrics(() => ({ kind: 'timeout' })), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
   'settings with unsaved edits and an outside change': { ...answering(connected, systemRead, formsWithEdits), ...onSettings },
