@@ -206,7 +206,9 @@ export const noMetrics: MetricsView = {
   refusedTotal: 0,
   overview: { packs: [], morePacks: 0 },
   unmatchedCalibrations: [],
-  unmatchedMore: 0
+  unmatchedMore: 0,
+  unreadablePacks: [],
+  moreUnreadablePacks: 0
 }
 
 /**

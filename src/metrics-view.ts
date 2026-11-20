@@ -3,6 +3,7 @@
 // contract and none of Archon's report crosses to the panel.
 import type { ConnectionAnswer } from './connection-view'
 import type { OverviewView } from './overview-view'
+import type { UnreadablePack } from './refusals-view'
 
 /** The windows the section offers, as Archon's `since` names them. */
 export const METRICS_WINDOWS = ['7d', '30d', '90d'] as const
@@ -58,8 +59,18 @@ export type MetricRow =
   /** A metric of a kind this version of Orchon does not know: it keeps its row, without figures. */
   | { name: string; label: string; state: 'unknown-kind' }
 
-/** One node output whose records Archon would not store. Shown by a later version of the section. */
-export type RefusalRow = { reason: string; runId: string; workflowName: string; nodeId: string }
+/** One node output whose records Archon would not store, read by `metric-refusals.ts`. */
+export type RefusalRow = {
+  /** Unique among the listed refusals: the run and node, with a count for repeats. */
+  key: string
+  /** Archon's reason, such as `definition_conflict`. */
+  reason: string
+  /** Why, in the console's words, such as "offered x as score in ratio, but it is defined as count in items." */
+  text: string
+  runId: string
+  workflowName: string
+  nodeId: string
+}
 
 export type MetricsView =
   /** Orchon is not connected, so Archon was not asked. */
@@ -93,6 +104,10 @@ export type MetricsView =
       unmatchedCalibrations: string[]
       /** How many of those past the cap are not listed. */
       unmatchedMore: number
+      /** The first `UNREADABLE_PACKS_CAP` packs whose card declarations Archon could not read, in its order. */
+      unreadablePacks: UnreadablePack[]
+      /** How many more such packs Archon listed, unreadable entries included. */
+      moreUnreadablePacks: number
     }
   /**
    * The read failed and shows nothing partial. `timeout` and `too-large` have their own words;

@@ -336,7 +336,15 @@ describe('the caps', () => {
     const recordedWeek = await allProjects().mount(host())
     const week = ready((await read(recordedWeek)).metrics)
     assert.deepEqual(week.refused, [
-      { reason: 'definition_conflict', runId: 'a877b80b-6cec-449f-9ad9-41007963d5d3', workflowName: 'orchon-recorder-synthetic-metrics', nodeId: 'emit' }
+      {
+        key: 'a877b80b-6cec-449f-9ad9-41007963d5d3/emit',
+        reason: 'definition_conflict',
+        // The console's words: `refusalText` in `MetricsDetails.tsx`, Archon 0.14.0 (commit 8def159a).
+        text: 'offered orchon_synthetic.items_opened as score in ratio, but it is defined as count in items.',
+        runId: 'a877b80b-6cec-449f-9ad9-41007963d5d3',
+        workflowName: 'orchon-recorder-synthetic-metrics',
+        nodeId: 'emit'
+      }
     ])
     assert.equal(week.refusedTotal, 1)
     await recordedWeek.worker.deactivate()

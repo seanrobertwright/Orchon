@@ -34,7 +34,6 @@ import {
   DETAILS_ROWS_CAP,
   METRICS_MAX_AGE_MS,
   METRICS_WINDOWS,
-  REFUSALS_CAP,
   type MetricRow,
   type MetricsAnswer,
   type MetricsRequest,
@@ -42,6 +41,7 @@ import {
   type MetricsWindow,
   type RefusalRow
 } from './metrics-view'
+import { parseRefusals, parseUnreadablePacks } from './metric-refusals'
 import { calibratedRatios, cardReportOf, cardsPost, overviewOf, parseCardDeclarations, unknownsLine, type CardDeclarations } from './overview-cards'
 import { readFailureText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
@@ -125,21 +125,6 @@ function parseMetric(value: unknown): Metric {
   return { name, kind, unit, calibrates: target, figures }
 }
 
-function parseRefusal(value: unknown): RefusalRow | null {
-  if (!isRecord(value)) return null
-  const reason = own(value, 'reason')
-  const runId = own(value, 'run_id')
-  const workflowName = own(value, 'workflow_name')
-  const nodeId = own(value, 'node_id')
-  if (!isText(reason) || !isText(runId) || !isText(workflowName) || !isText(nodeId)) return null
-  return {
-    reason: cutAt(reason, METRICS_TEXT_CAP),
-    runId: cutAt(runId, METRICS_TEXT_CAP),
-    workflowName: cutAt(workflowName, METRICS_TEXT_CAP),
-    nodeId: cutAt(nodeId, METRICS_TEXT_CAP)
-  }
-}
-
 export type Report = { since: number; until: number; metrics: Metric[]; refused: RefusalRow[]; refusedTotal: number }
 
 /** Archon's report, or null when any part the plugin reads fails. */
@@ -153,13 +138,7 @@ export function parseReport(value: unknown): Report | null {
     const since = parseInstant(own(window, 'since'))
     const until = parseInstant(own(window, 'until'))
     need(since !== null && until !== null)
-    const rows: RefusalRow[] = []
-    for (const refusal of refused as unknown[]) {
-      if (rows.length >= REFUSALS_CAP) break
-      const row = parseRefusal(refusal)
-      if (row !== null) rows.push(row)
-    }
-    return { since, until, metrics: metrics.map(parseMetric), refused: rows, refusedTotal: refused.length }
+    return { since, until, metrics: metrics.map(parseMetric), refused: parseRefusals(refused as unknown[]), refusedTotal: refused.length }
   })
 }
 
@@ -309,7 +288,8 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
     if (!views.ok) return failed(views.failure)
     const names = parseNames(views.value)
     const cards = parseCardDeclarations(views.value)
-    if (names === null || cards === null) return { kind: 'unreadable' }
+    const unreadablePacks = parseUnreadablePacks(views.value)
+    if (names === null || cards === null || unreadablePacks === null) return { kind: 'unreadable' }
     // The titles go out now, so a panel shows them over skeletons while the report is read.
     orca.panels.post('metrics.cards', cardsPost(request.codebaseId, requestedWindow, cards))
     const answer = await ports.client.request({ ...call, path: reportPath(requestedWindow, request.codebaseId), timeout: 'report' })
@@ -331,7 +311,9 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
       refused: report.refused,
       refusedTotal: report.refusedTotal,
       overview: overviewOf(cards, cardReport, names, CALIBRATIONS_LOADING),
-      ...unmatchedCalibrations(report)
+      ...unmatchedCalibrations(report),
+      unreadablePacks: unreadablePacks.packs,
+      moreUnreadablePacks: unreadablePacks.more
     }
     if (request.codebaseId !== undefined) view.codebaseId = request.codebaseId
     const thisRead: Held = { key, view, report, cards, names, ratios: calibratedRatios(cards), calibrations: CALIBRATIONS_LOADING }

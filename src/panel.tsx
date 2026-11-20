@@ -267,7 +267,11 @@ export function setup(ctx: PanelContext): void {
   startMetricsSection(ctx, {
     connection: () => read(connection),
     showing: () => parseSection(read(section)) === 'metrics',
-    keep: keepNewest
+    keep: keepNewest,
+    openRun(runId) {
+      show('runs')
+      openRunDetail(runId)
+    }
   })
   ctx.subscriptions.push(plugin.on('show-runs', applyShowRuns))
   ctx.subscriptions.push(plugin.on('needs-you.changed', refreshRuns))

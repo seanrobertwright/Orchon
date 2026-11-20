@@ -70,7 +70,9 @@ export function sampleReport(
     refusedTotal: 0,
     overview: options.overview ?? SAMPLE_OVERVIEW,
     unmatchedCalibrations: options.unmatchedCalibrations ?? [],
-    unmatchedMore: options.unmatchedMore ?? 0
+    unmatchedMore: options.unmatchedMore ?? 0,
+    unreadablePacks: [],
+    moreUnreadablePacks: 0
   }
   if (options.codebaseId !== undefined) view.codebaseId = options.codebaseId
   return view
