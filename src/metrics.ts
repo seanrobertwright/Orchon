@@ -1,8 +1,9 @@
 // The Metrics section's read: a frame sends the scope and the window, and the worker reads the
-// card declarations and the window's report from Archon, validates them by hand and answers the
-// Details rows of `metrics-view.ts`, never Archon's report. It keeps the last report it read, in
-// memory only, so a return to the section within `METRICS_MAX_AGE_MS` asks Archon nothing, and it keeps the
-// person's window in plugin storage.
+// card declarations and the window's report from Archon, in that order, validates them by hand
+// and answers the Overview cards of `overview-cards.ts` and the Details rows of `metrics-view.ts`,
+// never Archon's report. Once the declarations answer it posts their titles as `metrics.cards`.
+// It keeps the last report it read, in memory only, so a return to the section within
+// `METRICS_MAX_AGE_MS` asks Archon nothing, and it keeps the person's window in plugin storage.
 //
 // The report's shape is `metricsReportSchema` in `packages/workflows/src/schemas/metric.ts` of
 // Archon 0.14.0 (commit 8def159a6b2c23e832a5283b4131cfffd9af9344); the declarations' `names` are
@@ -28,6 +29,7 @@ import {
   type MetricsWindow,
   type RefusalRow
 } from './metrics-view'
+import { cardsPost, overviewOf, parseCardDeclarations, parseCardReport, unknownsLine } from './overview-cards'
 import { readFailureText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { PROJECT_ID_CAP } from './scope-view'
@@ -300,11 +302,17 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
     }
     if (!views.ok) return failed(views.failure)
     const names = parseNames(views.value)
-    if (names === null) return { kind: 'unreadable' }
+    const cards = parseCardDeclarations(views.value)
+    if (names === null || cards === null) return { kind: 'unreadable' }
+    // The titles go out now, so a panel shows them over skeletons while the report is read.
+    orca.panels.post('metrics.cards', cardsPost(request.codebaseId, requestedWindow, cards))
     const answer = await ports.client.request({ ...call, path: reportPath(requestedWindow, request.codebaseId), timeout: 'report' })
     if (!answer.ok) return failed(answer.failure)
     const report = parseReport(answer.value)
-    if (report === null) return { kind: 'unreadable' }
+    const cardReport = parseCardReport(answer.value)
+    if (report === null || cardReport === null) return { kind: 'unreadable' }
+    const unknowns = unknownsLine(cards, cardReport)
+    if (unknowns !== null) orca.log(unknowns)
     const { rows, more } = detailsRows(report, names)
     const view: Extract<MetricsView, { kind: 'ready' }> = {
       kind: 'ready',
@@ -315,7 +323,8 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
       rows,
       more,
       refused: report.refused,
-      refusedTotal: report.refusedTotal
+      refusedTotal: report.refusedTotal,
+      overview: overviewOf(cards, cardReport, names)
     }
     if (request.codebaseId !== undefined) view.codebaseId = request.codebaseId
     held = { key, view }

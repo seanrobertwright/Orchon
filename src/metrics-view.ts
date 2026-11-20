@@ -2,6 +2,7 @@
 // the worker answers. It is types and constants only, so the panel and the worker read one
 // contract and none of Archon's report crosses to the panel.
 import type { ConnectionAnswer } from './connection-view'
+import type { OverviewView } from './overview-view'
 
 /** The windows the section offers, as Archon's `since` names them. */
 export const METRICS_WINDOWS = ['7d', '30d', '90d'] as const
@@ -83,6 +84,8 @@ export type MetricsView =
       refused: RefusalRow[]
       /** How many refusals Archon reported in all, the ones past the cap and unreadable ones included. */
       refusedTotal: number
+      /** The cards packs declare, finished by the console's rules. */
+      overview: OverviewView
     }
   /**
    * The read failed and shows nothing partial. `timeout` and `too-large` have their own words;

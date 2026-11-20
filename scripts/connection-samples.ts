@@ -203,7 +203,8 @@ export const noMetrics: MetricsView = {
   rows: [],
   more: 0,
   refused: [],
-  refusedTotal: 0
+  refusedTotal: 0,
+  overview: { packs: [], morePacks: 0 }
 }
 
 /**

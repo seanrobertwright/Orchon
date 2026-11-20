@@ -12,7 +12,16 @@
 import { cutAt } from './cutter'
 import { formatNumber, formatShare, isMetricName } from './metric-figures'
 import { isRecord, isText, own } from './records'
-import { NO_FIGURE, OVERVIEW_PACKS_CAP, PACK_CARDS_CAP, type OverviewCard, type OverviewPack, type OverviewView } from './overview-view'
+import type { MetricsWindow } from './metrics-view'
+import {
+  NO_FIGURE,
+  OVERVIEW_PACKS_CAP,
+  PACK_CARDS_CAP,
+  type MetricsCardsPost,
+  type OverviewCard,
+  type OverviewPack,
+  type OverviewView
+} from './overview-view'
 
 /** Archon's free text is cut here. */
 const TEXT_CAP = 500
@@ -264,4 +273,19 @@ export function overviewOf(declarations: CardDeclarations, report: CardReport, n
       declared.shape === 'count' ? countFigure(declared, report, names) : declared.shape === 'ratio' ? ratioFigure(declared, report) : costPerFigure(declared, report)
     return { id, title: declared.title, kind: 'figure', shape: declared.shape, metric: cardMetric(declared), ...figure }
   })
+}
+
+/** The post that carries the titles before the window's report answers, for the scope and window it is for. */
+export function cardsPost(codebaseId: string | undefined, window: MetricsWindow, declarations: CardDeclarations): MetricsCardsPost {
+  const post: MetricsCardsPost = { window, overview: pendingOverview(declarations) }
+  if (codebaseId !== undefined) post.codebaseId = codebaseId
+  return post
+}
+
+/** The worker's log line of what it does not know in one read, or null when it knew everything. */
+export function unknownsLine(declarations: CardDeclarations, report: CardReport): string | null {
+  const { unknownShapes } = declarations
+  const { unknownKinds } = report
+  if (unknownShapes === 0 && unknownKinds === 0) return null
+  return `Orchon saw ${String(unknownShapes)} overview cards of a shape and ${String(unknownKinds)} metrics of a kind it does not know.`
 }
