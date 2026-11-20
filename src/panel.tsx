@@ -7,7 +7,7 @@ import { now } from './dates'
 import { readForms, startFormGroups } from './form-groups'
 import { clearLaunch, hideLaunch, launchHasData, launchNotices, launchSection, openLaunch, rerunLaunch, restartLaunch, startLaunchSection } from './launch-section'
 import { liveOffLine } from './live-line'
-import { clearMetrics, metricsHaveData, metricsSection, openMetrics, rescopeMetrics, startMetricsSection } from './metrics-section'
+import { clearMetrics, metricsHaveData, metricsReadable, metricsSection, openMetrics, rescopeMetrics, startMetricsSection } from './metrics-section'
 import { startNotificationsGroup } from './notifications-group'
 import { hintRunDetail, openRunDetail, startRunDetail } from './run-detail-section'
 import {
@@ -79,12 +79,6 @@ function keepNewest(next: ConnectionView): void {
     // Only `live` changed: the next read sets the safety timer to the new wait.
     refreshRuns()
   }
-}
-
-/** Whether the Metrics section may read: Connected to a server that has the metrics paths. */
-function metricsReadable(): boolean {
-  const state = read(connection)
-  return state?.kind === 'connected' && state.features.metrics
 }
 
 /** Worker unreachable for the connection reads: null while the worker answers them. */
@@ -231,7 +225,7 @@ export function setup(ctx: PanelContext): void {
     showing: () => {
       const showing = parseSection(read(section))
       // Metrics reads it only from a server that has metrics: without them it asks nothing.
-      if (showing === 'metrics') return metricsReadable()
+      if (showing === 'metrics') return metricsReadable(read(connection))
       return showing === 'runs' || showing === 'launch' || showing === 'workflows' || showing === 'chat'
     },
     keep: keepNewest,
