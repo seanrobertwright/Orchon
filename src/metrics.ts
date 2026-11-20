@@ -1,7 +1,7 @@
 // The Metrics section's read: a frame sends the scope and the window, and the worker reads the
 // card declarations and the window's report from Archon, validates them by hand and answers the
 // Details rows of `metrics-view.ts`, never Archon's report. It keeps the last report it read, in
-// memory only, so a return to the section within 5 minutes asks Archon nothing, and it keeps the
+// memory only, so a return to the section within `METRICS_MAX_AGE_MS` asks Archon nothing, and it keeps the
 // person's window in plugin storage.
 //
 // The report's shape is `metricsReportSchema` in `packages/workflows/src/schemas/metric.ts` of
@@ -9,7 +9,7 @@
 // read from `metricViewsListingSchema` beside it. The figures are written as Archon's console
 // writes them (`formatValue`, `formatFigure` and `formatUsd` in the console's metrics `model.ts`).
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
-import type { Client, Timers } from './client'
+import type { Client, ClientFailure, Timers } from './client'
 import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { cutAt } from './cutter'
@@ -76,8 +76,8 @@ export function parseMetricsRequest(input: unknown): MetricsRequest {
 
 const isMetricName = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= METRIC_NAME_CAP && METRIC_NAME.test(value)
-const isFinite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
-const isCount = (value: unknown): value is number => isFinite(value) && Number.isInteger(value) && value >= 0
+const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
+const isCount = (value: unknown): value is number => isFiniteNumber(value) && Number.isInteger(value) && value >= 0
 const isNullableText = (value: unknown): value is string | null => value === null || typeof value === 'string'
 const isTextList = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
 
@@ -118,11 +118,11 @@ function parseInstrument(value: unknown): Identity & Figures {
   const n = own(value, 'n')
   const cost = own(value, 'cost')
   const latest = own(value, 'latest')
-  need(isNullableText(instrument) && isTextList(measuredBy) && isFinite(figure) && isCount(n))
+  need(isNullableText(instrument) && isTextList(measuredBy) && isFiniteNumber(figure) && isCount(n))
   need(isRecord(cost) && isRecord(latest))
   const usd = own(cost, 'usd')
   const latestValue = own(latest, 'value')
-  need((usd === null || isFinite(usd)) && isFinite(latestValue))
+  need((usd === null || isFiniteNumber(usd)) && isFiniteNumber(latestValue))
   return { instrument, measuredBy, value: figure, n, usd, latest: latestValue }
 }
 
@@ -206,9 +206,10 @@ const formatShare = (share: number): string => share.toLocaleString('en-US', { s
 const formatFigure = (value: number, unit: string): string => (unit === 'ratio' ? formatShare(value) : formatNumber(value))
 /** `prs` is the guide's own example unit; other units read with their underscores as spaces. */
 const UNIT_WORDS: ReadonlyMap<string, string> = new Map([['prs', 'PRs']])
+/** A value with its unit: a `ratio`'s percentage says its own unit, anything else adds the unit's word. */
 function formatValue(value: number, unit: string): string {
-  if (unit === 'ratio') return formatShare(value)
-  return `${formatNumber(value)} ${UNIT_WORDS.get(unit) ?? unit.replaceAll('_', ' ')}`
+  const figure = formatFigure(value, unit)
+  return unit === 'ratio' ? figure : `${figure} ${UNIT_WORDS.get(unit) ?? unit.replaceAll('_', ' ')}`
 }
 
 /** The Details table: by name, calibrations left out, at most `DETAILS_ROWS_CAP` rows. */
@@ -245,7 +246,7 @@ function reportPath(window: MetricsWindow, codebaseId: string | undefined): stri
 }
 
 /** Archon's own message on an error answer, or the plugin's sentence for the failure. */
-function failureMessage(failure: Extract<Awaited<ReturnType<Client['request']>>, { ok: false }>['failure']): string {
+function failureMessage(failure: ClientFailure): string {
   if (failure.kind === 'status' && isRecord(failure.body)) {
     const error = own(failure.body, 'error')
     if (isText(error)) return cutAt(error, METRICS_TEXT_CAP)
@@ -293,15 +294,15 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
     pending = ports.timers.set(flush, WINDOW_WRITE_PAUSE_MS)
   }
 
-  async function readView(request: MetricsRequest, which: MetricsWindow, signal: AbortSignal): Promise<MetricsView> {
+  async function readView(request: MetricsRequest, requestedWindow: MetricsWindow, signal: AbortSignal): Promise<MetricsView> {
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { kind: 'not-connected' }
     if (!connection.features.metrics) return { kind: 'missing', message: metricsMissing(connection) }
-    const key = JSON.stringify([connection.baseUrl, connection.storeId, request.codebaseId ?? null, which])
+    const key = JSON.stringify([connection.baseUrl, connection.storeId, request.codebaseId ?? null, requestedWindow])
     if (request.refresh !== true && held?.key === key && ports.now() - held.view.fetchedAt <= METRICS_MAX_AGE_MS) return held.view
     const call = { baseUrl: connection.baseUrl, signal, errorBody: true } as const
     const views = await ports.client.request({ ...call, path: viewsPath(request.codebaseId), timeout: 'read' })
-    const failed = (failure: Extract<typeof views, { ok: false }>['failure']): MetricsView => {
+    const failed = (failure: ClientFailure): MetricsView => {
       if (failure.kind === 'timeout') return { kind: 'timeout' }
       if (failure.kind === 'too-large') return { kind: 'too-large' }
       // A release before 0.14.0 answers the metrics routes with its HTML page.
@@ -311,14 +312,14 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
     if (!views.ok) return failed(views.failure)
     const names = parseNames(views.value)
     if (names === null) return { kind: 'unreadable' }
-    const answer = await ports.client.request({ ...call, path: reportPath(which, request.codebaseId), timeout: 'report' })
+    const answer = await ports.client.request({ ...call, path: reportPath(requestedWindow, request.codebaseId), timeout: 'report' })
     if (!answer.ok) return failed(answer.failure)
     const report = parseReport(answer.value)
     if (report === null) return { kind: 'unreadable' }
     const { rows, more } = detailsRows(report, names)
     const view: Extract<MetricsView, { kind: 'ready' }> = {
       kind: 'ready',
-      window: which,
+      window: requestedWindow,
       since: report.since,
       until: report.until,
       fetchedAt: ports.now(),
@@ -335,9 +336,9 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
   const handle = orca.panels.handle('metrics.read', async (input, context): Promise<MetricsAnswer> => {
     const request = parseMetricsRequest(input)
     if (request.window !== undefined) await choose(request.window)
-    const which = request.window ?? (await keptWindow())
-    const metrics = await readView(request, which, context.signal)
-    return { connection: await ports.current(), window: which, metrics }
+    const requestedWindow = request.window ?? (await keptWindow())
+    const metrics = await readView(request, requestedWindow, context.signal)
+    return { connection: await ports.current(), window: requestedWindow, metrics }
   })
   return {
     dispose() {
