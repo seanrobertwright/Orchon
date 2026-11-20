@@ -17,6 +17,7 @@ import { startChatThread } from './chat-thread'
 import { startConnection, type WorkerPorts } from './connection'
 import { createConversationStreams } from './conversation-streams'
 import { startLaunch } from './launch'
+import { startMetricDetail } from './metric-detail'
 import { startMetrics } from './metrics'
 import { realPorts } from './ports'
 import { startProjectScope } from './project-scope'
@@ -122,6 +123,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   const metrics = startMetrics(orca, { client: connection.client, current: connection.current, now: ports.now, timers: ports.timers })
+  const metricDetail = startMetricDetail(orca, { client: connection.client, current: connection.current, held: metrics.held })
   return () => {
     launch.dispose()
     chatStreams.stop()
@@ -135,6 +137,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     chatLast.dispose()
     chatDrafts.dispose()
     forms.dispose()
+    metricDetail.dispose()
     metrics.dispose()
     wideTabs.dispose()
     runGraph.dispose()

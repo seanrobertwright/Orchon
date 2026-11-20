@@ -1,6 +1,7 @@
 // The Metrics section of the panel: a header with the window, Refresh, the status line and the
 // Overview and Details tabs, and the Details table of every metric Archon recorded for the scope
-// and window. It draws only the worker's view model and fetches it under the shared per-view fetch
+// and window, where selecting a row opens that metric's view (`metric-view-section.tsx`) in its
+// place. It draws only the worker's view model and fetches it under the shared per-view fetch
 // rules with no safety refetch: on opening the section, on a change of scope or window, and on
 // Refresh. A return to the section asks the worker, which reads Archon again only when its report
 // is older than `METRICS_MAX_AGE_MS`. It ignores run hints. Figures are shown only for the scope
@@ -35,6 +36,7 @@ import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { formatDay, now } from './dates'
 import { frameTimers } from './frame-timers'
+import { closeMetricView, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
 import {
   METRICS_REQUEST_TIMEOUT_MS,
   METRICS_WINDOWS,
@@ -126,6 +128,7 @@ function apply(answer: MetricsAnswer | null, hooks: MetricsSectionHooks): void {
   const { metrics } = answer
   if (metrics.kind === 'ready') {
     set(loaded, metrics)
+    metricReportChanged(metrics)
     set(missing, null)
     set(problem, null)
   } else if (metrics.kind === 'missing') {
@@ -162,6 +165,7 @@ export function startMetricsSection(ctx: PanelContext, given: MetricsSectionHook
     timers: frameTimers
   })
   fetcher = view
+  startMetricView(ctx, { keep: given.keep })
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -212,16 +216,23 @@ export function metricsHaveData(): boolean {
 
 /** A different Archon store: what the section loaded belongs to the old one. */
 export function clearMetrics(): void {
+  closeMetricView()
   set(loaded, null)
   set(missing, null)
   set(problem, null)
 }
 
-/** The console's metrics screen for the scope, tab and window, opened in the system browser. */
+/**
+ * The console's metrics screen for the scope, tab and window, opened in the system browser. From
+ * a metric's view it is the Details screen at that metric's row: the console names a row
+ * `metric-<name>` (`metricAnchor` in its metrics `model.ts`, Archon 0.14.0) and reads the hash.
+ */
 function openConsole(state: Connected, view: MetricsTab, window: MetricsWindow): void {
   const projectId = scopedProjectId()
   const base = projectId === undefined ? '/console/metrics' : `/console/p/${encodeURIComponent(projectId)}/metrics`
-  const page = `${base}${view === 'details' ? '/details' : ''}?window=${window}`
+  const metric = view === 'details' ? openMetricName() : null
+  const row = metric === null ? '' : `#${encodeURIComponent(`metric-${metric}`)}`
+  const page = `${base}${view === 'details' ? '/details' : ''}?window=${window}${row}`
   shell.openExternal(`${state.baseUrl}${page}`).catch(() => {})
 }
 
@@ -289,11 +300,26 @@ function rowsOf(report: Ready): TableRow[] {
   return rows
 }
 
+/** Selecting a row opens its metric's view. */
+function openRow(report: Ready, key: string | undefined): void {
+  const row = key === undefined ? undefined : report.rows.find((each) => each.name === key)
+  if (row !== undefined) openMetricView(row.name, row.label, report)
+}
+
 function details(report: Ready): OrcaNode {
+  if (openMetricName() !== null) return metricViewBody((view) => problemOf(view)?.message ?? null, UNKNOWN_KIND_TEXT)
   if (report.rows.length === 0) return <EmptyState title={`No measurements in the ${lastDays(report.window)}.`} />
   return (
     <Stack gap="sm">
-      <Table label="Metrics" columns={COLUMNS} rows={rowsOf(report)} />
+      <Table
+        label="Metrics"
+        columns={COLUMNS}
+        rows={rowsOf(report)}
+        selectionMode="single"
+        selected={[]}
+        onSelectionChange={({ keys }) => openRow(report, keys[0])}
+        onRowAction={({ key }) => openRow(report, key)}
+      />
       {report.more > 0 ? <Text muted size="sm">{`and ${String(report.more)} more in Archon's console`}</Text> : null}
       <Text muted size="sm">
         {KNOWN_COST_FOOTNOTE}
