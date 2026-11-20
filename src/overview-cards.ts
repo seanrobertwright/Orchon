@@ -7,12 +7,14 @@
 // `costPerCard`, and the words are those of `MetricsOverview.tsx`, in the console's metrics
 // folder of Archon 0.14.0 (commit 8def159a6b2c23e832a5283b4131cfffd9af9344). Every figure on a
 // card comes from records of one judge version: the headline's of the metric the card is about.
-// A calibration on a ratio card is read by a later version, and so are the refusals and the
-// packs whose declarations could not be read.
+// A ratio card's calibration is read from the year-long report (`calibrations.ts`); the refusals
+// and the packs whose declarations could not be read are read by a later version.
+import { calibrationBadge, calibrationCatches, calibrationOf, type CalibratedRatio, type Calibrations, type DeclaredCalibration } from './calibrations'
 import { cutAt } from './cutter'
 import {
   formatNumber,
   formatShare,
+  isFiniteNumber,
   isMetricName,
   METRICS_TEXT_CAP,
   need,
@@ -42,7 +44,7 @@ export const NOTHING_COUNTED_TEXT = 'nothing counted'
 
 type Declared =
   | { shape: 'count'; title: string; metric: string; breakdown: { metric: string; label: string }[] }
-  | { shape: 'ratio'; title: string; numerator: string; denominator: string; denominatorLabel: string }
+  | { shape: 'ratio'; title: string; numerator: string; denominator: string; denominatorLabel: string; calibration: DeclaredCalibration | null }
   | { shape: 'cost_per'; title: string; metric: string; costOf: string | null }
   | { shape: 'unknown'; title: string }
 
@@ -60,6 +62,15 @@ const metricName = (record: Record<string, unknown>, key: string): string => {
   const value = own(record, key)
   need(isMetricName(value))
   return value
+}
+
+/** A ratio's calibration, `ratioViewSchema`'s: a score metric, its label and a threshold above 0 and at most 1. */
+function parseCalibration(value: unknown): DeclaredCalibration | null {
+  if (value === undefined) return null
+  need(isRecord(value))
+  const roughBelow = own(value, 'rough_below')
+  need(isFiniteNumber(roughBelow) && roughBelow > 0 && roughBelow <= 1)
+  return { metric: metricName(value, 'metric'), label: text(value, 'label'), roughBelow }
 }
 
 function parseCard(value: unknown): Declared {
@@ -83,7 +94,8 @@ function parseCard(value: unknown): Declared {
         title,
         numerator: metricName(value, 'numerator'),
         denominator: metricName(value, 'denominator'),
-        denominatorLabel: text(value, 'denominator_label')
+        denominatorLabel: text(value, 'denominator_label'),
+        calibration: parseCalibration(own(value, 'calibration'))
       }
     case 'cost_per': {
       const costOf = own(value, 'cost_of')
@@ -142,7 +154,7 @@ export function cardReportOf(report: Report): CardReport {
 const countAt = (report: CardReport, name: string, main: InstrumentFigures): InstrumentFigures | undefined =>
   report.counts.get(name)?.instruments.find((each) => sameIdentity(each, main))
 
-type Figure = { figure: string; line: string | null; percent?: number }
+type Figure = { figure: string; line: string | null; percent?: number; badge?: string }
 const NOT_RECORDED: Figure = { figure: NO_FIGURE, line: NO_RECORDS_TEXT }
 
 function countFigure(card: Extract<Declared, { shape: 'count' }>, report: CardReport, names: ReadonlyMap<string, string>): Figure {
@@ -155,17 +167,21 @@ function countFigure(card: Extract<Declared, { shape: 'count' }>, report: CardRe
   return { figure: formatNumber(main.value), line: breakdown.length === 0 ? null : breakdown.join(' · ') }
 }
 
-function ratioFigure(card: Extract<Declared, { shape: 'ratio' }>, report: CardReport): Figure {
+function ratioFigure(card: Extract<Declared, { shape: 'ratio' }>, report: CardReport, calibrations: Calibrations): Figure {
   const numerator = report.counts.get(card.numerator)?.headline
   const denominator = numerator === undefined ? undefined : countAt(report, card.denominator, numerator)
   if (numerator === undefined || denominator === undefined) return NOT_RECORDED
-  if (denominator.value === 0) return { figure: NO_FIGURE, line: `${formatNumber(denominator.value)} ${card.denominatorLabel}` }
+  const calibration = card.calibration === null ? null : calibrationOf(card.numerator, card.calibration, numerator, calibrations)
+  const catches = calibration === null ? '' : calibrationCatches(calibration)
+  const badge = calibration === null ? undefined : calibrationBadge(calibration)
+  const marked = (figure: Figure): Figure => (badge === undefined ? figure : { ...figure, badge })
+  if (denominator.value === 0) return marked({ figure: NO_FIGURE, line: `${formatNumber(denominator.value)} ${card.denominatorLabel}${catches}` })
   const share = numerator.value / denominator.value
-  return {
+  return marked({
     figure: formatShare(share),
     percent: Math.round(Math.min(Math.max(share, 0), 1) * 100),
-    line: `${formatNumber(numerator.value)} of ${formatNumber(denominator.value)} ${card.denominatorLabel}`
-  }
+    line: `${formatNumber(numerator.value)} of ${formatNumber(denominator.value)} ${card.denominatorLabel}${catches}`
+  })
 }
 
 function costPerFigure(card: Extract<Declared, { shape: 'cost_per' }>, report: CardReport): Figure {
@@ -222,12 +238,19 @@ export function pendingOverview(declarations: CardDeclarations): OverviewView {
   )
 }
 
-/** The finished cards of the window's report, by the console's rules, with the plain names the packs declare. */
-export function overviewOf(declarations: CardDeclarations, report: CardReport, names: ReadonlyMap<string, string>): OverviewView {
+/**
+ * The finished cards of the window's report, by the console's rules, with the plain names the
+ * packs declare and the ratios' calibration markers as the year-long report stands.
+ */
+export function overviewOf(declarations: CardDeclarations, report: CardReport, names: ReadonlyMap<string, string>, calibrations: Calibrations): OverviewView {
   return overview(declarations, (declared, id): OverviewCard => {
     if (declared.shape === 'unknown') return { id, title: declared.title, kind: 'unknown-shape' }
     const figure =
-      declared.shape === 'count' ? countFigure(declared, report, names) : declared.shape === 'ratio' ? ratioFigure(declared, report) : costPerFigure(declared, report)
+      declared.shape === 'count'
+        ? countFigure(declared, report, names)
+        : declared.shape === 'ratio'
+          ? ratioFigure(declared, report, calibrations)
+          : costPerFigure(declared, report)
     return { id, title: declared.title, kind: 'figure', shape: declared.shape, metric: cardMetric(declared), ...figure }
   })
 }
@@ -245,4 +268,11 @@ export function unknownsLine(declarations: CardDeclarations, report: CardReport)
   const { unknownKinds } = report
   if (unknownShapes === 0 && unknownKinds === 0) return null
   return `Orchon saw ${String(unknownShapes)} overview cards of a shape and ${String(unknownKinds)} metrics of a kind it does not know.`
+}
+
+/** Every ratio card that declares a calibration, in Archon's order, for a metric's view. */
+export function calibratedRatios(declarations: CardDeclarations): CalibratedRatio[] {
+  return declarations.packs.flatMap((pack) =>
+    pack.cards.flatMap((card) => (card.shape === 'ratio' && card.calibration !== null ? [{ numerator: card.numerator, calibration: card.calibration }] : []))
+  )
 }

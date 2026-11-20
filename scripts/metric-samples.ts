@@ -30,6 +30,8 @@ export function sampleMetric(change: Partial<MetricDetail> = {}): MetricDetail {
       { day: '2026-11-15', value: '60%', records: 2 }
     ],
     byDayMore: 0,
+    // The sample review score is calibrated by nothing, so it lists no calibration.
+    calibrations: { state: 'loaded', lines: [], more: 0, sentence: null },
     ...change
   }
 }

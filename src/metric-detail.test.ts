@@ -6,12 +6,12 @@
 // The spend-mode recording (`fixtures/0.14.0/spend/metrics/metrics.json`) is SYNTHETIC: every
 // record in it was made up by the recorder's own pack, `orchon_synthetic.*`. It measures nothing.
 import { assert, describe, test } from 'orca/testing'
-import { DEFAULT, DEFAULT_HEALTH, DEFAULT_OPENAPI, HANG, health, json, recorded, scene, type MountedScene, type Scene, type Scripted } from '../scripts/scripted-archon.ts'
+import { DEFAULT, DEFAULT_HEALTH, DEFAULT_OPENAPI, HANG, health, json, recorded, scene, settle, type MountedScene, type Scene, type Scripted } from '../scripts/scripted-archon.ts'
 import type { MetricAnswer, MetricDetail, MetricRequest, MetricView } from './metric-view'
 
 const SPEND = 'spend/metrics/metrics'
 /** Where each answer sits in the spend-mode recording's log, read off the fixture by hand. */
-const AT = { views: 9, week: 15, projectYear: 19 } as const
+const AT = { views: 9, week: 15, year: 17, projectYear: 19 } as const
 /** The project the recorder registered, read off the fixture by hand. */
 const PROJECT = '5f4afdd455b56667a1e364254e8d353c'
 
@@ -33,6 +33,7 @@ function allProjects(week: Scripted = recorded('0.14.0', SPEND, AT.week)): Scene
   const stage = metricsScene()
   stage.archon.answer(VIEWS, recorded('0.14.0', SPEND, AT.views))
   stage.archon.answer(report('7d'), week)
+  stage.archon.answer(report('365d'), recorded('0.14.0', SPEND, AT.year))
   return stage
 }
 
@@ -62,6 +63,8 @@ describe("a metric's view from the report the worker holds", () => {
     const stage = allProjects()
     const mounted = await stage.mount({})
     await mounted.worker.request('metrics.read', {})
+    // The year-long report for calibrations answers after the read does.
+    await settle()
     const before = metricCalls(stage).length
     const answer = await readMetric(mounted, { name: 'orchon_synthetic.review_score', window: '7d' })
     assert.deepEqual(ready(answer.metric), {
@@ -78,7 +81,9 @@ describe("a metric's view from the report the worker holds", () => {
       olderVersions: [],
       olderMore: 0,
       byDay: [{ day: '2026-11-20', value: '70%', records: 3 }],
-      byDayMore: 0
+      byDayMore: 0,
+      // Nothing calibrates the review score (`calibration.test.ts` covers the lines).
+      calibrations: { state: 'loaded', lines: [], more: 0, sentence: null }
     })
     assert.equal(metricCalls(stage).length, before)
     await mounted.worker.deactivate()
@@ -104,7 +109,7 @@ describe('after a restart, when the worker holds no report', () => {
     const mounted = await stage.mount({})
     await mounted.worker.request('metrics.read', {})
     ready((await readMetric(mounted, { name: 'orchon_synthetic.tests_added', window: '30d' })).metric)
-    assert.deepEqual(metricCalls(stage), [VIEWS, report('7d'), byName('30d', 'orchon_synthetic.tests_added')])
+    assert.deepEqual(metricCalls(stage), [VIEWS, report('7d'), report('365d'), byName('30d', 'orchon_synthetic.tests_added')])
     await mounted.worker.deactivate()
   })
 

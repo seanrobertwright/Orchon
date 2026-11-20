@@ -35,6 +35,7 @@ import type {
   BuilderValidateRequest,
   YamlOpenAnswer
 } from '../editors/builder/builder-view'
+import type { MetricsCalibrationsPost } from './calibration-view'
 import type { MetricAnswer, MetricRequest } from './metric-view'
 import type { MetricsAnswer, MetricsRequest } from './metrics-view'
 import type { MetricsCardsPost } from './overview-view'
@@ -228,5 +229,10 @@ declare module 'orca' {
      * before the window's report does. It names the scope and window the read is for.
      */
     'metrics.cards': MetricsCardsPost
+    /**
+     * The Overview cards of a metrics read again, with their calibration markers, posted once the
+     * year-long report for calibrations answered or failed. It names the read it follows.
+     */
+    'metrics.calibrations': MetricsCalibrationsPost
   }
 }

@@ -28,6 +28,11 @@ export type OverviewCard =
       percent?: number
       /** The muted line under the figure, or null when the card has none. */
       line: string | null
+      /**
+       * A ratio's calibration marker, a warning badge beside the figure, such as "rough" or "not
+       * calibrated"; left out when the card declares no calibration or its calibration holds.
+       */
+      badge?: string
     }
   /** A card of a shape this version of Orchon does not know: its title alone, and no Details link. */
   | { id: string; title: string; kind: 'unknown-shape' }
