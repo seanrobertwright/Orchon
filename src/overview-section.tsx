@@ -45,7 +45,8 @@ export type OverviewHooks = {
   openDetails(metric?: string): void
 }
 
-const moreLine = (more: number): OrcaNode => (more > 0 ? <Text muted size="sm">{`and ${String(more)} more in Archon's console`}</Text> : null)
+/** "and N more in Archon's console" under a capped list, or nothing. */
+export const moreLine = (more: number): OrcaNode => (more > 0 ? <Text muted size="sm">{`and ${String(more)} more in Archon's console`}</Text> : null)
 
 function detailsLink(metric: string, hooks: OverviewHooks): OrcaNode {
   return (

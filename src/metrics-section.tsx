@@ -44,7 +44,7 @@ import {
   type MetricsView,
   type MetricsWindow
 } from './metrics-view'
-import { clearOverview, overviewCards, pendingCards, startOverviewSection } from './overview-section'
+import { clearOverview, moreLine, overviewCards, pendingCards, startOverviewSection } from './overview-section'
 import { scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, type ViewFetch } from './view-fetch'
 import { offersTryAgain, troubleText } from './worker-words'
@@ -316,7 +316,7 @@ function details(report: Ready): OrcaNode {
         selected={selectedRows(read(detailsAt))}
         onSelectionChange={({ keys }) => set(detailsAt, keys[0] ?? null)}
       />
-      {report.more > 0 ? <Text muted size="sm">{`and ${String(report.more)} more in Archon's console`}</Text> : null}
+      {moreLine(report.more)}
       <Text muted size="sm">
         {KNOWN_COST_FOOTNOTE}
       </Text>
