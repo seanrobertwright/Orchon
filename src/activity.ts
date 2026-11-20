@@ -16,8 +16,10 @@ import {
   type ActivityRow,
   type ActivityView,
   type AttemptRows,
+  TOOL_STATE_WORDS,
   type CutText,
-  type ItemView
+  type ItemView,
+  type ToolState
 } from './step-view'
 
 /** One provider event as the worker reads it: where it sits, when, and its own fields. */
@@ -114,26 +116,14 @@ function append(held: CutText, more: string): CutText {
   return keep(held.text + more)
 }
 
-type ToolState = 'running' | 'completed' | 'failed' | 'cancelled'
+/** An item's preview, as the fold holds it: its key and the time of its first event besides. */
+type Folded<K extends ItemView['kind']> = Extract<ItemView, { kind: K }> & { key: string; at: number | null }
 
-/** One folded item, with what its preview shows, each text kept at most 16 KiB. */
-type Item =
-  | { kind: 'text' | 'thinking'; key: string; at: number | null; text: CutText }
-  | {
-      kind: 'tool'
-      key: string
-      at: number | null
-      name: string
-      title: string | null
-      state: ToolState
-      input: CutText | null
-      output: CutText | null
-      outputTruncated: boolean
-      exitCode: number | null
-    }
-  | { kind: 'subtask'; key: string; at: number | null; status: string; description: string | null; summary: CutText | null }
-  | { kind: 'warning'; key: string; at: number | null; code: string | null; text: CutText }
-  | { kind: 'hook'; key: string; at: number | null; name: string; event: string | null; status: string; exitCode: number | null; events: number }
+/**
+ * One folded item, each text kept at most 16 KiB: its preview, plus a hook's latest status and its
+ * count of events, which decide whether it is listed and are not shown.
+ */
+type Item = Folded<'text' | 'thinking'> | Folded<'tool'> | Folded<'subtask'> | Folded<'warning'> | (Folded<'hook'> & { status: string; events: number })
 
 type Attempt = {
   key: string
@@ -159,7 +149,6 @@ function inputText(value: unknown): CutText | null {
   }
 }
 
-const TOOL_WORD: Record<ToolState, string> = { running: 'Running', completed: 'Completed', failed: 'Failed', cancelled: 'Cancelled' }
 const SUBTASK_WORD: Record<string, string> = { started: 'Started', running: 'Running', completed: 'Completed', failed: 'Failed', stopped: 'Stopped' }
 
 /** The first line of a text, on one line and cut for a row. */
@@ -174,7 +163,7 @@ function rowOf(item: Item): ActivityRow {
     case 'thinking':
       return row(firstLine(item.text.text), 'Thinking')
     case 'tool':
-      return row(item.title === null || item.title === '' ? item.name : item.title, TOOL_WORD[item.state])
+      return row(item.title === null || item.title === '' ? item.name : item.title, TOOL_STATE_WORDS[item.state])
     case 'subtask': {
       const summary = item.summary === null ? '' : firstLine(item.summary.text)
       return row(item.description ?? 'Subtask', [`Subtask ${(SUBTASK_WORD[item.status] ?? item.status).toLowerCase()}`, summary].filter((part) => part !== '').join(' · '))
@@ -183,6 +172,26 @@ function rowOf(item: Item): ActivityRow {
       return row(firstLine(item.text.text), 'Warning')
     case 'hook':
       return row(`Hook ${item.name}`, item.exitCode === null ? 'Failed' : `Failed with exit code ${String(item.exitCode)}`)
+  }
+}
+
+/**
+ * An item's preview: the item without its key, its time and a hook's bookkeeping. `Item` is built
+ * from `ItemView`, so a field a preview requires must be copied here too or this does not compile.
+ */
+function previewOf(item: Item): ItemView {
+  switch (item.kind) {
+    case 'text':
+    case 'thinking':
+      return { kind: item.kind, text: item.text }
+    case 'tool':
+      return { kind: 'tool', name: item.name, title: item.title, state: item.state, input: item.input, output: item.output, outputTruncated: item.outputTruncated, exitCode: item.exitCode }
+    case 'subtask':
+      return { kind: 'subtask', status: item.status, description: item.description, summary: item.summary }
+    case 'warning':
+      return { kind: 'warning', code: item.code, text: item.text }
+    case 'hook':
+      return { kind: 'hook', name: item.name, event: item.event, exitCode: item.exitCode }
   }
 }
 
@@ -380,28 +389,7 @@ export function createFold(): Fold {
     item(key) {
       const item = byKey.get(key)
       if (item === undefined || !listed(item)) return null
-      switch (item.kind) {
-        case 'text':
-        case 'thinking':
-          return { kind: item.kind, text: item.text }
-        case 'tool':
-          return {
-            kind: 'tool',
-            name: item.name,
-            title: item.title,
-            state: item.state,
-            input: item.input,
-            output: item.output,
-            outputTruncated: item.outputTruncated,
-            exitCode: item.exitCode
-          }
-        case 'subtask':
-          return { kind: 'subtask', status: item.status, description: item.description, summary: item.summary }
-        case 'warning':
-          return { kind: 'warning', code: item.code, text: item.text }
-        case 'hook':
-          return { kind: 'hook', name: item.name, event: item.event, exitCode: item.exitCode }
-      }
+      return previewOf(item)
     }
   }
 }

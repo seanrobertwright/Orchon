@@ -25,7 +25,9 @@ import {
   type PanelContext,
   type TreeItem
 } from 'orca'
+import { sizeText } from './artifacts-section'
 import type { ConnectionView } from './connection-view'
+import { BLOCK_LIMIT } from './cutter'
 import { formatClock, formatDateTime, formatDuration, now } from './dates'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
@@ -33,7 +35,11 @@ import { stepWords, ranTimes } from './step-tree'
 import {
   ACTIVITY_PAGE,
   ACTIVITY_PAGES_CAP,
+  STEP_EVENTS_CAP_BYTES,
   STEP_ID_CAP,
+  STEP_OUTPUT_CAP,
+  STEP_POLL_MS,
+  TOOL_STATE_WORDS,
   type ActivityView,
   type CutText,
   type ItemView,
@@ -293,6 +299,16 @@ function factsFold(facts: StepFacts): OrcaNode {
   )
 }
 
+/** The output's blocks, each keyed by where it starts in the output. */
+function blocksOf(blocks: readonly string[]): OrcaNode[] {
+  let at = 0
+  return blocks.map((block) => {
+    const key = `output:${String(at)}`
+    at += block.length
+    return <Text key={key}>{block}</Text>
+  })
+}
+
 /** The Output fold, shut: plain text in blocks, and a line when the rest is not shown. */
 function outputFold(output: StepOutput | null): OrcaNode {
   return (
@@ -301,13 +317,10 @@ function outputFold(output: StepOutput | null): OrcaNode {
         <Text muted>The step gave no output.</Text>
       ) : (
         <Stack gap="xs">
-          {output.blocks.map((block, index) => (
-            // The blocks are the output in order and never move, so their place is their identity.
-            <Text key={`block-${String(index)}`}>{block}</Text>
-          ))}
+          {blocksOf(output.blocks)}
           {output.notShown > 0 ? (
             <Text muted size="sm">
-              {`The output is cut at 256 KiB: the last ${output.notShown.toLocaleString('en-US')} characters are not shown.`}
+              {`The output is cut at ${sizeText(STEP_OUTPUT_CAP)}: the last ${output.notShown.toLocaleString('en-US')} characters are not shown.`}
             </Text>
           ) : null}
         </Stack>
@@ -363,18 +376,11 @@ function cutBlock(label: string, text: CutText | null, empty: string): OrcaNode 
       {text === null || text.text === '' ? <Text muted>{empty}</Text> : <Text>{text.text}</Text>}
       {text?.cut === true ? (
         <Text muted size="sm">
-          The text is cut at 16 KiB.
+          {`The text is cut at ${sizeText(BLOCK_LIMIT)}.`}
         </Text>
       ) : null}
     </Stack>
   )
-}
-
-const TOOL_STATE: Record<Extract<ItemView, { kind: 'tool' }>['state'], string> = {
-  running: 'Running',
-  completed: 'Completed',
-  failed: 'Failed',
-  cancelled: 'Cancelled'
 }
 
 /** The selected item, under the tree. */
@@ -413,7 +419,7 @@ function previewOf(item: ItemView): OrcaNode {
         <Stack gap="sm">
           <Row gap="sm" align="center" wrap>
             <Text weight="semibold">{item.title === null || item.title === '' ? item.name : `${item.name}: ${item.title}`}</Text>
-            <Text muted>{TOOL_STATE[item.state]}</Text>
+            <Text muted>{TOOL_STATE_WORDS[item.state]}</Text>
             {item.exitCode === null ? null : <Text muted>{`Exit code ${String(item.exitCode)}`}</Text>}
           </Row>
           {cutBlock('Input', item.input, 'No input.')}
@@ -437,7 +443,7 @@ function activityBody(runId: string, stepId: string, activity: ActivityView): Or
   if (activity.kind === 'too-large') {
     return (
       <Callout tone="warning">
-        <Text>This step's activity is larger than 32 MiB, so Orchon does not show it. Open Archon's console to look at it.</Text>
+        <Text>{`This step's activity is larger than ${sizeText(STEP_EVENTS_CAP_BYTES)}, so Orchon does not show it. Open Archon's console to look at it.`}</Text>
       </Callout>
     )
   }
@@ -448,7 +454,7 @@ function activityBody(runId: string, stepId: string, activity: ActivityView): Or
   const shown = read(preview)
   return (
     <Stack gap="sm">
-      {activity.live ? <Text muted size="sm">The step is running: new activity is read every 3 seconds.</Text> : null}
+      {activity.live ? <Text muted size="sm">{`The step is running: new activity is read every ${String(STEP_POLL_MS / 1_000)} seconds.`}</Text> : null}
       {activity.total === 0 ? (
         <Text muted>No activity was recorded for this step.</Text>
       ) : (

@@ -32,16 +32,19 @@ export const ITEM_LINE_CAP = 120
  * What a panel sends for the step view: the run, the step's id as run detail lists it, and how
  * many pages of activity it shows, 1 when left out.
  */
-export type StepRequest = { runId: string; stepId: string; pages?: number }
+export type StepRequest = StepRef & { pages?: number }
+
+/** One step of one run: the run's id and the step's id as run detail lists it. */
+export type StepRef = { runId: string; stepId: string }
 
 /** What a panel sends when the step view closes, so the worker stops polling it. */
-export type StepCloseRequest = { runId: string; stepId: string }
+export type StepCloseRequest = StepRef
 
 /** What a panel sends for one item of a step's activity: its key from a page. */
-export type ItemRequest = { runId: string; stepId: string; key: string }
+export type ItemRequest = StepRef & { key: string }
 
 /** A hint that a step's activity changed while its view is open. It carries no activity. */
-export type StepHint = { runId: string; stepId: string }
+export type StepHint = StepRef
 
 /** Why a skipped step was skipped, and the condition that skipped it when there was one. */
 export type SkipFacts = { reason: string; condition: string | null }
@@ -145,6 +148,12 @@ export type StepAnswer = ConnectionAnswer & { step: StepView }
 /** A text cut at 16 KiB: `cut` when there was more. */
 export type CutText = { text: string; cut: boolean }
 
+/** Where a tool call stands: running until its update says how it ended. */
+export type ToolState = 'running' | 'completed' | 'failed' | 'cancelled'
+
+/** A tool call's state in words, for its row and its preview. */
+export const TOOL_STATE_WORDS: Record<ToolState, string> = { running: 'Running', completed: 'Completed', failed: 'Failed', cancelled: 'Cancelled' }
+
 /** One item as its preview shows it. */
 export type ItemView =
   | { kind: 'not-connected' }
@@ -155,7 +164,7 @@ export type ItemView =
       kind: 'tool'
       name: string
       title: string | null
-      state: 'running' | 'completed' | 'failed' | 'cancelled'
+      state: ToolState
       input: CutText | null
       output: CutText | null
       /** Set when Archon stored only part of the output. */
