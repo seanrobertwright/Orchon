@@ -71,6 +71,18 @@ describe('the recording log', () => {
     assert.ok(!/spend mode/.test(recordedLog(log)))
   })
 
+  test('a metrics recording says whether its records are synthetic, and why not when they are not', () => {
+    const spend = { scenario: 'metrics', tokenCeiling: 0, wallClockMs: 120_000, tokensSeen: 0, crossed: null, login: 'hidden' } as const
+    const ran = recordedLog({ ...log, spend: { ...spend, synthetic: { ran: true } } })
+    assert.match(
+      ran,
+      /^- Synthetic data: every metric record and overview card here was made up by the recorder's own pack `orchon-synthetic` \(workflow `orchon-recorder-synthetic-metrics`, one shell step, fixed numbers, names starting `orchon_synthetic\.`\)\. It measures nothing\.$/m
+    )
+    const fellBack = recordedLog({ ...log, spend: { ...spend, synthetic: { ran: false, why: 'the run ended\nfailed' } } })
+    assert.match(fellBack, /^- Synthetic data: none\. The recorder's synthetic pack did not run \(the run ended failed\), so the reports were read over an empty store\.$/m)
+    assert.ok(!/Synthetic data/.test(recordedLog({ ...log, spend })))
+  })
+
   test('the time is UTC to the second', () => {
     assert.equal(nowIso(new Date(Date.UTC(2026, 10, 18, 20, 15, 7, 913))), '2026-11-18T20:15:07Z')
   })

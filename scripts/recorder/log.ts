@@ -3,6 +3,7 @@
 import type { Crossing } from './ceiling.ts'
 import type { LoginMode } from './environment.ts'
 import { PLACEHOLDERS } from './scrub.ts'
+import { SYNTHETIC_METRIC_PREFIX, SYNTHETIC_METRICS, SYNTHETIC_PACK } from './workflows.ts'
 
 /**
  * Whether the metrics scenario ran the recorder's synthetic metrics pack before it read the
@@ -58,8 +59,19 @@ function spendLines(spend: SpendLog): string[] {
     `- Ceiling crossed: ${
       spend.crossed === null ? 'none' : `${spend.crossed.by}, ${number(spend.crossed.seen)} against ${number(spend.crossed.ceiling)}; the run was cancelled`
     }`,
-    `- Claude login: ${spend.login === 'passed' ? 'passed to the throwaway release by folder and name only, never read or copied' : 'hidden from the release'}`
+    `- Claude login: ${spend.login === 'passed' ? 'passed to the throwaway release by folder and name only, never read or copied' : 'hidden from the release'}`,
+    ...(spend.synthetic === undefined ? [] : [syntheticLine(spend.synthetic)])
   ]
+}
+
+/** Whether the metrics scenario's records are made up, and when they are not, why. */
+function syntheticLine(synthetic: SyntheticLog): string {
+  if (!synthetic.ran) {
+    return `- Synthetic data: none. The recorder's synthetic pack did not run (${cell(synthetic.why)}), so the reports were read over an empty store.`
+  }
+  return `- Synthetic data: every metric record and overview card here was made up by the recorder's own pack ${code(SYNTHETIC_PACK)} (workflow ${code(
+    SYNTHETIC_METRICS.name
+  )}, one shell step, fixed numbers, names starting ${code(SYNTHETIC_METRIC_PREFIX)}). It measures nothing.`
 }
 
 /** One table cell: a single line with nothing that would end the cell. */

@@ -162,7 +162,7 @@ async function record(signal: AbortSignal): Promise<number> {
         recordSpendScenario(session, scenario.name, { projectFolder, tokenCeiling: scenario.tokenCeiling }),
         untilInterrupted(signal)
       ])
-      spend = { ...spend, tokensSeen: outcome.tokensSeen, crossed: outcome.crossed }
+      spend = { ...spend, ...outcome }
       console.log(`Archon reported ${outcome.tokensSeen} tokens.${outcome.crossed === null ? '' : ` The ${outcome.crossed.by} ceiling was crossed and the run was cancelled.`}`)
     }
   } catch (error) {
