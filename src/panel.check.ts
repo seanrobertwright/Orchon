@@ -21,6 +21,7 @@ import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail
 import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
 import { answeringWorkflows, draftedWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
 import { answeringMetrics, sampleReport } from '../scripts/metrics-samples.ts'
+import { RECORDED_REFUSAL, RECORDED_UNREADABLE } from '../scripts/refusals-samples.ts'
 import { answeringChats, sampleChats } from '../scripts/chat-samples.ts'
 import { answeringThread, sampleDispatch, sampleResult, sampleThread, sampleThreadWith } from '../scripts/chat-thread-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
@@ -75,6 +76,8 @@ const runWaitingOnSubRuns = answeringRun(
 
 const onSettings = { persisted: { workspace: { section: 'settings' } } }
 const onMetrics = { persisted: { workspace: { section: 'metrics' } } }
+/** The sample report with the recorded refusal and unreadable pack, which are SYNTHETIC. */
+const withRefusals = { ...sampleReport(), refused: [RECORDED_REFUSAL], refusedTotal: 1, unreadablePacks: [RECORDED_UNREADABLE] }
 const onLaunch = { persisted: { workspace: { section: 'launch' } } }
 const onWorkflows = { persisted: { workspace: { section: 'workflows' } } }
 const onChat = { persisted: { workspace: { section: 'chat' } } }
@@ -168,6 +171,8 @@ export default defineCheck({
     ...answeringMetrics(() => sampleReport('7d', undefined, { more: 4 })),
     persisted: { workspace: { section: 'metrics', metricsTab: 'details' } }
   },
+  'metrics overview, a refused output and an unreadable pack': { ...answeringMetrics(() => withRefusals), ...onMetrics },
+  'metrics details, a refused output': { ...answeringMetrics(() => withRefusals), persisted: { workspace: { section: 'metrics', metricsTab: 'details' } } },
   'metrics, timed out': { ...answeringMetrics(() => ({ kind: 'timeout' })), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
   'settings with unsaved edits and an outside change': { ...answering(connected, systemRead, formsWithEdits), ...onSettings },

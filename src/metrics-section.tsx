@@ -5,7 +5,8 @@
 // rules with no safety refetch: on opening the section, on a change of scope or window, and on
 // Refresh. A return to the section asks the worker, which reads Archon again only when its report
 // is older than `METRICS_MAX_AGE_MS`. It ignores run hints. Figures are shown only for the scope
-// chosen now. It lands on Overview, the cards of `overview-section.tsx`.
+// chosen now. It lands on Overview, the cards of `overview-section.tsx`. The refusals and the packs
+// whose card declarations could not be read are drawn by `refusals-section.tsx`.
 import {
   atom,
   Button,
@@ -46,6 +47,7 @@ import {
   type MetricsWindow
 } from './metrics-view'
 import { clearOverview, moreLine, overviewCards, pendingCards, startOverviewSection } from './overview-section'
+import { refusalCallouts, refusalsGroup } from './refusals-section'
 import { scopedProjectId, scopeNotice, scopeSettled, scopeSwitch } from './scope-section'
 import { createViewFetch, type ViewFetch } from './view-fetch'
 import { offersTryAgain, troubleText } from './worker-words'
@@ -80,6 +82,8 @@ function openDetails(metric?: string): void {
   set(tab, 'details')
 }
 const overviewHooks = { openDetails }
+/** The refusals callout's "Details" link: the Details table, where the refusals are listed. */
+const openRefusals = (): void => openDetails()
 
 export const TIMEOUT_TEXT = 'Archon took too long to answer.'
 export const TOO_LARGE_TEXT = "Archon's metrics answer is too large to read."
@@ -99,9 +103,13 @@ export type MetricsSectionHooks = {
   showing(): boolean
   /** Keeps the connection state a data answer carries. */
   keep(view: ConnectionView): void
+  /** Opens a run's detail in the Runs section, whatever the scope switch says. */
+  openRun(runId: string): void
 }
 
 let fetcher: ViewFetch | undefined
+/** Where a refusal's link leads: the panel's run detail, set when the section starts. */
+let openRun: (runId: string) => void = () => {}
 /** What the next read adds to the scope: the person's window and whether to read Archon again. */
 let next: Omit<MetricsRequest, 'codebaseId'> = {}
 
@@ -174,6 +182,7 @@ export function startMetricsSection(ctx: PanelContext, given: MetricsSectionHook
     timers: frameTimers
   })
   fetcher = view
+  openRun = given.openRun
   startOverviewSection(ctx)
   startMetricView(ctx, { keep: given.keep })
   ctx.subscriptions.push({
@@ -330,9 +339,14 @@ const selectionChanged = (report: Ready, keys: readonly string[]): void => openR
 
 function details(report: Ready): OrcaNode {
   if (openMetricName() !== null) return metricViewBody((view) => problemOf(view)?.message ?? null, UNKNOWN_KIND_TEXT)
-  if (report.rows.length === 0) return <EmptyState title={`No measurements in the ${lastDays(report.window)}.`} />
+  const refusals = refusalsGroup(report, openRun)
+  if (report.rows.length === 0) {
+    const empty = <EmptyState title={`No measurements in the ${lastDays(report.window)}.`} />
+    return refusals === null ? empty : <Stack gap="sm">{refusals}{empty}</Stack>
+  }
   return (
     <Stack gap="sm">
+      {refusals}
       <Table
         label="Metrics"
         columns={COLUMNS}
@@ -382,7 +396,14 @@ export function metricsSection(state: Connected, writable: boolean): OrcaNode {
       {held === null ? null : problemCallout(held)}
       <Tabs label="Metrics views" value={shownTab} onChange={(value) => set(tab, parseTab(value))}>
         <Tab value="overview" label="Overview">
-          {report === null ? (pendingCards(scopedProjectId(), inFlight, overviewHooks) ?? body) : overviewCards(report.overview, overviewHooks)}
+          {report === null ? (
+            (pendingCards(scopedProjectId(), inFlight, overviewHooks) ?? body)
+          ) : (
+            <Stack gap="sm">
+              {refusalCallouts(report, openRefusals)}
+              {overviewCards(report.overview, overviewHooks)}
+            </Stack>
+          )}
         </Tab>
         <Tab value="details" label="Details">
           {body}

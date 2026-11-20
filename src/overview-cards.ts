@@ -7,8 +7,8 @@
 // `costPerCard`, and the words are those of `MetricsOverview.tsx`, in the console's metrics
 // folder of Archon 0.14.0 (commit 8def159a6b2c23e832a5283b4131cfffd9af9344). Every figure on a
 // card comes from records of one judge version: the headline's of the metric the card is about.
-// A calibration on a ratio card is read by a later version, and so are the refusals and the
-// packs whose declarations could not be read.
+// A calibration on a ratio card is read by a later version. The refusals and the packs whose
+// declarations could not be read are read by `metric-refusals.ts`.
 import { cutAt } from './cutter'
 import {
   formatNumber,
@@ -33,6 +33,7 @@ import {
   type OverviewPack,
   type OverviewView
 } from './overview-view'
+import { keyCounter } from './unique-keys'
 
 /** The most breakdown entries a count card declares in Archon's schema. */
 const BREAKDOWN_CAP = 4
@@ -186,25 +187,18 @@ const cardMetric = (card: Exclude<Declared, { shape: 'unknown' }>): string => (c
 
 /** Ids unique within a pack, from what each card is about rather than where it sits. */
 function cardIds(cards: Declared[]): string[] {
-  const seen = new Map<string, number>()
-  return cards.map((card) => {
-    const base = `${card.shape}:${card.shape === 'unknown' ? card.title : cardMetric(card)}`
-    const times = (seen.get(base) ?? 0) + 1
-    seen.set(base, times)
-    return times === 1 ? base : `${base}#${String(times)}`
-  })
+  const key = keyCounter()
+  return cards.map((card) => key(`${card.shape}:${card.shape === 'unknown' ? card.title : cardMetric(card)}`))
 }
 
 function overview(declarations: CardDeclarations, card: (declared: Declared, id: string) => OverviewCard): OverviewView {
   const declaring = declarations.packs.filter((pack) => pack.cards.length > 0)
-  const keys = new Map<string, number>()
+  const key = keyCounter()
   const packs = declaring.slice(0, OVERVIEW_PACKS_CAP).map((pack): OverviewPack => {
-    const times = (keys.get(pack.key) ?? 0) + 1
-    keys.set(pack.key, times)
     const shown = pack.cards.slice(0, PACK_CARDS_CAP)
     const ids = cardIds(shown)
     return {
-      key: times === 1 ? pack.key : `${pack.key}#${String(times)}`,
+      key: key(pack.key),
       name: pack.name,
       cards: shown.map((declared, index) => card(declared, ids[index] ?? declared.shape)),
       more: pack.cards.length - shown.length
