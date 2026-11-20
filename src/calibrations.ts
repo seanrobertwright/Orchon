@@ -57,6 +57,18 @@ export type Calibration =
   | { state: 'loading' }
   | { state: 'unavailable'; message: string }
 
+/** What a card's calibration and a metric's view both say while the year-long report is not loaded. */
+function calibrationsPending(
+  calibrations: Exclude<Calibrations, { state: 'loaded' }>
+): { state: 'loading' } | { state: 'unavailable'; message: string } {
+  return calibrations.state === 'loading' ? { state: 'loading' } : { state: 'unavailable', message: calibrations.message }
+}
+
+/** The first `CALIBRATION_LINES_CAP` lines, and how many past the cap are not listed. */
+function capped(lines: readonly string[]): { lines: string[]; more: number } {
+  return { lines: lines.slice(0, CALIBRATION_LINES_CAP), more: Math.max(0, lines.length - CALIBRATION_LINES_CAP) }
+}
+
 /** A metric's figures at one judge version, the first of that identity in Archon's order. */
 function figuresAt(metric: Metric | undefined, identity: Identity): InstrumentFigures | undefined {
   if (metric === undefined || metric.kind === 'unknown') return undefined
@@ -66,8 +78,7 @@ function figuresAt(metric: Metric | undefined, identity: Identity): InstrumentFi
 
 /** How far the calibration a ratio card declares vouches for its numerator, at the numerator's headline identity. */
 export function calibrationOf(numerator: string, declared: DeclaredCalibration, identity: Identity, calibrations: Calibrations): Calibration {
-  if (calibrations.state === 'loading') return { state: 'loading' }
-  if (calibrations.state === 'failed') return { state: 'unavailable', message: calibrations.message }
+  if (calibrations.state !== 'loaded') return calibrationsPending(calibrations)
   const calibrator = calibrations.report.metrics.find((metric) => metric.name === declared.metric)
   const score = calibrator?.calibrates === numerator ? figuresAt(calibrator, identity) : undefined
   // A calibration scores each labelled case 1 or 0; a mean outside 0-1 breaks that contract.
@@ -145,8 +156,7 @@ export function metricCalibrations(
   ratios: readonly CalibratedRatio[],
   names: ReadonlyMap<string, string>
 ): MetricCalibrations {
-  if (calibrations.state === 'loading') return { state: 'loading' }
-  if (calibrations.state === 'failed') return { state: 'unavailable', message: calibrations.message }
+  if (calibrations.state !== 'loaded') return calibrationsPending(calibrations)
   if (metric.kind === 'unknown') return { state: 'loaded', lines: [], more: 0, sentence: null }
   const identity = metric.figures.headline
   const lines = calibrations.report.metrics
@@ -162,8 +172,7 @@ export function metricCalibrations(
   const calibration = declared === undefined ? undefined : calibrationOf(metric.name, declared.calibration, identity, calibrations)
   return {
     state: 'loaded',
-    lines: lines.slice(0, CALIBRATION_LINES_CAP),
-    more: Math.max(0, lines.length - CALIBRATION_LINES_CAP),
+    ...capped(lines),
     sentence: calibration?.state === 'calibrated' ? calibrationSentence(calibration) : null
   }
 }
@@ -180,7 +189,8 @@ export function unmatchedCalibrations(report: Report): { unmatchedCalibrations: 
       metric.kind === 'unknown' ? '.' : `: ${formatFigure(metric.figures.headline.value, metric.unit)} from ${String(metric.figures.headline.n)} records.`
     return [`${metric.name} calibrates ${metric.calibrates}, which has no records in this window${figure}`]
   })
-  return { unmatchedCalibrations: lines.slice(0, CALIBRATION_LINES_CAP), unmatchedMore: Math.max(0, lines.length - CALIBRATION_LINES_CAP) }
+  const { lines: unmatched, more } = capped(lines)
+  return { unmatchedCalibrations: unmatched, unmatchedMore: more }
 }
 
 /** The post that carries a read's cards again with their calibration markers, for the report it follows. */
