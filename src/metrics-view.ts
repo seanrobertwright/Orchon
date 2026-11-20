@@ -23,8 +23,8 @@ export const DETAILS_ROWS_CAP = 200
 export const REFUSALS_CAP = 20
 
 /**
- * How long the panel waits for the worker's answer: the card declarations' 10 seconds and the
- * report's 30, with room for the worker itself.
+ * How long the panel waits for the worker's answer: the card declarations' `TIMEOUT_MS.read` and
+ * the report's `TIMEOUT_MS.report` in `client.ts`, with room for the worker itself.
  */
 export const METRICS_REQUEST_TIMEOUT_MS = 45_000
 

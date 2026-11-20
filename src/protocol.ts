@@ -172,7 +172,7 @@ declare module 'orca' {
     'chat.last': { input: ChatLastRequest; output: ChatLastAnswer }
     /**
      * The Metrics section: the Details rows of the scope's report over one window, read from Archon
-     * or from the report the worker holds while it is at most 5 minutes old. A window it names is kept.
+     * or from the report the worker holds while it is at most `METRICS_MAX_AGE_MS` old. A window it names is kept.
      */
     'metrics.read': { input: MetricsRequest; output: MetricsAnswer }
   }
