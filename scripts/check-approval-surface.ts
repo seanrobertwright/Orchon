@@ -7,7 +7,7 @@
 //
 // It starts no process: CI finds the last released tag and pipes that tag's manifest in.
 import { readFileSync } from 'node:fs'
-import { readRepoText } from './repo-files.ts'
+import { markdownSection, readRepoText } from './repo-files.ts'
 
 export interface ApprovalSurfaceInput {
   /** The last released tag and its manifest's text, or null when no release has been tagged. */
@@ -114,25 +114,12 @@ function differingParts(released: Surface, current: Surface): string[] {
   return parts.filter((part) => canonical(released.get(part) ?? []) !== canonical(current.get(part) ?? []))
 }
 
-/** The lines of one version's section of the changelog: from its `## ` heading to the next one. */
-function versionSection(changelog: string, version: string): string[] | null {
-  const lines = changelog.split(/\r?\n/)
-  const heading = lines.findIndex((line) => line === `## ${version}` || line.startsWith(`## ${version} `))
-  if (heading === -1) return null
-  const rest = lines.slice(heading + 1)
-  const end = rest.findIndex((line) => line.startsWith('## '))
-  return end === -1 ? rest : rest.slice(0, end)
-}
-
-/** Whether the version's section has the "Asks you to approve again" heading with text under it. */
+/** Whether the version's section of the changelog has the "Asks you to approve again" heading with text under it. */
 function asksAgain(changelog: string, version: string): boolean {
-  const section = versionSection(changelog, version)
+  const section = markdownSection(changelog, `## ${version}`)
   if (section === null) return false
-  const start = section.indexOf(ASKS_AGAIN_HEADING)
-  if (start === -1) return false
-  const after = section.slice(start + 1)
-  const end = after.findIndex((line) => line.startsWith('#'))
-  return (end === -1 ? after : after.slice(0, end)).some((line) => line.trim() !== '')
+  const asks = markdownSection(section.join('\n'), ASKS_AGAIN_HEADING)
+  return asks !== null && asks.some((line) => line.trim() !== '')
 }
 
 /** One sentence for each reason the surface may not change as it does; empty when it passes. */

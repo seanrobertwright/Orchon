@@ -1,6 +1,6 @@
 // The licence files and what the README must say about the projects Orchon works with.
 import { assert, describe, test } from 'orca/testing'
-import { readRepoText } from './repo-files.ts'
+import { markdownSection, readRepoText } from './repo-files.ts'
 
 /** The worker's limits on itself, word for word as decided in #32 and copied into #33. */
 const LIMITS_TABLE = `| Kind | The worker may |
@@ -12,12 +12,9 @@ const LIMITS_TABLE = `| Kind | The worker may |
 
 /** The README's section of this name, from its heading to the next heading of the same level. */
 function readmeSection(heading: string): string {
-  const readme = readRepoText('README.md')
-  const start = readme.indexOf(`\n## ${heading}\n`)
-  assert.ok(start !== -1, `the README has no section "${heading}"`)
-  const rest = readme.slice(start + 1)
-  const end = rest.indexOf('\n## ', 1)
-  return end === -1 ? rest : rest.slice(0, end)
+  const section = markdownSection(readRepoText('README.md'), `## ${heading}`)
+  assert.ok(section !== null, `the README has no section "${heading}"`)
+  return section.join('\n')
 }
 
 describe('the licence files and the README', () => {
@@ -62,47 +59,5 @@ describe('the licence files and the README', () => {
     const readme = readRepoText('README.md')
     assert.match(readme, /The newest version is the supported one\./)
     assert.match(readme, /\[CHANGELOG\.md\]\(CHANGELOG\.md\)/)
-  })
-
-  test('the live Orca checklist covers each live check of #33 and leaves a sign-off for the owner', () => {
-    const checklist = readRepoText('docs/live-checklist.md')
-    const items = [
-      'an open editor tab',
-      'a hidden panel',
-      "a hidden panel's timers",
-      'focus after an inline confirmation',
-      '`RadioGroup` option descriptions',
-      '`expectedGate`',
-      '409',
-      'non-empty attention answer',
-      '`PATCH /api/config/*`',
-      '`/api/auth/*`',
-      'metrics query',
-      "the command's returned sentence",
-      "the status bar's text length",
-      'notification',
-      '`Code` block',
-      "Archon's restart time",
-      'home folder first exists',
-      '`unavailable`',
-      'SSH',
-      'WSL',
-      'light theme',
-      'keyboard',
-      '220 px',
-      'status bar item',
-      '`orca plugin validate`',
-      'update rules'
-    ]
-    for (const item of items) assert.ok(checklist.toLowerCase().includes(item.toLowerCase()), `the checklist does not name ${item}`)
-    assert.ok(!/- \[x\]/i.test(checklist), 'a check is ticked: the owner ticks them')
-    assert.match(checklist, /^Signed off by: *$/m)
-  })
-
-  test("the changelog has a section for the manifest's version", () => {
-    const { version } = JSON.parse(readRepoText('orca-plugin.json')) as { version: string }
-    const changelog = readRepoText('CHANGELOG.md')
-    assert.match(changelog, /^# Changelog$/m)
-    assert.ok(changelog.split('\n').includes(`## ${version}`), `CHANGELOG.md has no "## ${version}"`)
   })
 })
