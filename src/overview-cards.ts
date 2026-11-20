@@ -7,8 +7,8 @@
 // `costPerCard`, and the words are those of `MetricsOverview.tsx`, in the console's metrics
 // folder of Archon 0.14.0 (commit 8def159a6b2c23e832a5283b4131cfffd9af9344). Every figure on a
 // card comes from records of one judge version: the headline's of the metric the card is about.
-// A calibration on a ratio card is read by a later version, and so are the refusals and the
-// packs whose declarations could not be read.
+// A calibration on a ratio card is read by a later version. The refusals and the packs whose
+// declarations could not be read are read by `metric-refusals.ts`.
 import { cutAt } from './cutter'
 import {
   formatNumber,
