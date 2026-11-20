@@ -146,6 +146,18 @@ describe('the CI workflow', () => {
     assert.equal(texts.indexOf(text), download + 1, 'a failing gate could stop the report')
   })
 
+  test('compares the approval surface with the last released tag, whether or not Orca was downloaded', () => {
+    const checkout = stepMatching(/uses: actions\/checkout@/)
+    assert.ok(checkout.lines.includes('          fetch-depth: 0'), 'the checkout has no tags to compare with')
+    const surface = stepMatching(/check-approval-surface/)
+    assert.equal(surface.if, undefined, 'the approval-surface check is skipped on a condition')
+    const text = surface.lines.join('\n')
+    assert.match(text, /^ {10}set -euo pipefail$/m)
+    assert.match(text, /^ {10}tag=\$\(git tag --list 'v\*' --sort=-v:refname \| head -n 1\)$/m)
+    assert.match(text, /^ {12}node scripts\/check-approval-surface\.ts$/m)
+    assert.match(text, /^ {12}git show "\$tag:orca-plugin\.json" \| node scripts\/check-approval-surface\.ts --tag "\$tag"$/m)
+  })
+
   test('the gates behind npm scripts are the ones this repository defines', () => {
     assert.equal(scripts.typecheck, 'tsc --noEmit -p tsconfig.json')
     assert.equal(scripts['check:editors'], 'node scripts/check-editor-output.ts')

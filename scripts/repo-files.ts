@@ -94,3 +94,22 @@ export function hasExtension(path: string, extensions: readonly string[]): boole
   const dot = path.lastIndexOf('.')
   return dot !== -1 && extensions.includes(path.slice(dot + 1))
 }
+
+/**
+ * The lines under one markdown heading, up to the next heading of the same or a higher level.
+ * `heading` is the whole heading line, such as `## 0.1.0`; a line that adds words after it
+ * (`## 0.1.0 (unreleased)`) also matches. Lines end in `\n` or `\r\n`. Null when there is no
+ * such heading.
+ */
+export function markdownSection(text: string, heading: string): string[] | null {
+  const level = /^#+/.exec(heading)?.[0].length ?? 0
+  const lines = text.split(/\r?\n/)
+  const start = lines.findIndex((line) => line === heading || line.startsWith(`${heading} `))
+  if (start === -1) return null
+  const rest = lines.slice(start + 1)
+  const end = rest.findIndex((line) => {
+    const hashes = /^(#+) /.exec(line)?.[1]?.length
+    return hashes !== undefined && hashes <= level
+  })
+  return end === -1 ? rest : rest.slice(0, end)
+}
