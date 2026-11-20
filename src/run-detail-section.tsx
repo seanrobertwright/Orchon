@@ -37,7 +37,8 @@ import type { RunsHint } from './hint-view'
 import { actionRow, outcomeCallout, rerunLine, resetRunActions, runActionsRead, type RunActionHooks } from './run-actions'
 import { LAUNCH_MESSAGE_CAP, RUN_ID_CAP, STEP_ROWS_CAP, type RunDetail, type RunDetailAnswer, type RunDetailRequest, type StalledCall, type Step, type ChildRow, type Waiting } from './run-detail-view'
 import { STATUS_GLYPH, STATUS_TONE, STATUS_WORD, statusText } from './run-status-words'
-import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepWords, type StepTree } from './step-tree'
+import { buildStepTree, NOT_REACHED_KEY, ranTimes, stepKey, stepWords, type StepTree } from './step-tree'
+import { clearStepView, hintStepRun, openStepId, openStepView, restartStepView, startStepView, stepViewHasData, stepViewSection } from './step-view-section'
 import { createViewFetch, LIVE_OFF_REFETCH_MS, SAFETY_REFETCH_MS, type ViewFetch } from './view-fetch'
 import { problemLine, type ReadProblem } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
@@ -131,7 +132,8 @@ export function startRunDetail(ctx: PanelContext, given: RunDetailHooks): void {
   const view = createViewFetch<RunDetailAnswer | null>({
     load(signal) {
       const runId = openRunId()
-      if (runId === null || given.connection()?.kind !== 'connected' || !given.showing()) return Promise.resolve(null)
+      // While a step is open, run detail is not read: the step view has its own request.
+      if (runId === null || openStepId() !== null || given.connection()?.kind !== 'connected' || !given.showing()) return Promise.resolve(null)
       const request: RunDetailRequest = opening === runId ? { runId, open: true } : { runId }
       opening = null
       return plugin.request('run.read', request, { signal })
@@ -151,6 +153,17 @@ export function startRunDetail(ctx: PanelContext, given: RunDetailHooks): void {
   })
   fetcher = view
   startArtifactsView(ctx)
+  startStepView(ctx, {
+    connection: given.connection,
+    showing: given.showing,
+    keep: given.keep,
+    runId: openRunId,
+    // Going back leaves the step selected, and run detail is read again.
+    back(stepId) {
+      set(selectedStep, stepKey(stepId))
+      restartRunDetail()
+    }
+  })
   ctx.subscriptions.push({
     dispose() {
       view.stop()
@@ -161,11 +174,13 @@ export function startRunDetail(ctx: PanelContext, given: RunDetailHooks): void {
 
 /** Whether run detail holds an answer to show, as Searching keeps it under its banner. */
 export function runDetailHasData(): boolean {
+  if (openStepId() !== null) return stepViewHasData()
   return read(loaded) !== null
 }
 
 /** A different Archon store: the open run belongs to the old one. */
 export function clearRunDetail(): void {
+  clearStepView()
   set(openRun, null)
   set(loaded, null)
   resetView()
@@ -174,6 +189,7 @@ export function clearRunDetail(): void {
 
 /** Opens a run in place of the runs table. */
 export function openRunDetail(runId: string): void {
+  clearStepView()
   set(openRun, runId)
   set(loaded, null)
   resetView()
@@ -185,6 +201,10 @@ export function openRunDetail(runId: string): void {
 export function restartRunDetail(): void {
   const runId = openRunId()
   if (runId === null) return
+  if (openStepId() !== null) {
+    restartStepView()
+    return
+  }
   if (read(loaded) === null) opening = runId
   fetcher?.restart()
 }
@@ -193,9 +213,11 @@ export function restartRunDetail(): void {
 export function hintRunDetail(hint: RunsHint): void {
   const runId = openRunId()
   if (runId !== null && (hint.runs === 'many' || hint.runs.includes(runId))) fetcher?.refresh()
+  hintStepRun(hint)
 }
 
 function back(): void {
+  clearStepView()
   set(openRun, null)
   set(loaded, null)
   resetView()
@@ -345,6 +367,9 @@ function stepLine(step: Step, detail: RunDetail): OrcaNode {
     <Row gap="sm" wrap align="center">
       <Badge tone={tone}>{word}</Badge>
       <Text>{parts.filter((part) => part !== null).join(' · ')}</Text>
+      <Button size="sm" variant="outline" onPress={() => openStepView(step.id)}>
+        Open step
+      </Button>
     </Row>
   )
 }
@@ -367,6 +392,10 @@ function stepsBody(detail: RunDetail): OrcaNode {
           {...(step === undefined || chosen === null ? {} : { selected: chosen })}
           onToggle={({ key, expanded }) => toggle(tree, key, expanded)}
           onSelect={({ key }) => set(selectedStep, tree.byKey.has(key) ? key : null)}
+          onAction={({ key }) => {
+            const chosen = tree.byKey.get(key)
+            if (chosen !== undefined) openStepView(chosen.id)
+          }}
         />
       )}
       {hidden > 0 ? (
@@ -623,6 +652,7 @@ function body(detail: RunDetail, writable: boolean): OrcaNode {
 
 /** Run detail while connected or under the Searching banner. `writable` is false when its controls that write are off. */
 export function runDetailSection(writable: boolean): OrcaNode {
+  if (openStepId() !== null) return stepViewSection()
   const detail = read(loaded)
   const held = read(problem)
   let content: OrcaNode
