@@ -4,7 +4,7 @@
 // the calibration lines of a metric's view, with the sentence that explains "rough", said only
 // there. It draws words only; the worker read the calibrations.
 import { atom, plugin, read, set, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
-import type { MetricCalibrations, MetricsCalibrationsPost } from './calibration-view'
+import type { MetricCalibrations, MetricsCalibrationsPost, ReadIdentity } from './calibration-view'
 import type { MetricsView } from './metrics-view'
 import { moreLine } from './overview-section'
 import type { OverviewView } from './overview-view'
@@ -34,14 +34,14 @@ export function clearCalibrations(): void {
   set(posted, null)
 }
 
-/** Whether a post follows the read of the report on screen: the same scope, window and read. */
-export const followsReport = (post: MetricsCalibrationsPost, report: { window: string; codebaseId?: string; fetchedAt: number }): boolean =>
-  post.window === report.window && post.codebaseId === report.codebaseId && post.fetchedAt === report.fetchedAt
+/** Whether two reports are of the same read: the same scope, window and read. */
+export const sameRead = (one: ReadIdentity, other: ReadIdentity): boolean =>
+  one.window === other.window && one.codebaseId === other.codebaseId && one.fetchedAt === other.fetchedAt
 
 /** The cards of the report on screen, with their calibration markers once the worker posted them. */
 export function calibratedOverview(report: Ready): OverviewView {
   const post = read(posted)
-  return post !== null && followsReport(post, report) ? post.overview : report.overview
+  return post !== null && sameRead(post, report) ? post.overview : report.overview
 }
 
 /** Muted lines, keyed by their text: each names a different metric. */

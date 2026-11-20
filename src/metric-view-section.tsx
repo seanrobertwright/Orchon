@@ -26,8 +26,8 @@ import {
   type TableColumn,
   type TableRow
 } from 'orca'
-import { calibrationsBlock } from './calibration-section'
-import type { MetricsCalibrationsPost } from './calibration-view'
+import { calibrationsBlock, sameRead } from './calibration-section'
+import type { MetricsCalibrationsPost, ReadIdentity } from './calibration-view'
 import type { ConnectionView } from './connection-view'
 import { formatDateTime } from './dates'
 import type { MetricDetail, MetricRequest, MetricView } from './metric-view'
@@ -36,7 +36,7 @@ import { moreLine } from './overview-section'
 import { UNREACHABLE_TEXT } from './worker-words'
 
 /** The report on screen, as far as a metric's view reads it. */
-type ReportOnScreen = { window: MetricsWindow; codebaseId?: string; fetchedAt: number }
+type ReportOnScreen = ReadIdentity
 
 /** The open metric: its dotted name and the plain name its row shows. */
 type Open = { name: string; label: string }
@@ -116,12 +116,7 @@ export function openMetricView(name: string, label: string, report: ReportOnScre
  */
 export function metricReportChanged(report: ReportOnScreen): void {
   if (read(open) === null) return
-  const same =
-    shownReport !== null &&
-    shownReport.window === report.window &&
-    shownReport.codebaseId === report.codebaseId &&
-    shownReport.fetchedAt === report.fetchedAt
-  if (!same) ask(report)
+  if (shownReport === null || !sameRead(shownReport, report)) ask(report)
 }
 
 /**
@@ -130,7 +125,7 @@ export function metricReportChanged(report: ReportOnScreen): void {
  */
 export function metricCalibrated(post: MetricsCalibrationsPost): void {
   if (read(open) === null || shownReport === null) return
-  if (post.window === shownReport.window && post.codebaseId === shownReport.codebaseId && post.fetchedAt === shownReport.fetchedAt) ask(shownReport)
+  if (sameRead(post, shownReport)) ask(shownReport)
 }
 
 /** The way back, or a different Archon store: the Details table shows again. */

@@ -13,12 +13,15 @@ export const NOT_CALIBRATED_TEXT = 'not calibrated'
 export const CALIBRATION_LOADING_TEXT = 'calibration loading'
 export const CALIBRATION_UNAVAILABLE_TEXT = 'calibration unavailable'
 
+/** Which read of Archon a report is: its scope, its window and when the window's report was read. */
+export type ReadIdentity = { codebaseId?: string; window: MetricsWindow; fetchedAt: number }
+
 /**
  * The worker's post once the year-long report for calibrations answered or failed: the Overview
- * cards of the read it follows, with their calibration markers. It names the scope, the window
- * and when the window's report was read, so a panel applies it only to the report it shows.
+ * cards of the read it follows, with their calibration markers. It names that read, so a panel
+ * applies it only to the report it shows.
  */
-export type MetricsCalibrationsPost = { codebaseId?: string; window: MetricsWindow; fetchedAt: number; overview: OverviewView }
+export type MetricsCalibrationsPost = ReadIdentity & { overview: OverviewView }
 
 /** The calibrations of one metric, for its view. */
 export type MetricCalibrations =
