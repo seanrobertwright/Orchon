@@ -48,6 +48,29 @@ describe('the recording log', () => {
     for (const { as, stands } of Object.values(PLACEHOLDERS)) assert.ok(text.includes(`- \`${as}\`: ${stands}\n`), as)
   })
 
+  test('a spend-mode recording says so, with its ceilings, what Archon reported and how the login was given', () => {
+    const spent = recordedLog({
+      ...log,
+      spend: { scenario: 'agent-step', tokenCeiling: 150_000, wallClockMs: 300_000, tokensSeen: 48_210, crossed: null, login: 'passed' }
+    })
+    assert.match(spent, /^- Recorded in spend mode: the `agent-step` scenario alone$/m)
+    assert.match(spent, /^- Ceilings: 150,000 tokens and 5 minutes$/m)
+    assert.match(spent, /^- Tokens Archon reported: 48,210$/m)
+    assert.match(spent, /^- Ceiling crossed: none$/m)
+    assert.match(spent, /^- Claude login: passed to the throwaway release by folder and name only, never read or copied$/m)
+    const cancelled = recordedLog({
+      ...log,
+      spend: { scenario: 'chat-turn', tokenCeiling: 60_000, wallClockMs: 300_000, tokensSeen: 0, crossed: { by: 'time', seen: 300_412, ceiling: 300_000 }, login: 'passed' }
+    })
+    assert.match(cancelled, /^- Ceiling crossed: time, 300,412 against 300,000; the run was cancelled$/m)
+    const metrics = recordedLog({
+      ...log,
+      spend: { scenario: 'metrics', tokenCeiling: 0, wallClockMs: 120_000, tokensSeen: 0, crossed: null, login: 'hidden' }
+    })
+    assert.match(metrics, /^- Claude login: hidden from the release$/m)
+    assert.ok(!/spend mode/.test(recordedLog(log)))
+  })
+
   test('the time is UTC to the second', () => {
     assert.equal(nowIso(new Date(Date.UTC(2026, 10, 18, 20, 15, 7, 913))), '2026-11-18T20:15:07Z')
   })
