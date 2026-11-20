@@ -34,6 +34,7 @@ import type {
   BuilderValidateRequest,
   YamlOpenAnswer
 } from '../editors/builder/builder-view'
+import type { MetricsAnswer, MetricsRequest } from './metrics-view'
 import type { DeleteAnswer, WorkflowDelete, WorkflowNew, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
 
 declare module 'orca' {
@@ -169,6 +170,11 @@ declare module 'orca' {
     'chat.delete': { input: ChatDeleteRequest; output: ChatDeleteAnswer }
     /** The thread as the worker last read it, held in memory while its reads hold their `THREAD_LEASE_MS` lease, or null. */
     'chat.last': { input: ChatLastRequest; output: ChatLastAnswer }
+    /**
+     * The Metrics section: the Details rows of the scope's report over one window, read from Archon
+     * or from the report the worker holds while it is at most 5 minutes old. A window it names is kept.
+     */
+    'metrics.read': { input: MetricsRequest; output: MetricsAnswer }
   }
   interface PluginPanelEvents {
     /**

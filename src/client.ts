@@ -33,8 +33,11 @@ export type Timers = {
   clear(handle: unknown): void
 }
 
-/** How long each kind of call may take, from the request to the last byte of the answer. */
-export const TIMEOUT_MS = { health: 3_000, read: 10_000, write: 30_000 } as const
+/**
+ * How long each kind of call may take, from the request to the last byte of the answer. `report`
+ * is one metrics report query, which holds Archon until it answers.
+ */
+export const TIMEOUT_MS = { health: 3_000, read: 10_000, write: 30_000, report: 30_000 } as const
 export type TimeoutKind = keyof typeof TIMEOUT_MS
 
 /** Where the client stops reading an answer unless the call names another cap. */
