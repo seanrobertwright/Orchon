@@ -6,7 +6,7 @@ import type { Answer, LoopbackClient } from './http.ts'
 import { createSession, type Session } from './session.ts'
 import { recordSpendScenario, type SpendOutcome } from './spend-scenarios.ts'
 import type { SpendScenarioName } from './spend.ts'
-import { AGENT_STEP_PROMPT, CHAT_TURN_MESSAGE } from './workflows.ts'
+import { AGENT_STEP_PROMPT, CHAT_TURN_MESSAGE, SYNTHETIC_METRIC_RECORDS } from './workflows.ts'
 
 const json = (body: unknown, status = 200): Answer => ({ status, contentType: 'application/json', body })
 
@@ -19,7 +19,17 @@ interface StandIn {
   chatStarts?: string
   /** The tokens the run reports once it has ended, or at once when it never ends. */
   tokens?: number
+  /** Where the release reads the synthetic metrics pack from, or 'none' when it does not have it. Project when left out. */
+  syntheticSource?: 'project' | 'bundled' | 'none'
+  /** How the synthetic run ends once it has ended. Completed when left out. */
+  syntheticEnds?: 'completed' | 'failed'
 }
+
+/** The names the synthetic pack's records carry, once each. */
+const SYNTHETIC_NAMES = [...new Set(SYNTHETIC_METRIC_RECORDS.map((record) => String(record.name)))]
+
+/** Archon's own reading of the synthetic pack: one shell step. */
+const SYNTHETIC_AS_READ = { nodes: [{ id: 'emit', kind: 'exec', runtime: 'sh', script: 'echo' }] }
 
 const AGENT_STEP_AS_READ = {
   source: 'project',
@@ -50,6 +60,14 @@ function standInRelease(options: StandIn): { client: LoopbackClient; sent: strin
       if (route === 'POST /api/codebases') return json({ id: 'project-1', default_cwd: '/tmp/throwaway/project' }, 201)
       if (route === 'POST /api/conversations') return json({ id: 'conversation-1', conversationId: 'web-1' })
       if (route === 'GET /api/workflows/orchon-recorder-agent-step') return json(AGENT_STEP_AS_READ)
+      if (route === 'GET /api/workflows/orchon-recorder-synthetic-metrics') {
+        const source = options.syntheticSource ?? 'project'
+        return source === 'none' ? json({ error: 'Workflow not found' }, 404) : json({ source, workflow: SYNTHETIC_AS_READ })
+      }
+      if (route === 'POST /api/workflows/orchon-recorder-synthetic-metrics/run') {
+        workflow = 'orchon-recorder-synthetic-metrics'
+        return json({ accepted: true, status: 'started' })
+      }
       if (route === 'POST /api/workflows/orchon-recorder-agent-step/run') {
         workflow = 'orchon-recorder-agent-step'
         return json({ accepted: true, status: 'started' })
@@ -65,7 +83,7 @@ function standInRelease(options: StandIn): { client: LoopbackClient; sent: strin
       }
       if (route === 'GET /api/workflows/runs/run-1') {
         polls += 1
-        const now = status()
+        const now = workflow === 'orchon-recorder-synthetic-metrics' && status() === 'completed' ? (options.syntheticEnds ?? 'completed') : status()
         if (now !== 'running') lock(false)
         return json({ run: { id: 'run-1', workflow_name: workflow, status: now, metadata: now === 'running' && options.pollsToEnd !== undefined ? {} : spend() } })
       }
@@ -77,7 +95,12 @@ function standInRelease(options: StandIn): { client: LoopbackClient; sent: strin
         return json({ success: true })
       }
       if (route === 'GET /api/conversations/web-1' || route === 'GET /api/conversations/web-1/messages') return json({ messages: [] })
-      if (route === 'GET /api/metric-views' || route === 'GET /api/metrics') return json({ views: [], groups: [] })
+      if (route === 'GET /api/metric-views') return json({ packs: [], errors: [] })
+      if (route === 'GET /api/metrics') {
+        // The records are there once the synthetic run has completed.
+        const recorded = workflow === 'orchon-recorder-synthetic-metrics' && status() === 'completed' && options.syntheticEnds !== 'failed'
+        return json({ window: {}, metrics: recorded ? SYNTHETIC_NAMES.map((name) => ({ name, instruments: [] })) : [], refused: [] })
+      }
       return json({ error: 'Not found' }, 404)
     },
     async openStream(path, onFrame) {
@@ -166,16 +189,32 @@ describe('the chat-turn scenario', () => {
 })
 
 describe('the metrics scenario', () => {
-  test('reads the reports and the views, with the time each took, and launches and sends nothing', async () => {
-    const { sent, session, outcome } = await run('metrics', {}, 0)
-    assert.deepEqual(launches(sent), [])
+  /** The requests that matter to the order, without their bodies. */
+  const steps = (sent: readonly string[]): string[] =>
+    sent
+      .map((request) => request.split(' {')[0] ?? request)
+      .filter((request, index, all) => index === 0 || request !== all[index - 1])
+      .filter((request) => !request.startsWith('GET /api/workflows/runs/') && !request.startsWith('GET /api/dashboard/runs'))
+
+  test('checks the synthetic pack is read from the project, runs it, waits for its records, then reads the reports with their timings', async () => {
+    const { sent, session, outcome } = await run('metrics', { pollsToEnd: 3 }, 0)
+    assert.deepEqual(launches(sent).map((request) => request.split(' ')[1]), ['/api/workflows/orchon-recorder-synthetic-metrics/run'])
     assert.deepEqual(messages(sent), [])
-    for (const path of ['GET /api/metric-views', 'GET /api/metrics', 'GET /api/metrics?since=365d']) assert.ok(sent.includes(path), path)
-    assert.deepEqual(outcome, { tokensSeen: 0, crossed: null })
+    const order = steps(sent)
+    const at = (request: string): number => order.findIndex((step) => step.startsWith(request))
+    const read = at('GET /api/workflows/orchon-recorder-synthetic-metrics?cwd=')
+    const launched = at('POST /api/workflows/orchon-recorder-synthetic-metrics/run')
+    const views = at('GET /api/metric-views')
+    assert.ok(read >= 0 && read < launched, order.join('\n'))
+    // Between the launch and the first view, only the wait for the records reads the metrics.
+    assert.ok(launched < views, order.join('\n'))
+    assert.ok(order.slice(launched + 1, views).every((step) => step.startsWith('GET /api/metrics?since=365d&codebaseId=')), order.join('\n'))
+    assert.ok(sent.some((request) => request.startsWith('GET /api/workflows/runs/run-1')))
+    for (const path of ['GET /api/metric-views', 'GET /api/metrics', 'GET /api/metrics?since=7d', 'GET /api/metrics?since=365d']) assert.ok(order.slice(views).includes(path), path)
+    assert.deepEqual(outcome, { tokensSeen: 0, crossed: null, synthetic: { ran: true } })
     const [file] = session.files
     assert.equal(file?.path, 'metrics.json')
     assert.ok(file.text.includes('query-took'))
-    assert.ok(session.gaps.some((gap) => /archon-metrics-prs/.test(gap.why) && /GitHub/.test(gap.why)))
   })
 
   test('stops when its queries outlive its wall-clock ceiling', async () => {

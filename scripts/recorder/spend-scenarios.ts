@@ -4,11 +4,25 @@
 import { field, text } from '../shape.ts'
 import { createCeilingGuard, watchRun, type CeilingGuard, type Crossing } from './ceiling.ts'
 import type { Frame } from './frames.ts'
+import type { SyntheticLog } from './log.ts'
 import type { StreamReader, Tape } from './recording.ts'
 import type { Session } from './session.ts'
 import { SPEND_SCENARIOS, type SpendScenarioName } from './spend.ts'
 import { sleep as wait } from './wait.ts'
-import { AGENT_STEP, assertAgentStepAsRead, CHAT_TURN_MESSAGE, LaunchRefused, RECORDER_WORKFLOWS, SMALL_TIER, TERMINAL } from './workflows.ts'
+import {
+  AGENT_STEP,
+  assertAgentStepAsRead,
+  assertReadWithoutAgent,
+  CHAT_TURN_MESSAGE,
+  LaunchRefused,
+  RECORDER_WORKFLOWS,
+  SMALL_TIER,
+  SYNTHETIC_METRIC_PREFIX,
+  SYNTHETIC_METRIC_RECORDS,
+  SYNTHETIC_METRICS,
+  SYNTHETIC_PACK,
+  TERMINAL
+} from './workflows.ts'
 
 export interface SpendContext {
   /** The throwaway project's folder. */
@@ -25,6 +39,8 @@ export interface SpendOutcome {
   tokensSeen: number
   /** The ceiling that was crossed, or null when the run ended under all of them. */
   crossed: Crossing | null
+  /** The metrics scenario alone: whether its synthetic pack ran before the reports were read. */
+  synthetic?: SyntheticLog
 }
 
 /** An agent step that makes more tool calls than this is cancelled. Its prompt needs two or three. */
@@ -265,22 +281,94 @@ async function recordChatTurn(session: Session, context: SpendContext, clock: Cl
 // metrics: the reports and the views, which spend nothing. The release never sees the login.
 // ---------------------------------------------------------------------------------------------
 
-/** Why no pack that emits metrics is run: what `archon-metrics-prs` says it needs. */
+/** Why no pack that emits real metrics is run: what `archon-metrics-prs` says it needs. */
 export const METRICS_PACK_GAP =
-  "archon-metrics-prs was not run: its own description says it needs a forge plugin whose pr.view reports pull request timestamps, which is a GitHub login, and it counts only pull requests the build queue opened, which a throwaway home has none of. The recorder handles no GitHub credential, so the reports were recorded over an empty store"
+  "archon-metrics-prs was not run: its own description says it needs a forge plugin whose pr.view reports pull request timestamps, which is a GitHub login, and it counts only pull requests the build queue opened, which a throwaway home has none of. The recorder handles no GitHub credential"
+
+/** How long the synthetic pack has, from its launch, to run and have its records reported. */
+export const SYNTHETIC_WAIT_MS = 60_000
+
+/** The names the synthetic pack's records carry, once each. */
+const SYNTHETIC_NAMES = [...new Set(SYNTHETIC_METRIC_RECORDS.map((record) => String(record.name)))]
+
+/** What the fixture says it is when the synthetic pack ran before the reports were read. */
+export const SYNTHETIC_LABEL = `SYNTHETIC: every metric record and overview card in it was made up by the recorder's own pack ${SYNTHETIC_PACK} (workflow ${SYNTHETIC_METRICS.name}, one shell step, fixed numbers, names starting ${SYNTHETIC_METRIC_PREFIX}). It measures nothing`
+
+/** Calls `probe` every poll until it answers something, or `until` passes on the clock. */
+async function pollFor<T>(clock: Clock, until: number, probe: () => Promise<T | undefined>): Promise<T | undefined> {
+  while (clock.now() < until) {
+    const found = await probe()
+    if (found !== undefined) return found
+    await clock.sleep(POLL_MS)
+  }
+  return undefined
+}
+
+/**
+ * Runs the synthetic pack the throwaway project holds and waits until Archon reports its records.
+ * It is launched only when Archon reads it from the project as steps with no agent. Answers why
+ * it did not run, if it did not: the scenario then reads the reports over an empty store.
+ */
+async function runSyntheticPack(tape: Tape, project: Project, guard: CeilingGuard, clock: Clock): Promise<SyntheticLog> {
+  const name = SYNTHETIC_METRICS.name
+  const loaded = await tape.call('GET', `/api/workflows/${segment(name)}?cwd=${encodeURIComponent(project.cwd)}`)
+  if (field(loaded.body, 'source') !== 'project') return { ran: false, why: `Archon does not read ${name} from the throwaway project: it answered ${loaded.status}` }
+  try {
+    assertReadWithoutAgent(field(loaded.body, 'workflow'))
+  } catch (error) {
+    if (error instanceof LaunchRefused) return { ran: false, why: error.message }
+    throw error
+  }
+  const conversation = await createConversation(tape, project)
+  const until = clock.now() + SYNTHETIC_WAIT_MS
+  const seconds = SYNTHETIC_WAIT_MS / 1000
+  tape.note('launch-sent', { workflow: name })
+  const launched = await tape.call('POST', `/api/workflows/${segment(name)}/run`, {
+    conversationId: conversation.conversationId,
+    message: 'Recording synthetic metrics for Orchon: one shell step, made-up numbers.'
+  })
+  if (launched.status < 200 || launched.status >= 300) return { ran: false, why: `the launch of ${name} answered ${launched.status}` }
+  const runId = await pollFor(clock, until, async () => text(field((await runsOf(tape, project, conversation))[0], 'id')))
+  if (runId === undefined) return { ran: false, why: `no run of ${name} appeared within ${seconds} seconds` }
+  tape.note('run-found', { runId })
+  const run = `/api/workflows/runs/${segment(runId)}`
+  const status = await pollFor(clock, until, async () => {
+    const detail = await tape.peek('GET', run)
+    guard.observe(detail.body)
+    const now = text(field(detail.body, 'run', 'status'))
+    return now !== undefined && TERMINAL.includes(now) ? now : undefined
+  })
+  if (status === undefined) {
+    await tape.call('POST', `${run}/cancel`)
+    return { ran: false, why: `the run of ${name} had not ended within ${seconds} seconds of its launch, so it was cancelled` }
+  }
+  await tape.call('GET', run)
+  if (status !== 'completed') return { ran: false, why: `the run of ${name} ended ${status}` }
+  const found = await pollFor(clock, until, async () => {
+    const answer = await tape.peek('GET', `/api/metrics?since=365d&codebaseId=${segment(project.id)}`)
+    const names = list(field(answer.body, 'metrics')).map((entry) => text(field(entry, 'name')))
+    return SYNTHETIC_NAMES.every((wanted) => names.includes(wanted)) ? true : undefined
+  })
+  if (found === undefined) return { ran: false, why: `Archon did not report the records of ${name} within ${seconds} seconds of its launch` }
+  tape.note('records-found', { names: SYNTHETIC_NAMES })
+  return { ran: true }
+}
 
 async function recordMetrics(session: Session, context: SpendContext, clock: Clock): Promise<SpendOutcome> {
   const tape = session.tape()
   // It spends nothing, so its token ceiling is 0, and like every scenario it has a wall clock.
   const guard = createCeilingGuard({ tokenCeiling: 0, wallClockMs: SPEND_SCENARIOS.metrics.wallClockMs, now: clock.now })
   const project = await registerProject(tape, context.projectFolder)
+  const synthetic = await runSyntheticPack(tape, project, guard, clock)
+  tape.note('synthetic-data', synthetic.ran ? { synthetic: true, label: SYNTHETIC_LABEL } : { synthetic: false, why: synthetic.why })
   const paths = [
     '/api/metric-views',
     `/api/metric-views?codebaseId=${segment(project.id)}`,
     '/api/metrics',
     '/api/metrics?since=7d',
     '/api/metrics?since=365d',
-    `/api/metrics?since=365d&codebaseId=${segment(project.id)}`
+    `/api/metrics?since=365d&codebaseId=${segment(project.id)}`,
+    `/api/metrics?since=365d&name=${encodeURIComponent(`${SYNTHETIC_METRIC_PREFIX}items_opened`)}`
   ]
   for (const path of paths) {
     const started = tape.at()
@@ -291,12 +379,21 @@ async function recordMetrics(session: Session, context: SpendContext, clock: Clo
     if (crossed !== null) {
       tape.note('ceiling-crossed', { ...crossed })
       session.save('metrics', 'the metrics reports read before a ceiling was crossed', tape)
-      throw new StopTheRelease(`The metrics scenario crossed its ${crossed.by} ceiling.`, { tokensSeen: guard.tokens(), crossed })
+      throw new StopTheRelease(`The metrics scenario crossed its ${crossed.by} ceiling.`, { tokensSeen: guard.tokens(), crossed, synthetic })
     }
   }
-  session.missing('a metrics report after a pack that emits metrics has run', METRICS_PACK_GAP)
-  session.save('metrics', 'GET /api/metric-views and /api/metrics over the default window, 7 days and 365 days, with the time each query took', tape)
-  return { tokensSeen: 0, crossed: null }
+  const read = 'GET /api/metric-views and /api/metrics over the default window, 7 days and 365 days, for the project and for one name, with the time each query took'
+  if (synthetic.ran) {
+    session.missing('a metrics report after a real pack that emits metrics has run', `${METRICS_PACK_GAP}, so the records come from the recorder's synthetic pack instead`)
+    session.save('metrics', `${SYNTHETIC_LABEL}. ${read}, after the synthetic pack ran`, tape)
+  } else {
+    session.missing(
+      'a metrics report after a pack that emits metrics has run',
+      `${METRICS_PACK_GAP}, and the recorder's synthetic pack did not run: ${synthetic.why}. The reports were recorded over an empty store`
+    )
+    session.save('metrics', `${read}, over an empty store: the synthetic pack did not run`, tape)
+  }
+  return { tokensSeen: 0, crossed: null, synthetic }
 }
 
 /** Records one scenario. A scenario whose ceiling Archon could not enforce throws `StopTheRelease`. */

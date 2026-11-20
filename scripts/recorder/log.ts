@@ -4,6 +4,12 @@ import type { Crossing } from './ceiling.ts'
 import type { LoginMode } from './environment.ts'
 import { PLACEHOLDERS } from './scrub.ts'
 
+/**
+ * Whether the metrics scenario ran the recorder's synthetic metrics pack before it read the
+ * reports, or why it did not, in which case they were read over an empty store.
+ */
+export type SyntheticLog = { ran: true } | { ran: false; why: string }
+
 /** What a spend-mode recording adds to its log. */
 export interface SpendLog {
   scenario: string
@@ -15,6 +21,8 @@ export interface SpendLog {
   crossed: Crossing | null
   /** Whether the release was given the Claude login. */
   login: LoginMode
+  /** Present only for the metrics scenario. */
+  synthetic?: SyntheticLog
 }
 
 export interface RecordedLog {
