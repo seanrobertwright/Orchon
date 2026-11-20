@@ -1,6 +1,7 @@
 // One recording session: the fixtures gathered from one release, held in memory until all of
 // them have been scrubbed, and the list of what could not be recorded.
 import type { LoopbackClient } from './http.ts'
+import { findLeaks, type LeakRules } from './leaks.ts'
 import { createTape, type Recording, type Tape } from './recording.ts'
 import type { Scrubber } from './scrub.ts'
 
@@ -47,7 +48,8 @@ export function fixtureText(value: unknown): string {
 /** A fixture name is lower-case words, so it is a safe file name on every system. */
 const NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/
 
-export function createSession(release: string, client: LoopbackClient): Session {
+/** `now` is the clock every tape of the session reads; a test passes one it moves by hand. */
+export function createSession(release: string, client: LoopbackClient, now?: () => number): Session {
   const files: FixtureFile[] = []
   const gaps: Gap[] = []
   const add = (path: string, holds: string, text: string): void => {
@@ -60,7 +62,7 @@ export function createSession(release: string, client: LoopbackClient): Session 
     client,
     files,
     gaps,
-    tape: () => createTape(client),
+    tape: () => (now === undefined ? createTape(client) : createTape(client, now)),
     save(name, holds, tape) {
       const recording: Recording = { release, scenario: name, log: tape.log }
       add(`${name}.json`, holds, fixtureText(recording))
@@ -79,12 +81,16 @@ export interface Scrubbed {
   refused: { path: string; holds: string[] }[]
 }
 
-/** Scrubs every fixture. JSON is scrubbed value by value, so a path inside a string stays valid JSON. */
-export function scrubFiles(files: readonly FixtureFile[], scrubber: Scrubber): Scrubbed {
+/**
+ * Scrubs every fixture. JSON is scrubbed value by value, so a path inside a string stays valid
+ * JSON. A fixture that still holds what a rule removes, or what the leak check finds when it is
+ * given `leaks`, is held back.
+ */
+export function scrubFiles(files: readonly FixtureFile[], scrubber: Scrubber, leaks?: LeakRules): Scrubbed {
   const scrubbed: Scrubbed = { files: [], refused: [] }
   for (const file of files) {
     const text = file.path.endsWith('.json') ? fixtureText(scrubber.scrub(JSON.parse(file.text) as unknown)) : scrubber.scrub(file.text)
-    const holds = scrubber.leftovers(text)
+    const holds = [...scrubber.leftovers(text), ...(leaks === undefined ? [] : findLeaks(text, leaks))]
     if (holds.length > 0) scrubbed.refused.push({ path: file.path, holds })
     else scrubbed.files.push({ ...file, text })
   }

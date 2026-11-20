@@ -1,8 +1,8 @@
 // Writing a release's fixtures: an earlier recording is replaced, and nothing else is.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
-import { LOG_FILE, NotARecordingFolder, writeFixtures, writeRecording } from './output.ts'
+import { LOG_FILE, NotARecordingFolder, SPEND_FOLDER, writeFixtures, writeRecording } from './output.ts'
 import { isA, scratchFolders } from './testing.ts'
 
 const scratch = scratchFolders()
@@ -54,6 +54,18 @@ describe('writing fixtures', () => {
     assert.deepEqual(readdirSync(folder).sort(), [LOG_FILE, 'old.json'])
     assert.equal(readFileSync(join(folder, 'old.json'), 'utf8'), '{"kept":true}\n')
     assert.equal(readFileSync(join(folder, LOG_FILE), 'utf8'), '# Old\n')
+  })
+
+  test('a recording that spends nothing keeps the spend-mode recordings the folder held, and replaces the rest', () => {
+    const folder = scratch()
+    writeFixtures(folder, [{ path: 'old.json', text: '{}\n' }], '# Old\n')
+    writeFixtures(join(folder, SPEND_FOLDER, 'agent-step'), [{ path: 'agent-step.json', text: '{"spent":true}\n' }], '# Spent\n')
+    writeFixtures(folder, [{ path: 'new.json', text: '{}\n' }], '# New\n')
+    assert.deepEqual(readdirSync(folder).sort(), [LOG_FILE, 'new.json', SPEND_FOLDER])
+    assert.equal(readFileSync(join(folder, SPEND_FOLDER, 'agent-step', 'agent-step.json'), 'utf8'), '{"spent":true}\n')
+    assert.equal(readFileSync(join(folder, SPEND_FOLDER, 'agent-step', LOG_FILE), 'utf8'), '# Spent\n')
+    // Nothing is left beside the folder.
+    assert.deepEqual(readdirSync(join(folder, '..')).filter((name) => name.startsWith(`.${basename(folder)}.`)), [])
   })
 
   test('a failed or interrupted recording makes no folder', () => {

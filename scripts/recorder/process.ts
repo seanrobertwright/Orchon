@@ -5,7 +5,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { closeSync, openSync } from 'node:fs'
 import { join } from 'node:path'
-import { releaseEnvironment } from './environment.ts'
+import { releaseEnvironment, type LoginMode, type ProviderLogin } from './environment.ts'
 import { assertOwnHome, type ThrowawayHome } from './home.ts'
 import { sleep } from './wait.ts'
 
@@ -57,17 +57,21 @@ export interface RunOptions {
   graceMs?: number
 }
 
+/** The login hidden: Claude's config folder is the home's own empty one. */
+const hiddenLogin = (home: ThrowawayHome): ProviderLogin => ({ kind: 'hidden', emptyConfigFolder: home.emptyClaudeConfig })
+
 /**
- * Runs a program to its end inside a throwaway home, with the release's environment. Used for
- * the release's own `--version` and `provider add`, and for `git` in the throwaway project. The
- * program and every process it starts are stopped when the time runs out or the signal aborts.
+ * Runs a program to its end inside a throwaway home, with the release's environment and the
+ * Claude login hidden, in either mode. Used for the release's own `--version` and `provider add`,
+ * and for `git` in the throwaway project. The program and every process it starts are stopped
+ * when the time runs out or the signal aborts.
  */
 export async function runToEnd(home: ThrowawayHome, program: string, args: readonly string[], options: RunOptions = {}): Promise<Finished> {
   assertOwnHome(home)
   if (options.signal?.aborted === true) return { status: null, stdout: '', stderr: 'Not started: the recording was interrupted.' }
   const child = spawn(program, [...args], {
     cwd: options.cwd ?? home.root,
-    env: releaseEnvironment(process.env, home.archonHome),
+    env: releaseEnvironment(process.env, home.archonHome, hiddenLogin(home)),
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: process.platform !== 'win32',
     windowsHide: true
@@ -122,15 +126,21 @@ export interface RunningRelease {
 
 /**
  * Starts `<binary> serve --port <port>` against a throwaway home. It refuses a home this run did
- * not create, and the release gets no environment but the one `releaseEnvironment` builds.
+ * not create, and the release gets no environment but the one `releaseEnvironment` builds. The
+ * Claude login is hidden unless `login` is `passed`, which spend mode alone asks for.
  */
-export function startRelease(home: ThrowawayHome, binary: string, port: number, options: { graceMs?: number } = {}): RunningRelease {
+export function startRelease(
+  home: ThrowawayHome,
+  binary: string,
+  port: number,
+  options: { graceMs?: number; login?: LoginMode } = {}
+): RunningRelease {
   assertOwnHome(home)
   const logFile = join(home.root, 'release.log')
   const output = openSync(logFile, 'a')
   const child = spawn(binary, ['serve', '--port', String(port)], {
     cwd: home.root,
-    env: releaseEnvironment(process.env, home.archonHome),
+    env: releaseEnvironment(process.env, home.archonHome, options.login === 'passed' ? { kind: 'passed' } : hiddenLogin(home)),
     stdio: ['ignore', output, output],
     detached: process.platform !== 'win32',
     windowsHide: true

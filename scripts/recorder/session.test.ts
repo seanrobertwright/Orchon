@@ -81,4 +81,21 @@ describe('a recording session', () => {
       ['other.txt']
     )
   })
+
+  test('holds back a fixture that the leak check still finds the login folder or an email address in', () => {
+    const session = createSession('0.14.0', client)
+    session.saveText('login.txt', 'a note', 'read D:/claude-config/.credentials.json\n')
+    session.saveText('email.txt', 'a note', 'signed in as someone.real@mail.example-isp.net\n')
+    session.saveText('clean.txt', 'a note', 'nothing here\n')
+    const leaks = { claudeConfig: 'D:\\claude-config', homeFolder: 'C:\\Users\\dev', user: 'dev' }
+    const { files, refused } = scrubFiles(session.files, scrubber(), leaks)
+    assert.deepEqual(refused, [
+      { path: 'login.txt', holds: ['the Claude login folder'] },
+      { path: 'email.txt', holds: ['an email address'] }
+    ])
+    assert.deepEqual(
+      files.map((file) => file.path),
+      ['clean.txt']
+    )
+  })
 })

@@ -1,6 +1,21 @@
 // The log beside a release's fixtures: what was recorded, when, from which binary, and what
 // could not be recorded. It is written by the recorder and never by hand.
+import type { Crossing } from './ceiling.ts'
+import type { LoginMode } from './environment.ts'
 import { PLACEHOLDERS } from './scrub.ts'
+
+/** What a spend-mode recording adds to its log. */
+export interface SpendLog {
+  scenario: string
+  tokenCeiling: number
+  wallClockMs: number
+  /** The tokens Archon reported, each report counted once. */
+  tokensSeen: number
+  /** The ceiling that was crossed, or null. */
+  crossed: Crossing | null
+  /** Whether the release was given the Claude login. */
+  login: LoginMode
+}
 
 export interface RecordedLog {
   release: string
@@ -20,6 +35,23 @@ export interface RecordedLog {
   serverVersion: string | null
   files: readonly { path: string; holds: string }[]
   gaps: readonly { what: string; why: string }[]
+  /** Present only for a spend-mode recording. */
+  spend?: SpendLog
+}
+
+const number = (value: number): string => value.toLocaleString('en-US')
+
+/** The lines a spend-mode recording adds below the binary and the platform. */
+function spendLines(spend: SpendLog): string[] {
+  return [
+    `- Recorded in spend mode: the ${code(spend.scenario)} scenario alone`,
+    `- Ceilings: ${number(spend.tokenCeiling)} tokens and ${number(spend.wallClockMs / 60_000)} minutes`,
+    `- Tokens Archon reported: ${number(spend.tokensSeen)}`,
+    `- Ceiling crossed: ${
+      spend.crossed === null ? 'none' : `${spend.crossed.by}, ${number(spend.crossed.seen)} against ${number(spend.crossed.ceiling)}; the run was cancelled`
+    }`,
+    `- Claude login: ${spend.login === 'passed' ? 'passed to the throwaway release by folder and name only, never read or copied' : 'hidden from the release'}`
+  ]
 }
 
 /** One table cell: a single line with nothing that would end the cell. */
@@ -43,6 +75,7 @@ export function recordedLog(log: RecordedLog): string {
     `- The running server reported version: ${log.serverVersion === null ? 'none' : code(log.serverVersion)}`,
     `- Recorded on: ${log.platform}`,
     '- Archon home: a throwaway folder the recorder made and deleted afterwards',
+    ...(log.spend === undefined ? [] : spendLines(log.spend)),
     '',
     '## What was recorded',
     ''
