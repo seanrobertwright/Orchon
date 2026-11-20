@@ -14,6 +14,7 @@ import { LOCALE } from './run-graph'
 import { tabConnection } from './tab-screen'
 import {
   DEFINITION_CAP_BYTES,
+  identityOf,
   mib,
   SCOPE_CAP,
   WORKFLOW_NAME_CAP,
@@ -251,7 +252,7 @@ export function startBuilder(orca: OrcaWorkerApi, ports: BuilderPorts): Disposab
   const subscriptions = [
     orca.panels.handle('builder.read', async (input, context): Promise<BuilderAnswer> => {
       const request = parseBuilderRequest(input)
-      const identity = { name: request.name, codebaseId: request.codebaseId, scope: request.scope }
+      const identity = identityOf(request)
       const connection = await ports.current()
       const draftFor = async (now: ConnectionView) => (ports.drafts === undefined ? {} : { draft: await ports.drafts.view(identity, now) })
       if (connection.kind !== 'connected') return { connection: tabConnection(connection, request.locale), builder: { kind: 'not-connected' }, ...(await draftFor(connection)) }

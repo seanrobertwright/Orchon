@@ -4,7 +4,7 @@
 // and the new workflows never saved, each with Open and Discard.
 // It draws only the worker's view model and reads it under the shared per-view fetch rules.
 import { atom, Button, Callout, IconButton, Input, Link, plugin, RadioGroup, read, Row, Select, set, shell, Spinner, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
-import { WORKFLOW_NAME_CAP, type NewWorkflowPlace } from '../editors/builder/builder-view'
+import { identityOf, sameIdentity, WORKFLOW_NAME_CAP, type NewWorkflowPlace } from '../editors/builder/builder-view'
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
 import { frameTimers } from './frame-timers'
@@ -387,7 +387,7 @@ function newWorkflowPart(view: Ready, writable: boolean): OrcaNode {
 /** Discard of a new workflow never saved: its draft is deleted, and Archon holds nothing of it. */
 function discardNew(row: NewDraftRow): void {
   set(discarding, null)
-  plugin.request('builder.draft.discard', { name: row.name, codebaseId: row.codebaseId, scope: row.scope }).then(
+  plugin.request('builder.draft.discard', { ...identityOf(row), storeId: row.storeId }).then(
     () => fetcher?.restart(),
     () => set(openRefused, "Orchon's worker did not answer, so it is not known whether the draft was discarded. Refresh to check.")
   )
@@ -408,9 +408,9 @@ function draftsPart(view: Ready, drafts: SectionDrafts | undefined): OrcaNode {
             () => set(openRefused, BUILDER_UNANSWERED)
           )
         }
-        const confirming = asking !== null && asking.name === row.name && asking.scope === row.scope && asking.codebaseId === row.codebaseId
+        const confirming = asking !== null && sameIdentity(asking, row) && asking.storeId === row.storeId
         return (
-          <Stack key={`${row.scope}:${row.codebaseId ?? ''}:${row.name}`} gap="xs">
+          <Stack key={`${row.scope}:${row.codebaseId ?? ''}:${row.storeId ?? ''}:${row.name}`} gap="xs">
             <Row gap="sm" align="center" wrap>
               <Text weight="semibold">{row.name}</Text>
               <Text muted size="sm">

@@ -68,7 +68,8 @@ describe('New workflow', () => {
       base: null,
       file: "Not saved yet. The first Save writes it to the project's .archon/workflows folder.",
       isNew: true,
-      otherArchon: false
+      otherArchon: false,
+      storeId: 'store-a'
     })
     await stage.clock.advance(1_000)
     assert.equal(draftKeys(mounted).length, 1)
@@ -155,8 +156,8 @@ describe('the drafts in the Workflows section', () => {
     assert.deepEqual(list.filter((row) => row.draft === true).map((row) => row.name), [ECHO])
     assert.deepEqual(view.drafts, {
       fresh: [
-        { name: 'fresh', codebaseId: PROJECT, scope: 'project' },
-        { name: 'wide', codebaseId: null, scope: 'global' }
+        { name: 'fresh', codebaseId: PROJECT, scope: 'project', storeId: 'store-a' },
+        { name: 'wide', codebaseId: null, scope: 'global', storeId: 'store-a' }
       ],
       elsewhere: 1,
       dropped: 1

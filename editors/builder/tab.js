@@ -19,7 +19,7 @@ import { drawGraph } from "../shared/graph-draw.js";
 import { layoutGraph } from "../shared/graph-layout.js";
 import { isRecord } from "../shared/records.js";
 import { VARIANTS, VARIANT_REGISTRY } from "./archon/variants/index.js";
-import { BUILDER_DRAFT_SEND_PAUSE_MS, DEFINITION_CAP_BYTES, DRAFT_FILE_CAP, mib, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
+import { BUILDER_DRAFT_SEND_PAUSE_MS, DEFINITION_CAP_BYTES, DRAFT_FILE_CAP, mib, OTHER_ARCHON, SCOPE_CAP, WORKFLOW_NAME_CAP } from "./builder-view.js";
 import { openSession } from "./edit-session.js";
 import { fieldControl, option } from "./field-control.js";
 import { formFields } from "./node-form.js";
@@ -58,7 +58,6 @@ export const SHOWN_CHANGED = 'This workflow changed outside the builder while th
 export const DRAFT_RESTORED = 'Your unsaved changes from before are restored from a draft.';
 export const NEW_DRAFT_LINE = 'This new workflow is not in Archon yet: the first Save writes it.';
 export const KEPT_AS_DRAFT = 'Your changes are kept as a draft.';
-export const OTHER_ARCHON_LINE = 'This draft was made on a different Archon.';
 export const DRAFT_BASE_CHANGED = 'This workflow changed outside the builder since your draft was made. Your draft is kept until you choose.';
 export const DRAFT_BASE_REMOVED = 'Archon no longer serves this workflow here: it was removed or replaced outside the builder since your draft was made. Your draft is kept until you choose.';
 export const NEW_TAKEN = 'Archon now holds a workflow of this name here, made outside the builder since your draft was. Your draft is kept until you choose.';
@@ -106,6 +105,8 @@ function draftOf(answer) {
     if (!isRecord(value) || !isRecord(value.definition) || typeof value.file !== 'string')
         return null;
     if (typeof value.isNew !== 'boolean' || typeof value.otherArchon !== 'boolean')
+        return null;
+    if (value.storeId !== null && typeof value.storeId !== 'string')
         return null;
     const base = value.base;
     if (base !== null && !(isRecord(base) && typeof base.source === 'string' && isRecord(base.authored)))
@@ -380,8 +381,12 @@ export function startBuilderTab(ports) {
     let isNew = false;
     /** The draft was made on a different Archon from the one connected now: Save stays off and it is never saved here. */
     let otherArchon = false;
-    /** Whether the worker keeps a draft of this workflow, so a copy with no unsaved changes discards it. */
+    /** Whether the worker keeps a draft of this workflow, so the copy as it stands goes on to it even with no unsaved changes. */
     let draftKept = false;
+    /** The store id of the Archon whose draft the tab holds, as a read gave it back, which writes, discards and saves send; undefined for the current Archon's. */
+    let heldStore;
+    /** The tab opened what Archon serves over a draft made on another Archon: that draft is kept for its own Archon and no longer shown here. */
+    let leftOther = false;
     /** Why the worker did not keep the last draft sent, or null. */
     let draftRefused = null;
     /** The pause before the copy as it stands goes to the worker as a draft. */
@@ -391,7 +396,7 @@ export function startBuilderTab(ports) {
     const subscriptions = [];
     /** The banners: the connection's lines, then connect mode's. */
     function showBanners() {
-        const lines = [...connectionLines, ...(otherArchon && session !== null ? [OTHER_ARCHON_LINE] : []), ...(draftRefused === null ? [] : [draftRefused]), ...writeLines];
+        const lines = [...connectionLines, ...(otherArchon && session !== null ? [OTHER_ARCHON] : []), ...(draftRefused === null ? [] : [draftRefused]), ...writeLines];
         const from = connecting === null ? undefined : facts?.nodes[connecting];
         if (from !== undefined)
             lines.push(`Connecting from ${nodeLabel(from)}: choose the node that runs after it. Esc cancels.`);
@@ -424,23 +429,25 @@ export function startBuilderTab(ports) {
             ports.timers.clear(draftTimer);
         draftTimer = ports.timers.set(sendDraft, BUILDER_DRAFT_SEND_PAUSE_MS);
     }
-    /** Hands the copy as it stands to the worker as a draft; a copy with no unsaved changes discards the draft. */
+    /** Which Archon's draft a request is about: the one the tab holds, else the current Archon's. */
+    const draftStore = () => (heldStore === undefined ? {} : { storeId: heldStore });
+    /**
+     * Hands the copy as it stands to the worker as a draft. A copy with no unsaved changes starts no
+     * draft, but goes on to one kept: only a save or a discard deletes a draft.
+     */
     function sendDraft() {
         if (draftTimer !== undefined)
             ports.timers.clear(draftTimer);
         draftTimer = undefined;
         if (session === null || identity === null || !editable || shown?.kind !== 'ready')
             return;
-        if (!session.dirty() && !isNew) {
-            if (draftKept)
-                dropDraft();
+        if (!session.dirty() && !isNew && !draftKept)
             return;
-        }
         const definition = definitionNow();
         if (definition === null)
             return;
         draftKept = true;
-        void ports.request('builder.draft.write', { ...identity, definition, base, file: shown.header.file.slice(0, DRAFT_FILE_CAP) }).then((answer) => {
+        void ports.request('builder.draft.write', { ...identity, definition, base, file: shown.header.file.slice(0, DRAFT_FILE_CAP), ...draftStore() }).then((answer) => {
             if (stopped)
                 return;
             const refused = isRecord(answer) && answer.kept === false && typeof answer.reason === 'string' ? answer.reason : null;
@@ -465,8 +472,30 @@ export function startBuilderTab(ports) {
         draftTimer = undefined;
         draftKept = false;
         draftRefused = null;
+        const store = draftStore();
+        heldStore = undefined;
         if (identity !== null)
-            void ports.request('builder.draft.discard', identity).catch(() => null);
+            void ports.request('builder.draft.discard', { ...identity, ...store }).catch(() => null);
+    }
+    /**
+     * The person chose what Archon serves over the draft: a draft of this Archon is deleted, and one
+     * made on another Archon is kept for that Archon and let go here, so the next edit starts this
+     * Archon's own draft.
+     */
+    function letDraftGo() {
+        if (!otherArchon) {
+            if (draftKept || draftTimer !== undefined)
+                dropDraft();
+            return;
+        }
+        if (draftTimer !== undefined)
+            ports.timers.clear(draftTimer);
+        draftTimer = undefined;
+        draftKept = false;
+        draftRefused = null;
+        heldStore = undefined;
+        otherArchon = false;
+        leftOther = true;
     }
     /** Discard: the draft is deleted and the copy Archon serves is read; a new workflow's tab has nothing left to show. */
     function discardDraft() {
@@ -539,7 +568,7 @@ export function startBuilderTab(ports) {
     /** Why Save and Validate cannot act now, or null when they can. */
     function whyNoWrite() {
         if (otherArchon)
-            return OTHER_ARCHON_LINE;
+            return OTHER_ARCHON;
         if (!connected)
             return WRITE_NOT_CONNECTED;
         if (writing === 'save')
@@ -596,7 +625,7 @@ export function startBuilderTab(ports) {
         }
         const checked = session?.workflow();
         setWrite([]);
-        sendWrite('save', { ...identity, locale: ports.locale, definition, base }, (outcome) => settleSave(outcome, definition, checked), SAVE_UNANSWERED);
+        sendWrite('save', { ...identity, locale: ports.locale, definition, base, ...draftStore() }, (outcome) => settleSave(outcome, definition, checked), SAVE_UNANSWERED);
     }
     /** What a save's outcome changes: the copy later checks compare against, Archon's sentences, or the three choices. */
     function settleSave(outcome, definition, checked) {
@@ -638,6 +667,7 @@ export function startBuilderTab(ports) {
         session?.markSaved();
         // The worker deleted the draft with the save; an edit made while it waited goes to a new one.
         draftKept = false;
+        heldStore = undefined;
         isNew = false;
         showDraftNotice(false);
         if (draftTimer !== undefined)
@@ -1216,13 +1246,11 @@ export function startBuilderTab(ports) {
     /**
      * Opens a read workflow for editing, in place of whatever copy was held, or, with `restored`,
      * a draft of it: then the copy its edit started from is what a save expects and what Unsaved
-     * changes compares with. Opening what Archon serves over a draft lets the draft go.
+     * changes compares with. What the draft becomes is the caller's: see `letDraftGo`.
      */
     function openView(view, restored) {
         shown = view;
         if (restored === undefined) {
-            if (draftKept || draftTimer !== undefined)
-                dropDraft();
             isNew = false;
             showDraftNotice(false);
         }
@@ -1258,8 +1286,10 @@ export function startBuilderTab(ports) {
         waiting = view;
         const take = button('Load the saved copy', () => {
             const next = waiting;
-            if (next !== null)
-                openView(next);
+            if (next === null)
+                return;
+            letDraftGo();
+            openView(next);
         });
         const keep = button('Keep editing', () => {
             if (waiting !== null)
@@ -1295,6 +1325,8 @@ export function startBuilderTab(ports) {
         if (session === null || !same || shown?.kind !== 'ready' || forced) {
             // Shown again over a copy with no unsaved changes, an outside change replaces it, with a notice.
             const notice = reason === 'shown' && session !== null && shown?.kind === 'ready' && !same;
+            if (forced || otherArchon)
+                letDraftGo();
             openView(view);
             if (notice)
                 setWrite([SHOWN_CHANGED]);
@@ -1355,6 +1387,7 @@ export function startBuilderTab(ports) {
         const header = served?.header ?? { name: identity.name, source: draft.base?.source ?? identity.scope, file: draft.file, viewOnly: false, openYaml: false };
         isNew = draft.isNew;
         draftKept = true;
+        heldStore = draft.storeId;
         drawHeader(header);
         openView({ kind: 'ready', header, definition: draft.definition }, draft);
         showDraftNotice(true);
@@ -1378,13 +1411,17 @@ export function startBuilderTab(ports) {
         const tabConnection = answer.connection;
         const { builder } = answer;
         connected = tabConnection.kind === 'connected';
-        const draft = draftOf(answer);
+        const given = draftOf(answer);
+        // Another Archon's draft the person let go here is not shown again in this tab.
+        const draft = leftOther && given?.otherArchon === true ? null : given;
         // The store id on return decides whether the draft may be saved here.
         if (connected)
             otherArchon = draft?.otherArchon === true;
         // A draft the worker holds is known kept; one it no longer holds is let go by the tab's own discard or save only, which do no harm twice.
-        if (draft !== null)
+        if (draft !== null) {
             draftKept = true;
+            heldStore = draft.storeId;
+        }
         if (shown === null && draft !== null) {
             restore(draft, answer);
             return;

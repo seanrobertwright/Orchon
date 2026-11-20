@@ -5,7 +5,7 @@
 // never sends one again. It also marks the workflows that have a builder draft, lists the new
 // workflows never saved, and starts a new workflow (#61), which writes nothing to Archon.
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
-import { isArchonWorkflowName, newWorkflowDefinition, newWorkflowFile, WORKFLOW_NAME_CAP, type BuilderIdentity } from '../editors/builder/builder-view'
+import { isArchonWorkflowName, newWorkflowDefinition, newWorkflowFile, sameIdentity, WORKFLOW_NAME_CAP, type BuilderIdentity } from '../editors/builder/builder-view'
 import { PROJECT_GONE } from './builder'
 import type { BuilderDraft, BuilderDrafts } from './builder-drafts'
 import type { Client } from './client'
@@ -19,6 +19,7 @@ import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys
 import { SERVER_TEXT_CAP } from './run-control-view'
 import { PROJECT_ID_CAP } from './scope-view'
 import { NOT_CONNECTED_TEXT } from './worker-words'
+import type { BuilderOpenAnswer } from './wide-tabs-view'
 import { normalisePath } from './workspaces'
 import { parseWorkflowList, WORKFLOWS_CAP_BYTES, WORKFLOWS_PATH, type ListedWorkflow } from './workflows-list'
 import {
@@ -110,8 +111,8 @@ function sectionDrafts(all: readonly BuilderDraft[], dropped: number, codebaseId
   if (all.length === 0 && dropped === 0) return undefined
   const fresh = all.filter((draft) => draft.isNew && (draft.codebaseId === null || draft.codebaseId === codebaseId))
   const rows = fresh
-    .map((draft) => ({ name: draft.name, codebaseId: draft.codebaseId, scope: draft.scope === 'global' ? ('global' as const) : ('project' as const) }))
-    .sort((first, second) => first.name.localeCompare(second.name) || first.scope.localeCompare(second.scope))
+    .map((draft) => ({ name: draft.name, codebaseId: draft.codebaseId, scope: draft.scope === 'global' ? ('global' as const) : ('project' as const), storeId: draft.storeId }))
+    .sort((first, second) => first.name.localeCompare(second.name) || first.scope.localeCompare(second.scope) || (first.storeId ?? '').localeCompare(second.storeId ?? ''))
   return { fresh: rows, elsewhere: all.filter((draft) => draft.isNew).length - fresh.length, dropped }
 }
 
@@ -132,7 +133,7 @@ export type WorkflowsSectionPorts = {
   /** The builder drafts, which the section marks and lists, and New workflow keeps. */
   drafts?: Pick<BuilderDrafts, 'list' | 'keep' | 'remove'>
   /** Writes a builder pointer file for an identity and opens it, for New workflow. */
-  openIdentity?(identity: BuilderIdentity): Promise<{ opened: true } | { opened: false; reason: string }>
+  openIdentity?(identity: BuilderIdentity): Promise<BuilderOpenAnswer>
 }
 
 export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSectionPorts): Disposable {
@@ -202,7 +203,7 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
     const builderOff = ports.builderOff === undefined ? null : await ports.builderOff()
     const kept = ports.drafts === undefined ? { drafts: [], dropped: 0 } : await ports.drafts.list()
     const codebaseId = project?.id ?? null
-    const drafted = (row: ListedWorkflow): boolean => kept.drafts.some((draft) => draft.name === row.name && draft.scope === row.source && draft.codebaseId === codebaseId)
+    const drafted = (row: ListedWorkflow): boolean => kept.drafts.some((draft) => sameIdentity(draft, { name: row.name, codebaseId, scope: row.source }))
     const drafts = sectionDrafts(kept.drafts, kept.dropped, codebaseId)
     return {
       kind: 'ready',
@@ -221,7 +222,7 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
    * a draft of one empty prompt node, and opens its tab. Archon is written nothing: the first
    * Save writes the workflow. A tab that does not open lets the draft go.
    */
-  async function createNew(input: WorkflowNew): Promise<{ opened: true } | { opened: false; reason: string }> {
+  async function createNew(input: WorkflowNew): Promise<BuilderOpenAnswer> {
     const refused = (reason: string) => ({ opened: false as const, reason })
     const connection = await ports.current()
     if (connection.kind !== 'connected') return refused(NOT_CONNECTED_TEXT)
@@ -245,7 +246,9 @@ export function startWorkflowsSection(orca: OrcaWorkerApi, ports: WorkflowsSecti
     }
     const codebaseId = place === 'global' ? null : input.codebaseId
     const { drafts } = await ports.drafts.list()
-    const drafted = drafts.some((draft) => draft.name === name && (draft.codebaseId === codebaseId || draft.codebaseId === null || codebaseId === null))
+    // A draft's name is in use where the two can meet: in one project, or where either is global.
+    const sharesPlace = (draft: BuilderDraft): boolean => draft.codebaseId === codebaseId || draft.codebaseId === null || codebaseId === null
+    const drafted = drafts.some((draft) => draft.name === name && sharesPlace(draft))
     if (drafted || lists.some(({ rows }) => rows.some((row) => row.name === name))) return refused(nameInUse(name))
     const identity: BuilderIdentity = { name, codebaseId, scope: place }
     const kept = await ports.drafts.keep({ ...identity, definition: newWorkflowDefinition(name), base: null, file: newWorkflowFile(place) }, true)

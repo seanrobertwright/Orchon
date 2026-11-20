@@ -10,7 +10,7 @@ import type { BuilderDrafts } from './builder-drafts'
 import type { Client } from './client'
 import type { ConnectionView } from './connection-view'
 import type { Disk } from './disk'
-import { SCOPE_CAP } from '../editors/builder/builder-view'
+import { identityOf, sameIdentity, sameWorkflow, SCOPE_CAP } from '../editors/builder/builder-view'
 import { parseWorkflowIdentity, resolveWorkflow } from './builder'
 import { builderPointerName, builderPointerText, GITIGNORE_TEXT, POINTER_FOLDER, runPointerName, runPointerText, sweepPlan, type BuilderIdentity } from './pointer-files'
 import type { FocusedWorkspace } from './project-scope'
@@ -169,8 +169,8 @@ export function startWideTabs(orca: OrcaWorkerApi, ports: WideTabsPorts): WideTa
   async function openBuilder(request: BuilderOpenRequest, signal: AbortSignal): Promise<BuilderOpenAnswer> {
     const refused = (reason: string): BuilderOpenAnswer => ({ opened: false, reason })
     const drafts = ports.drafts === undefined ? [] : (await ports.drafts.list()).drafts
-    const draft = drafts.find((held) => held.name === request.name && held.codebaseId === request.codebaseId && (request.source === undefined || held.scope === request.source))
-    if (draft !== undefined) return openIdentity({ name: draft.name, codebaseId: draft.codebaseId, scope: draft.scope })
+    const draft = drafts.find((held) => (request.source === undefined ? sameWorkflow(held, request) : sameIdentity(held, { ...request, scope: request.source })))
+    if (draft !== undefined) return openIdentity(identityOf(draft))
     const connection = await ports.current()
     if (connection.kind !== 'connected') return refused(NOT_CONNECTED)
     const focused = await ports.focused()

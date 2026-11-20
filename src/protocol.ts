@@ -23,6 +23,7 @@ import type { LaunchAnswer, LaunchEdit, LaunchRequest, LaunchStart, NoticesAnswe
 import type { GraphAnswer, GraphRequest } from '../editors/run-graph/graph-view'
 import type {
   BuilderAnswer,
+  BuilderDraftDiscard,
   BuilderDraftWrite,
   BuilderDraftWriteAnswer,
   BuilderIdentity,
@@ -144,7 +145,7 @@ declare module 'orca' {
     /** A builder tab's draft: the copy as it stands, kept in plugin storage after a pause, or refused at the cap. */
     'builder.draft.write': { input: BuilderDraftWrite; output: BuilderDraftWriteAnswer }
     /** Deletes a workflow's builder draft at once. */
-    'builder.draft.discard': { input: BuilderIdentity; output: null }
+    'builder.draft.discard': { input: BuilderDraftDiscard; output: null }
     /** New workflow: checks the name, keeps a draft of one empty prompt node and opens its tab. Nothing is written to Archon. */
     'workflows.new': { input: WorkflowNew; output: BuilderOpenAnswer }
     /** The chat list: the scope's web conversations with Archon's agent, without the launcher's own. */

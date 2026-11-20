@@ -12,6 +12,8 @@ import type { BuilderAnswer, BuilderDraftView, BuilderDraftWriteAnswer, BuilderH
 import { startBuilderTab, type BuilderTab } from './tab.ts'
 
 const IDENTITY = { name: 'small', codebaseId: 'cb-web', scope: 'project' }
+/** The identity with the store id of the draft a read gave back, as the tab sends it about that draft. */
+const HELD = { ...IDENTITY, storeId: 'store-a' }
 const POINTER = `${JSON.stringify({ orchon: 'builder', ...IDENTITY })}\n`
 const FILE = 'C:/Projects/web/.archon/workflows/small.yaml'
 const header: BuilderHeader = { name: 'small', source: 'project', file: FILE, viewOnly: false, openYaml: false }
@@ -23,7 +25,7 @@ const notFound: TabConnection = {
 
 const SMALL = { name: 'small', description: 'Plan, then test', nodes: [{ id: 'plan', prompt: 'Plan it' }] }
 const MINE = { ...SMALL, description: 'My half-hour of edits' }
-const draftOf = (over: Partial<BuilderDraftView> = {}): BuilderDraftView => ({ definition: MINE, base: { source: 'project', authored: SMALL }, file: FILE, isNew: false, otherArchon: false, ...over })
+const draftOf = (over: Partial<BuilderDraftView> = {}): BuilderDraftView => ({ definition: MINE, base: { source: 'project', authored: SMALL }, file: FILE, isNew: false, otherArchon: false, storeId: 'store-a', ...over })
 const answerOf = (draft: BuilderDraftView | null, definition: Record<string, unknown> = SMALL, connection: TabConnection = connected): BuilderAnswer => ({
   connection,
   builder: connection.kind === 'connected' ? { kind: 'ready', header, definition } : { kind: 'not-connected' },
@@ -158,7 +160,7 @@ describe('a draft given back on open', () => {
     const stage = await open(answerOf(draftOf(), elsewhere))
     stage.read.value = answerOf(null, elsewhere)
     await press(buttonNamed(stage.app, 'Reload and lose my edits'))
-    assert.deepEqual(named(stage, 'builder.draft.discard').map((call) => call.input), [IDENTITY])
+    assert.deepEqual(named(stage, 'builder.draft.discard').map((call) => call.input), [HELD])
     assert.equal(description(stage), 'Changed elsewhere')
     assert.equal(notice(stage), undefined)
   })
@@ -185,12 +187,24 @@ describe('edits and the draft', () => {
     assert.equal(named(stage, 'builder.draft.write').length, 1)
   })
 
-  test('edits undone back to the copy opened discard the draft', async () => {
+  test('edits undone back to the copy opened keep the draft, now holding that copy: only Save and Discard delete it', async () => {
     const stage = await open(answerOf(draftOf()))
     await describeAs(stage, SMALL.description)
     await stage.clock.advance(500)
+    assert.deepEqual(
+      named(stage, 'builder.draft.write').map((call) => call.input),
+      [{ ...HELD, definition: SMALL, base: { source: 'project', authored: SMALL }, file: FILE }]
+    )
+    assert.deepEqual(named(stage, 'builder.draft.discard'), [])
+  })
+
+  test('edits undone in a tab that held no draft start none', async () => {
+    const stage = await open(answerOf(null))
+    await describeAs(stage, 'Changed')
+    await describeAs(stage, SMALL.description)
+    await stage.clock.advance(500)
     assert.deepEqual(named(stage, 'builder.draft.write'), [])
-    assert.deepEqual(named(stage, 'builder.draft.discard').map((call) => call.input), [IDENTITY])
+    assert.deepEqual(named(stage, 'builder.draft.discard'), [])
   })
 
   test('a draft the worker refuses at the cap is said in the banner, and the copy stays editable', async () => {
@@ -218,7 +232,7 @@ describe('edits and the draft', () => {
     const stage = await open(answerOf(draftOf()))
     stage.read.value = answerOf(null)
     await press(buttonNamed(stage.app, 'Discard the draft'))
-    assert.deepEqual(named(stage, 'builder.draft.discard').map((call) => call.input), [IDENTITY])
+    assert.deepEqual(named(stage, 'builder.draft.discard').map((call) => call.input), [HELD])
     assert.equal(description(stage), 'Plan, then test')
     assert.equal(unsaved(stage), '')
     assert.equal(notice(stage), undefined)
@@ -251,6 +265,37 @@ describe('a draft made on a different Archon', () => {
     assert.equal(named(stage, 'builder.draft.write').length, 1)
     assert.deepEqual(named(stage, 'builder.save'), [])
     assert.deepEqual(named(stage, 'builder.draft.discard'), [])
+  })
+
+  test("edits go on to that Archon's draft, named by its store id", async () => {
+    const stage = await open(answerOf(draftOf({ otherArchon: true, storeId: 'store-old' })))
+    await describeAs(stage, 'Still mine')
+    await stage.clock.advance(500)
+    assert.deepEqual(
+      named(stage, 'builder.draft.write').map((call) => (call.input as { storeId?: unknown }).storeId),
+      ['store-old']
+    )
+  })
+
+  test("Load the saved copy keeps that draft for its own Archon, and the next edit starts this Archon's own draft with Save on", async () => {
+    const here = { ...SMALL, description: 'The copy this Archon holds' }
+    const other = draftOf({ otherArchon: true, storeId: 'store-old' })
+    const stage = await open(answerOf(other, here))
+    await press(buttonNamed(stage.app, 'Reload'))
+    await press(buttonNamed(stage.app, 'Load the saved copy'))
+    assert.deepEqual(named(stage, 'builder.draft.discard'), [])
+    assert.equal(description(stage), 'The copy this Archon holds')
+    assert.ok(!banners(stage).includes('This draft was made on a different Archon.'))
+    // The worker still gives back the other Archon's draft; this tab does not take it again.
+    await press(buttonNamed(stage.app, 'Reload'))
+    assert.equal(description(stage), 'The copy this Archon holds')
+    await describeAs(stage, 'Edited here')
+    await stage.clock.advance(500)
+    assert.deepEqual(
+      named(stage, 'builder.draft.write').map((call) => call.input),
+      [{ ...IDENTITY, definition: { ...here, description: 'Edited here' }, base: { source: 'project', authored: here }, file: FILE }]
+    )
+    assert.notEqual(buttonNamed(stage.app, 'Save').getAttribute('aria-disabled'), 'true')
   })
 })
 
@@ -288,13 +333,13 @@ describe('a new workflow', () => {
     assert.deepEqual(texts(notice(stage) as FakeElement, 'p'), ['This new workflow is not in Archon yet: the first Save writes it.'])
     stage.saves.push({ kind: 'saved', source: 'project' })
     await press(buttonNamed(stage.app, 'Save'))
-    assert.deepEqual(named(stage, 'builder.save').map((call) => call.input), [{ ...IDENTITY, locale: 'en-GB', definition: NEW, base: null }])
+    assert.deepEqual(named(stage, 'builder.save').map((call) => call.input), [{ ...HELD, locale: 'en-GB', definition: NEW, base: null }])
   })
 
   test('Discard deletes it and leaves the tab with nothing to show, reading nothing from Archon', async () => {
     const stage = await open(gone)
     await press(buttonNamed(stage.app, 'Discard the draft'))
-    assert.deepEqual(named(stage, 'builder.draft.discard').map((call) => call.input), [IDENTITY])
+    assert.deepEqual(named(stage, 'builder.draft.discard').map((call) => call.input), [HELD])
     assert.equal(named(stage, 'builder.read').length, 1)
     assert.ok(texts(stage.app, 'p').includes('This new workflow was discarded. Nothing was written to Archon.'))
   })

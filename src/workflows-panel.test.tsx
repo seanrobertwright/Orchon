@@ -294,6 +294,6 @@ describe('the builder drafts in the section', () => {
     assert.deepEqual(sent(view, 'builder.draft.discard'), [])
     assert.ok(view.find(text('Its draft is deleted, and Archon holds nothing of it, so nothing of it is left. There is no undo.')))
     await view.press({ type: 'Button', text: 'Discard my-flow for good' })
-    assert.deepEqual(sent(view, 'builder.draft.discard'), [{ name: 'my-flow', codebaseId: 'cb-web', scope: 'project' }])
+    assert.deepEqual(sent(view, 'builder.draft.discard'), [{ name: 'my-flow', codebaseId: 'cb-web', scope: 'project', storeId: 'store-a' }])
   })
 })

@@ -16,6 +16,17 @@ export const mib = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed
 /** The workflow a builder pointer file names. */
 export type BuilderIdentity = { name: string; codebaseId: string | null; scope: string }
 
+/** The identity alone, from anything that carries one, such as a request or a draft. */
+export const identityOf = ({ name, codebaseId, scope }: BuilderIdentity): BuilderIdentity => ({ name, codebaseId, scope })
+
+/** Whether two identities name the same workflow: the same name, project or none, and scope. */
+export const sameIdentity = (first: BuilderIdentity, second: BuilderIdentity): boolean =>
+  first.name === second.name && first.codebaseId === second.codebaseId && first.scope === second.scope
+
+/** Whether two identities share a name and a project or none, whatever their scope: a row that names no source matches either. */
+export const sameWorkflow = (first: Pick<BuilderIdentity, 'name' | 'codebaseId'>, second: Pick<BuilderIdentity, 'name' | 'codebaseId'>): boolean =>
+  first.name === second.name && first.codebaseId === second.codebaseId
+
 /** What the tab sends to read its workflow: its identity, and Orca's UI language. */
 export type BuilderRequest = BuilderIdentity & { locale: string }
 
@@ -67,7 +78,7 @@ export type BuilderBase = { source: string; authored: Record<string, unknown> }
  * Save: the workflow's identity, the definition to write, and the copy Archon is expected to
  * serve, or null when it is expected to serve none (an overwrite of a workflow removed outside).
  */
-export type BuilderSaveRequest = BuilderRequest & { definition: Record<string, unknown>; base: BuilderBase | null }
+export type BuilderSaveRequest = BuilderRequest & { definition: Record<string, unknown>; base: BuilderBase | null } & DraftStore
 
 /** Validate: the definition to check, and Orca's UI language. Nothing is written. */
 export type BuilderValidateRequest = { definition: Record<string, unknown>; locale: string }
@@ -117,8 +128,21 @@ export const BUILDER_DRAFT_SEND_PAUSE_MS = 500
 /** The most characters of the file words a draft keeps, to show while Archon is away. */
 export const DRAFT_FILE_CAP = 2_000
 
-/** A draft the tab hands to the worker: the workflow's identity, the copy as it stands, the copy the edit started from, and the file in words. */
-export type BuilderDraftWrite = BuilderIdentity & { definition: Record<string, unknown>; base: BuilderBase | null; file: string }
+/** The sentence over a draft made on a different Archon from the one connected now. */
+export const OTHER_ARCHON = 'This draft was made on a different Archon.'
+
+/**
+ * Which Archon's draft a request is about: the store id a read gave back with the draft the tab
+ * holds, or the section lists with a new workflow. Left out, it is the draft of the Archon
+ * connected now, or last connected.
+ */
+export type DraftStore = { storeId?: string | null }
+
+/** What a draft discard takes: the workflow's identity, and which Archon's draft it is. */
+export type BuilderDraftDiscard = BuilderIdentity & DraftStore
+
+/** A draft the tab hands to the worker: the workflow's identity, the copy as it stands, the copy the edit started from, the file in words, and which Archon's draft it is. */
+export type BuilderDraftWrite = BuilderIdentity & { definition: Record<string, unknown>; base: BuilderBase | null; file: string } & DraftStore
 
 /** Whether the worker kept the draft, or the one sentence that says why not. */
 export type BuilderDraftWriteAnswer = { kept: true } | { kept: false; reason: string }
@@ -126,9 +150,17 @@ export type BuilderDraftWriteAnswer = { kept: true } | { kept: false; reason: st
 /**
  * A draft as a tab's read gives it back: the copy as it was left, the copy the edit started
  * from (null when Archon held none), the file in words, whether it is a new workflow never
- * saved, and whether it was made on a different Archon from the one connected now.
+ * saved, whether it was made on a different Archon from the one connected now, and that Archon's store id.
  */
-export type BuilderDraftView = { definition: Record<string, unknown>; base: BuilderBase | null; file: string; isNew: boolean; otherArchon: boolean }
+export type BuilderDraftView = {
+  definition: Record<string, unknown>
+  base: BuilderBase | null
+  file: string
+  isNew: boolean
+  otherArchon: boolean
+  /** The store id of the Archon the draft was made on, which the tab sends back with its writes, discards and saves. */
+  storeId: string | null
+}
 
 /**
  * Archon's rule for the name a workflow is saved under (`isValidCommandName`, which its

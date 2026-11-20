@@ -63,7 +63,7 @@ describe('builder drafts', () => {
     })
     const answer = await readTab(mounted)
     assert.equal(answer.builder.kind, 'ready')
-    assert.deepEqual(answer.draft, { definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE, isNew: false, otherArchon: false })
+    assert.deepEqual(answer.draft, { definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE, isNew: false, otherArchon: false, storeId: 'store-a' })
     await mounted.worker.deactivate()
   })
 
@@ -83,6 +83,22 @@ describe('builder drafts', () => {
     await mounted.worker.deactivate()
   })
 
+  test('a second readable stored draft of one workflow and Archon is left in storage, not deleted and not counted as unreadable', async () => {
+    const first = { storeId: 'store-a', ...IDENTITY, isNew: false, definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE }
+    const second = { ...first, definition: { ...EDITED, description: 'The other copy' } }
+    const stage = stageFor()
+    const mounted = await stage.mount({ ...orca, storage: { 'builder-draft:1': first, 'builder-draft:2': second } })
+    assert.deepEqual((await readTab(mounted)).draft?.definition, EDITED)
+    assert.deepEqual(draftKeys(mounted).sort(), ['builder-draft:1', 'builder-draft:2'])
+    assert.deepEqual(mounted.host.data().storage['builder-draft:2'], second)
+    // A new draft takes neither slot.
+    await write(mounted, draftInput({ name: 'other' }))
+    await stage.clock.advance(1_000)
+    assert.deepEqual(draftKeys(mounted).sort(), ['builder-draft:1', 'builder-draft:2', 'builder-draft:3'])
+    assert.deepEqual(mounted.host.data().storage['builder-draft:2'], second)
+    await mounted.worker.deactivate()
+  })
+
   test('drafts survive a restart and are never removed by age; one that cannot be read at all is deleted, and only that one', async () => {
     const kept = { storeId: 'store-a', ...IDENTITY, isNew: false, definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE }
     const stage = stageFor()
@@ -92,7 +108,7 @@ describe('builder drafts', () => {
     })
     await stage.clock.advance(400 * 24 * 60 * 60 * 1000)
     const answer = await readTab(mounted)
-    assert.deepEqual(answer.draft, { definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE, isNew: false, otherArchon: false })
+    assert.deepEqual(answer.draft, { definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE, isNew: false, otherArchon: false, storeId: 'store-a' })
     assert.deepEqual(draftKeys(mounted), ['builder-draft:4'])
     assert.deepEqual(mounted.host.data().storage['builder-draft:4'], kept)
     assert.deepEqual(mounted.host.data().storage['chat-drafts'], [])
@@ -142,15 +158,35 @@ describe('builder drafts', () => {
     const stage = stageFor('store-b')
     const kept = { storeId: 'store-a', ...IDENTITY, isNew: false, definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE }
     const mounted = await stage.mount({ ...orca, storage: { 'builder-draft:1': kept } })
-    assert.equal((await readTab(mounted)).draft?.otherArchon, true)
-    await write(mounted, draftInput({ definition: OPENED }))
+    const given = (await readTab(mounted)).draft
+    assert.equal(given?.otherArchon, true)
+    assert.equal(given?.storeId, 'store-a')
+    await write(mounted, draftInput({ definition: OPENED, storeId: 'store-a' }))
     await stage.clock.advance(1_000)
     assert.deepEqual(mounted.host.data().storage['builder-draft:1'], { ...kept, definition: OPENED })
-    const save = { ...IDENTITY, definition: OPENED, base: { source: 'project', authored: OPENED }, locale: 'en-GB' }
+    const save = { ...IDENTITY, definition: OPENED, base: { source: 'project', authored: OPENED }, locale: 'en-GB', storeId: 'store-a' }
     const answer = (await mounted.worker.request('builder.save', save as never)) as BuilderSaveAnswer
     assert.deepEqual(answer.save, { kind: 'refused', message: 'This draft was made on a different Archon. It is not saved here, and it is kept.' })
     assert.ok(stage.archon.calls.every((call) => call.method === 'GET'))
     assert.deepEqual(draftKeys(mounted), ['builder-draft:1'])
+    await mounted.worker.deactivate()
+  })
+
+  test("each Archon keeps its own draft of a workflow: a write naming no store id is the connected Archon's, and a read there gives that one back", async () => {
+    const stage = stageFor('store-b')
+    const kept = { storeId: 'store-a', ...IDENTITY, isNew: false, definition: EDITED, base: { source: 'project', authored: OPENED }, file: FILE }
+    const mounted = await stage.mount({ ...orca, storage: { 'builder-draft:1': kept } })
+    const mine = { ...OPENED, description: 'Made on B' }
+    assert.deepEqual(await write(mounted, draftInput({ definition: mine })), { kept: true })
+    await stage.clock.advance(1_000)
+    assert.deepEqual(mounted.host.data().storage['builder-draft:1'], kept)
+    assert.deepEqual(mounted.host.data().storage['builder-draft:2'], { ...kept, storeId: 'store-b', definition: mine })
+    const given = (await readTab(mounted)).draft
+    assert.deepEqual([given?.definition, given?.otherArchon, given?.storeId], [mine, false, 'store-b'])
+    // Discarding B's draft leaves A's, which a read then gives back marked as made on another Archon.
+    await mounted.worker.request('builder.draft.discard', IDENTITY as never)
+    assert.deepEqual(draftKeys(mounted), ['builder-draft:1'])
+    assert.equal((await readTab(mounted)).draft?.otherArchon, true)
     await mounted.worker.deactivate()
   })
 

@@ -41,8 +41,8 @@ export const draftedWorkflows: Extract<WorkflowsSectionView, { kind: 'ready' }> 
   list: { kind: 'ready', rows: [packed, deliverWorkflow, { ...shipIt, draft: true }, tidy], total: 4, matching: 4, unreadable: 0 },
   drafts: {
     fresh: [
-      { name: 'my-flow', codebaseId: 'cb-web', scope: 'project' },
-      { name: 'wide', codebaseId: null, scope: 'global' }
+      { name: 'my-flow', codebaseId: 'cb-web', scope: 'project', storeId: 'store-a' },
+      { name: 'wide', codebaseId: null, scope: 'global', storeId: 'store-a' }
     ],
     elsewhere: 1,
     dropped: 1

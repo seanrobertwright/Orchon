@@ -57,8 +57,8 @@ export type SectionWorkflow = {
   draft?: true
 }
 
-/** A new workflow never saved, which only a builder draft holds: Open and Discard are offered. */
-export type NewDraftRow = { name: string; codebaseId: string | null; scope: NewWorkflowPlace }
+/** A new workflow never saved, which only a builder draft holds: Open and Discard are offered. `storeId` names the Archon the draft was made on, which Discard sends back. */
+export type NewDraftRow = { name: string; codebaseId: string | null; scope: NewWorkflowPlace; storeId: string | null }
 
 /**
  * The builder drafts the section names. There are at most `BUILDER_DRAFTS_CAP` drafts, so every
