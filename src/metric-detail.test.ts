@@ -225,6 +225,7 @@ describe("the report's validator reads every figure a metric's view shows", () =
   const unreadable: [string, (body: Body) => void][] = [
     ['a day that is not a UTC day', (body) => (series(body).day = '2026-11-20T00:00:00Z')],
     ['a day value that is not a number', (body) => (series(body).value = '8')],
+    ['the same day twice', (body) => (headlineOf(body, 'tests_added').series = [series(body), series(body)])],
     ['an interval without its high end', (body) => delete (headlineOf(body, 'review_score').interval as Body).high],
     ['a cost gap that is not a count', (body) => ((headlineOf(body, 'tests_added').cost as Body).runs_missing = -1)],
     ['tokens that are not a number', (body) => ((headlineOf(body, 'tests_added').cost as Body).input_tokens = '12')],

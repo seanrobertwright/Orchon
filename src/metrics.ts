@@ -1,7 +1,8 @@
 // The Metrics section's read: a frame sends the scope and the window, and the worker reads the
 // card declarations and the window's report from Archon, validates them by hand and answers the
 // Details rows of `metrics-view.ts`, never Archon's report. It keeps the last report it read, in
-// memory only, so a return to the section within `METRICS_MAX_AGE_MS` asks Archon nothing, and it keeps the
+// memory only, so a return to the section within `METRICS_MAX_AGE_MS` asks Archon nothing and a
+// metric's view (`metric-detail.ts`) answers from it, and it keeps the
 // person's window in plugin storage.
 //
 // The report's shape is `metricsReportSchema` in `packages/workflows/src/schemas/metric.ts` of

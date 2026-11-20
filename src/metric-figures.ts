@@ -97,6 +97,8 @@ function parseInstrument(value: unknown): InstrumentFigures | null {
   if (interval === undefined || cost === null || latest === null || !Array.isArray(series)) return null
   const days = series.map(parseDay)
   if (!days.every((day) => day !== null)) return null
+  // Archon reports one point per UTC day, and the "By day" table keys its rows by the day.
+  if (new Set(days.map((day) => day.day)).size !== days.length) return null
   return { instrument, measuredBy, value: figure, n, interval, cost, latest, series: days }
 }
 
