@@ -292,7 +292,7 @@ export const SYNTHETIC_WAIT_MS = 60_000
 const SYNTHETIC_NAMES = [...new Set(SYNTHETIC_METRIC_RECORDS.map((record) => String(record.name)))]
 
 /** What the fixture says it is when the synthetic pack ran before the reports were read. */
-export const SYNTHETIC_LABEL = `SYNTHETIC: every metric record and overview card in it was made up by the recorder's own pack ${SYNTHETIC_PACK} (workflow ${SYNTHETIC_METRICS.name}, one shell step, fixed numbers, names starting ${SYNTHETIC_METRIC_PREFIX}). It measures nothing`
+export const SYNTHETIC_LABEL = `SYNTHETIC: every metric record in it, and the overview cards of ${SYNTHETIC_PACK}, were made up by the recorder's own pack (workflow ${SYNTHETIC_METRICS.name}, one shell step, fixed numbers, names starting ${SYNTHETIC_METRIC_PREFIX}). They measure nothing`
 
 /** Calls `probe` every poll until it answers something, or `until` passes on the clock. */
 async function pollFor<T>(clock: Clock, until: number, probe: () => Promise<T | undefined>): Promise<T | undefined> {

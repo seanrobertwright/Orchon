@@ -76,7 +76,7 @@ describe('the recording log', () => {
     const ran = recordedLog({ ...log, spend: { ...spend, synthetic: { ran: true } } })
     assert.match(
       ran,
-      /^- Synthetic data: every metric record and overview card here was made up by the recorder's own pack `orchon-synthetic` \(workflow `orchon-recorder-synthetic-metrics`, one shell step, fixed numbers, names starting `orchon_synthetic\.`\)\. It measures nothing\.$/m
+      /^- Synthetic data: every metric record here, and the overview cards of `orchon-synthetic`, were made up by the recorder's own pack \(workflow `orchon-recorder-synthetic-metrics`, one shell step, fixed numbers, names starting `orchon_synthetic\.`\)\. They measure nothing\.$/m
     )
     const fellBack = recordedLog({ ...log, spend: { ...spend, synthetic: { ran: false, why: 'the run ended\nfailed' } } })
     assert.match(fellBack, /^- Synthetic data: none\. The recorder's synthetic pack did not run \(the run ended failed\), so the reports were read over an empty store\.$/m)

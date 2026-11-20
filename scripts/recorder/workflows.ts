@@ -1,5 +1,6 @@
 // The only workflows the recorder launches: its own, written into the throwaway project, with
-// no agent in them, and in spend mode's agent-step scenario alone, one agent step of its own. No
+// no agent in them; in spend mode's agent-step scenario alone, one agent step of its own; and in
+// its metrics scenario alone, the synthetic metrics pack's one shell step. No
 // bundled workflow is ever launched, so the recording that spends nothing spends no workflow
 // tokens and `archon-worktree-cleanup` cannot be reached.
 
