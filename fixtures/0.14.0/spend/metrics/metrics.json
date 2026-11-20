@@ -1,0 +1,2168 @@
+{
+  "release": "0.14.0",
+  "scenario": "metrics",
+  "log": [
+    {
+      "atMs": 253,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/codebases",
+      "requestBody": {
+        "path": "<project-path>"
+      },
+      "startedMs": 0,
+      "status": 201,
+      "contentType": "application/json",
+      "body": {
+        "id": "5f4afdd455b56667a1e364254e8d353c",
+        "name": "orchon-recorder/throwaway-project",
+        "repository_url": "https://github.com/orchon-recorder/throwaway-project.git",
+        "default_cwd": "<project-path>",
+        "default_branch": null,
+        "ai_assistant_type": null,
+        "kind": "repo",
+        "commands": {},
+        "created_at": "2026-11-20 02:29:16",
+        "updated_at": "2026-11-20 02:29:16"
+      }
+    },
+    {
+      "atMs": 293,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/orchon-recorder-synthetic-metrics?cwd=<project-path>",
+      "requestBody": null,
+      "startedMs": 254,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "workflow": {
+          "name": "orchon-recorder-synthetic-metrics",
+          "description": "Orchon fixture recorder: one shell step that prints made-up metric records, no agent.",
+          "nodes": [
+            {
+              "id": "emit",
+              "kind": "exec",
+              "script": "echo '{\"metrics\":[{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-3\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-4\",\"value\":1},{\"name\":\"orchon_synthetic.items_merged\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.items_merged\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.items_abandoned\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-4\",\"value\":1},{\"name\":\"orchon_synthetic.tests_added\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-1\",\"value\":5},{\"name\":\"orchon_synthetic.tests_added\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-2\",\"value\":3},{\"name\":\"orchon_synthetic.tests_useless\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.tests_useless\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-1\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-2\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-3\",\"value\":0,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-4\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-1\",\"value\":0.5},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-2\",\"value\":0.7},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-3\",\"value\":0.9},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-5\",\"value\":0.5}]}'",
+              "runtime": "sh",
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "metrics"
+                ],
+                "properties": {
+                  "metrics": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          ],
+          "worktree": {
+            "enabled": false
+          }
+        },
+        "authored": {
+          "name": "orchon-recorder-synthetic-metrics",
+          "description": "Orchon fixture recorder: one shell step that prints made-up metric records, no agent.",
+          "worktree": {
+            "enabled": false
+          },
+          "nodes": [
+            {
+              "id": "emit",
+              "bash": "echo '{\"metrics\":[{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-3\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-4\",\"value\":1},{\"name\":\"orchon_synthetic.items_merged\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.items_merged\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.items_abandoned\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-4\",\"value\":1},{\"name\":\"orchon_synthetic.tests_added\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-1\",\"value\":5},{\"name\":\"orchon_synthetic.tests_added\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-2\",\"value\":3},{\"name\":\"orchon_synthetic.tests_useless\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.tests_useless\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-1\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-2\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-3\",\"value\":0,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-4\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-1\",\"value\":0.5},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-2\",\"value\":0.7},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-3\",\"value\":0.9},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-5\",\"value\":0.5}]}'",
+              "output_format": {
+                "type": "object",
+                "required": [
+                  "metrics"
+                ],
+                "properties": {
+                  "metrics": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "filename": "orchon-recorder-synthetic-metrics.yaml",
+        "source": "project"
+      }
+    },
+    {
+      "atMs": 297,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "5f4afdd455b56667a1e364254e8d353c"
+      },
+      "startedMs": 293,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795141756606-fr0hqh",
+        "id": "ed152de61fa3de32f63535e183c65e02"
+      }
+    },
+    {
+      "atMs": 297,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-synthetic-metrics"
+    },
+    {
+      "atMs": 310,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-synthetic-metrics/run",
+      "requestBody": {
+        "conversationId": "web-1795141756606-fr0hqh",
+        "message": "Recording synthetic metrics for Orchon: one shell step, made-up numbers."
+      },
+      "startedMs": 297,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 3606,
+      "kind": "run-found",
+      "runId": "a877b80b-6cec-449f-9ad9-41007963d5d3"
+    },
+    {
+      "atMs": 5632,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/a877b80b-6cec-449f-9ad9-41007963d5d3",
+      "requestBody": null,
+      "startedMs": 5629,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+          "conversation_id": "58315c02370c7edac49c868a07be30d3",
+          "codebase_id": "5f4afdd455b56667a1e364254e8d353c",
+          "workflow_name": "orchon-recorder-synthetic-metrics",
+          "user_message": "Recording synthetic metrics for Orchon: one shell step, made-up numbers.",
+          "status": "completed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {}
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\a877b80b-6cec-449f-9ad9-41007963d5d3",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-20T02:29:18.902Z",
+              "digest": "30830c5e55bdbbb94b7d490128187b762022a179455daa0c13f858237a673266",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 163,
+              "byte_count": 920065
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": "",
+              "inputs_resolved": true
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 32164
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "emit"
+              ]
+            },
+            "node_counts": {
+              "completed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "total": 1
+            }
+          },
+          "parent_conversation_id": "ed152de61fa3de32f63535e183c65e02",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-20T02:29:19.000Z",
+          "completed_at": "2026-11-20T02:29:21.000Z",
+          "last_activity_at": "2026-11-20T02:29:21.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-20T02:29:21.256Z",
+            "commit": "7a22367189df96d7d085a084c8ed83e3df101b58",
+            "tree": "de13261bc9908061f72947cdc7213b436ba674e9",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "58315c02370c7edac49c868a07be30d3",
+            "parentConversationId": "ed152de61fa3de32f63535e183c65e02"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "status": "completed",
+            "at": "2026-11-20T02:29:21.000Z"
+          },
+          "worker_platform_id": "web-worker-1795141759717-5dxide",
+          "parent_platform_id": "web-1795141756606-fr0hqh",
+          "conversation_platform_id": null,
+          "owner_observation": null,
+          "terminal_record": {
+            "run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "status": "completed",
+            "outcome": null,
+            "error": null,
+            "first_failed_node": null,
+            "nodes": [
+              {
+                "node_id": "emit",
+                "state": "completed"
+              }
+            ],
+            "returns": {
+              "availability": "unavailable",
+              "node_id": null,
+              "reason": "not_declared"
+            },
+            "artifacts": {
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\a877b80b-6cec-449f-9ad9-41007963d5d3",
+              "files": [
+                {
+                  "path": ".archon/node-outcomes/720912e7-7eaa-45ef-8266-d4f59e852570.json",
+                  "size": 163
+                },
+                {
+                  "path": ".archon/typed-artifacts/5f6a1f0a-cfcb-4ea7-81a4-5509580b33da.json",
+                  "size": 94
+                }
+              ],
+              "limitations": []
+            }
+          },
+          "nodes": [
+            {
+              "node_id": "emit",
+              "state": "completed"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "29376cb0-baea-4d56-8032-bda71b7b2937",
+            "workflow_run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "event_order": 1,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-synthetic-metrics",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": null,
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording synthetic metrics for Orchon: one shell step, made-up numbers.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\a877b80b-6cec-449f-9ad9-41007963d5d3.jsonl"
+            },
+            "created_at": "2026-11-20 02:29:21"
+          },
+          {
+            "id": "66a2f212-fb7f-43be-a32c-8f6c990f2641",
+            "workflow_run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "event_order": 2,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "emit",
+            "data": {
+              "node": {
+                "id": "emit",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "21c26207-c5ec-4fa2-a40f-45156b3baa84",
+                "startedAt": "2026-11-20T02:29:21.429Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:29:21.430Z",
+                  "commit": "7a22367189df96d7d085a084c8ed83e3df101b58",
+                  "tree": "de13261bc9908061f72947cdc7213b436ba674e9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "202d388d-b136-44e5-a54d-4573afeac12d",
+                "startedAt": "2026-11-20T02:29:21.523Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:29:21.430Z",
+                  "commit": "7a22367189df96d7d085a084c8ed83e3df101b58",
+                  "tree": "de13261bc9908061f72947cdc7213b436ba674e9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-20T02:29:21.523Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash"
+            },
+            "created_at": "2026-11-20 02:29:21"
+          },
+          {
+            "id": "e9aba2bf-e2e8-4cc2-9dd2-fe69cbbbd1ca",
+            "workflow_run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "event_order": 3,
+            "event_type": "node_completed",
+            "step_index": null,
+            "step_name": "emit",
+            "data": {
+              "node": {
+                "id": "emit",
+                "kind": "exec",
+                "runtime": "sh"
+              },
+              "invocation": {
+                "id": "21c26207-c5ec-4fa2-a40f-45156b3baa84",
+                "startedAt": "2026-11-20T02:29:21.429Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:29:21.430Z",
+                  "commit": "7a22367189df96d7d085a084c8ed83e3df101b58",
+                  "tree": "de13261bc9908061f72947cdc7213b436ba674e9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "202d388d-b136-44e5-a54d-4573afeac12d",
+                "startedAt": "2026-11-20T02:29:21.523Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:29:21.430Z",
+                  "commit": "7a22367189df96d7d085a084c8ed83e3df101b58",
+                  "tree": "de13261bc9908061f72947cdc7213b436ba674e9",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {},
+              "timing": {
+                "startedAt": "2026-11-20T02:29:21.523Z",
+                "durationMs": 190
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_applicable"
+                }
+              },
+              "accounting": "node",
+              "type": "bash",
+              "duration_ms": 190,
+              "node_output": "{\"metrics\":[{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-3\",\"value\":1},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-4\",\"value\":1},{\"name\":\"orchon_synthetic.items_merged\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.items_merged\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.items_abandoned\",\"kind\":\"count\",\"unit\":\"items\",\"subject\":\"synthetic-item-4\",\"value\":1},{\"name\":\"orchon_synthetic.tests_added\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-1\",\"value\":5},{\"name\":\"orchon_synthetic.tests_added\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-2\",\"value\":3},{\"name\":\"orchon_synthetic.tests_useless\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-1\",\"value\":1},{\"name\":\"orchon_synthetic.tests_useless\",\"kind\":\"count\",\"unit\":\"tests\",\"subject\":\"synthetic-item-2\",\"value\":1},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-1\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-2\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-3\",\"value\":0,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.useless_tests_caught\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-case-4\",\"value\":1,\"calibrates\":\"orchon_synthetic.tests_useless\"},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-1\",\"value\":0.5},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-2\",\"value\":0.7},{\"name\":\"orchon_synthetic.review_score\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-3\",\"value\":0.9},{\"name\":\"orchon_synthetic.items_opened\",\"kind\":\"score\",\"unit\":\"ratio\",\"subject\":\"synthetic-item-5\",\"value\":0.5}]}",
+              "structured_output": {
+                "metrics": [
+                  {
+                    "name": "orchon_synthetic.items_opened",
+                    "kind": "count",
+                    "unit": "items",
+                    "subject": "synthetic-item-1",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.items_opened",
+                    "kind": "count",
+                    "unit": "items",
+                    "subject": "synthetic-item-2",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.items_opened",
+                    "kind": "count",
+                    "unit": "items",
+                    "subject": "synthetic-item-3",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.items_opened",
+                    "kind": "count",
+                    "unit": "items",
+                    "subject": "synthetic-item-4",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.items_merged",
+                    "kind": "count",
+                    "unit": "items",
+                    "subject": "synthetic-item-1",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.items_merged",
+                    "kind": "count",
+                    "unit": "items",
+                    "subject": "synthetic-item-2",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.items_abandoned",
+                    "kind": "count",
+                    "unit": "items",
+                    "subject": "synthetic-item-4",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.tests_added",
+                    "kind": "count",
+                    "unit": "tests",
+                    "subject": "synthetic-item-1",
+                    "value": 5
+                  },
+                  {
+                    "name": "orchon_synthetic.tests_added",
+                    "kind": "count",
+                    "unit": "tests",
+                    "subject": "synthetic-item-2",
+                    "value": 3
+                  },
+                  {
+                    "name": "orchon_synthetic.tests_useless",
+                    "kind": "count",
+                    "unit": "tests",
+                    "subject": "synthetic-item-1",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.tests_useless",
+                    "kind": "count",
+                    "unit": "tests",
+                    "subject": "synthetic-item-2",
+                    "value": 1
+                  },
+                  {
+                    "name": "orchon_synthetic.useless_tests_caught",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-case-1",
+                    "value": 1,
+                    "calibrates": "orchon_synthetic.tests_useless"
+                  },
+                  {
+                    "name": "orchon_synthetic.useless_tests_caught",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-case-2",
+                    "value": 1,
+                    "calibrates": "orchon_synthetic.tests_useless"
+                  },
+                  {
+                    "name": "orchon_synthetic.useless_tests_caught",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-case-3",
+                    "value": 0,
+                    "calibrates": "orchon_synthetic.tests_useless"
+                  },
+                  {
+                    "name": "orchon_synthetic.useless_tests_caught",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-case-4",
+                    "value": 1,
+                    "calibrates": "orchon_synthetic.tests_useless"
+                  },
+                  {
+                    "name": "orchon_synthetic.review_score",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-item-1",
+                    "value": 0.5
+                  },
+                  {
+                    "name": "orchon_synthetic.review_score",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-item-2",
+                    "value": 0.7
+                  },
+                  {
+                    "name": "orchon_synthetic.review_score",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-item-3",
+                    "value": 0.9
+                  },
+                  {
+                    "name": "orchon_synthetic.items_opened",
+                    "kind": "score",
+                    "unit": "ratio",
+                    "subject": "synthetic-item-5",
+                    "value": 0.5
+                  }
+                ]
+              },
+              "declared_fields": [
+                "metrics"
+              ],
+              "declared_output_paths": [
+                [
+                  "metrics"
+                ]
+              ]
+            },
+            "created_at": "2026-11-20 02:29:21"
+          },
+          {
+            "id": "44f3791c-8368-47ed-8622-f5fabaa7888d",
+            "workflow_run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "event_order": 4,
+            "event_type": "workflow_completed",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "duration_ms": 199,
+              "terminal_record": {
+                "run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+                "status": "completed",
+                "outcome": null,
+                "error": null,
+                "first_failed_node": null,
+                "nodes": [
+                  {
+                    "node_id": "emit",
+                    "state": "completed"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\a877b80b-6cec-449f-9ad9-41007963d5d3",
+                  "files": [
+                    {
+                      "path": ".archon/node-outcomes/720912e7-7eaa-45ef-8266-d4f59e852570.json",
+                      "size": 163
+                    },
+                    {
+                      "path": ".archon/typed-artifacts/5f6a1f0a-cfcb-4ea7-81a4-5509580b33da.json",
+                      "size": 94
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-20 02:29:21"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 5642,
+      "kind": "records-found",
+      "names": [
+        "orchon_synthetic.items_opened",
+        "orchon_synthetic.items_merged",
+        "orchon_synthetic.items_abandoned",
+        "orchon_synthetic.tests_added",
+        "orchon_synthetic.tests_useless",
+        "orchon_synthetic.useless_tests_caught",
+        "orchon_synthetic.review_score"
+      ]
+    },
+    {
+      "atMs": 5642,
+      "kind": "synthetic-data",
+      "records": "synthetic",
+      "label": "SYNTHETIC: every metric record here, and the overview cards of orchon-synthetic, were made up by the recorder's own pack (workflow orchon-recorder-synthetic-metrics, one shell step, fixed numbers, names starting orchon_synthetic.). They measure nothing"
+    },
+    {
+      "atMs": 5648,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/metric-views",
+      "requestBody": null,
+      "startedMs": 5642,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "packs": [
+          {
+            "pack": "sdlc",
+            "source": "bundled",
+            "names": {
+              "sdlc.prs_opened": "PRs opened",
+              "sdlc.prs_merged": "PRs merged",
+              "sdlc.prs_abandoned": "PRs abandoned",
+              "sdlc.pr_merge_rate": "PR merge rate",
+              "sdlc.tests_added": "New tests",
+              "sdlc.tests_unprotective": "Useless tests",
+              "sdlc.tests_unprotective_judge_agreement": "Judge agreement with hand labels",
+              "sdlc.tests_unprotective_judge_catch_rate": "Judge catch rate on hand-labelled useless tests"
+            },
+            "cards": [
+              {
+                "shape": "count",
+                "title": "PRs merged",
+                "metric": "sdlc.prs_merged",
+                "breakdown": [
+                  {
+                    "metric": "sdlc.prs_opened",
+                    "label": "opened"
+                  },
+                  {
+                    "metric": "sdlc.prs_abandoned",
+                    "label": "abandoned"
+                  }
+                ]
+              },
+              {
+                "shape": "ratio",
+                "title": "Useless tests",
+                "numerator": "sdlc.tests_unprotective",
+                "denominator": "sdlc.tests_added",
+                "denominator_label": "new tests",
+                "calibration": {
+                  "metric": "sdlc.tests_unprotective_judge_catch_rate",
+                  "label": "judge catches",
+                  "rough_below": 0.8
+                }
+              },
+              {
+                "shape": "cost_per",
+                "title": "Cost per PR",
+                "metric": "sdlc.prs_merged",
+                "cost_of": "sdlc.prs_opened"
+              }
+            ]
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "atMs": 5648,
+      "kind": "query-took",
+      "path": "/api/metric-views",
+      "ms": 6
+    },
+    {
+      "atMs": 5658,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/metric-views?codebaseId=5f4afdd455b56667a1e364254e8d353c",
+      "requestBody": null,
+      "startedMs": 5648,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "packs": [
+          {
+            "pack": "sdlc",
+            "source": "bundled",
+            "names": {
+              "sdlc.prs_opened": "PRs opened",
+              "sdlc.prs_merged": "PRs merged",
+              "sdlc.prs_abandoned": "PRs abandoned",
+              "sdlc.pr_merge_rate": "PR merge rate",
+              "sdlc.tests_added": "New tests",
+              "sdlc.tests_unprotective": "Useless tests",
+              "sdlc.tests_unprotective_judge_agreement": "Judge agreement with hand labels",
+              "sdlc.tests_unprotective_judge_catch_rate": "Judge catch rate on hand-labelled useless tests"
+            },
+            "cards": [
+              {
+                "shape": "count",
+                "title": "PRs merged",
+                "metric": "sdlc.prs_merged",
+                "breakdown": [
+                  {
+                    "metric": "sdlc.prs_opened",
+                    "label": "opened"
+                  },
+                  {
+                    "metric": "sdlc.prs_abandoned",
+                    "label": "abandoned"
+                  }
+                ]
+              },
+              {
+                "shape": "ratio",
+                "title": "Useless tests",
+                "numerator": "sdlc.tests_unprotective",
+                "denominator": "sdlc.tests_added",
+                "denominator_label": "new tests",
+                "calibration": {
+                  "metric": "sdlc.tests_unprotective_judge_catch_rate",
+                  "label": "judge catches",
+                  "rough_below": 0.8
+                }
+              },
+              {
+                "shape": "cost_per",
+                "title": "Cost per PR",
+                "metric": "sdlc.prs_merged",
+                "cost_of": "sdlc.prs_opened"
+              }
+            ]
+          },
+          {
+            "pack": "orchon-synthetic",
+            "source": "project",
+            "names": {
+              "orchon_synthetic.items_opened": "Synthetic items opened",
+              "orchon_synthetic.items_merged": "Synthetic items merged",
+              "orchon_synthetic.items_abandoned": "Synthetic items abandoned",
+              "orchon_synthetic.tests_added": "Synthetic new tests",
+              "orchon_synthetic.tests_useless": "Synthetic useless tests",
+              "orchon_synthetic.useless_tests_caught": "Synthetic judge catch rate",
+              "orchon_synthetic.review_score": "Synthetic review score"
+            },
+            "cards": [
+              {
+                "shape": "count",
+                "title": "Synthetic items merged",
+                "metric": "orchon_synthetic.items_merged",
+                "breakdown": [
+                  {
+                    "metric": "orchon_synthetic.items_opened",
+                    "label": "opened"
+                  },
+                  {
+                    "metric": "orchon_synthetic.items_abandoned",
+                    "label": "abandoned"
+                  }
+                ]
+              },
+              {
+                "shape": "ratio",
+                "title": "Synthetic useless tests",
+                "numerator": "orchon_synthetic.tests_useless",
+                "denominator": "orchon_synthetic.tests_added",
+                "denominator_label": "new tests",
+                "calibration": {
+                  "metric": "orchon_synthetic.useless_tests_caught",
+                  "label": "judge catches",
+                  "rough_below": 0.8
+                }
+              },
+              {
+                "shape": "cost_per",
+                "title": "Synthetic cost per item",
+                "metric": "orchon_synthetic.items_merged",
+                "cost_of": "orchon_synthetic.items_opened"
+              }
+            ]
+          }
+        ],
+        "errors": [
+          {
+            "pack": "orchon-synthetic-unreadable",
+            "source": "project",
+            "error": ".shared/metric-views.json is invalid: cards: Too small: expected array to have >=1 items"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 5658,
+      "kind": "query-took",
+      "path": "/api/metric-views?codebaseId=5f4afdd455b56667a1e364254e8d353c",
+      "ms": 10
+    },
+    {
+      "atMs": 5662,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/metrics",
+      "requestBody": null,
+      "startedMs": 5658,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "window": {
+          "since": "2026-10-21T02:29:21.970Z",
+          "until": "2026-11-20T02:29:21.970Z"
+        },
+        "metrics": [
+          {
+            "name": "orchon_synthetic.items_abandoned",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 1,
+                "n": 1,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 1,
+                    "n": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_merged",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_opened",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 4,
+                "n": 4,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 4,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.review_score",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.7000000000000001,
+                "n": 3,
+                "interval": {
+                  "low": 0.20317245764993414,
+                  "high": 1.196827542350066
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 0.9,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-3"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.7000000000000001,
+                    "n": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_added",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 8,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 3,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 8,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_useless",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.useless_tests_caught",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": "orchon_synthetic.tests_useless",
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.75,
+                "n": 4,
+                "interval": {
+                  "low": 0.30064184258240184,
+                  "high": 0.9544127391902995
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-case-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.75,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "refused": [
+          {
+            "reason": "definition_conflict",
+            "run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "workflow_name": "orchon-recorder-synthetic-metrics",
+            "node_id": "emit",
+            "completed_at": "2026-11-20T02:29:21.000Z",
+            "name": "orchon_synthetic.items_opened",
+            "definition": {
+              "kind": "count",
+              "unit": "items",
+              "calibrates": null
+            },
+            "offered": {
+              "kind": "score",
+              "unit": "ratio",
+              "calibrates": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 5662,
+      "kind": "query-took",
+      "path": "/api/metrics",
+      "ms": 4
+    },
+    {
+      "atMs": 5667,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/metrics?since=7d",
+      "requestBody": null,
+      "startedMs": 5663,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "window": {
+          "since": "2026-11-13T02:29:21.974Z",
+          "until": "2026-11-20T02:29:21.974Z"
+        },
+        "metrics": [
+          {
+            "name": "orchon_synthetic.items_abandoned",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 1,
+                "n": 1,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 1,
+                    "n": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_merged",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_opened",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 4,
+                "n": 4,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 4,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.review_score",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.7000000000000001,
+                "n": 3,
+                "interval": {
+                  "low": 0.20317245764993414,
+                  "high": 1.196827542350066
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 0.9,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-3"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.7000000000000001,
+                    "n": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_added",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 8,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 3,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 8,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_useless",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.useless_tests_caught",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": "orchon_synthetic.tests_useless",
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.75,
+                "n": 4,
+                "interval": {
+                  "low": 0.30064184258240184,
+                  "high": 0.9544127391902995
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-case-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.75,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "refused": [
+          {
+            "reason": "definition_conflict",
+            "run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "workflow_name": "orchon-recorder-synthetic-metrics",
+            "node_id": "emit",
+            "completed_at": "2026-11-20T02:29:21.000Z",
+            "name": "orchon_synthetic.items_opened",
+            "definition": {
+              "kind": "count",
+              "unit": "items",
+              "calibrates": null
+            },
+            "offered": {
+              "kind": "score",
+              "unit": "ratio",
+              "calibrates": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 5667,
+      "kind": "query-took",
+      "path": "/api/metrics?since=7d",
+      "ms": 4
+    },
+    {
+      "atMs": 5672,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/metrics?since=365d",
+      "requestBody": null,
+      "startedMs": 5667,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "window": {
+          "since": "2025-11-20T02:29:21.979Z",
+          "until": "2026-11-20T02:29:21.979Z"
+        },
+        "metrics": [
+          {
+            "name": "orchon_synthetic.items_abandoned",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 1,
+                "n": 1,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 1,
+                    "n": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_merged",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_opened",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 4,
+                "n": 4,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 4,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.review_score",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.7000000000000001,
+                "n": 3,
+                "interval": {
+                  "low": 0.20317245764993414,
+                  "high": 1.196827542350066
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 0.9,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-3"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.7000000000000001,
+                    "n": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_added",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 8,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 3,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 8,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_useless",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.useless_tests_caught",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": "orchon_synthetic.tests_useless",
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.75,
+                "n": 4,
+                "interval": {
+                  "low": 0.30064184258240184,
+                  "high": 0.9544127391902995
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-case-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.75,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "refused": [
+          {
+            "reason": "definition_conflict",
+            "run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "workflow_name": "orchon-recorder-synthetic-metrics",
+            "node_id": "emit",
+            "completed_at": "2026-11-20T02:29:21.000Z",
+            "name": "orchon_synthetic.items_opened",
+            "definition": {
+              "kind": "count",
+              "unit": "items",
+              "calibrates": null
+            },
+            "offered": {
+              "kind": "score",
+              "unit": "ratio",
+              "calibrates": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 5672,
+      "kind": "query-took",
+      "path": "/api/metrics?since=365d",
+      "ms": 5
+    },
+    {
+      "atMs": 5676,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/metrics?since=365d&codebaseId=5f4afdd455b56667a1e364254e8d353c",
+      "requestBody": null,
+      "startedMs": 5672,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "window": {
+          "since": "2025-11-20T02:29:21.984Z",
+          "until": "2026-11-20T02:29:21.984Z"
+        },
+        "metrics": [
+          {
+            "name": "orchon_synthetic.items_abandoned",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 1,
+                "n": 1,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 1,
+                    "n": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_merged",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.items_opened",
+            "kind": "count",
+            "unit": "items",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 4,
+                "n": 4,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 4,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.review_score",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.7000000000000001,
+                "n": 3,
+                "interval": {
+                  "low": 0.20317245764993414,
+                  "high": 1.196827542350066
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 0.9,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-3"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.7000000000000001,
+                    "n": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_added",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 8,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 3,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 8,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.tests_useless",
+            "kind": "count",
+            "unit": "tests",
+            "calibrates": null,
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 2,
+                "n": 2,
+                "interval": null,
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-item-2"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 2,
+                    "n": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "orchon_synthetic.useless_tests_caught",
+            "kind": "score",
+            "unit": "ratio",
+            "calibrates": "orchon_synthetic.tests_useless",
+            "headline_instrument": null,
+            "headline_measured_by": [],
+            "instruments": [
+              {
+                "instrument": null,
+                "measured_by": [],
+                "value": 0.75,
+                "n": 4,
+                "interval": {
+                  "low": 0.30064184258240184,
+                  "high": 0.9544127391902995
+                },
+                "cost": {
+                  "usd": null,
+                  "input_tokens": null,
+                  "output_tokens": null,
+                  "runs": 1,
+                  "runs_without_cost": 1,
+                  "runs_without_tokens": 1,
+                  "runs_partial_cost": 0,
+                  "runs_missing": 0
+                },
+                "latest": {
+                  "value": 1,
+                  "at": "2026-11-20T02:29:21.000Z",
+                  "subject": "synthetic-case-4"
+                },
+                "series": [
+                  {
+                    "day": "2026-11-20",
+                    "value": 0.75,
+                    "n": 4
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "refused": [
+          {
+            "reason": "definition_conflict",
+            "run_id": "a877b80b-6cec-449f-9ad9-41007963d5d3",
+            "workflow_name": "orchon-recorder-synthetic-metrics",
+            "node_id": "emit",
+            "completed_at": "2026-11-20T02:29:21.000Z",
+            "name": "orchon_synthetic.items_opened",
+            "definition": {
+              "kind": "count",
+              "unit": "items",
+              "calibrates": null
+            },
+            "offered": {
+              "kind": "score",
+              "unit": "ratio",
+              "calibrates": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 5676,
+      "kind": "query-took",
+      "path": "/api/metrics?since=365d&codebaseId=5f4afdd455b56667a1e364254e8d353c",
+      "ms": 4
+    }
+  ]
+}

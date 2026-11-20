@@ -1,0 +1,1520 @@
+{
+  "release": "0.14.0",
+  "scenario": "agent-step",
+  "log": [
+    {
+      "atMs": 2,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/config",
+      "requestBody": null,
+      "startedMs": 0,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "config": {
+          "botName": "Archon",
+          "assistant": "claude",
+          "assistants": {
+            "claude": {
+              "model": "haiku"
+            },
+            "codex": {},
+            "opencode": {},
+            "copilot": {}
+          },
+          "streaming": {
+            "telegram": "stream",
+            "discord": "batch"
+          },
+          "concurrency": {
+            "maxConversations": 10
+          },
+          "defaults": {
+            "loadDefaultCommands": true,
+            "loadDefaultWorkflows": true
+          },
+          "tiers": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            }
+          },
+          "tierDefaults": {
+            "small": {
+              "provider": "claude",
+              "model": "haiku"
+            },
+            "medium": {
+              "provider": "claude",
+              "model": "sonnet"
+            },
+            "large": {
+              "provider": "claude",
+              "model": "opus"
+            }
+          }
+        },
+        "database": "sqlite"
+      }
+    },
+    {
+      "atMs": 469,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/codebases",
+      "requestBody": {
+        "path": "<project-path>"
+      },
+      "startedMs": 2,
+      "status": 201,
+      "contentType": "application/json",
+      "body": {
+        "id": "4d57e6832e94f093db6036b9ef3647d0",
+        "name": "orchon-recorder/throwaway-project",
+        "repository_url": "https://github.com/orchon-recorder/throwaway-project.git",
+        "default_cwd": "<project-path>",
+        "default_branch": null,
+        "ai_assistant_type": null,
+        "kind": "repo",
+        "commands": {},
+        "created_at": "2026-11-20 02:27:08",
+        "updated_at": "2026-11-20 02:27:08"
+      }
+    },
+    {
+      "atMs": 489,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/conversations",
+      "requestBody": {
+        "codebaseId": "4d57e6832e94f093db6036b9ef3647d0"
+      },
+      "startedMs": 485,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "conversationId": "web-1795141628420-lme4wy",
+        "id": "a591d625aeb842d829ce634ed4760529"
+      }
+    },
+    {
+      "atMs": 492,
+      "kind": "stream-open",
+      "label": "dashboard",
+      "path": "/api/stream/__dashboard__",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 492,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795141628425}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795141628425
+      }
+    },
+    {
+      "atMs": 494,
+      "kind": "stream-open",
+      "label": "conversation",
+      "path": "/api/stream/web-1795141628420-lme4wy",
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "atMs": 494,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"heartbeat\",\"timestamp\":1795141628427}",
+      "data": {
+        "type": "heartbeat",
+        "timestamp": 1795141628427
+      }
+    },
+    {
+      "atMs": 494,
+      "kind": "launch-sent",
+      "workflow": "orchon-recorder-agent-step"
+    },
+    {
+      "atMs": 507,
+      "kind": "http",
+      "method": "POST",
+      "path": "/api/workflows/orchon-recorder-agent-step/run",
+      "requestBody": {
+        "conversationId": "web-1795141628420-lme4wy",
+        "message": "Recording an agent step for Orchon."
+      },
+      "startedMs": 494,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "accepted": true,
+        "status": "started"
+      }
+    },
+    {
+      "atMs": 881,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795141628420-lme4wy\",\"locked\":true,\"timestamp\":1795141628437}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795141628420-lme4wy",
+        "locked": true,
+        "timestamp": 1795141628437
+      }
+    },
+    {
+      "atMs": 1793,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"text\",\"content\":\"Starting workflow: `orchon-recorder-agent-step`\",\"isComplete\":true,\"timestamp\":1795141629712}",
+      "data": {
+        "type": "text",
+        "content": "Starting workflow: `orchon-recorder-agent-step`",
+        "isComplete": true,
+        "timestamp": 1795141629712
+      }
+    },
+    {
+      "atMs": 6946,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"text\",\"content\":\"🚀 Dispatching workflow: **orchon-recorder-agent-step** (background)\",\"isComplete\":true,\"timestamp\":1795141634876,\"category\":\"workflow_dispatch_status\"}",
+      "data": {
+        "type": "text",
+        "content": "🚀 Dispatching workflow: **orchon-recorder-agent-step** (background)",
+        "isComplete": true,
+        "timestamp": 1795141634876,
+        "category": "workflow_dispatch_status"
+      }
+    },
+    {
+      "atMs": 6946,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"workflow_dispatch\",\"workerConversationId\":\"web-worker-1795141634856-br349o\",\"workflowName\":\"orchon-recorder-agent-step\",\"timestamp\":1795141634877}",
+      "data": {
+        "type": "workflow_dispatch",
+        "workerConversationId": "web-worker-1795141634856-br349o",
+        "workflowName": "orchon-recorder-agent-step",
+        "timestamp": 1795141634877
+      }
+    },
+    {
+      "atMs": 6948,
+      "kind": "run-found",
+      "runId": "b476c201-fe57-4f11-8b7d-0da088237808"
+    },
+    {
+      "atMs": 6965,
+      "kind": "spend-seen",
+      "tokens": 0,
+      "toolCalls": 0
+    },
+    {
+      "atMs": 7004,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"conversation_lock\",\"conversationId\":\"web-1795141628420-lme4wy\",\"locked\":false,\"timestamp\":1795141634937}",
+      "data": {
+        "type": "conversation_lock",
+        "conversationId": "web-1795141628420-lme4wy",
+        "locked": false,
+        "timestamp": 1795141634937
+      }
+    },
+    {
+      "atMs": 10907,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"workflowName\":\"orchon-recorder-agent-step\",\"status\":\"running\",\"timestamp\":1795141638833}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "workflowName": "orchon-recorder-agent-step",
+        "status": "running",
+        "timestamp": 1795141638833
+      }
+    },
+    {
+      "atMs": 10907,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"workflowName\":\"orchon-recorder-agent-step\",\"status\":\"running\",\"timestamp\":1795141638834}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "workflowName": "orchon-recorder-agent-step",
+        "status": "running",
+        "timestamp": 1795141638834
+      }
+    },
+    {
+      "atMs": 11013,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"nodeId\":\"list\",\"name\":\"list\",\"status\":\"running\",\"execution\":{\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"path\":\"list\",\"node\":{\"id\":\"list\",\"kind\":\"agent\",\"source\":{\"kind\":\"inline\"}},\"invocation\":{\"id\":\"ca87137c-f07b-4be7-954a-567d5f6a3526\",\"startedAt\":\"2026-11-20T02:27:18.838Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"e71391d1-b7a7-40e1-9d82-53d4f9e0e404\",\"startedAt\":\"2026-11-20T02:27:18.935Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{\"provider\":\"claude\",\"model\":{\"requested\":\"haiku\",\"resolved\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"}},\"tier\":\"small\",\"sessionOrigin\":\"fresh\"},\"timing\":{\"startedAt\":\"2026-11-20T02:27:18.935Z\"},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"started\"}},\"timestamp\":1795141638943}",
+      "data": {
+        "type": "dag_node",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "nodeId": "list",
+        "name": "list",
+        "status": "running",
+        "execution": {
+          "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+          "path": "list",
+          "node": {
+            "id": "list",
+            "kind": "agent",
+            "source": {
+              "kind": "inline"
+            }
+          },
+          "invocation": {
+            "id": "ca87137c-f07b-4be7-954a-567d5f6a3526",
+            "startedAt": "2026-11-20T02:27:18.838Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "startedAt": "2026-11-20T02:27:18.935Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {
+            "provider": "claude",
+            "model": {
+              "requested": "haiku",
+              "resolved": {
+                "source": "unavailable",
+                "reason": "not_reported"
+              }
+            },
+            "tier": "small",
+            "sessionOrigin": "fresh"
+          },
+          "timing": {
+            "startedAt": "2026-11-20T02:27:18.935Z"
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "started"
+          }
+        },
+        "timestamp": 1795141638943
+      }
+    },
+    {
+      "atMs": 11013,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"nodeId\":\"list\",\"name\":\"list\",\"status\":\"running\",\"execution\":{\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"path\":\"list\",\"node\":{\"id\":\"list\",\"kind\":\"agent\",\"source\":{\"kind\":\"inline\"}},\"invocation\":{\"id\":\"ca87137c-f07b-4be7-954a-567d5f6a3526\",\"startedAt\":\"2026-11-20T02:27:18.838Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"e71391d1-b7a7-40e1-9d82-53d4f9e0e404\",\"startedAt\":\"2026-11-20T02:27:18.935Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{\"provider\":\"claude\",\"model\":{\"requested\":\"haiku\",\"resolved\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"}},\"tier\":\"small\",\"sessionOrigin\":\"fresh\"},\"timing\":{\"startedAt\":\"2026-11-20T02:27:18.935Z\"},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"started\"}},\"timestamp\":1795141638943}",
+      "data": {
+        "type": "dag_node",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "nodeId": "list",
+        "name": "list",
+        "status": "running",
+        "execution": {
+          "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+          "path": "list",
+          "node": {
+            "id": "list",
+            "kind": "agent",
+            "source": {
+              "kind": "inline"
+            }
+          },
+          "invocation": {
+            "id": "ca87137c-f07b-4be7-954a-567d5f6a3526",
+            "startedAt": "2026-11-20T02:27:18.838Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "startedAt": "2026-11-20T02:27:18.935Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {
+            "provider": "claude",
+            "model": {
+              "requested": "haiku",
+              "resolved": {
+                "source": "unavailable",
+                "reason": "not_reported"
+              }
+            },
+            "tier": "small",
+            "sessionOrigin": "fresh"
+          },
+          "timing": {
+            "startedAt": "2026-11-20T02:27:18.935Z"
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "started"
+          }
+        },
+        "timestamp": 1795141638943
+      }
+    },
+    {
+      "atMs": 11820,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"workflowName\":\"orchon-recorder-agent-step\",\"status\":\"running\",\"timestamp\":1795141639752}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "workflowName": "orchon-recorder-agent-step",
+        "status": "running",
+        "timestamp": 1795141639752
+      }
+    },
+    {
+      "atMs": 11820,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"nodeId\":\"list\",\"name\":\"list\",\"status\":\"running\",\"execution\":{\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"path\":\"list\",\"node\":{\"id\":\"list\",\"kind\":\"agent\",\"source\":{\"kind\":\"inline\"}},\"invocation\":{\"id\":\"ca87137c-f07b-4be7-954a-567d5f6a3526\",\"startedAt\":\"2026-11-20T02:27:18.838Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"e71391d1-b7a7-40e1-9d82-53d4f9e0e404\",\"startedAt\":\"2026-11-20T02:27:18.935Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{\"provider\":\"claude\",\"model\":{\"requested\":\"haiku\",\"resolved\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"}},\"tier\":\"small\",\"sessionOrigin\":\"fresh\"},\"timing\":{\"startedAt\":\"2026-11-20T02:27:18.935Z\"},\"spend\":{\"tokens\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"costUsd\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"stopReason\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"},\"numTurns\":{\"source\":\"unavailable\",\"reason\":\"not_reported\"}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"started\"}},\"timestamp\":1795141639752}",
+      "data": {
+        "type": "dag_node",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "nodeId": "list",
+        "name": "list",
+        "status": "running",
+        "execution": {
+          "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+          "path": "list",
+          "node": {
+            "id": "list",
+            "kind": "agent",
+            "source": {
+              "kind": "inline"
+            }
+          },
+          "invocation": {
+            "id": "ca87137c-f07b-4be7-954a-567d5f6a3526",
+            "startedAt": "2026-11-20T02:27:18.838Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "startedAt": "2026-11-20T02:27:18.935Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {
+            "provider": "claude",
+            "model": {
+              "requested": "haiku",
+              "resolved": {
+                "source": "unavailable",
+                "reason": "not_reported"
+              }
+            },
+            "tier": "small",
+            "sessionOrigin": "fresh"
+          },
+          "timing": {
+            "startedAt": "2026-11-20T02:27:18.935Z"
+          },
+          "spend": {
+            "tokens": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "costUsd": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "stopReason": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            },
+            "numTurns": {
+              "source": "unavailable",
+              "reason": "not_reported"
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "started"
+          }
+        },
+        "timestamp": 1795141639752
+      }
+    },
+    {
+      "atMs": 14062,
+      "kind": "spend-seen",
+      "tokens": 0,
+      "toolCalls": 1
+    },
+    {
+      "atMs": 15648,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"nodeId\":\"list\",\"name\":\"list\",\"status\":\"completed\",\"duration\":4722,\"execution\":{\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"path\":\"list\",\"node\":{\"id\":\"list\",\"kind\":\"agent\",\"source\":{\"kind\":\"inline\"}},\"invocation\":{\"id\":\"ca87137c-f07b-4be7-954a-567d5f6a3526\",\"startedAt\":\"2026-11-20T02:27:18.838Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"e71391d1-b7a7-40e1-9d82-53d4f9e0e404\",\"startedAt\":\"2026-11-20T02:27:18.935Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{\"provider\":\"claude\",\"model\":{\"requested\":\"haiku\",\"resolved\":{\"source\":\"provider\",\"value\":\"claude-haiku-5-5\"}},\"tier\":\"small\",\"sessionPreview\":\"f8a8b622\",\"sessionOrigin\":\"fresh\"},\"timing\":{\"startedAt\":\"2026-11-20T02:27:18.935Z\",\"durationMs\":4722},\"spend\":{\"tokens\":{\"source\":\"provider\",\"value\":{\"input\":17038,\"output\":301,\"cacheRead\":8686,\"cacheWrite\":7172}},\"costUsd\":{\"source\":\"provider\",\"value\":0.00178976},\"stopReason\":{\"source\":\"provider\",\"value\":\"end_turn\"},\"numTurns\":{\"source\":\"provider\",\"value\":2}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"completed\"}},\"timestamp\":1795141643573}",
+      "data": {
+        "type": "dag_node",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "nodeId": "list",
+        "name": "list",
+        "status": "completed",
+        "duration": 4722,
+        "execution": {
+          "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+          "path": "list",
+          "node": {
+            "id": "list",
+            "kind": "agent",
+            "source": {
+              "kind": "inline"
+            }
+          },
+          "invocation": {
+            "id": "ca87137c-f07b-4be7-954a-567d5f6a3526",
+            "startedAt": "2026-11-20T02:27:18.838Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "startedAt": "2026-11-20T02:27:18.935Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {
+            "provider": "claude",
+            "model": {
+              "requested": "haiku",
+              "resolved": {
+                "source": "provider",
+                "value": "claude-haiku-5-5"
+              }
+            },
+            "tier": "small",
+            "sessionPreview": "f8a8b622",
+            "sessionOrigin": "fresh"
+          },
+          "timing": {
+            "startedAt": "2026-11-20T02:27:18.935Z",
+            "durationMs": 4722
+          },
+          "spend": {
+            "tokens": {
+              "source": "provider",
+              "value": {
+                "input": 17038,
+                "output": 301,
+                "cacheRead": 8686,
+                "cacheWrite": 7172
+              }
+            },
+            "costUsd": {
+              "source": "provider",
+              "value": 0.00178976
+            },
+            "stopReason": {
+              "source": "provider",
+              "value": "end_turn"
+            },
+            "numTurns": {
+              "source": "provider",
+              "value": 2
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "completed"
+          }
+        },
+        "timestamp": 1795141643573
+      }
+    },
+    {
+      "atMs": 15648,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"dag_node\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"nodeId\":\"list\",\"name\":\"list\",\"status\":\"completed\",\"duration\":4722,\"execution\":{\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"path\":\"list\",\"node\":{\"id\":\"list\",\"kind\":\"agent\",\"source\":{\"kind\":\"inline\"}},\"invocation\":{\"id\":\"ca87137c-f07b-4be7-954a-567d5f6a3526\",\"startedAt\":\"2026-11-20T02:27:18.838Z\",\"loopPath\":[],\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"attempt\":{\"id\":\"e71391d1-b7a7-40e1-9d82-53d4f9e0e404\",\"startedAt\":\"2026-11-20T02:27:18.935Z\",\"checkoutStart\":{\"kind\":\"git\",\"sampledAt\":\"2026-11-20T02:27:18.847Z\",\"commit\":\"55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\"tree\":\"249ce1b5f0059d1188c222d7044148e1e6802d80\",\"worktree\":{\"status\":\"clean\"}}},\"binding\":{\"provider\":\"claude\",\"model\":{\"requested\":\"haiku\",\"resolved\":{\"source\":\"provider\",\"value\":\"claude-haiku-5-5\"}},\"tier\":\"small\",\"sessionPreview\":\"f8a8b622\",\"sessionOrigin\":\"fresh\"},\"timing\":{\"startedAt\":\"2026-11-20T02:27:18.935Z\",\"durationMs\":4722},\"spend\":{\"tokens\":{\"source\":\"provider\",\"value\":{\"input\":17038,\"output\":301,\"cacheRead\":8686,\"cacheWrite\":7172}},\"costUsd\":{\"source\":\"provider\",\"value\":0.00178976},\"stopReason\":{\"source\":\"provider\",\"value\":\"end_turn\"},\"numTurns\":{\"source\":\"provider\",\"value\":2}},\"accounting\":\"node\",\"lifecycle\":{\"status\":\"completed\"}},\"timestamp\":1795141643573}",
+      "data": {
+        "type": "dag_node",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "nodeId": "list",
+        "name": "list",
+        "status": "completed",
+        "duration": 4722,
+        "execution": {
+          "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+          "path": "list",
+          "node": {
+            "id": "list",
+            "kind": "agent",
+            "source": {
+              "kind": "inline"
+            }
+          },
+          "invocation": {
+            "id": "ca87137c-f07b-4be7-954a-567d5f6a3526",
+            "startedAt": "2026-11-20T02:27:18.838Z",
+            "loopPath": [],
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "attempt": {
+            "id": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "startedAt": "2026-11-20T02:27:18.935Z",
+            "checkoutStart": {
+              "kind": "git",
+              "sampledAt": "2026-11-20T02:27:18.847Z",
+              "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+              "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+              "worktree": {
+                "status": "clean"
+              }
+            }
+          },
+          "binding": {
+            "provider": "claude",
+            "model": {
+              "requested": "haiku",
+              "resolved": {
+                "source": "provider",
+                "value": "claude-haiku-5-5"
+              }
+            },
+            "tier": "small",
+            "sessionPreview": "f8a8b622",
+            "sessionOrigin": "fresh"
+          },
+          "timing": {
+            "startedAt": "2026-11-20T02:27:18.935Z",
+            "durationMs": 4722
+          },
+          "spend": {
+            "tokens": {
+              "source": "provider",
+              "value": {
+                "input": 17038,
+                "output": 301,
+                "cacheRead": 8686,
+                "cacheWrite": 7172
+              }
+            },
+            "costUsd": {
+              "source": "provider",
+              "value": 0.00178976
+            },
+            "stopReason": {
+              "source": "provider",
+              "value": "end_turn"
+            },
+            "numTurns": {
+              "source": "provider",
+              "value": 2
+            }
+          },
+          "accounting": "node",
+          "lifecycle": {
+            "status": "completed"
+          }
+        },
+        "timestamp": 1795141643573
+      }
+    },
+    {
+      "atMs": 15650,
+      "kind": "frame",
+      "label": "dashboard",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"workflowName\":\"orchon-recorder-agent-step\",\"status\":\"completed\",\"timestamp\":1795141643582}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "workflowName": "orchon-recorder-agent-step",
+        "status": "completed",
+        "timestamp": 1795141643582
+      }
+    },
+    {
+      "atMs": 15650,
+      "kind": "frame",
+      "label": "conversation",
+      "raw": "data: {\"type\":\"workflow_status\",\"runId\":\"b476c201-fe57-4f11-8b7d-0da088237808\",\"workflowName\":\"orchon-recorder-agent-step\",\"status\":\"completed\",\"timestamp\":1795141643582}",
+      "data": {
+        "type": "workflow_status",
+        "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+        "workflowName": "orchon-recorder-agent-step",
+        "status": "completed",
+        "timestamp": 1795141643582
+      }
+    },
+    {
+      "atMs": 16081,
+      "kind": "spend-seen",
+      "tokens": 33197,
+      "toolCalls": 1
+    },
+    {
+      "atMs": 16082,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/b476c201-fe57-4f11-8b7d-0da088237808",
+      "requestBody": null,
+      "startedMs": 16081,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "run": {
+          "id": "b476c201-fe57-4f11-8b7d-0da088237808",
+          "conversation_id": "70069f3f63b37160dbab46c47c4b7a3c",
+          "codebase_id": "4d57e6832e94f093db6036b9ef3647d0",
+          "workflow_name": "orchon-recorder-agent-step",
+          "user_message": "Recording an agent step for Orchon.",
+          "status": "completed",
+          "outcome": null,
+          "current_step_index": null,
+          "metadata": {
+            "ai_configuration": {
+              "version": 1,
+              "assistant": "claude",
+              "assistants": {
+                "opencode": {},
+                "copilot": {},
+                "claude": {
+                  "model": "haiku"
+                }
+              },
+              "baseAiProfile": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              },
+              "modelOverrides": {}
+            },
+            "workflow_source": {
+              "version": 1,
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\workflow-source\\runs\\b476c201-fe57-4f11-8b7d-0da088237808",
+              "origin": "<project-path>",
+              "captured_at": "2026-11-20T02:27:12.557Z",
+              "digest": "1905ba751d8be4b16a8428136e3d329f7c52579f8aadb56bf5b0c5d15c1e9e8c",
+              "source_config": {
+                "load_default_workflows": true,
+                "load_default_commands": true
+              },
+              "file_count": 161,
+              "byte_count": 915997
+            },
+            "model_bindings": {
+              "overrides": {},
+              "effective": {
+                "defaultProvider": "claude",
+                "aliases": {
+                  "small": {
+                    "provider": "claude",
+                    "model": "haiku"
+                  },
+                  "medium": {
+                    "provider": "claude",
+                    "model": "sonnet"
+                  },
+                  "large": {
+                    "provider": "claude",
+                    "model": "opus"
+                  }
+                }
+              }
+            },
+            "dispatch": {
+              "base_branch": "",
+              "inputs_resolved": true
+            },
+            "execution_owner": {
+              "host": "<host>",
+              "pid": 60144
+            },
+            "terminal_graph": {
+              "node_ids": [
+                "list"
+              ]
+            },
+            "total_cost_usd": 0.00178976,
+            "total_tokens_in": 17038,
+            "total_tokens_out": 301,
+            "total_cache_read_tokens": 8686,
+            "total_cache_write_tokens": 7172,
+            "node_counts": {
+              "completed": 1,
+              "failed": 0,
+              "skipped": 0,
+              "total": 1
+            }
+          },
+          "parent_conversation_id": "a591d625aeb842d829ce634ed4760529",
+          "user_id": null,
+          "parent_run_id": null,
+          "adopted_from_run_id": null,
+          "started_at": "2026-11-20T02:27:14.000Z",
+          "completed_at": "2026-11-20T02:27:23.000Z",
+          "last_activity_at": "2026-11-20T02:27:20.000Z",
+          "working_path": "<project-path>",
+          "output_root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project",
+          "checkout_baseline": {
+            "kind": "git",
+            "sampledAt": "2026-11-20T02:27:16.156Z",
+            "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+            "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+            "worktree": {
+              "status": "clean"
+            }
+          },
+          "origin": {
+            "conversationId": "70069f3f63b37160dbab46c47c4b7a3c",
+            "parentConversationId": "a591d625aeb842d829ce634ed4760529"
+          },
+          "attention": {
+            "kind": "terminal",
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "status": "completed",
+            "at": "2026-11-20T02:27:23.000Z"
+          },
+          "worker_platform_id": "web-worker-1795141634856-br349o",
+          "parent_platform_id": "web-1795141628420-lme4wy",
+          "conversation_platform_id": null,
+          "owner_observation": null,
+          "terminal_record": {
+            "run_id": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "status": "completed",
+            "outcome": null,
+            "error": null,
+            "first_failed_node": null,
+            "nodes": [
+              {
+                "node_id": "list",
+                "state": "completed"
+              }
+            ],
+            "returns": {
+              "availability": "unavailable",
+              "node_id": null,
+              "reason": "not_declared"
+            },
+            "artifacts": {
+              "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\b476c201-fe57-4f11-8b7d-0da088237808",
+              "files": [
+                {
+                  "path": ".archon/node-outcomes/53c203f0-997c-474b-9474-aec0fdb4c8df.json",
+                  "size": 163
+                },
+                {
+                  "path": ".archon/node-outcomes/cf912712-5ac5-48f2-8f05-716bfa79f6a6.json",
+                  "size": 163
+                },
+                {
+                  "path": ".archon/typed-artifacts/821c6e15-7f8b-495f-8925-7eb56619b059.json",
+                  "size": 94
+                },
+                {
+                  "path": ".archon/typed-artifacts/f2529554-1196-4b87-ac50-8da350ef29f7.json",
+                  "size": 94
+                }
+              ],
+              "limitations": []
+            }
+          },
+          "nodes": [
+            {
+              "node_id": "list",
+              "state": "completed"
+            }
+          ]
+        },
+        "events": [
+          {
+            "id": "25aa8204-9a38-4cb3-a885-651c66a7b918",
+            "workflow_run_id": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "event_order": 1,
+            "event_type": "workflow_started",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "workflowName": "orchon-recorder-agent-step",
+              "defaultAssistant": "claude",
+              "provider": "claude",
+              "model": "haiku",
+              "isolationMode": "in-place",
+              "baseBranch": "",
+              "userId": null,
+              "userMessage": "Recording an agent step for Orchon.",
+              "origin": "web",
+              "transcriptPath": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\logs\\b476c201-fe57-4f11-8b7d-0da088237808.jsonl"
+            },
+            "created_at": "2026-11-20 02:27:18"
+          },
+          {
+            "id": "68b1ffb6-d5bb-479f-91cf-e22ca2e920d1",
+            "workflow_run_id": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "event_order": 2,
+            "event_type": "node_started",
+            "step_index": null,
+            "step_name": "list",
+            "data": {
+              "node": {
+                "id": "list",
+                "kind": "agent",
+                "source": {
+                  "kind": "inline"
+                }
+              },
+              "invocation": {
+                "id": "ca87137c-f07b-4be7-954a-567d5f6a3526",
+                "startedAt": "2026-11-20T02:27:18.838Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:27:18.847Z",
+                  "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+                  "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+                "startedAt": "2026-11-20T02:27:18.935Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:27:18.847Z",
+                  "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+                  "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {
+                "provider": "claude",
+                "model": {
+                  "requested": "haiku",
+                  "resolved": {
+                    "source": "unavailable",
+                    "reason": "not_reported"
+                  }
+                },
+                "tier": "small",
+                "sessionOrigin": "fresh"
+              },
+              "timing": {
+                "startedAt": "2026-11-20T02:27:18.935Z"
+              },
+              "spend": {
+                "tokens": {
+                  "source": "unavailable",
+                  "reason": "not_reported"
+                },
+                "costUsd": {
+                  "source": "unavailable",
+                  "reason": "not_reported"
+                },
+                "stopReason": {
+                  "source": "unavailable",
+                  "reason": "not_reported"
+                },
+                "numTurns": {
+                  "source": "unavailable",
+                  "reason": "not_reported"
+                }
+              },
+              "accounting": "node",
+              "type": "agent",
+              "command": null,
+              "provider": "claude",
+              "model": "haiku",
+              "tier": "small"
+            },
+            "created_at": "2026-11-20 02:27:18"
+          },
+          {
+            "id": "755595fd-4b81-436e-b218-11800e63c5c0",
+            "workflow_run_id": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "event_order": 8,
+            "event_type": "node_completed",
+            "step_index": null,
+            "step_name": "list",
+            "data": {
+              "node": {
+                "id": "list",
+                "kind": "agent",
+                "source": {
+                  "kind": "inline"
+                }
+              },
+              "invocation": {
+                "id": "ca87137c-f07b-4be7-954a-567d5f6a3526",
+                "startedAt": "2026-11-20T02:27:18.838Z",
+                "loopPath": [],
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:27:18.847Z",
+                  "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+                  "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "attempt": {
+                "id": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+                "startedAt": "2026-11-20T02:27:18.935Z",
+                "checkoutStart": {
+                  "kind": "git",
+                  "sampledAt": "2026-11-20T02:27:18.847Z",
+                  "commit": "55a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9",
+                  "tree": "249ce1b5f0059d1188c222d7044148e1e6802d80",
+                  "worktree": {
+                    "status": "clean"
+                  }
+                }
+              },
+              "binding": {
+                "provider": "claude",
+                "model": {
+                  "requested": "haiku",
+                  "resolved": {
+                    "source": "provider",
+                    "value": "claude-haiku-5-5"
+                  }
+                },
+                "tier": "small",
+                "sessionPreview": "f8a8b622",
+                "sessionOrigin": "fresh"
+              },
+              "timing": {
+                "startedAt": "2026-11-20T02:27:18.935Z",
+                "durationMs": 4722
+              },
+              "spend": {
+                "tokens": {
+                  "source": "provider",
+                  "value": {
+                    "input": 17038,
+                    "output": 301,
+                    "cacheRead": 8686,
+                    "cacheWrite": 7172
+                  }
+                },
+                "costUsd": {
+                  "source": "provider",
+                  "value": 0.00178976
+                },
+                "stopReason": {
+                  "source": "provider",
+                  "value": "end_turn"
+                },
+                "numTurns": {
+                  "source": "provider",
+                  "value": 2
+                }
+              },
+              "accounting": "node",
+              "type": "agent",
+              "command": null,
+              "provider": "claude",
+              "model": "haiku",
+              "tier": "small",
+              "duration_ms": 4722,
+              "tokens": {
+                "input": 17038,
+                "output": 301,
+                "cacheRead": 8686,
+                "cacheWrite": 7172
+              },
+              "cost_usd": 0.00178976,
+              "stop_reason": "end_turn",
+              "num_turns": 2,
+              "model_usage": {
+                "requested": "haiku",
+                "resolved": "claude-haiku-5-5"
+              },
+              "node_output": "Files in `<project-path>`:\n\n- `README.md`\n- `.archon\\workflows\\`\n  - `orchon-recorder-agent-step.yaml`\n  - `orchon-recorder-echo.yaml`\n  - `orchon-recorder-fail.yaml`\n  - `orchon-recorder-gate.yaml`\n  - `orchon-recorder-inputs.yaml`\n  - `orchon-recorder-slow.yaml`\n- `.git\\` (repository metadata: `HEAD`, `config`, `index`, `COMMIT_EDITMSG`, hooks, objects, refs, logs)",
+              "session_id": "f8a8b622-1faf-4c32-a547-c8e9ec4c9c56"
+            },
+            "created_at": "2026-11-20 02:27:23",
+            "cost_scope": "own"
+          },
+          {
+            "id": "d7afdc26-1499-41d5-b826-2a58c4a0a921",
+            "workflow_run_id": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "event_order": 9,
+            "event_type": "workflow_completed",
+            "step_index": null,
+            "step_name": null,
+            "data": {
+              "duration_ms": 4744,
+              "terminal_record": {
+                "run_id": "b476c201-fe57-4f11-8b7d-0da088237808",
+                "status": "completed",
+                "outcome": null,
+                "error": null,
+                "first_failed_node": null,
+                "nodes": [
+                  {
+                    "node_id": "list",
+                    "state": "completed"
+                  }
+                ],
+                "returns": {
+                  "availability": "unavailable",
+                  "node_id": null,
+                  "reason": "not_declared"
+                },
+                "artifacts": {
+                  "root": "<archon-home>\\workspaces\\orchon-recorder\\throwaway-project\\artifacts\\runs\\b476c201-fe57-4f11-8b7d-0da088237808",
+                  "files": [
+                    {
+                      "path": ".archon/node-outcomes/53c203f0-997c-474b-9474-aec0fdb4c8df.json",
+                      "size": 163
+                    },
+                    {
+                      "path": ".archon/node-outcomes/cf912712-5ac5-48f2-8f05-716bfa79f6a6.json",
+                      "size": 163
+                    },
+                    {
+                      "path": ".archon/typed-artifacts/821c6e15-7f8b-495f-8925-7eb56619b059.json",
+                      "size": 94
+                    },
+                    {
+                      "path": ".archon/typed-artifacts/f2529554-1196-4b87-ac50-8da350ef29f7.json",
+                      "size": 94
+                    }
+                  ],
+                  "limitations": []
+                }
+              }
+            },
+            "created_at": "2026-11-20 02:27:23"
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 16083,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/b476c201-fe57-4f11-8b7d-0da088237808/provider-events",
+      "requestBody": null,
+      "startedMs": 16082,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "events": [
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 0,
+            "observedAt": "2026-11-20T02:27:20.861Z",
+            "event": {
+              "type": "state_update",
+              "state": "running"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 1,
+            "observedAt": "2026-11-20T02:27:21.958Z",
+            "event": {
+              "type": "tool_call",
+              "toolCallId": "toolu_01HxY5X64vMXEVYM9VFgs5gT",
+              "name": "Glob",
+              "rawInput": {
+                "pattern": "*"
+              }
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 2,
+            "observedAt": "2026-11-20T02:27:22.035Z",
+            "event": {
+              "type": "heartbeat"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 3,
+            "observedAt": "2026-11-20T02:27:22.340Z",
+            "event": {
+              "type": "tool_call_update",
+              "toolCallId": "toolu_01HxY5X64vMXEVYM9VFgs5gT",
+              "status": "completed",
+              "output": "{\"filenames\":[\".archon\\\\workflows\\\\orchon-recorder-echo.yaml\",\"README.md\",\".archon\\\\workflows\\\\orchon-recorder-inputs.yaml\",\".archon\\\\workflows\\\\orchon-recorder-fail.yaml\",\".archon\\\\workflows\\\\orchon-recorder-gate.yaml\",\".archon\\\\workflows\\\\orchon-recorder-slow.yaml\",\".archon\\\\workflows\\\\orchon-recorder-agent-step.yaml\",\".git\\\\description\",\".git\\\\hooks\\\\applypatch-msg.sample\",\".git\\\\hooks\\\\commit-msg.sample\",\".git\\\\hooks\\\\fsmonitor-watchman.sample\",\".git\\\\hooks\\\\post-update.sample\",\".git\\\\hooks\\\\pre-applypatch.sample\",\".git\\\\hooks\\\\pre-commit.sample\",\".git\\\\hooks\\\\pre-merge-commit.sample\",\".git\\\\hooks\\\\pre-push.sample\",\".git\\\\hooks\\\\pre-rebase.sample\",\".git\\\\hooks\\\\pre-receive.sample\",\".git\\\\hooks\\\\prepare-commit-msg.sample\",\".git\\\\hooks\\\\push-to-checkout.sample\",\".git\\\\hooks\\\\sendemail-validate.sample\",\".git\\\\hooks\\\\update.sample\",\".git\\\\info\\\\exclude\",\".git\\\\HEAD\",\".git\\\\objects\\\\a9\\\\7c8128257b73e9c0c7c02c6f45a915b49a1a28\",\".git\\\\objects\\\\7e\\\\d8d601033222338bc106b9dac3173df63e416d\",\".git\\\\objects\\\\1b\\\\4182eaddf2dc2436bd2ae379c0c611e443f431\",\".git\\\\objects\\\\ee\\\\f12062b2326595678ea2d62f0bce2e5a61dab1\",\".git\\\\objects\\\\73\\\\293df7ce9867fa156bc60923602df79322b615\",\".git\\\\objects\\\\f5\\\\c3384eb6d730832f02013a4aabc5daf1d193a8\",\".git\\\\objects\\\\6f\\\\9bbea8d39a27b1756cf0500f4f56903dea182b\",\".git\\\\objects\\\\d6\\\\e3a65d017d9ff761614b63feb44f1b34912357\",\".git\\\\objects\\\\2e\\\\2f20c9ffd96cb378e6decf425c5c4f2f96830f\",\".git\\\\objects\\\\24\\\\9ce1b5f0059d1188c222d7044148e1e6802d80\",\".git\\\\index\",\".git\\\\COMMIT_EDITMSG\",\".git\\\\objects\\\\55\\\\a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\".git\\\\logs\\\\HEAD\",\".git\\\\refs\\\\heads\\\\main\",\".git\\\\logs\\\\refs\\\\heads\\\\main\",\".git\\\\config\"],\"durationMs\":303,\"numFiles\":41,\"truncated\":false,\"totalMatches\":41,\"countIsComplete\":true}"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 4,
+            "observedAt": "2026-11-20T02:27:23.492Z",
+            "event": {
+              "type": "agent_message_chunk",
+              "text": "Files in `<project-path>`:\n\n- `README.md`\n- `.archon\\workflows\\`\n  - `orchon-recorder-agent-step.yaml`\n  - `orchon-recorder-echo.yaml`\n  - `orchon-recorder-fail.yaml`\n  - `orchon-recorder-gate.yaml`\n  - `orchon-recorder-inputs.yaml`\n  - `orchon-recorder-slow.yaml`\n- `.git\\` (repository metadata: `HEAD`, `config`, `index`, `COMMIT_EDITMSG`, hooks, objects, refs, logs)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 16085,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/b476c201-fe57-4f11-8b7d-0da088237808/provider-events?step=list",
+      "requestBody": null,
+      "startedMs": 16083,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "events": [
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 0,
+            "observedAt": "2026-11-20T02:27:20.861Z",
+            "event": {
+              "type": "state_update",
+              "state": "running"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 1,
+            "observedAt": "2026-11-20T02:27:21.958Z",
+            "event": {
+              "type": "tool_call",
+              "toolCallId": "toolu_01HxY5X64vMXEVYM9VFgs5gT",
+              "name": "Glob",
+              "rawInput": {
+                "pattern": "*"
+              }
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 2,
+            "observedAt": "2026-11-20T02:27:22.035Z",
+            "event": {
+              "type": "heartbeat"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 3,
+            "observedAt": "2026-11-20T02:27:22.340Z",
+            "event": {
+              "type": "tool_call_update",
+              "toolCallId": "toolu_01HxY5X64vMXEVYM9VFgs5gT",
+              "status": "completed",
+              "output": "{\"filenames\":[\".archon\\\\workflows\\\\orchon-recorder-echo.yaml\",\"README.md\",\".archon\\\\workflows\\\\orchon-recorder-inputs.yaml\",\".archon\\\\workflows\\\\orchon-recorder-fail.yaml\",\".archon\\\\workflows\\\\orchon-recorder-gate.yaml\",\".archon\\\\workflows\\\\orchon-recorder-slow.yaml\",\".archon\\\\workflows\\\\orchon-recorder-agent-step.yaml\",\".git\\\\description\",\".git\\\\hooks\\\\applypatch-msg.sample\",\".git\\\\hooks\\\\commit-msg.sample\",\".git\\\\hooks\\\\fsmonitor-watchman.sample\",\".git\\\\hooks\\\\post-update.sample\",\".git\\\\hooks\\\\pre-applypatch.sample\",\".git\\\\hooks\\\\pre-commit.sample\",\".git\\\\hooks\\\\pre-merge-commit.sample\",\".git\\\\hooks\\\\pre-push.sample\",\".git\\\\hooks\\\\pre-rebase.sample\",\".git\\\\hooks\\\\pre-receive.sample\",\".git\\\\hooks\\\\prepare-commit-msg.sample\",\".git\\\\hooks\\\\push-to-checkout.sample\",\".git\\\\hooks\\\\sendemail-validate.sample\",\".git\\\\hooks\\\\update.sample\",\".git\\\\info\\\\exclude\",\".git\\\\HEAD\",\".git\\\\objects\\\\a9\\\\7c8128257b73e9c0c7c02c6f45a915b49a1a28\",\".git\\\\objects\\\\7e\\\\d8d601033222338bc106b9dac3173df63e416d\",\".git\\\\objects\\\\1b\\\\4182eaddf2dc2436bd2ae379c0c611e443f431\",\".git\\\\objects\\\\ee\\\\f12062b2326595678ea2d62f0bce2e5a61dab1\",\".git\\\\objects\\\\73\\\\293df7ce9867fa156bc60923602df79322b615\",\".git\\\\objects\\\\f5\\\\c3384eb6d730832f02013a4aabc5daf1d193a8\",\".git\\\\objects\\\\6f\\\\9bbea8d39a27b1756cf0500f4f56903dea182b\",\".git\\\\objects\\\\d6\\\\e3a65d017d9ff761614b63feb44f1b34912357\",\".git\\\\objects\\\\2e\\\\2f20c9ffd96cb378e6decf425c5c4f2f96830f\",\".git\\\\objects\\\\24\\\\9ce1b5f0059d1188c222d7044148e1e6802d80\",\".git\\\\index\",\".git\\\\COMMIT_EDITMSG\",\".git\\\\objects\\\\55\\\\a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\".git\\\\logs\\\\HEAD\",\".git\\\\refs\\\\heads\\\\main\",\".git\\\\logs\\\\refs\\\\heads\\\\main\",\".git\\\\config\"],\"durationMs\":303,\"numFiles\":41,\"truncated\":false,\"totalMatches\":41,\"countIsComplete\":true}"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 4,
+            "observedAt": "2026-11-20T02:27:23.492Z",
+            "event": {
+              "type": "agent_message_chunk",
+              "text": "Files in `<project-path>`:\n\n- `README.md`\n- `.archon\\workflows\\`\n  - `orchon-recorder-agent-step.yaml`\n  - `orchon-recorder-echo.yaml`\n  - `orchon-recorder-fail.yaml`\n  - `orchon-recorder-gate.yaml`\n  - `orchon-recorder-inputs.yaml`\n  - `orchon-recorder-slow.yaml`\n- `.git\\` (repository metadata: `HEAD`, `config`, `index`, `COMMIT_EDITMSG`, hooks, objects, refs, logs)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 16087,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/workflows/runs/b476c201-fe57-4f11-8b7d-0da088237808/provider-events?step=list&attemptId=e71391d1-b7a7-40e1-9d82-53d4f9e0e404&afterSeq=0",
+      "requestBody": null,
+      "startedMs": 16085,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "events": [
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 1,
+            "observedAt": "2026-11-20T02:27:21.958Z",
+            "event": {
+              "type": "tool_call",
+              "toolCallId": "toolu_01HxY5X64vMXEVYM9VFgs5gT",
+              "name": "Glob",
+              "rawInput": {
+                "pattern": "*"
+              }
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 2,
+            "observedAt": "2026-11-20T02:27:22.035Z",
+            "event": {
+              "type": "heartbeat"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 3,
+            "observedAt": "2026-11-20T02:27:22.340Z",
+            "event": {
+              "type": "tool_call_update",
+              "toolCallId": "toolu_01HxY5X64vMXEVYM9VFgs5gT",
+              "status": "completed",
+              "output": "{\"filenames\":[\".archon\\\\workflows\\\\orchon-recorder-echo.yaml\",\"README.md\",\".archon\\\\workflows\\\\orchon-recorder-inputs.yaml\",\".archon\\\\workflows\\\\orchon-recorder-fail.yaml\",\".archon\\\\workflows\\\\orchon-recorder-gate.yaml\",\".archon\\\\workflows\\\\orchon-recorder-slow.yaml\",\".archon\\\\workflows\\\\orchon-recorder-agent-step.yaml\",\".git\\\\description\",\".git\\\\hooks\\\\applypatch-msg.sample\",\".git\\\\hooks\\\\commit-msg.sample\",\".git\\\\hooks\\\\fsmonitor-watchman.sample\",\".git\\\\hooks\\\\post-update.sample\",\".git\\\\hooks\\\\pre-applypatch.sample\",\".git\\\\hooks\\\\pre-commit.sample\",\".git\\\\hooks\\\\pre-merge-commit.sample\",\".git\\\\hooks\\\\pre-push.sample\",\".git\\\\hooks\\\\pre-rebase.sample\",\".git\\\\hooks\\\\pre-receive.sample\",\".git\\\\hooks\\\\prepare-commit-msg.sample\",\".git\\\\hooks\\\\push-to-checkout.sample\",\".git\\\\hooks\\\\sendemail-validate.sample\",\".git\\\\hooks\\\\update.sample\",\".git\\\\info\\\\exclude\",\".git\\\\HEAD\",\".git\\\\objects\\\\a9\\\\7c8128257b73e9c0c7c02c6f45a915b49a1a28\",\".git\\\\objects\\\\7e\\\\d8d601033222338bc106b9dac3173df63e416d\",\".git\\\\objects\\\\1b\\\\4182eaddf2dc2436bd2ae379c0c611e443f431\",\".git\\\\objects\\\\ee\\\\f12062b2326595678ea2d62f0bce2e5a61dab1\",\".git\\\\objects\\\\73\\\\293df7ce9867fa156bc60923602df79322b615\",\".git\\\\objects\\\\f5\\\\c3384eb6d730832f02013a4aabc5daf1d193a8\",\".git\\\\objects\\\\6f\\\\9bbea8d39a27b1756cf0500f4f56903dea182b\",\".git\\\\objects\\\\d6\\\\e3a65d017d9ff761614b63feb44f1b34912357\",\".git\\\\objects\\\\2e\\\\2f20c9ffd96cb378e6decf425c5c4f2f96830f\",\".git\\\\objects\\\\24\\\\9ce1b5f0059d1188c222d7044148e1e6802d80\",\".git\\\\index\",\".git\\\\COMMIT_EDITMSG\",\".git\\\\objects\\\\55\\\\a6ccb6b8cc3d98b3f9e95b782619f0c60a27e9\",\".git\\\\logs\\\\HEAD\",\".git\\\\refs\\\\heads\\\\main\",\".git\\\\logs\\\\refs\\\\heads\\\\main\",\".git\\\\config\"],\"durationMs\":303,\"numFiles\":41,\"truncated\":false,\"totalMatches\":41,\"countIsComplete\":true}"
+            }
+          },
+          {
+            "runId": "b476c201-fe57-4f11-8b7d-0da088237808",
+            "stepName": "list",
+            "attemptId": "e71391d1-b7a7-40e1-9d82-53d4f9e0e404",
+            "seq": 4,
+            "observedAt": "2026-11-20T02:27:23.492Z",
+            "event": {
+              "type": "agent_message_chunk",
+              "text": "Files in `<project-path>`:\n\n- `README.md`\n- `.archon\\workflows\\`\n  - `orchon-recorder-agent-step.yaml`\n  - `orchon-recorder-echo.yaml`\n  - `orchon-recorder-fail.yaml`\n  - `orchon-recorder-gate.yaml`\n  - `orchon-recorder-inputs.yaml`\n  - `orchon-recorder-slow.yaml`\n- `.git\\` (repository metadata: `HEAD`, `config`, `index`, `COMMIT_EDITMSG`, hooks, objects, refs, logs)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "atMs": 16088,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795141628420-lme4wy",
+      "requestBody": null,
+      "startedMs": 16087,
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "a591d625aeb842d829ce634ed4760529",
+        "platform_type": "web",
+        "platform_conversation_id": "web-1795141628420-lme4wy",
+        "ai_assistant_type": "claude",
+        "codebase_id": "4d57e6832e94f093db6036b9ef3647d0",
+        "cwd": null,
+        "isolation_env_id": null,
+        "title": "Recording Orchon agent step",
+        "deleted_at": null,
+        "hidden": 0,
+        "user_id": null,
+        "created_at": "2026-11-20 02:27:08",
+        "updated_at": "2026-11-20 02:27:12",
+        "last_activity_at": "2026-11-20 02:27:08"
+      }
+    },
+    {
+      "atMs": 16090,
+      "kind": "http",
+      "method": "GET",
+      "path": "/api/conversations/web-1795141628420-lme4wy/messages?limit=50",
+      "requestBody": null,
+      "startedMs": 16088,
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "fa43126bb3be1ebdc8008e1e01d6b7e5",
+          "conversation_id": "a591d625aeb842d829ce634ed4760529",
+          "role": "user",
+          "content": "Recording an agent step for Orchon.",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-20 02:27:08"
+        },
+        {
+          "id": "6c59864650a21468313a8b7ee23f2a8e",
+          "conversation_id": "a591d625aeb842d829ce634ed4760529",
+          "role": "assistant",
+          "content": "Starting workflow: `orchon-recorder-agent-step`",
+          "metadata": "{}",
+          "user_id": null,
+          "created_at": "2026-11-20 02:27:14"
+        },
+        {
+          "id": "f8552fbb01d5c350dbbc00fe2e24aada",
+          "conversation_id": "a591d625aeb842d829ce634ed4760529",
+          "role": "assistant",
+          "content": "🚀 Dispatching workflow: **orchon-recorder-agent-step** (background)",
+          "metadata": "{\"category\":\"workflow_dispatch_status\",\"workflowDispatch\":{\"workerConversationId\":\"web-worker-1795141634856-br349o\",\"workflowName\":\"orchon-recorder-agent-step\"}}",
+          "user_id": null,
+          "created_at": "2026-11-20 02:27:14"
+        }
+      ]
+    },
+    {
+      "atMs": 16091,
+      "kind": "stream-end",
+      "label": "conversation",
+      "by": "recorder"
+    },
+    {
+      "atMs": 16092,
+      "kind": "stream-end",
+      "label": "dashboard",
+      "by": "recorder"
+    },
+    {
+      "atMs": 16092,
+      "kind": "spend-total",
+      "tokens": 33197,
+      "tokenCeiling": 150000,
+      "wallClockMs": 300000
+    }
+  ]
+}
