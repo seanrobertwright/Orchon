@@ -142,7 +142,10 @@ async function record(signal: AbortSignal): Promise<number> {
     else session.missing(`the ${PROVIDER} provider`, `\`provider add ${PROVIDER}\` failed: ${(provider.stderr || provider.stdout).trim()}`)
     // The throwaway home's own config pins the small tier and the chat to Haiku. The developer's is never read.
     if (passLogin) writeSpendConfig(home)
-    const projectFolder = await createThrowawayProject(home, signal, { agentStep: scenario?.name === 'agent-step' })
+    const projectFolder = await createThrowawayProject(home, signal, {
+      agentStep: scenario?.name === 'agent-step',
+      syntheticMetrics: scenario?.name === 'metrics'
+    })
     signal.throwIfAborted()
     release = startRelease(home, binary, args.port, { login })
     console.log(`Started the release on port ${args.port}. Waiting for it to answer.`)

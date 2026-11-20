@@ -212,6 +212,121 @@ export function assertAgentStepAsRead(workflow: unknown): void {
   if (!sameList(step.allowed_tools, AGENT_STEP_TOOLS)) throw new LaunchRefused('Archon reads the agent step with tools other than Glob.')
 }
 
+// ---------------------------------------------------------------------------------------------
+// The synthetic metrics pack, written into the throwaway project only for spend mode's metrics
+// scenario, which spends nothing. One shell step prints made-up metric records, so Archon's
+// metrics reports have something to aggregate without a model, a forge plugin or GitHub.
+//
+// How Archon 0.14.0 reads it, from coleam00/Archon at 8def159a6b2c23e832a5283b4131cfffd9af9344:
+// a node's output is a metric source when its structured output has a top-level `metrics` array
+// (`packages/core/src/db/workflow-metrics.ts`); a `bash:` node that declares an `output_format`
+// has its stdout parsed as one JSON document and kept as its structured output
+// (`packages/workflows/src/dag/nodes/exec/exec-output.ts`); and a pack's overview cards are read
+// from `<project>/.archon/workflows/<pack>/.shared/metric-views.json`
+// (`packages/workflows/src/metric-views.ts`).
+// ---------------------------------------------------------------------------------------------
+
+/** The prefix of every synthetic metric name: no real pack's metric starts with it. */
+export const SYNTHETIC_METRIC_PREFIX = 'orchon_synthetic.'
+
+/** The pack folder that declares the synthetic overview cards. */
+export const SYNTHETIC_PACK = 'orchon-synthetic'
+
+/** A second pack folder whose declaration Archon cannot accept, so its listing reports an unreadable pack. */
+export const SYNTHETIC_UNREADABLE_PACK = 'orchon-synthetic-unreadable'
+
+type SyntheticRecord = Readonly<Record<string, string | number | null>>
+
+const synthetic = (name: string, kind: 'count' | 'score', unit: string, subject: string, value: number, more: Record<string, string> = {}): SyntheticRecord => ({
+  name: `${SYNTHETIC_METRIC_PREFIX}${name}`,
+  kind,
+  unit,
+  subject: `synthetic-${subject}`,
+  value,
+  ...more
+})
+
+const CALIBRATES = { calibrates: `${SYNTHETIC_METRIC_PREFIX}tests_useless` }
+
+/**
+ * The records the pack prints, every number made up and fixed. Every record has a subject, so a
+ * second run replaces the first one's records instead of adding to them. None names `at` or
+ * `runs`: each falls in a window by when its step completed and belongs to the run that printed
+ * it. The last one gives `items_opened` a second definition, which Archon refuses and reports.
+ */
+export const SYNTHETIC_METRIC_RECORDS: readonly SyntheticRecord[] = [
+  ...[1, 2, 3, 4].map((item) => synthetic('items_opened', 'count', 'items', `item-${item}`, 1)),
+  ...[1, 2].map((item) => synthetic('items_merged', 'count', 'items', `item-${item}`, 1)),
+  synthetic('items_abandoned', 'count', 'items', 'item-4', 1),
+  synthetic('tests_added', 'count', 'tests', 'item-1', 5),
+  synthetic('tests_added', 'count', 'tests', 'item-2', 3),
+  synthetic('tests_useless', 'count', 'tests', 'item-1', 1),
+  synthetic('tests_useless', 'count', 'tests', 'item-2', 1),
+  ...[1, 1, 0, 1].map((value, index) => synthetic('useless_tests_caught', 'score', 'ratio', `case-${index + 1}`, value, CALIBRATES)),
+  ...[0.5, 0.7, 0.9].map((value, index) => synthetic('review_score', 'score', 'ratio', `item-${index + 1}`, value)),
+  synthetic('items_opened', 'score', 'ratio', 'item-5', 0.5)
+]
+
+/** The one shell step: it prints the records and nothing else. */
+export const SYNTHETIC_METRICS: WorkflowDefinition = {
+  ...base('synthetic-metrics', 'Orchon fixture recorder: one shell step that prints made-up metric records, no agent.'),
+  nodes: [
+    {
+      id: 'emit',
+      bash: `echo '${JSON.stringify({ metrics: SYNTHETIC_METRIC_RECORDS })}'`,
+      output_format: { type: 'object', required: ['metrics'], properties: { metrics: { type: 'array' } } }
+    }
+  ]
+}
+
+const metric = (name: string): string => `${SYNTHETIC_METRIC_PREFIX}${name}`
+
+/** The overview cards, one of each shape Archon 0.14.0 knows. */
+const SYNTHETIC_VIEWS = {
+  names: {
+    [metric('items_opened')]: 'Synthetic items opened',
+    [metric('items_merged')]: 'Synthetic items merged',
+    [metric('items_abandoned')]: 'Synthetic items abandoned',
+    [metric('tests_added')]: 'Synthetic new tests',
+    [metric('tests_useless')]: 'Synthetic useless tests',
+    [metric('useless_tests_caught')]: 'Synthetic judge catch rate',
+    [metric('review_score')]: 'Synthetic review score'
+  },
+  cards: [
+    {
+      shape: 'count',
+      title: 'Synthetic items merged',
+      metric: metric('items_merged'),
+      breakdown: [
+        { metric: metric('items_opened'), label: 'opened' },
+        { metric: metric('items_abandoned'), label: 'abandoned' }
+      ]
+    },
+    {
+      shape: 'ratio',
+      title: 'Synthetic useless tests',
+      numerator: metric('tests_useless'),
+      denominator: metric('tests_added'),
+      denominator_label: 'new tests',
+      calibration: { metric: metric('useless_tests_caught'), label: 'judge catches', rough_below: 0.8 }
+    },
+    { shape: 'cost_per', title: 'Synthetic cost per item', metric: metric('items_merged'), cost_of: metric('items_opened') }
+  ]
+}
+
+/**
+ * The pack's files, by path inside the project's `.archon/workflows` folder: the workflow, its
+ * overview cards, and a declaration with no cards, which Archon lists as unreadable.
+ */
+export function syntheticPackFiles(): { path: string; text: string }[] {
+  const workflow = workflowFile(SYNTHETIC_METRICS)
+  return [
+    { path: workflow.name, text: workflow.text },
+    { path: `${SYNTHETIC_PACK}/.shared/metric-views.json`, text: `${JSON.stringify(SYNTHETIC_VIEWS, null, 2)}\n` },
+    { path: `${SYNTHETIC_UNREADABLE_PACK}/.shared/metric-views.json`, text: `${JSON.stringify({ cards: [] }, null, 2)}\n` }
+  ]
+}
+
 /** Fails unless `name` is one of the recorder's own workflows. Called before every launch. */
 export function assertLaunchable(name: string): void {
   if (FORBIDDEN_WORKFLOWS.includes(name)) throw new LaunchRefused(`The recorder never launches ${name}.`)
