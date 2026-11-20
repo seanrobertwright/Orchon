@@ -5,6 +5,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
 import { findLeaks } from '../scripts/recorder/leaks.ts'
+import { SPEND_FOLDER } from '../scripts/recorder/output.ts'
+import { SPEND_SCENARIO_NAMES } from '../scripts/recorder/spend.ts'
 import { FORBIDDEN_WORKFLOWS, RECORDER_WORKFLOWS } from '../scripts/recorder/workflows.ts'
 import { repoRoot } from '../scripts/repo-files.ts'
 
@@ -41,12 +43,25 @@ const folderOf = (release: string): string => join(repoRoot, 'fixtures', release
 /** A release or a workflow name as a literal inside a pattern. */
 const literal = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** Every file of a release folder, as paths with forward slashes, sorted. */
-function filesOf(release: string): string[] {
-  return (readdirSync(folderOf(release), { recursive: true, withFileTypes: true }) as import('node:fs').Dirent[])
+/** Every file of a folder, as paths with forward slashes relative to it, sorted. */
+function filesIn(folder: string): string[] {
+  return (readdirSync(folder, { recursive: true, withFileTypes: true }) as import('node:fs').Dirent[])
     .filter((entry) => entry.isFile())
-    .map((entry) => join(entry.parentPath, entry.name).slice(folderOf(release).length + 1).replaceAll('\\', '/'))
+    .map((entry) => join(entry.parentPath, entry.name).slice(folder.length + 1).replaceAll('\\', '/'))
     .sort()
+}
+
+/**
+ * Every file of a release folder that the recording that spends nothing wrote. The spend-mode
+ * recordings in its `spend` folder are checked on their own.
+ */
+const filesOf = (release: string): string[] => filesIn(folderOf(release)).filter((path) => !path.startsWith(`${SPEND_FOLDER}/`))
+
+/** The spend-mode scenario folders a release has, such as `agent-step`. */
+function spendScenariosOf(release: string): string[] {
+  const folder = join(folderOf(release), SPEND_FOLDER)
+  if (!existsSync(folder)) return []
+  return (readdirSync(folder, { withFileTypes: true }) as import('node:fs').Dirent[]).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
 }
 
 const textOf = (release: string, path: string): string => readFileSync(join(folderOf(release), path), 'utf8')
@@ -186,6 +201,31 @@ const MACHINE_DETAILS: [RegExp, string][] = [
   // A stream frame, or a prompt inside one, escapes its quotes once or more.
   [new RegExp(`\\\\+"host(?:name)?\\\\+":\\s*\\\\+"(?!${NOT_A_MACHINE}\\\\+")`), 'a machine name inside a stream frame']
 ]
+
+// The spend-mode recordings, when a release has any: each was made by the recorder in spend mode,
+// lists its files, and holds nothing of the machine, no token and no email address.
+for (const release of RELEASES) {
+  for (const scenario of spendScenariosOf(release)) {
+    describe(`the ${scenario} spend-mode recording of Archon ${release}`, () => {
+      const folder = join(folderOf(release), SPEND_FOLDER, scenario)
+      test('is a scenario the recorder knows, with a log that says it was recorded in spend mode', () => {
+        assert.ok((SPEND_SCENARIO_NAMES as readonly string[]).includes(scenario), scenario)
+        const log = readFileSync(join(folder, 'RECORDED.md'), 'utf8').replaceAll('\r\n', '\n')
+        assert.ok(log.includes(`\n- Recorded in spend mode: the \`${scenario}\` scenario alone\n`), `${scenario} has no spend-mode line`)
+        const listed = [...log.matchAll(/^\| `([^`]+)` \| .+ \|$/gm)].map((row) => row[1])
+        assert.deepEqual(listed, filesIn(folder).filter((path) => path !== 'RECORDED.md'))
+      })
+
+      test('holds nothing of the machine, no token and no email address', () => {
+        for (const path of filesIn(folder)) {
+          const text = readFileSync(join(folder, path), 'utf8')
+          for (const [pattern, what] of MACHINE_DETAILS) assert.ok(!pattern.test(text), `${scenario}/${path} holds ${what}`)
+          assert.deepEqual(findLeaks(text, { loginFolder: '', homeFolder: '', user: '' }), [], `${scenario}/${path}`)
+        }
+      })
+    })
+  }
+}
 
 for (const release of RELEASES) {
   describe(`the fixtures of Archon ${release}`, () => {

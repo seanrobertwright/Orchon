@@ -45,6 +45,13 @@ const segment = (id: string): string => encodeURIComponent(id)
 /** The scenario ran into a ceiling it could not cancel through Archon: the release must be stopped. */
 export class StopTheRelease extends Error {
   override name = 'StopTheRelease'
+  /** What the scenario saw before it gave up, for the log. */
+  readonly outcome: SpendOutcome
+
+  constructor(message: string, outcome: SpendOutcome) {
+    super(message)
+    this.outcome = outcome
+  }
 }
 
 interface Project {
@@ -167,7 +174,10 @@ async function recordAgentStep(session: Session, context: SpendContext, clock: C
     crossed = outcome.ended === 'finished' ? null : outcome.crossed
     if (outcome.ended === 'cancel-failed') {
       finish(session, 'agent-step', 'one agent step, cancelled at a ceiling; the cancel did not end it', tape, guard, context)
-      throw new StopTheRelease(`The agent step crossed its ${outcome.crossed.by} ceiling and the cancel did not end it.`)
+      throw new StopTheRelease(`The agent step crossed its ${outcome.crossed.by} ceiling and the cancel did not end it.`, {
+        tokensSeen: guard.tokens(),
+        crossed: outcome.crossed
+      })
     }
     const run = `/api/workflows/runs/${segment(runId)}`
     await tape.call('GET', run)
@@ -237,7 +247,10 @@ async function recordChatTurn(session: Session, context: SpendContext, clock: Cl
       await stream.close()
       await dashboard.close()
       finish(session, 'chat-turn', 'one web chat turn, stopped at a ceiling', tape, guard, context)
-      throw new StopTheRelease(`The chat turn crossed its ${crossed.by} ceiling. No route of the release cancels a chat turn, so the release is stopped.`)
+      throw new StopTheRelease(`The chat turn crossed its ${crossed.by} ceiling. No route of the release cancels a chat turn, so the release is stopped.`, {
+        tokensSeen: guard.tokens(),
+        crossed
+      })
     }
     await clock.sleep(POLL_MS)
   }

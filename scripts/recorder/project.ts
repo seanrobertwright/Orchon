@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertOwnHome, type ThrowawayHome } from './home.ts'
 import { runToEnd } from './process.ts'
-import { RECORDER_WORKFLOWS, workflowFile } from './workflows.ts'
+import { agentStepFile, RECORDER_WORKFLOWS, workflowFile } from './workflows.ts'
 
 /** The remote's owner and name. Neither is an account of the developer's. */
 export const PROJECT_REMOTE = 'https://github.com/orchon-recorder/throwaway-project.git'
@@ -12,8 +12,12 @@ export const PROJECT_REMOTE = 'https://github.com/orchon-recorder/throwaway-proj
 /** The commit's author, given on the command line so that no Git identity of the developer's is read. */
 const AUTHOR = ['-c', 'user.name=Orchon Recorder', '-c', 'user.email=recorder@example.invalid', '-c', 'commit.gpgsign=false']
 
-/** Makes the project and answers its folder. `signal` stops a `git` command when the recording is interrupted. */
-export async function createThrowawayProject(home: ThrowawayHome, signal?: AbortSignal): Promise<string> {
+/**
+ * Makes the project and answers its folder. `signal` stops a `git` command when the recording is
+ * interrupted. `agentStep` adds the one workflow with an agent step, for spend mode's agent-step
+ * scenario alone.
+ */
+export async function createThrowawayProject(home: ThrowawayHome, signal?: AbortSignal, options: { agentStep?: boolean } = {}): Promise<string> {
   assertOwnHome(home)
   const folder = home.projectFolder
   const workflows = join(folder, '.archon', 'workflows')
@@ -21,6 +25,10 @@ export async function createThrowawayProject(home: ThrowawayHome, signal?: Abort
   writeFileSync(join(folder, 'README.md'), '# Throwaway project\n\nMade by the Orchon fixture recorder. Safe to delete.\n')
   for (const workflow of Object.values(RECORDER_WORKFLOWS)) {
     const file = workflowFile(workflow)
+    writeFileSync(join(workflows, file.name), file.text)
+  }
+  if (options.agentStep === true) {
+    const file = agentStepFile()
     writeFileSync(join(workflows, file.name), file.text)
   }
   const git = async (...args: string[]): Promise<void> => {
