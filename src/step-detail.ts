@@ -34,6 +34,7 @@ import {
   type StepFacts,
   type StepHint,
   type StepOutput,
+  type StepRef,
   type StepRequest,
   type StepView
 } from './step-view'
@@ -47,7 +48,7 @@ export const KEPT_STEPS = 5
  */
 export const STEP_LEASE_MS = 65_000
 
-function parseIds(input: unknown, name: string): Record<string, unknown> & { runId: string; stepId: string } {
+function parseIds(input: unknown, name: string): Record<string, unknown> & StepRef {
   if (!isRecord(input)) refuseRequest(`${name} takes a run id and a step id.`)
   const runId = own(input, 'runId')
   if (!isCappedText(runId, RUN_ID_CAP)) refuseRequest(cappedTextRefusal('The run id', RUN_ID_CAP))
@@ -236,7 +237,7 @@ type EventsRead = { ok: true; added: number } | { ok: false; message: string }
 export function startStepDetail(orca: OrcaWorkerApi, ports: StepDetailPorts): Disposable {
   const held = new Map<string, Held>()
   const stopping = new AbortController()
-  const keyOf = (runId: string, stepId: string): string => JSON.stringify([runId, stepId])
+  const keyOf = ({ runId, stepId }: StepRef): string => JSON.stringify([runId, stepId])
 
   function stopPolling(entry: Held): void {
     if (entry.timer !== undefined) ports.timers.clear(entry.timer)
@@ -259,7 +260,7 @@ export function startStepDetail(orca: OrcaWorkerApi, ports: StepDetailPorts): Di
   }
 
   /** Reads the step's events: all of them the first time, then those after the cursor. */
-  async function readEvents(server: Pick<Connected, 'baseUrl' | 'version'>, runId: string, stepId: string, entry: Held, signal: AbortSignal): Promise<EventsRead> {
+  async function readEvents(server: Pick<Connected, 'baseUrl' | 'version'>, { runId, stepId }: StepRef, entry: Held, signal: AbortSignal): Promise<EventsRead> {
     if (entry.tooLarge) return { ok: true, added: 0 }
     const cursor = entry.fold?.cursor() ?? null
     const answer = await ports.client.bytes({
@@ -299,23 +300,24 @@ export function startStepDetail(orca: OrcaWorkerApi, ports: StepDetailPorts): Di
     return next
   }
 
-  function schedule(server: Connected, runId: string, stepId: string, entry: Held): void {
+  function schedule(step: StepRef, entry: Held): void {
     if (entry.timer !== undefined || !entry.running || entry.tooLarge || ports.now() > entry.openUntil) return
     entry.timer = ports.timers.set(() => {
       entry.timer = undefined
-      void poll(server, runId, stepId, entry)
+      void poll(step, entry)
     }, STEP_POLL_MS)
   }
 
-  async function poll(server: Connected, runId: string, stepId: string, entry: Held): Promise<void> {
+  /** One poll, on the connection as it is now. */
+  async function poll(step: StepRef, entry: Held): Promise<void> {
     if (!entry.running || entry.tooLarge || ports.now() > entry.openUntil) return
-    if (held.get(keyOf(runId, stepId)) !== entry) return
+    if (held.get(keyOf(step)) !== entry) return
     const connection = await ports.current()
     if (connection.kind !== 'connected') return
-    const read = await queued(entry, () => readEvents(connection, runId, stepId, entry, stopping.signal))
+    const read = await queued(entry, () => readEvents(connection, step, entry, stopping.signal))
     if (stopping.signal.aborted) return
-    if (!read.ok || read.added > 0 || entry.tooLarge) orca.panels.post('step.changed', { runId, stepId } satisfies StepHint)
-    schedule(server, runId, stepId, entry)
+    if (!read.ok || read.added > 0 || entry.tooLarge) orca.panels.post('step.changed', { runId: step.runId, stepId: step.stepId } satisfies StepHint)
+    schedule(step, entry)
   }
 
   async function readStep(server: Connected, request: StepRequest, signal: AbortSignal): Promise<StepView> {
@@ -344,25 +346,25 @@ export function startStepDetail(orca: OrcaWorkerApi, ports: StepDetailPorts): Di
       error: step.state === 'failed' ? (events.error ?? nodeError(value, step.id)) : null,
       skip: step.state === 'skipped' ? (events.skip ?? { reason: 'skipped', condition: null }) : events.skip
     }
-    const key = keyOf(request.runId, step.id)
-    const entry = entryOf(key)
+    const ref: StepRef = { runId: request.runId, stepId: step.id }
+    const entry = entryOf(keyOf(ref))
     const running = step.state === 'running'
     let activity: ActivityView
-    const read = entry.fold === null || entry.running || running ? await queued(entry, () => readEvents(server, request.runId, step.id, entry, signal)) : { ok: true as const, added: 0 }
+    const read = entry.fold === null || entry.running || running ? await queued(entry, () => readEvents(server, ref, entry, signal)) : { ok: true as const, added: 0 }
     entry.running = running
     entry.openUntil = ports.now() + STEP_LEASE_MS
     if (entry.tooLarge) activity = { kind: 'too-large' }
     else if (!read.ok || entry.fold === null) activity = { kind: 'failed', message: read.ok ? unreadableAnswerText(server.version) : read.message }
     else activity = entry.fold.page(request.pages ?? 1, running)
-    if (running) schedule(server, request.runId, step.id, entry)
+    if (running) schedule(ref, entry)
     else stopPolling(entry)
     return { kind: 'ready', facts, output: outputOf(output), activity }
   }
 
   async function readItem(server: Connected, request: ItemRequest, signal: AbortSignal): Promise<ItemView> {
-    const entry = entryOf(keyOf(request.runId, request.stepId))
+    const entry = entryOf(keyOf(request))
     if (entry.fold === null && !entry.tooLarge) {
-      const read = await queued(entry, () => readEvents(server, request.runId, request.stepId, entry, signal))
+      const read = await queued(entry, () => readEvents(server, request, entry, signal))
       if (!read.ok) return { kind: 'failed', message: read.message }
     }
     return entry.fold?.item(request.key) ?? { kind: 'not-found' }
@@ -386,7 +388,7 @@ export function startStepDetail(orca: OrcaWorkerApi, ports: StepDetailPorts): Di
 
   const closeHandler = orca.panels.handle('step.close', (input): null => {
     const request = parseStepClose(input)
-    const entry = held.get(keyOf(request.runId, request.stepId))
+    const entry = held.get(keyOf(request))
     if (entry !== undefined) {
       entry.openUntil = 0
       stopPolling(entry)
