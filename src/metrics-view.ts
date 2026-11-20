@@ -97,6 +97,13 @@ export type MetricsView =
       refusedTotal: number
       /** The cards packs declare, finished by the console's rules. */
       overview: OverviewView
+      /**
+       * The calibrations in the window's report whose metric has no records in it, for the lines
+       * under the Details table, at most `CALIBRATION_LINES_CAP`, in Archon's order.
+       */
+      unmatchedCalibrations: string[]
+      /** How many of those past the cap are not listed. */
+      unmatchedMore: number
       /** The first `UNREADABLE_PACKS_CAP` packs whose card declarations Archon could not read, in its order. */
       unreadablePacks: UnreadablePack[]
       /** How many more such packs Archon listed, unreadable entries included. */

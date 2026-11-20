@@ -91,6 +91,7 @@ describe('the scope', () => {
     stage.archon.answer(`${VIEWS}?codebaseId=${PROJECT}`, recorded('0.14.0', SPEND, AT.projectViews))
     // Only the year was recorded for the project, so it stands in for the project's week.
     stage.archon.answer(report('7d', PROJECT), recorded('0.14.0', SPEND, AT.projectYear))
+    stage.archon.answer(report('365d', PROJECT), recorded('0.14.0', SPEND, AT.projectYear))
     const mounted = await stage.mount(host())
     const view = ready((await read(mounted, { codebaseId: PROJECT })).metrics)
     assert.equal(view.codebaseId, PROJECT)
@@ -107,7 +108,8 @@ describe('the scope', () => {
     )
     assert.deepEqual(
       stage.archon.calls.filter((call) => call.url.includes('/api/metric')).map((call) => call.url),
-      [`${VIEWS}?codebaseId=${PROJECT}`, report('7d', PROJECT)]
+      // The year-long report for calibrations follows the window's (`calibration.test.ts`).
+      [`${VIEWS}?codebaseId=${PROJECT}`, report('7d', PROJECT), report('365d', PROJECT)]
     )
     await mounted.worker.deactivate()
   })
@@ -128,10 +130,14 @@ function allProjects(week: Scripted = recorded('0.14.0', SPEND, AT.week)): Scene
   const stage = metricsScene()
   stage.archon.answer(VIEWS, recorded('0.14.0', SPEND, AT.views))
   stage.archon.answer(report('7d'), week)
+  stage.archon.answer(report('365d'), recorded('0.14.0', SPEND, AT.year))
   return stage
 }
+/** The window's reports; the year-long report for calibrations that follows each is `calibration.test.ts`'s. */
 const reportCalls = (stage: Scene): string[] =>
-  stage.archon.calls.filter((call) => call.url.startsWith(`${DEFAULT}/api/metrics?`)).map((call) => call.url)
+  stage.archon.calls
+    .filter((call) => call.url.startsWith(`${DEFAULT}/api/metrics?`) && call.url !== report('365d'))
+    .map((call) => call.url)
 
 describe('what the worker keeps', () => {
   test('a read within 5 minutes answers the report it holds, one past them reads Archon again, and Refresh always does', async () => {

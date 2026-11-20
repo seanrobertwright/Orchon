@@ -1,9 +1,10 @@
 // A metric's view, inside the Details tab of the Metrics section: selecting a row of the Details
 // table replaces the table with one metric's labelled figures, the older judge versions its
 // headline hides, and a collapsed "By day" table that stands in for the console's sparkline, with
-// a back control to the table. It draws only the worker's view model, asked for once when the row
-// is selected and again when a new report comes on screen; the worker answers from the report it
-// holds. Nothing here writes, and no timer runs.
+// a back control to the table, and its calibrations (`calibration-section.tsx`). It draws only the
+// worker's view model, asked for once when the row is selected, again when a new report comes on
+// screen and again when the worker posts that report's calibrations; the worker answers from the
+// report it holds. Nothing here writes, and no timer runs.
 import {
   atom,
   Button,
@@ -25,6 +26,8 @@ import {
   type TableColumn,
   type TableRow
 } from 'orca'
+import { calibrationsBlock, sameRead } from './calibration-section'
+import type { MetricsCalibrationsPost, ReadIdentity } from './calibration-view'
 import type { ConnectionView } from './connection-view'
 import { formatDateTime } from './dates'
 import type { MetricDetail, MetricRequest, MetricView } from './metric-view'
@@ -33,7 +36,7 @@ import { moreLine } from './overview-section'
 import { UNREACHABLE_TEXT } from './worker-words'
 
 /** The report on screen, as far as a metric's view reads it. */
-type ReportOnScreen = { window: MetricsWindow; codebaseId?: string; fetchedAt: number }
+type ReportOnScreen = ReadIdentity
 
 /** The open metric: its dotted name and the plain name its row shows. */
 type Open = { name: string; label: string }
@@ -113,12 +116,16 @@ export function openMetricView(name: string, label: string, report: ReportOnScre
  */
 export function metricReportChanged(report: ReportOnScreen): void {
   if (read(open) === null) return
-  const same =
-    shownReport !== null &&
-    shownReport.window === report.window &&
-    shownReport.codebaseId === report.codebaseId &&
-    shownReport.fetchedAt === report.fetchedAt
-  if (!same) ask(report)
+  if (shownReport === null || !sameRead(shownReport, report)) ask(report)
+}
+
+/**
+ * The worker posted a read's calibrations. A metric's view open on that read's report asks for
+ * its figures again, so its calibration lines are those of the year-long report as it now stands.
+ */
+export function metricCalibrated(post: MetricsCalibrationsPost): void {
+  if (read(open) === null || shownReport === null) return
+  if (sameRead(post, shownReport)) ask(shownReport)
 }
 
 /** The way back, or a different Archon store: the Details table shows again. */
@@ -199,6 +206,7 @@ function figures(label: string, metric: MetricDetail): OrcaNode {
           {moreLine(metric.olderMore)}
         </Stack>
       )}
+      {calibrationsBlock(metric.calibrations)}
       <Collapsible title="By day" open={read(byDayOpen)} onChange={(value) => set(byDayOpen, value)}>
         <Stack gap="xs">
           <Table label="By day" columns={BY_DAY_COLUMNS} rows={days} />

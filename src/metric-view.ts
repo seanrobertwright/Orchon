@@ -3,6 +3,7 @@
 // the panel and the worker read one contract and none of Archon's report crosses to the panel.
 // The Details rows stay small (`metrics-view.ts`); one metric's figures and its "By day" rows
 // travel only on this request.
+import type { MetricCalibrations } from './calibration-view'
 import type { ConnectionAnswer } from './connection-view'
 import type { MetricsWindow } from './metrics-view'
 
@@ -64,6 +65,8 @@ export type MetricDetail = {
   byDay: MetricDay[]
   /** How many days past the cap are not shown. */
   byDayMore: number
+  /** The scores of the year that calibrate the metric, and what "rough" means for its share. */
+  calibrations: MetricCalibrations
 }
 
 export type MetricView =

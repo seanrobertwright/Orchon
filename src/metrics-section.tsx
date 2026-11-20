@@ -33,11 +33,12 @@ import {
   type TableColumn,
   type TableRow
 } from 'orca'
+import { calibratedOverview, clearCalibrations, startCalibrationSection, unmatchedLines } from './calibration-section'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { formatDay, now } from './dates'
 import { frameTimers } from './frame-timers'
-import { closeMetricView, lastDays, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
+import { closeMetricView, lastDays, metricCalibrated, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
 import {
   METRICS_REQUEST_TIMEOUT_MS,
   METRICS_WINDOWS,
@@ -184,6 +185,7 @@ export function startMetricsSection(ctx: PanelContext, given: MetricsSectionHook
   fetcher = view
   openRun = given.openRun
   startOverviewSection(ctx)
+  startCalibrationSection(ctx, metricCalibrated)
   startMetricView(ctx, { keep: given.keep })
   ctx.subscriptions.push({
     dispose() {
@@ -240,6 +242,7 @@ export function clearMetrics(): void {
   set(missing, null)
   set(problem, null)
   clearOverview()
+  clearCalibrations()
 }
 
 /**
@@ -341,8 +344,13 @@ function details(report: Ready): OrcaNode {
   if (openMetricName() !== null) return metricViewBody((view) => problemOf(view)?.message ?? null, UNKNOWN_KIND_TEXT)
   const refusals = refusalsGroup(report, openRun)
   if (report.rows.length === 0) {
-    const empty = <EmptyState title={`No measurements in the ${lastDays(report.window)}.`} />
-    return refusals === null ? empty : <Stack gap="sm">{refusals}{empty}</Stack>
+    return (
+      <Stack gap="sm">
+        {refusals}
+        <EmptyState title={`No measurements in the ${lastDays(report.window)}.`} />
+        {unmatchedLines(report)}
+      </Stack>
+    )
   }
   return (
     <Stack gap="sm">
@@ -360,6 +368,7 @@ function details(report: Ready): OrcaNode {
       <Text muted size="sm">
         {KNOWN_COST_FOOTNOTE}
       </Text>
+      {unmatchedLines(report)}
     </Stack>
   )
 }
@@ -401,7 +410,7 @@ export function metricsSection(state: Connected, writable: boolean): OrcaNode {
           ) : (
             <Stack gap="sm">
               {refusalCallouts(report, openRefusals)}
-              {overviewCards(report.overview, overviewHooks)}
+              {overviewCards(calibratedOverview(report), overviewHooks)}
             </Stack>
           )}
         </Tab>

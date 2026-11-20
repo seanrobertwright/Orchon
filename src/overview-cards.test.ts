@@ -9,6 +9,7 @@
 // measures nothing.
 import { assert, describe, test } from 'orca/testing'
 import { METRICS_AT as AT, METRICS_SPEND as SPEND, recorded } from '../scripts/scripted-archon.ts'
+import { CALIBRATIONS_LOADING } from './calibrations'
 import { parseNames, parseReport } from './metrics'
 import { cardReportOf, overviewOf, parseCardDeclarations } from './overview-cards'
 
@@ -34,7 +35,7 @@ const NONE = { figure: '—', line: 'no records in this window' }
 
 describe('the recorded project declarations and report', () => {
   test("each pack's cards by the console's rules: the bundled pack has no records, the synthetic pack's count, ratio and withheld cost", () => {
-    const overview = overviewOf(declarations(body(SPEND, AT.projectViews)), report(body(SPEND, AT.projectYear)), new Map())
+    const overview = overviewOf(declarations(body(SPEND, AT.projectViews)), report(body(SPEND, AT.projectYear)), new Map(), CALIBRATIONS_LOADING)
     assert.equal(overview.morePacks, 0)
     assert.deepEqual(
       overview.packs.map((pack) => [pack.key, pack.name, pack.more]),
@@ -80,7 +81,7 @@ function syntheticCards(change: (report: Body) => void = () => {}): Map<string, 
   const value = week()
   change(value)
   const project = declarations(body(SPEND, AT.projectViews))
-  const pack = overviewOf(project, report(value), parseNames(body(SPEND, AT.projectViews)) ?? new Map()).packs[1]
+  const pack = overviewOf(project, report(value), parseNames(body(SPEND, AT.projectViews)) ?? new Map(), CALIBRATIONS_LOADING).packs[1]
   return new Map(pack?.cards.map((card) => [card.title, card.kind === 'figure' ? [card.figure, card.line, card.percent] : card.kind]))
 }
 
@@ -155,7 +156,7 @@ describe('what Orchon does not know', () => {
     ;(synthetic.cards as Body[]).splice(1, 0, { shape: 'histogram', title: 'Synthetic spread', bins: 'many' })
     const read = declarations(views)
     assert.equal(read.unknownShapes, 1)
-    const cards = overviewOf(read, report(week()), new Map()).packs[1]?.cards
+    const cards = overviewOf(read, report(week()), new Map(), CALIBRATIONS_LOADING).packs[1]?.cards
     assert.deepEqual(
       cards?.map((card) => [card.kind, card.title]),
       [
@@ -194,7 +195,7 @@ describe('the caps', () => {
       { ...sdlc, pack: 'empty', cards: [] },
       ...Array.from({ length: 13 }, (_, index) => ({ ...sdlc, pack: `pack-${String(index).padStart(2, '0')}` }))
     ]
-    const overview = overviewOf(declarations(views), report(week()), new Map())
+    const overview = overviewOf(declarations(views), report(week()), new Map(), CALIBRATIONS_LOADING)
     assert.equal(overview.packs.length, 10)
     assert.equal(overview.packs[0]?.name, 'pack-00')
     assert.equal(overview.morePacks, 3)
@@ -205,7 +206,7 @@ describe('the caps', () => {
     const synthetic = (views.packs as Body[])[1] as Body
     const cards = synthetic.cards as Body[]
     synthetic.cards = [...cards, ...cards, ...cards]
-    const pack = overviewOf(declarations(views), report(week()), new Map()).packs[1]
+    const pack = overviewOf(declarations(views), report(week()), new Map(), CALIBRATIONS_LOADING).packs[1]
     assert.equal(pack?.cards.length, 6)
     assert.equal(pack?.more, 3)
     assert.equal(new Set(pack?.cards.map((card) => card.id)).size, 6)

@@ -123,7 +123,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
   })
   const forms = startSettingsForms(orca, { client: connection.client, current: connection.current, now: ports.now })
   const metrics = startMetrics(orca, { client: connection.client, current: connection.current, now: ports.now, timers: ports.timers })
-  const metricDetail = startMetricDetail(orca, { client: connection.client, current: connection.current, held: metrics.held })
+  const metricDetail = startMetricDetail(orca, { client: connection.client, current: connection.current, held: metrics.held, calibrations: metrics.calibrations })
   return () => {
     launch.dispose()
     chatStreams.stop()
