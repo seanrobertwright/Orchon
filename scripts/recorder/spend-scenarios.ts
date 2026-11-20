@@ -8,7 +8,7 @@ import type { StreamReader, Tape } from './recording.ts'
 import type { Session } from './session.ts'
 import { SPEND_SCENARIOS, type SpendScenarioName } from './spend.ts'
 import { sleep as wait } from './wait.ts'
-import { AGENT_STEP, assertAgentStepAsRead, CHAT_TURN_MESSAGE, LaunchRefused, RECORDER_WORKFLOWS, SMALL_TIER } from './workflows.ts'
+import { AGENT_STEP, assertAgentStepAsRead, CHAT_TURN_MESSAGE, LaunchRefused, RECORDER_WORKFLOWS, SMALL_TIER, TERMINAL } from './workflows.ts'
 
 export interface SpendContext {
   /** The throwaway project's folder. */
@@ -35,8 +35,6 @@ const POLL_MS = 1000
 
 /** How long a cancelled run is given to end before the release is stopped. */
 const CANCEL_GRACE_MS = 30_000
-
-const TERMINAL: readonly string[] = ['completed', 'failed', 'cancelled']
 
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
 

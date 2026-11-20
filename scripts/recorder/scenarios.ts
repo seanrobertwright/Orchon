@@ -8,7 +8,7 @@ import { field, text } from '../shape.ts'
 import type { StreamReader, Tape } from './recording.ts'
 import type { Session } from './session.ts'
 import { sleep } from './wait.ts'
-import { assertLaunchable, assertReadWithoutAgent, RECORDER_WORKFLOWS, type WorkflowDefinition } from './workflows.ts'
+import { assertLaunchable, assertReadWithoutAgent, RECORDER_WORKFLOWS, TERMINAL, type WorkflowDefinition } from './workflows.ts'
 
 export interface RecordingContext {
   /** The throwaway project's folder. */
@@ -21,8 +21,6 @@ const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
 
 /** An id as one path segment. */
 const segment = (id: string): string => encodeURIComponent(id)
-
-const TERMINAL: readonly string[] = ['completed', 'failed', 'cancelled']
 
 /** Runs one scenario and answers what it answers. A scenario that fails is noted as a gap and answers null. */
 async function recordOrNull<T>(session: Session, what: string, scenario: () => Promise<T | null>): Promise<T | null> {

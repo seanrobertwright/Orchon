@@ -6,6 +6,9 @@
 /** Workflows the recorder must never launch, whatever else changes. */
 export const FORBIDDEN_WORKFLOWS: readonly string[] = ['archon-worktree-cleanup']
 
+/** The run statuses after which a run does nothing more. */
+export const TERMINAL: readonly string[] = ['completed', 'failed', 'cancelled']
+
 /** A launch was refused by the recorder itself, before any request was sent. */
 export class LaunchRefused extends Error {
   override name = 'LaunchRefused'

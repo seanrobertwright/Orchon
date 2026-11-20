@@ -4,6 +4,7 @@
 // tool calls than it may.
 import { field, text } from '../shape.ts'
 import type { Tape } from './recording.ts'
+import { TERMINAL } from './workflows.ts'
 
 /** Which ceiling was crossed, what was seen and what the ceiling was. */
 export interface Crossing {
@@ -107,8 +108,6 @@ export function createCeilingGuard(ceilings: Ceilings): CeilingGuard {
     }
   }
 }
-
-const TERMINAL: readonly string[] = ['completed', 'failed', 'cancelled']
 
 export type WatchOutcome =
   | { ended: 'finished'; status: string }
