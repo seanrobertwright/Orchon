@@ -25,6 +25,7 @@ import { startRunDetail } from './run-detail'
 import { startRunGraph } from './run-graph'
 import { startRunsTable } from './runs-table'
 import { startSettingsForms } from './settings-forms'
+import { startStepDetail } from './step-detail'
 import { startWideTabs } from './wide-tabs'
 import { startWorkflowsSection } from './workflows-section'
 
@@ -69,6 +70,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     now: ports.now
   })
   const artifacts = startArtifacts(orca, connection)
+  const stepDetail = startStepDetail(orca, { client: connection.client, current: connection.current, now: ports.now, timers: ports.timers })
   const runControl = startRunControl(orca, { ...connection, questions })
   const runGraph = startRunGraph(orca, connection)
   const builder = startBuilder(orca, {
@@ -140,6 +142,7 @@ export function start(orca: OrcaWorkerApi, ports: WorkerPorts): () => void {
     runsTable.dispose()
     runDetail.dispose()
     artifacts.dispose()
+    stepDetail.dispose()
     runControl.dispose()
     connection.stop()
   }
