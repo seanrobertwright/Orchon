@@ -10,8 +10,18 @@
 // A calibration on a ratio card is read by a later version, and so are the refusals and the
 // packs whose declarations could not be read.
 import { cutAt } from './cutter'
-import { formatNumber, formatShare, isMetricName, METRICS_TEXT_CAP, need, readable, sameIdentity } from './metric-figures'
-import type { Instrument, Report } from './metrics'
+import {
+  formatNumber,
+  formatShare,
+  isMetricName,
+  METRICS_TEXT_CAP,
+  need,
+  readable,
+  sameIdentity,
+  type InstrumentFigures,
+  type MetricFigures
+} from './metric-figures'
+import type { Report } from './metrics'
 import { isRecord, isText, own } from './records'
 import type { MetricsWindow } from './metrics-view'
 import {
@@ -105,10 +115,17 @@ export function parseCardDeclarations(value: unknown): CardDeclarations | null {
   })
 }
 
-type Count = { headline: Instrument; instruments: Instrument[] }
+/** A count's headline judge version and every judge version, the headline's among them, in Archon's order. */
+type Count = { headline: InstrumentFigures; instruments: InstrumentFigures[] }
 
 /** The counts of a report by name, and how many metrics of a kind the plugin does not know it holds. */
 export type CardReport = { counts: Map<string, Count>; unknownKinds: number }
+
+/**
+ * A count's judge versions for `countAt`: the headline is the first of its identity in Archon's
+ * order, so putting it before the others finds the same judge version Archon's order would.
+ */
+const countOf = ({ headline, others }: MetricFigures): Count => ({ headline, instruments: [headline, ...others] })
 
 /** What the cards read of the window's report: its counts, the first of a name winning. Scores count nothing. */
 export function cardReportOf(report: Report): CardReport {
@@ -116,13 +133,13 @@ export function cardReportOf(report: Report): CardReport {
   let unknownKinds = 0
   for (const metric of report.metrics) {
     if (metric.kind === 'unknown') unknownKinds += 1
-    else if (metric.kind === 'count' && !counts.has(metric.name)) counts.set(metric.name, { headline: metric.headline, instruments: metric.instruments })
+    else if (metric.kind === 'count' && !counts.has(metric.name)) counts.set(metric.name, countOf(metric.figures))
   }
   return { counts, unknownKinds }
 }
 
 /** A count's figures at the judge version of a card's main figure, as the console's `instrumentAt`. */
-const countAt = (report: CardReport, name: string, main: Instrument): Instrument | undefined =>
+const countAt = (report: CardReport, name: string, main: InstrumentFigures): InstrumentFigures | undefined =>
   report.counts.get(name)?.instruments.find((each) => sameIdentity(each, main))
 
 type Figure = { figure: string; line: string | null; percent?: number }
@@ -157,11 +174,11 @@ function costPerFigure(card: Extract<Declared, { shape: 'cost_per' }>, report: C
   const costed = card.costOf === null ? counted : countAt(report, card.costOf, counted)
   if (costed === undefined) return NOT_RECORDED
   if (counted.value === 0) return { figure: NO_FIGURE, line: NOTHING_COUNTED_TEXT }
-  const runsWithCost = costed.runs - costed.runsWithoutCost
-  const line = `${String(runsWithCost)} of ${String(costed.runs)} runs record cost`
+  const runsWithCost = costed.cost.runs - costed.cost.withoutCost
+  const line = `${String(runsWithCost)} of ${String(costed.cost.runs)} runs record cost`
   // Half or fewer of the producing runs recorded a cost, so a figure per item would mislead.
-  if (costed.usd === null || runsWithCost * 2 <= costed.runs) return { figure: NO_FIGURE, line }
-  return { figure: `≥ $${formatNumber(costed.usd / counted.value)}`, line }
+  if (costed.cost.usd === null || runsWithCost * 2 <= costed.cost.runs) return { figure: NO_FIGURE, line }
+  return { figure: `≥ $${formatNumber(costed.cost.usd / counted.value)}`, line }
 }
 
 /** The metric a card's Details link opens Details at, as the console's `cardMetric`. */

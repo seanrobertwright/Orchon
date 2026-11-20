@@ -35,6 +35,7 @@ import type {
   BuilderValidateRequest,
   YamlOpenAnswer
 } from '../editors/builder/builder-view'
+import type { MetricAnswer, MetricRequest } from './metric-view'
 import type { MetricsAnswer, MetricsRequest } from './metrics-view'
 import type { MetricsCardsPost } from './overview-view'
 import type { DeleteAnswer, WorkflowDelete, WorkflowNew, WorkflowsAnswer, WorkflowsRequest } from './workflows-section-view'
@@ -187,6 +188,11 @@ declare module 'orca' {
      * window, read from Archon or from the report the worker holds while it is at most `METRICS_MAX_AGE_MS` old. A window it names is kept.
      */
     'metrics.read': { input: MetricsRequest; output: MetricsAnswer }
+    /**
+     * A metric's view: one metric's figures and its "By day" rows, from the report the worker holds
+     * for the scope and window, or read from Archon by `name` when it holds none.
+     */
+    'metric.read': { input: MetricRequest; output: MetricAnswer }
   }
   interface PluginPanelEvents {
     /**
