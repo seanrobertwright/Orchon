@@ -1,6 +1,7 @@
 // The only workflows the recorder launches: its own, written into the throwaway project, with
-// no agent in them. No bundled workflow is ever launched, so no launch spends workflow tokens
-// and `archon-worktree-cleanup` cannot be reached.
+// no agent in them, and in spend mode's agent-step scenario alone, one agent step of its own. No
+// bundled workflow is ever launched, so the recording that spends nothing spends no workflow
+// tokens and `archon-worktree-cleanup` cannot be reached.
 
 /** Workflows the recorder must never launch, whatever else changes. */
 export const FORBIDDEN_WORKFLOWS: readonly string[] = ['archon-worktree-cleanup']

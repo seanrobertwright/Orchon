@@ -221,7 +221,7 @@ async function recordChatTurn(session: Session, context: SpendContext, clock: Cl
     await tape.call('POST', `/api/workflows/runs/${segment(runId)}/cancel`)
   }
   let observed = 0
-  let runIds: string[] = []
+  let runIds: string[]
   for (;;) {
     for (const frame of stream.frames.slice(observed)) guard.observe(frame.data)
     observed = stream.frames.length

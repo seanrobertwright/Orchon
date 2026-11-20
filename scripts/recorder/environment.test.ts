@@ -47,11 +47,11 @@ describe("the release's environment", () => {
 
   test('hides the Claude login: its config folder is an empty throwaway folder, whatever the shell said', () => {
     const env = releaseEnvironment(
-      { USERPROFILE: 'C:\Users\dev', claude_config_dir: 'C:\Users\dev\.claude', CLAUDE_BIN_PATH: 'C:\Users\dev\.local\bin\claude.exe' },
-      'C:\Temp\throwaway\archon-home',
-      { kind: 'hidden', emptyConfigFolder: 'C:\Temp\throwaway\claude-config-empty' }
+      { USERPROFILE: 'C:\\Users\\dev', claude_config_dir: 'C:\\Users\\dev\\.claude', CLAUDE_BIN_PATH: 'C:\\Users\\dev\\.local\\bin\\claude.exe' },
+      'C:\\Temp\\throwaway\\archon-home',
+      { kind: 'hidden', emptyConfigFolder: 'C:\\Temp\\throwaway\\claude-config-empty' }
     )
-    assert.equal(env.CLAUDE_CONFIG_DIR, 'C:\Temp\throwaway\claude-config-empty')
+    assert.equal(env.CLAUDE_CONFIG_DIR, 'C:\\Temp\\throwaway\\claude-config-empty')
     assert.deepEqual(
       Object.keys(env).filter((name) => /^claude_/i.test(name)),
       ['CLAUDE_CONFIG_DIR']
@@ -60,25 +60,25 @@ describe("the release's environment", () => {
 
   test('passes the login on only as the names that point at it, never a key or a token', () => {
     const parent = {
-      USERPROFILE: 'C:\Users\dev',
-      CLAUDE_CONFIG_DIR: 'D:\claude-config',
-      CLAUDE_BIN_PATH: 'C:\Users\dev\.local\bin\claude.exe',
+      USERPROFILE: 'C:\\Users\\dev',
+      CLAUDE_CONFIG_DIR: 'D:\\claude-config',
+      CLAUDE_BIN_PATH: 'C:\\Users\\dev\\.local\\bin\\claude.exe',
       CLAUDE_CODE_OAUTH_TOKEN: 'secret',
       ANTHROPIC_API_KEY: 'secret',
       CLAUDE_API_KEY: 'secret',
       ANTHROPIC_AUTH_TOKEN: 'secret'
     }
-    const env = releaseEnvironment(parent, 'C:\Temp\throwaway\archon-home', { kind: 'passed' })
-    assert.equal(env.CLAUDE_CONFIG_DIR, 'D:\claude-config')
-    assert.equal(env.CLAUDE_BIN_PATH, 'C:\Users\dev\.local\bin\claude.exe')
-    assert.equal(env.USERPROFILE, 'C:\Users\dev')
+    const env = releaseEnvironment(parent, 'C:\\Temp\\throwaway\\archon-home', { kind: 'passed' })
+    assert.equal(env.CLAUDE_CONFIG_DIR, 'D:\\claude-config')
+    assert.equal(env.CLAUDE_BIN_PATH, 'C:\\Users\\dev\\.local\\bin\\claude.exe')
+    assert.equal(env.USERPROFILE, 'C:\\Users\\dev')
     assert.ok(!Object.values(env).includes('secret'))
   })
 
   test('in spend mode with no config folder named, Claude is left to find its login in the home folder', () => {
-    const env = releaseEnvironment({ USERPROFILE: 'C:\Users\dev' }, 'C:\Temp\throwaway\archon-home', { kind: 'passed' })
+    const env = releaseEnvironment({ USERPROFILE: 'C:\\Users\\dev' }, 'C:\\Temp\\throwaway\\archon-home', { kind: 'passed' })
     assert.equal(env.CLAUDE_CONFIG_DIR, undefined)
-    assert.equal(env.USERPROFILE, 'C:\Users\dev')
+    assert.equal(env.USERPROFILE, 'C:\\Users\\dev')
   })
 
   test("knows where Claude keeps the shell's login, by path only", () => {
