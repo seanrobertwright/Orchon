@@ -227,7 +227,7 @@ export function setup(ctx: PanelContext): void {
   })
   startScope(ctx, {
     connection: () => read(connection),
-    // The Launch and Workflows sections' default project is the scope's, and the chat list follows it, so they read the scope too.
+    // The Launch and Workflows sections' default project is the scope's, and the chat list and Metrics follow it, so they read the scope too.
     showing: () => {
       const showing = parseSection(read(section))
       // Metrics reads it only from a server that has metrics: without them it asks nothing.

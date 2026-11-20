@@ -1,7 +1,7 @@
 // The per-view fetch rules, one piece every view of the panel and the tabs reuses (#13, part 5):
 // a request counter so only the answer to the newest request is applied; one fetch in flight and
 // at most one more queued; a minimum gap between the starts of two fetches; a user action that
-// aborts the fetch in flight and starts at once; a safety refetch; and every timer cleared when
+// aborts the fetch in flight and starts at once; a safety refetch, unless the view has none; and every timer cleared when
 // the view closes. It also holds what a view does when Orca rejects its request to the worker
 // (#22, part 9): a read rejected as `rate_limited` waits `retryAfterMs` and is sent once more,
 // and `consent_required` sets no timer. It is pure logic on the clock and timers it is given; the

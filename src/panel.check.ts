@@ -20,6 +20,7 @@ import { formsWithEdits } from '../scripts/forms-samples.ts'
 import { answeringRun, answeringRuns, busyRuns, busyRunsNeedingYou, sampleDetail } from '../scripts/runs-samples.ts'
 import { answeringLaunch, webForm } from '../scripts/launch-samples.ts'
 import { answeringWorkflows, draftedWorkflows, webWorkflows } from '../scripts/workflows-samples.ts'
+import { answeringMetrics, sampleReport } from '../scripts/metrics-samples.ts'
 import { answeringChats, sampleChats } from '../scripts/chat-samples.ts'
 import { answeringThread, sampleDispatch, sampleResult, sampleThread, sampleThreadWith } from '../scripts/chat-thread-samples.ts'
 import { answeringScope, matchedWeb, remote, unmatchedGit } from '../scripts/scope-samples.ts'
@@ -161,6 +162,8 @@ export default defineCheck({
   },
   'metrics without the metrics paths': { ...answering(connected), ...onMetrics },
   'metrics with the metrics paths': { ...answering(connectedWithMetrics), ...onMetrics },
+  'metrics details': { ...answeringMetrics(() => sampleReport('7d', undefined, { more: 4 })), ...onMetrics },
+  'metrics, timed out': { ...answeringMetrics(() => ({ kind: 'timeout' })), ...onMetrics },
   'settings while searching, with data': { ...answering(searching, systemRead), ...onSettings },
   'settings with unsaved edits and an outside change': { ...answering(connected, systemRead, formsWithEdits), ...onSettings },
   'settings while not found': { ...answering(notRunning), ...onSettings },

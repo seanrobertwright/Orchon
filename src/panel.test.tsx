@@ -27,8 +27,9 @@ afterEach(async () => {
  * What a person notices first: the selected tab and the empty state under it. Runs and Chat are
  * built and the scripted worker has no runs and no conversations; Chat also has its heading.
  * Settings, Launch and Workflows are built, so they have no empty state; their own tests are in
- * settings.test.tsx, launch-section.test.tsx and workflows-panel.test.tsx. Every other section is
- * still a placeholder.
+ * settings.test.tsx, launch-section.test.tsx and workflows-panel.test.tsx. The scripted server is
+ * the floor release, so Metrics has only its empty state saying which release it needs; its own
+ * tests are in metrics-section.test.tsx.
  */
 function showing(view: TestPanel, label: string): void {
   let first: string[]
