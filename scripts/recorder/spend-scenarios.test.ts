@@ -177,4 +177,14 @@ describe('the metrics scenario', () => {
     assert.ok(file.text.includes('query-took'))
     assert.ok(session.gaps.some((gap) => /archon-metrics-prs/.test(gap.why) && /GitHub/.test(gap.why)))
   })
+
+  test('stops when its queries outlive its wall-clock ceiling', async () => {
+    const { client, sent } = standInRelease({})
+    // Every reading of the clock is a minute later: each query takes a minute.
+    let time = 0
+    const now = (): number => (time += 60_000)
+    const session = createSession('0.14.0', client, now)
+    await assert.rejects(recordSpendScenario(session, 'metrics', { projectFolder: '/tmp/throwaway/project', tokenCeiling: 0, now }), /time ceiling/)
+    assert.ok(!sent.includes('GET /api/metrics?since=365d'))
+  })
 })

@@ -271,8 +271,10 @@ async function recordChatTurn(session: Session, context: SpendContext, clock: Cl
 export const METRICS_PACK_GAP =
   "archon-metrics-prs was not run: its own description says it needs a forge plugin whose pr.view reports pull request timestamps, which is a GitHub login, and it counts only pull requests the build queue opened, which a throwaway home has none of. The recorder handles no GitHub credential, so the reports were recorded over an empty store"
 
-async function recordMetrics(session: Session, context: SpendContext): Promise<SpendOutcome> {
+async function recordMetrics(session: Session, context: SpendContext, clock: Clock): Promise<SpendOutcome> {
   const tape = session.tape()
+  // It spends nothing, so its token ceiling is 0, and like every scenario it has a wall clock.
+  const guard = createCeilingGuard({ tokenCeiling: 0, wallClockMs: SPEND_SCENARIOS.metrics.wallClockMs, now: clock.now })
   const project = await registerProject(tape, context.projectFolder)
   const paths = [
     '/api/metric-views',
@@ -284,8 +286,15 @@ async function recordMetrics(session: Session, context: SpendContext): Promise<S
   ]
   for (const path of paths) {
     const started = tape.at()
-    await tape.call('GET', path)
+    const answer = await tape.call('GET', path)
     tape.note('query-took', { path, ms: tape.at() - started })
+    guard.observe(answer.body)
+    const crossed = guard.check()
+    if (crossed !== null) {
+      tape.note('ceiling-crossed', { ...crossed })
+      session.save('metrics', 'the metrics reports read before a ceiling was crossed', tape)
+      throw new StopTheRelease(`The metrics scenario crossed its ${crossed.by} ceiling.`, { tokensSeen: guard.tokens(), crossed })
+    }
   }
   session.missing('a metrics report after a pack that emits metrics has run', METRICS_PACK_GAP)
   session.save('metrics', 'GET /api/metric-views and /api/metrics over the default window, 7 days and 365 days, with the time each query took', tape)
@@ -297,5 +306,5 @@ export async function recordSpendScenario(session: Session, name: SpendScenarioN
   const clock: Clock = { now: context.now ?? (() => performance.now()), sleep: context.sleep ?? wait }
   if (name === 'agent-step') return recordAgentStep(session, context, clock)
   if (name === 'chat-turn') return recordChatTurn(session, context, clock)
-  return recordMetrics(session, context)
+  return recordMetrics(session, context, clock)
 }

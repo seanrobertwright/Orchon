@@ -121,13 +121,52 @@ Read this before you run it. The recorder:
 - Lets the release download its own server and web UI from its GitHub release, and installs the `claude` provider into the throwaway home with the release's own `provider add`. A release with no provider cannot create a conversation.
 - Registers one project: a scratch Git repository it makes inside the throwaway folder.
 - Launches only its own workflows, which it writes into that project. They hold shell steps, an approval gate and an attention wait, and no agent. It never launches a bundled workflow, so it never launches `archon-worktree-cleanup`, and it never sends a chat message.
-- Costs a little: for each launch that saves its message, Archon writes a title with its small model, through your own Claude login.
+- Hides your Claude login from the release. Claude Code, which Archon's `claude` provider starts, reads its login from the folder `CLAUDE_CONFIG_DIR` names, or from `.claude` in your home folder. The recorder points `CLAUDE_CONFIG_DIR` at an empty folder inside the throwaway folder, and passes on no API key or token, so the release finds no login and cannot call a model. The title Archon writes for each launch with its small model falls back to the launch message. Whether this also hides a login Claude Code keeps in the macOS keychain is not established; every release so far was recorded on Windows.
 - Leaves the release reachable the way `archon serve` does while it runs. Archon listens on every network interface by default.
 - Stops the release and every process it started, deletes the throwaway folder, scrubs what it recorded, and writes the fixtures. On Linux and macOS a process that has not ended five seconds after SIGTERM is sent SIGKILL; on Windows `taskkill /T /F` ends the tree at once.
 - Does the same on Ctrl+C at any point, the release's first boot and `provider add` included. A second Ctrl+C does not cut the cleanup short: the recorder ends once the release is gone and the throwaway folder is deleted.
 - Writes nothing when the run failed, was interrupted, or held back a fixture that still named a machine path or name after scrubbing. The fixtures folder of that release is left as it was, and the log is printed instead. A complete run replaces the folder only once the new recording is on disk.
 
 After recording, run `npm run check` and read the diff before you commit.
+
+#### Spend mode
+
+Some fixtures only a live model can give: an agent step with its tool calls, and a web chat turn. Spend mode records them, one scenario at a time, through your own Claude login. It is off unless you ask for it, and it spends your Claude allowance, which has no spending cap of its own. Run each scenario by hand, in your own shell, logged in to Claude Code as you normally are.
+
+| Scenario | What it records | Expected spend (an estimate) | Highest `--token-ceiling` | Wall-clock ceiling |
+| --- | --- | --- | --- | --- |
+| `agent-step` | One agent step on the `small` tier, prompted "List the files in this folder, then stop.", with Glob as its only tool: its run, its stream frames and its provider events by `step` and by the `attemptId` and `afterSeq` cursor | 40,000 to 70,000 tokens in, 1,000 to 2,000 out | 150000 | 5 minutes |
+| `chat-turn` | One web chat turn, "run workflow orchon-recorder-echo": the stream frames in order, the saved messages and the shell-step run it starts | 25,000 to 40,000 tokens in, 1,000 out | 100000 | 5 minutes |
+| `metrics` | `GET /api/metric-views` and `GET /api/metrics` over the default window, 7 days and 365 days, with the time each query took. Archon 0.14.0 only | none | 0: it takes no ceiling | 2 minutes |
+
+The three ceilings add up to 250,000 tokens. Run `agent-step` first, alone, as the smoke test, and read its log before you run the next one:
+
+```sh
+node scripts/record-fixtures.ts 0.14.0 --binary <path> --scenario agent-step --allow-token-spend --token-ceiling 150000
+node scripts/record-fixtures.ts 0.14.0 --binary <path> --scenario chat-turn --allow-token-spend --token-ceiling 100000
+node scripts/record-fixtures.ts 0.14.0 --binary <path> --scenario metrics
+```
+
+A lower `--token-ceiling` is allowed; a higher one is refused. Without `--allow-token-spend` and `--token-ceiling`, `agent-step` and `chat-turn` refuse to start. `metrics` calls no model, so it refuses both flags and the release never sees your login.
+
+In spend mode the recorder does everything the recording that spends nothing does, and also:
+
+- Gives the release your login only for `agent-step` and `chat-turn`, and only as names: the home folder it already passes, and `CLAUDE_CONFIG_DIR` and `CLAUDE_BIN_PATH` when your shell sets them. It never reads, copies or logs what the login folder holds, and it passes on no API key or token. `--version`, `provider add` and `git` never get the login.
+- Writes the throwaway home's own `config.yaml`: Claude's chat and the `small` tier on Haiku, only the project's own Claude settings, and no bundled workflow or command. Before it spends anything it reads `GET /api/config` and refuses to go on unless the release reports Haiku for both. Your own Archon config is never read.
+- Launches only its own agent step, after Archon reads it from the throwaway project as one agent step with the recorder's prompt, the `small` tier and Glob alone. The step asks for one attempt (`retry: { max_attempts: 1 }`) and a Claude budget of USD 0.30 (`maxBudgetUsd`), a second guard whose effect on a subscription login is not established. In `chat-turn` it launches nothing itself and cancels at once any run of a workflow other than `orchon-recorder-echo`.
+- Reads the spend Archon reports every second, and cancels the run through `POST /api/workflows/runs/{runId}/cancel` when the tokens reported cross the ceiling, the wall-clock ceiling passes, or the agent step makes more tool calls than `AGENT_STEP_MAX_TOOL_CALLS` allows. In 0.14.0's path list a step's tokens are reported on its node event and in the run's metadata, and its provider events carry none, so while a step runs the wall-clock ceiling and the tool-call count are what stop it. The chat turn's own tokens are read from its stream frames and its run, if the release reports them there at all; its wall-clock ceiling is the guard that holds. No route of the release cancels a chat turn, so a chat turn past a ceiling has its run cancelled and the release stopped.
+- Writes into `fixtures/<release>/spend/<scenario>/`, with its own `RECORDED.md` that says it was recorded in spend mode, the ceilings, the tokens Archon reported and the ceiling crossed, if any. Recording the release again without spending keeps this folder.
+- Holds back any fixture, and the whole log, that still names your Claude login folder, your home folder or your account name, or holds a string shaped like a key or a token or an email address a person owns, after scrubbing.
+
+To stop a run, press Ctrl+C once. The release and every process it started are stopped, which ends the model call, and the throwaway folder is deleted; nothing is written.
+
+Afterwards:
+
+1. Read the printed line `Archon reported N tokens.` and the `RECORDED.md` of the scenario's folder: the tokens reported, and whether a ceiling was crossed.
+2. Compare with your Claude usage page. The recorder counts only what Archon reports, and the title Archon writes with its small model may not be reported anywhere, so the real spend can be higher.
+3. Run `npm run check`, then read the diff of `fixtures/<release>/spend/` before you commit.
+
+The `metrics` scenario records the reports over an empty store. `archon-metrics-prs`, the pack workflow that would fill it, is not run: it needs a forge plugin whose `pr.view` reports pull request timestamps, which is a GitHub login, and it counts only pull requests its build queue opened. The recorder handles no GitHub credential.
 
 ### Seeing it in Orca
 
