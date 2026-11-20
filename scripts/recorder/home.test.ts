@@ -1,11 +1,12 @@
 // The throwaway Archon home: the recorder boots a release only against a home it made itself.
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
 import {
   assertOwnHome,
   createThrowawayHome,
   HOME_MARKER,
+  writeSpendConfig,
   NotOwnHome,
   removeThrowawayHome,
   type ThrowawayHome
@@ -37,6 +38,24 @@ describe('the throwaway Archon home', () => {
     const home = createThrowawayHome({ tempFolder: scratch(), developerHomes: [] })
     assert.equal(home.emptyClaudeConfig, join(home.root, 'claude-config-empty'))
     assert.deepEqual(readdirSync(home.emptyClaudeConfig), [])
+  })
+
+  test("spend mode writes the throwaway home's own config: Haiku for the small tier and the chat, no bundled workflows", () => {
+    const home = createThrowawayHome({ tempFolder: scratch(), developerHomes: [] })
+    writeSpendConfig(home)
+    assert.deepEqual(JSON.parse(readFileSync(join(home.archonHome, 'config.yaml'), 'utf8')), {
+      assistants: { claude: { model: 'haiku', settingSources: ['project'] } },
+      tiers: { small: { provider: 'claude', model: 'haiku' } },
+      defaults: { loadDefaultWorkflows: false, loadDefaultCommands: false }
+    })
+  })
+
+  test('writes no config into a home it did not make', () => {
+    const temp = scratch()
+    const home = createThrowawayHome({ tempFolder: temp, developerHomes: [] })
+    writeFileSync(join(home.root, HOME_MARKER), '{"token":"another-run"}')
+    assert.throws(() => writeSpendConfig(home), isA(NotOwnHome))
+    assert.equal(existsSync(join(home.archonHome, 'config.yaml')), false)
   })
 
   test('two homes never share a folder', () => {

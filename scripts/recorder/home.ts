@@ -128,3 +128,20 @@ export function removeThrowawayHome(home: ThrowawayHome): void {
   // Windows frees a stopped server's files a moment after its process ends.
   rmSync(home.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
 }
+
+/**
+ * The throwaway home's own config for spend mode: Claude's chat and the small tier on Haiku,
+ * only the project's own Claude settings, and no bundled workflow or command, so a chat turn
+ * can start nothing but the recorder's own workflows. The developer's config is never read.
+ */
+export const SPEND_CONFIG = {
+  assistants: { claude: { model: 'haiku', settingSources: ['project'] } },
+  tiers: { small: { provider: 'claude', model: 'haiku' } },
+  defaults: { loadDefaultWorkflows: false, loadDefaultCommands: false }
+} as const
+
+/** Writes `SPEND_CONFIG` as the throwaway Archon home's `config.yaml`. JSON is YAML. */
+export function writeSpendConfig(home: ThrowawayHome): void {
+  assertOwnHome(home)
+  writeFileSync(join(home.archonHome, 'config.yaml'), `${JSON.stringify(SPEND_CONFIG, null, 2)}\n`)
+}
