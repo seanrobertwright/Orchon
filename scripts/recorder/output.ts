@@ -6,6 +6,12 @@ import { basename, dirname, join } from 'node:path'
 
 export const LOG_FILE = 'RECORDED.md'
 
+/**
+ * The subfolder of a release's fixtures that holds its spend-mode recordings, one folder for each
+ * scenario. A recording that spends nothing replaces everything else and keeps this folder.
+ */
+export const SPEND_FOLDER = 'spend'
+
 /** The recorder was told to write into a folder that holds something other than a recording. */
 export class NotARecordingFolder extends Error {
   override name = 'NotARecordingFolder'
@@ -34,7 +40,8 @@ function writeInto(folder: string, files: readonly File[], log: string): void {
 /**
  * Replaces `folder` with `files` and the log. Each path is relative, with forward slashes. The
  * new recording is written beside the folder first, and the earlier one is moved aside and
- * deleted only once the new one is in place, so a write that fails part way leaves it whole.
+ * deleted only once the new one is in place, so a write that fails part way leaves it whole. A
+ * `spend` subfolder of the earlier one is moved into the new one first, unless the new one has its own.
  */
 export function writeFixtures(folder: string, files: readonly File[], log: string): void {
   refuseOtherFolder(folder)
@@ -50,6 +57,11 @@ export function writeFixtures(folder: string, files: readonly File[], log: strin
     throw error
   }
   const hadEarlier = existsSync(folder)
+  const kept = join(folder, SPEND_FOLDER)
+  if (hadEarlier && existsSync(kept) && !files.some((file) => file.path.startsWith(`${SPEND_FOLDER}/`))) {
+    // The spend-mode recordings cost tokens to make, and a recording that spends nothing does not make them again.
+    renameSync(kept, join(staging, SPEND_FOLDER))
+  }
   if (hadEarlier) renameSync(folder, earlier)
   try {
     renameSync(staging, folder)

@@ -82,7 +82,7 @@ describe("the release's environment", () => {
   })
 
   test("knows where Claude keeps the shell's login, by path only", () => {
-    assert.equal(claudeLoginFolder({ CLAUDE_CONFIG_DIR: 'D:\claude-config' }, 'C:\Users\dev'), 'D:\claude-config')
+    assert.equal(claudeLoginFolder({ CLAUDE_CONFIG_DIR: 'D:\\claude-config' }, 'C:\\Users\\dev'), 'D:\\claude-config')
     assert.equal(claudeLoginFolder({ claude_config_dir: '' }, '/home/dev'), join('/home/dev', '.claude'))
     assert.equal(claudeLoginFolder({}, '/home/dev'), join('/home/dev', '.claude'))
   })
