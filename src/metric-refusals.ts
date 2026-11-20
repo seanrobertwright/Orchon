@@ -10,6 +10,7 @@ import { isMetricName, METRICS_TEXT_CAP } from './metric-figures'
 import { REFUSALS_CAP, type RefusalRow } from './metrics-view'
 import { isRecord, isText, own } from './records'
 import { UNREADABLE_PACKS_CAP, type UnreadablePack } from './refusals-view'
+import { keyCounter } from './unique-keys'
 
 const cut = (text: string): string => cutAt(text, METRICS_TEXT_CAP)
 
@@ -61,17 +62,22 @@ function parseRefusal(value: unknown): Refusal | null {
  */
 export function parseRefusals(refused: readonly unknown[]): RefusalRow[] {
   const rows: RefusalRow[] = []
-  const seen = new Map<string, number>()
+  const key = keyCounter()
   for (const value of refused) {
     if (rows.length >= REFUSALS_CAP) break
     const refusal = parseRefusal(value)
-    if (refusal === null) continue
-    const base = `${refusal.runId}/${refusal.nodeId}`
-    const times = (seen.get(base) ?? 0) + 1
-    seen.set(base, times)
-    rows.push({ key: times === 1 ? base : `${base}#${String(times)}`, ...refusal })
+    if (refusal !== null) rows.push({ key: key(`${refusal.runId}/${refusal.nodeId}`), ...refusal })
   }
   return rows
+}
+
+function parseUnreadablePack(value: unknown): Omit<UnreadablePack, 'key'> | null {
+  if (!isRecord(value)) return null
+  const pack = own(value, 'pack')
+  const source = own(value, 'source')
+  const error = own(value, 'error')
+  if (!isText(pack) || !isText(source) || !isText(error)) return null
+  return { pack: cut(pack), source: cut(source), message: cut(error) }
 }
 
 /**
@@ -83,18 +89,11 @@ export function parseUnreadablePacks(views: unknown): { packs: UnreadablePack[];
   const errors = own(views, 'errors')
   if (!Array.isArray(errors)) return null
   const packs: UnreadablePack[] = []
-  const seen = new Map<string, number>()
+  const key = keyCounter()
   for (const value of errors as unknown[]) {
     if (packs.length >= UNREADABLE_PACKS_CAP) break
-    if (!isRecord(value)) continue
-    const pack = own(value, 'pack')
-    const source = own(value, 'source')
-    const error = own(value, 'error')
-    if (!isText(pack) || !isText(source) || !isText(error)) continue
-    const base = `${cut(source)}:${cut(pack)}`
-    const times = (seen.get(base) ?? 0) + 1
-    seen.set(base, times)
-    packs.push({ key: times === 1 ? base : `${base}#${String(times)}`, pack: cut(pack), source: cut(source), message: cut(error) })
+    const pack = parseUnreadablePack(value)
+    if (pack !== null) packs.push({ key: key(`${pack.source}:${pack.pack}`), ...pack })
   }
   return { packs, more: errors.length - packs.length }
 }
