@@ -1,7 +1,10 @@
 // The only workflows the recorder launches: its own, written into the throwaway project, with
-// no agent in them, and in spend mode's agent-step scenario alone, one agent step of its own. No
+// no agent in them; in spend mode's agent-step scenario alone, one agent step of its own; and in
+// its metrics scenario alone, the synthetic metrics pack's one shell step. No
 // bundled workflow is ever launched, so the recording that spends nothing spends no workflow
 // tokens and `archon-worktree-cleanup` cannot be reached.
+
+import type { SpendScenarioName } from './spend.ts'
 
 /** Workflows the recorder must never launch, whatever else changes. */
 export const FORBIDDEN_WORKFLOWS: readonly string[] = ['archon-worktree-cleanup']
@@ -210,6 +213,159 @@ export function assertAgentStepAsRead(workflow: unknown): void {
   }
   if (step.model !== SMALL_TIER) throw new LaunchRefused(`Archon reads the agent step's model as ${String(step.model)}, not the ${SMALL_TIER} tier.`)
   if (!sameList(step.allowed_tools, AGENT_STEP_TOOLS)) throw new LaunchRefused('Archon reads the agent step with tools other than Glob.')
+}
+
+// ---------------------------------------------------------------------------------------------
+// The synthetic metrics pack, written into the throwaway project only for spend mode's metrics
+// scenario, which spends nothing. One shell step prints made-up metric records, so Archon's
+// metrics reports have something to aggregate without a model, a forge plugin or GitHub.
+//
+// How Archon 0.14.0 reads it, from coleam00/Archon at 8def159a6b2c23e832a5283b4131cfffd9af9344:
+// a node's output is a metric source when its structured output has a top-level `metrics` array
+// (`packages/core/src/db/workflow-metrics.ts`); a `bash:` node that declares an `output_format`
+// has its stdout parsed as one JSON document and kept as its structured output
+// (`packages/workflows/src/dag/nodes/exec/exec-output.ts`); and a pack's overview cards are read
+// from `<project>/.archon/workflows/<pack>/.shared/metric-views.json`
+// (`packages/workflows/src/metric-views.ts`).
+// ---------------------------------------------------------------------------------------------
+
+/** The prefix of every synthetic metric name: no real pack's metric starts with it. */
+export const SYNTHETIC_METRIC_PREFIX = 'orchon_synthetic.'
+
+/** The pack folder that declares the synthetic overview cards. */
+export const SYNTHETIC_PACK = 'orchon-synthetic'
+
+/** A second pack folder whose declaration Archon cannot accept, so its listing reports an unreadable pack. */
+export const SYNTHETIC_UNREADABLE_PACK = 'orchon-synthetic-unreadable'
+
+type SyntheticRecord = Readonly<Record<string, string | number | null>>
+
+const metric = (name: string): string => `${SYNTHETIC_METRIC_PREFIX}${name}`
+
+const syntheticRecord = (name: string, kind: 'count' | 'score', unit: string, subject: string, value: number, more: Record<string, string> = {}): SyntheticRecord => ({
+  name: metric(name),
+  kind,
+  unit,
+  subject: `synthetic-${subject}`,
+  value,
+  ...more
+})
+
+const CALIBRATES = { calibrates: metric('tests_useless') }
+
+/**
+ * The records the pack prints, every number made up and fixed. Every record has a subject, so a
+ * second run replaces the first one's records instead of adding to them. None names `at` or
+ * `runs`: each falls in a window by when its step completed and belongs to the run that printed
+ * it. The last one gives `items_opened` a second definition, which Archon refuses and reports.
+ */
+export const SYNTHETIC_METRIC_RECORDS: readonly SyntheticRecord[] = [
+  ...[1, 2, 3, 4].map((item) => syntheticRecord('items_opened', 'count', 'items', `item-${item}`, 1)),
+  ...[1, 2].map((item) => syntheticRecord('items_merged', 'count', 'items', `item-${item}`, 1)),
+  syntheticRecord('items_abandoned', 'count', 'items', 'item-4', 1),
+  syntheticRecord('tests_added', 'count', 'tests', 'item-1', 5),
+  syntheticRecord('tests_added', 'count', 'tests', 'item-2', 3),
+  syntheticRecord('tests_useless', 'count', 'tests', 'item-1', 1),
+  syntheticRecord('tests_useless', 'count', 'tests', 'item-2', 1),
+  ...[1, 1, 0, 1].map((value, index) => syntheticRecord('useless_tests_caught', 'score', 'ratio', `case-${index + 1}`, value, CALIBRATES)),
+  ...[0.5, 0.7, 0.9].map((value, index) => syntheticRecord('review_score', 'score', 'ratio', `item-${index + 1}`, value)),
+  syntheticRecord('items_opened', 'score', 'ratio', 'item-5', 0.5)
+]
+
+/** The names the synthetic records carry, once each. */
+export const SYNTHETIC_METRIC_NAMES: readonly string[] = [...new Set(SYNTHETIC_METRIC_RECORDS.map((record) => String(record.name)))]
+
+/** The one shell step: it prints the records and nothing else. */
+export const SYNTHETIC_METRICS: WorkflowDefinition = {
+  ...base('synthetic-metrics', 'Orchon fixture recorder: one shell step that prints made-up metric records, no agent.'),
+  nodes: [
+    {
+      id: 'emit',
+      bash: `echo '${JSON.stringify({ metrics: SYNTHETIC_METRIC_RECORDS })}'`,
+      output_format: { type: 'object', required: ['metrics'], properties: { metrics: { type: 'array' } } }
+    }
+  ]
+}
+
+/** The overview cards, one of each shape Archon 0.14.0 knows. */
+const SYNTHETIC_VIEWS = {
+  names: {
+    [metric('items_opened')]: 'Synthetic items opened',
+    [metric('items_merged')]: 'Synthetic items merged',
+    [metric('items_abandoned')]: 'Synthetic items abandoned',
+    [metric('tests_added')]: 'Synthetic new tests',
+    [metric('tests_useless')]: 'Synthetic useless tests',
+    [metric('useless_tests_caught')]: 'Synthetic judge catch rate',
+    [metric('review_score')]: 'Synthetic review score'
+  },
+  cards: [
+    {
+      shape: 'count',
+      title: 'Synthetic items merged',
+      metric: metric('items_merged'),
+      breakdown: [
+        { metric: metric('items_opened'), label: 'opened' },
+        { metric: metric('items_abandoned'), label: 'abandoned' }
+      ]
+    },
+    {
+      shape: 'ratio',
+      title: 'Synthetic useless tests',
+      numerator: metric('tests_useless'),
+      denominator: metric('tests_added'),
+      denominator_label: 'new tests',
+      calibration: { metric: metric('useless_tests_caught'), label: 'judge catches', rough_below: 0.8 }
+    },
+    { shape: 'cost_per', title: 'Synthetic cost per item', metric: metric('items_merged'), cost_of: metric('items_opened') }
+  ]
+}
+
+/**
+ * The pack's files, by path inside the project's `.archon/workflows` folder: the workflow, its
+ * overview cards, and a declaration with no cards, which Archon lists as unreadable.
+ */
+export function syntheticPackFiles(): { path: string; text: string }[] {
+  const workflow = workflowFile(SYNTHETIC_METRICS)
+  return [
+    { path: workflow.name, text: workflow.text },
+    { path: `${SYNTHETIC_PACK}/.shared/metric-views.json`, text: `${JSON.stringify(SYNTHETIC_VIEWS, null, 2)}\n` },
+    { path: `${SYNTHETIC_UNREADABLE_PACK}/.shared/metric-views.json`, text: `${JSON.stringify({ cards: [] }, null, 2)}\n` }
+  ]
+}
+
+/**
+ * The files a spend scenario adds to the throwaway project, by path inside its
+ * `.archon/workflows` folder: the agent step for `agent-step`, the synthetic pack for `metrics`,
+ * and none for any other scenario or for the recording that spends nothing.
+ */
+export function scenarioFiles(scenario: SpendScenarioName | undefined): { path: string; text: string }[] {
+  if (scenario === 'agent-step') {
+    const file = agentStepFile()
+    return [{ path: file.name, text: file.text }]
+  }
+  return scenario === 'metrics' ? syntheticPackFiles() : []
+}
+
+/** Shows a name in a sentence: as it is, or in code quotes for Markdown. */
+type Quote = (name: string) => string
+
+/** What a recording says when the synthetic pack ran and Archon reported its records. */
+export function syntheticDescription(quote: Quote = (name) => name): string {
+  return `every metric record here, and the overview cards of ${quote(SYNTHETIC_PACK)}, were made up by the recorder's own pack (workflow ${quote(
+    SYNTHETIC_METRICS.name
+  )}, one shell step, fixed numbers, names starting ${quote(SYNTHETIC_METRIC_PREFIX)}). They measure nothing`
+}
+
+/** What a recording says when the synthetic pack was launched but its records were not confirmed. */
+export function possiblySyntheticDescription(why: string, quote: Quote = (name) => name): string {
+  return `the recorder's synthetic pack was launched but its records were not confirmed (${why}), so any metric record here named ${quote(
+    `${SYNTHETIC_METRIC_PREFIX}*`
+  )}, and the overview cards of ${quote(SYNTHETIC_PACK)}, were made up by it. They measure nothing`
+}
+
+/** What a recording says when the synthetic pack was never launched. */
+export function emptyStoreDescription(why: string, quote: Quote = (name) => name): string {
+  return `the recorder's synthetic pack was never launched (${why}), so the reports were read over an empty store. Any overview cards of ${quote(SYNTHETIC_PACK)} are still made up`
 }
 
 /** Fails unless `name` is one of the recorder's own workflows. Called before every launch. */

@@ -137,7 +137,7 @@ Some fixtures only a live model can give: an agent step with its tool calls, and
 | --- | --- | --- | --- | --- |
 | `agent-step` | One agent step on the `small` tier, prompted "List the files in this folder, then stop.", with Glob as its only tool: its run, its stream frames and its provider events by `step` and by the `attemptId` and `afterSeq` cursor | 40,000 to 70,000 tokens in, 1,000 to 2,000 out | 150000 | 5 minutes |
 | `chat-turn` | One web chat turn, "run workflow orchon-recorder-echo": the stream frames in order, the saved messages and the shell-step run it starts | 25,000 to 40,000 tokens in, 1,000 out | 100000 | 5 minutes |
-| `metrics` | `GET /api/metric-views` and `GET /api/metrics` over the default window, 7 days and 365 days, with the time each query took. Archon 0.14.0 only | none | 0: it takes no ceiling | 2 minutes |
+| `metrics` | First runs the recorder's synthetic metrics pack, one shell step that prints made-up metric records, then `GET /api/metric-views` and `GET /api/metrics` over the default window, 7 days and 365 days, and for the project, with the time each query took. Every metric record in it, and every overview card of its `orchon-synthetic` packs, is synthetic; the bundled `sdlc` pack's cards are Archon's own. Archon 0.14.0 only | none | 0: it takes no ceiling | 2 minutes |
 
 The three ceilings add up to 250,000 tokens. Run `agent-step` first, alone, as the smoke test, and read its log before you run the next one:
 
@@ -166,7 +166,9 @@ Afterwards:
 2. Compare with your Claude usage page. The recorder counts only what Archon reports, and the title Archon writes with its small model may not be reported anywhere, so the real spend can be higher.
 3. Run `npm run check`, then read the diff of `fixtures/<release>/spend/` before you commit.
 
-The `metrics` scenario records the reports over an empty store. `archon-metrics-prs`, the pack workflow that would fill it, is not run: it needs a forge plugin whose `pr.view` reports pull request timestamps, which is a GitHub login, and it counts only pull requests its build queue opened. The recorder handles no GitHub credential.
+The `metrics` scenario's records are synthetic. `archon-metrics-prs`, the pack workflow that would record real ones, is not run: it needs a forge plugin whose `pr.view` reports pull request timestamps, which is a GitHub login, and it counts only pull requests its build queue opened. The recorder handles no GitHub credential. Instead it writes its own pack into the throwaway project: the workflow `orchon-recorder-synthetic-metrics`, one `bash` step that echoes fixed records whose names all start `orchon_synthetic.`, its overview cards in `.archon/workflows/orchon-synthetic/.shared/metric-views.json`, and a declaration with no cards in `orchon-synthetic-unreadable`, so the views list an unreadable pack. The last record gives `orchon_synthetic.items_opened` a second definition, so the reports hold a refusal. The scenario launches the step only after Archon reads it from the project as a shell step with no agent, waits up to a minute for the run to complete and its records to be reported, and then reads the reports. It touches no forge plugin, no GitHub and no credential, and the release never sees your login.
+
+The fixture's `holds`, its `synthetic-data` log entry and the `Synthetic data` line of its `RECORDED.md` say the records are made up and measure nothing. When Archon does not read the pack from the project as a shell step with no agent, or refuses its launch, the scenario says why in the same three places and reads the reports over an empty store; any `orchon-synthetic` cards in the views are still made up. Once Archon has accepted the launch the step may have printed its records, so when the run does not appear, fails, is cancelled after a minute, or its records do not appear in the project's report, the same three places say why and that the reports are possibly synthetic.
 
 ### Seeing it in Orca
 
