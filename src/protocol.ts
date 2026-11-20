@@ -16,6 +16,7 @@ import type { RunAnswerRequest } from './run-answer-view'
 import type { RunControlAnswer, RunControlRequest } from './run-control-view'
 import type { RunDetailAnswer, RunDetailRequest } from './run-detail-view'
 import type { RunsAnswer, RunsRequest } from './runs-view'
+import type { ItemAnswer, ItemRequest, StepAnswer, StepCloseRequest, StepHint, StepRequest } from './step-view'
 import type { LinkRequest, OpenRequest, RegisterRequest, ScopeAnswer } from './scope-view'
 import type { SystemAnswer, SystemView } from './system-view'
 import type { BuilderOpenAnswer, BuilderOpenRequest, GraphOpenAnswer, GraphOpenRequest } from './wide-tabs-view'
@@ -49,6 +50,16 @@ declare module 'orca' {
     'runs.read': { input: RunsRequest; output: RunsAnswer }
     /** Run detail: one run's facts, its steps and what it waits for, in one answer. */
     'run.read': { input: RunDetailRequest; output: RunDetailAnswer }
+    /**
+     * The step view: one step's facts, its output and a page of its activity, which the worker
+     * folds from Archon's provider events. While the step runs, the worker polls its events until
+     * `step.close`.
+     */
+    'step.read': { input: StepRequest; output: StepAnswer }
+    /** One item of a step's activity: its text, or a tool call's input and output, each cut at 16 KiB. */
+    'step.item': { input: ItemRequest; output: ItemAnswer }
+    /** The step view closed: the worker no longer polls the step's events. */
+    'step.close': { input: StepCloseRequest; output: null }
     /** A run's artifacts: one folder's entries, or the paths a filter matches, at most 200. */
     'artifacts.read': { input: ArtifactsRequest; output: ArtifactsAnswer }
     /** One artifact the run's list holds: its facts and, when it is text within 256 KiB, its contents. */
@@ -182,6 +193,8 @@ declare module 'orca' {
     'connection.changed': ConnectionView
     /** A hint that runs changed in Archon, at most one a second. It carries no run data. */
     'runs.changed': RunsHint
+    /** A hint that an open step's activity changed, at most one every 3 seconds per step. It carries no activity. */
+    'step.changed': StepHint
     /** A hint that the snapshot of runs that need you changed. It carries no data. */
     'needs-you.changed': null
     /** The System group, posted when a read that no request waits for has ended. */
