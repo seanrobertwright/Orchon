@@ -10,10 +10,11 @@
 // writes them (`formatValue`, `formatFigure` and `formatUsd` in the console's metrics `model.ts`).
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
 import type { Client, ClientFailure, Timers } from './client'
-import type { ConnectionView } from './connection-view'
+import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
+import { parseMetricFigures, type MetricFigures } from './metric-figures'
 import {
   DEFAULT_WINDOW,
   DETAILS_ROWS_CAP,
@@ -74,7 +75,7 @@ export function parseMetricsRequest(input: unknown): MetricsRequest {
   return request
 }
 
-const isMetricName = (value: unknown): value is string =>
+export const isMetricName = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= METRIC_NAME_CAP && METRIC_NAME.test(value)
 const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isCount = (value: unknown): value is number => isFiniteNumber(value) && Number.isInteger(value) && value >= 0
@@ -127,8 +128,8 @@ function parseInstrument(value: unknown): Identity & Figures {
 }
 
 /** A metric as the table reads it: unknown kinds carry nothing but their name. */
-type Metric =
-  | { name: string; kind: 'known'; unit: string; calibration: boolean; headline: Figures }
+export type Metric =
+  | { name: string; kind: 'known'; unit: string; calibration: boolean; headline: Figures; figures: MetricFigures }
   | { name: string; kind: 'unknown'; calibration: boolean }
 
 function parseMetric(value: unknown): Metric {
@@ -151,7 +152,10 @@ function parseMetric(value: unknown): Metric {
   // Archon always reports the headline judge version among the metric's instruments.
   const headline = parsed.find((instrument) => sameIdentity(instrument, { instrument: headlineInstrument, measuredBy: headlineMeasuredBy }))
   need(headline !== undefined)
-  return { name, kind: 'known', unit, calibration, headline }
+  // The rest of the figures, which a metric's view shows: a part that fails fails the whole answer.
+  const figures = parseMetricFigures(value)
+  need(figures !== null)
+  return { name, kind: 'known', unit, calibration, headline, figures }
 }
 
 function parseRefusal(value: unknown): RefusalRow | null {
@@ -196,18 +200,18 @@ export function parseReport(value: unknown): Report | null {
 }
 
 /** Two decimals, except a nonzero value below 0.01 keeps two significant digits rather than showing 0. */
-function formatNumber(value: number): string {
+export function formatNumber(value: number): string {
   return value !== 0 && Math.abs(value) < 0.01
     ? value.toLocaleString('en-US', { maximumSignificantDigits: 2 })
     : value.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 const formatShare = (share: number): string => share.toLocaleString('en-US', { style: 'percent', maximumSignificantDigits: 2 })
 /** A value in its unit's terms: a `ratio` is a percentage, anything else a plain number. */
-const formatFigure = (value: number, unit: string): string => (unit === 'ratio' ? formatShare(value) : formatNumber(value))
+export const formatFigure = (value: number, unit: string): string => (unit === 'ratio' ? formatShare(value) : formatNumber(value))
 /** `prs` is the guide's own example unit; other units read with their underscores as spaces. */
 const UNIT_WORDS: ReadonlyMap<string, string> = new Map([['prs', 'PRs']])
 /** A value with its unit: a `ratio`'s percentage says its own unit, anything else adds the unit's word. */
-function formatValue(value: number, unit: string): string {
+export function formatValue(value: number, unit: string): string {
   const figure = formatFigure(value, unit)
   return unit === 'ratio' ? figure : `${figure} ${UNIT_WORDS.get(unit) ?? unit.replaceAll('_', ' ')}`
 }
@@ -254,6 +258,20 @@ function failureMessage(failure: ClientFailure): string {
   return readFailureText(failure)
 }
 
+/** What a failed metrics read shows: the same for the Details table and a metric's view. */
+export function failedView(failure: ClientFailure, connection: Connected): Extract<MetricsView, { kind: 'missing' | 'timeout' | 'too-large' | 'failed' }> {
+  if (failure.kind === 'timeout') return { kind: 'timeout' }
+  if (failure.kind === 'too-large') return { kind: 'too-large' }
+  // A release before 0.14.0 answers the metrics routes with its HTML page.
+  if (failure.kind === 'not-json') return { kind: 'missing', message: metricsMissing(connection) }
+  return { kind: 'failed', message: failureMessage(failure) }
+}
+
+/** Which server, store, scope and window a held report is for. */
+export function reportKey(connection: Connected, codebaseId: string | undefined, window: MetricsWindow): string {
+  return JSON.stringify([connection.baseUrl, connection.storeId, codebaseId ?? null, window])
+}
+
 export type MetricsPorts = {
   client: Client
   /** The connection state now, once the settings were first read. */
@@ -263,10 +281,13 @@ export type MetricsPorts = {
 }
 
 /** The last report the worker read: which server, scope and window it is for, and when. */
-type Held = { key: string; view: Extract<MetricsView, { kind: 'ready' }> }
+type Held = { key: string; view: Extract<MetricsView, { kind: 'ready' }>; report: Report }
+
+/** The metrics reads, and the report the worker holds for a key of `reportKey`, if it holds that one. */
+export type Metrics = Disposable & { held(key: string): Report | undefined }
 
 /** Answers the frames' `metrics.read`. */
-export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposable {
+export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics {
   let held: Held | undefined
   let chosen: Promise<MetricsWindow> | undefined
   let window: MetricsWindow = DEFAULT_WINDOW
@@ -298,17 +319,11 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
     const connection = await ports.current()
     if (connection.kind !== 'connected') return { kind: 'not-connected' }
     if (!connection.features.metrics) return { kind: 'missing', message: metricsMissing(connection) }
-    const key = JSON.stringify([connection.baseUrl, connection.storeId, request.codebaseId ?? null, requestedWindow])
+    const key = reportKey(connection, request.codebaseId, requestedWindow)
     if (request.refresh !== true && held?.key === key && ports.now() - held.view.fetchedAt <= METRICS_MAX_AGE_MS) return held.view
     const call = { baseUrl: connection.baseUrl, signal, errorBody: true } as const
     const views = await ports.client.request({ ...call, path: viewsPath(request.codebaseId), timeout: 'read' })
-    const failed = (failure: ClientFailure): MetricsView => {
-      if (failure.kind === 'timeout') return { kind: 'timeout' }
-      if (failure.kind === 'too-large') return { kind: 'too-large' }
-      // A release before 0.14.0 answers the metrics routes with its HTML page.
-      if (failure.kind === 'not-json') return { kind: 'missing', message: metricsMissing(connection) }
-      return { kind: 'failed', message: failureMessage(failure) }
-    }
+    const failed = (failure: ClientFailure): MetricsView => failedView(failure, connection)
     if (!views.ok) return failed(views.failure)
     const names = parseNames(views.value)
     if (names === null) return { kind: 'unreadable' }
@@ -329,7 +344,7 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
       refusedTotal: report.refusedTotal
     }
     if (request.codebaseId !== undefined) view.codebaseId = request.codebaseId
-    held = { key, view }
+    held = { key, view, report }
     return view
   }
 
@@ -341,6 +356,7 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
     return { connection: await ports.current(), window: requestedWindow, metrics }
   })
   return {
+    held: (key) => (held?.key === key ? held.report : undefined),
     dispose() {
       handle.dispose()
       // A window that waits for the pause is written now, so the choice outlives the worker.
