@@ -12,6 +12,6 @@ export type UnreadablePack = {
   pack: string
   /** Where Archon found the pack, such as "bundled" or "project". */
   source: string
-  /** Archon's message, cut at 500 characters. */
+  /** Archon's message, cut at `METRICS_TEXT_CAP` characters. */
   message: string
 }
