@@ -48,6 +48,9 @@ const PASSED_NAMES: readonly string[] = [
  */
 export type ProviderLogin = { kind: 'hidden'; emptyConfigFolder: string } | { kind: 'passed' }
 
+/** Whether the release is given the Claude login: `passed` in spend mode alone. */
+export type LoginMode = ProviderLogin['kind']
+
 /**
  * Where Claude keeps the login of the shell the recorder runs in: the folder `CLAUDE_CONFIG_DIR`
  * names, or `.claude` in the home folder. Only the path is worked out; nothing in it is read.

@@ -5,7 +5,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { closeSync, openSync } from 'node:fs'
 import { join } from 'node:path'
-import { releaseEnvironment, type ProviderLogin } from './environment.ts'
+import { releaseEnvironment, type LoginMode, type ProviderLogin } from './environment.ts'
 import { assertOwnHome, type ThrowawayHome } from './home.ts'
 import { sleep } from './wait.ts'
 
@@ -133,7 +133,7 @@ export function startRelease(
   home: ThrowawayHome,
   binary: string,
   port: number,
-  options: { graceMs?: number; login?: 'hidden' | 'passed' } = {}
+  options: { graceMs?: number; login?: LoginMode } = {}
 ): RunningRelease {
   assertOwnHome(home)
   const logFile = join(home.root, 'release.log')

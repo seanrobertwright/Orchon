@@ -1,6 +1,7 @@
 // The log beside a release's fixtures: what was recorded, when, from which binary, and what
 // could not be recorded. It is written by the recorder and never by hand.
 import type { Crossing } from './ceiling.ts'
+import type { LoginMode } from './environment.ts'
 import { PLACEHOLDERS } from './scrub.ts'
 
 /** What a spend-mode recording adds to its log. */
@@ -13,7 +14,7 @@ export interface SpendLog {
   /** The ceiling that was crossed, or null. */
   crossed: Crossing | null
   /** Whether the release was given the Claude login. */
-  login: 'passed' | 'hidden'
+  login: LoginMode
 }
 
 export interface RecordedLog {
