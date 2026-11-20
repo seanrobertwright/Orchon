@@ -32,11 +32,12 @@ import {
   type TableColumn,
   type TableRow
 } from 'orca'
+import { calibratedOverview, clearCalibrations, startCalibrationSection, unmatchedLines } from './calibration-section'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { formatDay, now } from './dates'
 import { frameTimers } from './frame-timers'
-import { closeMetricView, lastDays, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
+import { closeMetricView, lastDays, metricCalibrated, metricReportChanged, metricViewBody, openMetricName, openMetricView, startMetricView } from './metric-view-section'
 import {
   METRICS_REQUEST_TIMEOUT_MS,
   METRICS_WINDOWS,
@@ -175,6 +176,7 @@ export function startMetricsSection(ctx: PanelContext, given: MetricsSectionHook
   })
   fetcher = view
   startOverviewSection(ctx)
+  startCalibrationSection(ctx, metricCalibrated)
   startMetricView(ctx, { keep: given.keep })
   ctx.subscriptions.push({
     dispose() {
@@ -231,6 +233,7 @@ export function clearMetrics(): void {
   set(missing, null)
   set(problem, null)
   clearOverview()
+  clearCalibrations()
 }
 
 /**
@@ -330,7 +333,14 @@ const selectionChanged = (report: Ready, keys: readonly string[]): void => openR
 
 function details(report: Ready): OrcaNode {
   if (openMetricName() !== null) return metricViewBody((view) => problemOf(view)?.message ?? null, UNKNOWN_KIND_TEXT)
-  if (report.rows.length === 0) return <EmptyState title={`No measurements in the ${lastDays(report.window)}.`} />
+  if (report.rows.length === 0) {
+    return (
+      <Stack gap="sm">
+        <EmptyState title={`No measurements in the ${lastDays(report.window)}.`} />
+        {unmatchedLines(report)}
+      </Stack>
+    )
+  }
   return (
     <Stack gap="sm">
       <Table
@@ -346,6 +356,7 @@ function details(report: Ready): OrcaNode {
       <Text muted size="sm">
         {KNOWN_COST_FOOTNOTE}
       </Text>
+      {unmatchedLines(report)}
     </Stack>
   )
 }
@@ -382,7 +393,7 @@ export function metricsSection(state: Connected, writable: boolean): OrcaNode {
       {held === null ? null : problemCallout(held)}
       <Tabs label="Metrics views" value={shownTab} onChange={(value) => set(tab, parseTab(value))}>
         <Tab value="overview" label="Overview">
-          {report === null ? (pendingCards(scopedProjectId(), inFlight, overviewHooks) ?? body) : overviewCards(report.overview, overviewHooks)}
+          {report === null ? (pendingCards(scopedProjectId(), inFlight, overviewHooks) ?? body) : overviewCards(calibratedOverview(report), overviewHooks)}
         </Tab>
         <Tab value="details" label="Details">
           {body}

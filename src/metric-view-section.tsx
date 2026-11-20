@@ -25,6 +25,8 @@ import {
   type TableColumn,
   type TableRow
 } from 'orca'
+import { calibrationsBlock } from './calibration-section'
+import type { MetricsCalibrationsPost } from './calibration-view'
 import type { ConnectionView } from './connection-view'
 import { formatDateTime } from './dates'
 import type { MetricDetail, MetricRequest, MetricView } from './metric-view'
@@ -121,6 +123,15 @@ export function metricReportChanged(report: ReportOnScreen): void {
   if (!same) ask(report)
 }
 
+/**
+ * The worker posted a read's calibrations. A metric's view open on that read's report asks for
+ * its figures again, so its calibration lines are those of the year-long report as it now stands.
+ */
+export function metricCalibrated(post: MetricsCalibrationsPost): void {
+  if (read(open) === null || shownReport === null) return
+  if (post.window === shownReport.window && post.codebaseId === shownReport.codebaseId && post.fetchedAt === shownReport.fetchedAt) ask(shownReport)
+}
+
 /** The way back, or a different Archon store: the Details table shows again. */
 export function closeMetricView(): void {
   latest += 1
@@ -199,6 +210,7 @@ function figures(label: string, metric: MetricDetail): OrcaNode {
           {moreLine(metric.olderMore)}
         </Stack>
       )}
+      {calibrationsBlock(metric.calibrations)}
       <Collapsible title="By day" open={read(byDayOpen)} onChange={(value) => set(byDayOpen, value)}>
         <Stack gap="xs">
           <Table label="By day" columns={BY_DAY_COLUMNS} rows={days} />

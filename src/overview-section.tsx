@@ -4,6 +4,7 @@
 // draws words and numbers only; the worker did the arithmetic.
 import {
   atom,
+  Badge,
   Card,
   EmptyState,
   Grid,
@@ -79,7 +80,11 @@ function card(shown: OverviewCard, hooks: OverviewHooks): OrcaNode {
       return (
         <Card key={shown.id} title={shown.title}>
           <Stack gap="xs">
-            <Heading level={2}>{shown.figure}</Heading>
+            <Row gap="xs" align="center" wrap>
+              <Heading level={2}>{shown.figure}</Heading>
+              {/* A calibration marker, in words: no state by colour alone. */}
+              {shown.badge === undefined ? null : <Badge tone="warning">{shown.badge}</Badge>}
+            </Row>
             {shown.percent === undefined ? null : <Progress label={shown.title} labelHidden value={shown.percent} />}
             {shown.line === null ? null : (
               <Text muted size="xs">
