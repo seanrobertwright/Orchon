@@ -15,7 +15,20 @@ import type { ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
 import { cutAt } from './cutter'
 import { parseInstant } from './dates'
-import { formatNumber, formatShare, isMetricName } from './metric-figures'
+import {
+  formatNumber,
+  formatShare,
+  isCount,
+  isFiniteNumber,
+  isMetricName,
+  isNullableText,
+  isTextList,
+  METRICS_TEXT_CAP,
+  need,
+  readable,
+  sameIdentity,
+  type Identity
+} from './metric-figures'
 import {
   DEFAULT_WINDOW,
   DETAILS_ROWS_CAP,
@@ -29,7 +42,7 @@ import {
   type MetricsWindow,
   type RefusalRow
 } from './metrics-view'
-import { cardsPost, overviewOf, parseCardDeclarations, parseCardReport, unknownsLine } from './overview-cards'
+import { cardReportOf, cardsPost, overviewOf, parseCardDeclarations, unknownsLine } from './overview-cards'
 import { readFailureText } from './read-failure'
 import { cappedTextRefusal, isCappedText, isRecord, isText, own, refuseOtherKeys, refuseRequest } from './records'
 import { PROJECT_ID_CAP } from './scope-view'
@@ -42,12 +55,8 @@ export const WINDOW_STORAGE_KEY = 'metrics-window'
 /** How long a chosen window waits before it is written, so quick presses write once. */
 export const WINDOW_WRITE_PAUSE_MS = 1_000
 
-/** Archon's free text is cut here. */
-export const METRICS_TEXT_CAP = 500
 /** A plain name or a unit longer than this is not read as one. */
 const LABEL_CAP = 200
-
-const KNOWN_KINDS = new Set(['count', 'score'])
 
 const isWindow = (value: unknown): value is MetricsWindow => METRICS_WINDOWS.some((window) => window === value)
 
@@ -74,17 +83,6 @@ export function parseMetricsRequest(input: unknown): MetricsRequest {
   return request
 }
 
-const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
-const isCount = (value: unknown): value is number => isFiniteNumber(value) && Number.isInteger(value) && value >= 0
-const isNullableText = (value: unknown): value is string | null => value === null || typeof value === 'string'
-const isTextList = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
-
-/** Thrown inside the report's parse: the whole answer could not be read. */
-class Unreadable extends Error {}
-function need(ok: boolean): asserts ok {
-  if (!ok) throw new Unreadable()
-}
-
 /** The plain names every readable pack declares, the first pack's winning, as the console reads them. */
 export function parseNames(value: unknown): Map<string, string> | null {
   if (!isRecord(value) || !Array.isArray(own(value, 'packs'))) return null
@@ -101,14 +99,14 @@ export function parseNames(value: unknown): Map<string, string> | null {
   return names
 }
 
-type Identity = { instrument: string | null; measuredBy: string[] }
-const sameIdentity = (a: Identity, b: Identity): boolean =>
-  a.instrument === b.instrument && a.measuredBy.length === b.measuredBy.length && a.measuredBy.every((model, i) => model === b.measuredBy[i])
+/**
+ * One judge version's figures: the Details table reads the value, `n`, the known cost and the
+ * latest value; the Overview cards read the value, the known cost and how many producing runs
+ * recorded a cost.
+ */
+export type Instrument = Identity & { value: number; n: number; usd: number | null; latest: number; runs: number; runsWithoutCost: number }
 
-/** One instrument's figures the Details table reads. */
-type Figures = { value: number; n: number; usd: number | null; latest: number }
-
-function parseInstrument(value: unknown): Identity & Figures {
+function parseInstrument(value: unknown): Instrument {
   need(isRecord(value))
   const instrument = own(value, 'instrument')
   const measuredBy = own(value, 'measured_by')
@@ -119,14 +117,16 @@ function parseInstrument(value: unknown): Identity & Figures {
   need(isNullableText(instrument) && isTextList(measuredBy) && isFiniteNumber(figure) && isCount(n))
   need(isRecord(cost) && isRecord(latest))
   const usd = own(cost, 'usd')
+  const runs = own(cost, 'runs')
+  const runsWithoutCost = own(cost, 'runs_without_cost')
   const latestValue = own(latest, 'value')
-  need((usd === null || isFiniteNumber(usd)) && isFiniteNumber(latestValue))
-  return { instrument, measuredBy, value: figure, n, usd, latest: latestValue }
+  need((usd === null || isFiniteNumber(usd)) && isCount(runs) && isCount(runsWithoutCost) && isFiniteNumber(latestValue))
+  return { instrument, measuredBy, value: figure, n, usd, latest: latestValue, runs, runsWithoutCost }
 }
 
-/** A metric as the table reads it: unknown kinds carry nothing but their name. */
-type Metric =
-  | { name: string; kind: 'known'; unit: string; calibration: boolean; headline: Figures }
+/** A metric as the table and the cards read it: unknown kinds carry nothing but their name. */
+export type Metric =
+  | { name: string; kind: 'count' | 'score'; unit: string; calibration: boolean; headline: Instrument; instruments: Instrument[] }
   | { name: string; kind: 'unknown'; calibration: boolean }
 
 function parseMetric(value: unknown): Metric {
@@ -138,7 +138,7 @@ function parseMetric(value: unknown): Metric {
   // A calibration names the metric it calibrates; one whose kind Orchon does not know is still one.
   need(calibrates === undefined || calibrates === null || isMetricName(calibrates))
   const calibration = typeof calibrates === 'string'
-  if (!KNOWN_KINDS.has(kind)) return { name, kind: 'unknown', calibration }
+  if (kind !== 'count' && kind !== 'score') return { name, kind: 'unknown', calibration }
   const unit = own(value, 'unit')
   const headlineInstrument = own(value, 'headline_instrument')
   const headlineMeasuredBy = own(value, 'headline_measured_by')
@@ -149,7 +149,7 @@ function parseMetric(value: unknown): Metric {
   // Archon always reports the headline judge version among the metric's instruments.
   const headline = parsed.find((instrument) => sameIdentity(instrument, { instrument: headlineInstrument, measuredBy: headlineMeasuredBy }))
   need(headline !== undefined)
-  return { name, kind: 'known', unit, calibration, headline }
+  return { name, kind, unit, calibration, headline, instruments: parsed }
 }
 
 function parseRefusal(value: unknown): RefusalRow | null {
@@ -171,7 +171,7 @@ export type Report = { since: number; until: number; metrics: Metric[]; refused:
 
 /** Archon's report, or null when any part the plugin reads fails. */
 export function parseReport(value: unknown): Report | null {
-  try {
+  return readable(() => {
     need(isRecord(value))
     const window = own(value, 'window')
     const metrics = own(value, 'metrics')
@@ -187,10 +187,7 @@ export function parseReport(value: unknown): Report | null {
       if (row !== null) rows.push(row)
     }
     return { since, until, metrics: metrics.map(parseMetric), refused: rows, refusedTotal: refused.length }
-  } catch (error) {
-    if (error instanceof Unreadable) return null
-    throw error
-  }
+  })
 }
 
 /** A value in its unit's terms: a `ratio` is a percentage, anything else a plain number. */
@@ -309,8 +306,8 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Disposab
     const answer = await ports.client.request({ ...call, path: reportPath(requestedWindow, request.codebaseId), timeout: 'report' })
     if (!answer.ok) return failed(answer.failure)
     const report = parseReport(answer.value)
-    const cardReport = parseCardReport(answer.value)
-    if (report === null || cardReport === null) return { kind: 'unreadable' }
+    if (report === null) return { kind: 'unreadable' }
+    const cardReport = cardReportOf(report)
     const unknowns = unknownsLine(cards, cardReport)
     if (unknowns !== null) orca.log(unknowns)
     const { rows, more } = detailsRows(report, names)

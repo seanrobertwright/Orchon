@@ -9,8 +9,8 @@
 // measures nothing.
 import { assert, describe, test } from 'orca/testing'
 import { recorded } from '../scripts/scripted-archon.ts'
-import { parseNames } from './metrics'
-import { overviewOf, parseCardDeclarations, parseCardReport } from './overview-cards'
+import { parseNames, parseReport } from './metrics'
+import { cardReportOf, overviewOf, parseCardDeclarations } from './overview-cards'
 
 const SPEND = 'spend/metrics/metrics'
 /** Where each answer sits in the spend-mode recording's log, read off the fixture by hand. */
@@ -29,9 +29,9 @@ function declarations(value: unknown) {
   return parsed
 }
 function report(value: unknown) {
-  const parsed = parseCardReport(value)
+  const parsed = parseReport(value)
   if (parsed === null) throw new Error('The report could not be read.')
-  return parsed
+  return cardReportOf(parsed)
 }
 
 const NONE = { figure: '—', line: 'no records in this window' }

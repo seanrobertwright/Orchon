@@ -1,6 +1,6 @@
-// The Overview cards, worked in the worker: the card declarations of `GET /api/metric-views` and
-// the figures of the window's report that the cards read, validated by hand, and the finished
-// `OverviewView` the panel draws.
+// The Overview cards, worked in the worker: the card declarations of `GET /api/metric-views`,
+// validated by hand, the counts the cards read of the window's report as `parseReport` in
+// `metrics.ts` validated it, and the finished `OverviewView` the panel draws.
 //
 // The declarations' shape is `metricViewSchema` and `metricViewsListingSchema` in
 // `packages/workflows/src/schemas/metric-view.ts`; the rules are `countCard`, `ratioCard` and
@@ -10,7 +10,8 @@
 // A calibration on a ratio card is read by a later version, and so are the refusals and the
 // packs whose declarations could not be read.
 import { cutAt } from './cutter'
-import { formatNumber, formatShare, isMetricName } from './metric-figures'
+import { formatNumber, formatShare, isMetricName, METRICS_TEXT_CAP, need, readable, sameIdentity } from './metric-figures'
+import type { Instrument, Report } from './metrics'
 import { isRecord, isText, own } from './records'
 import type { MetricsWindow } from './metrics-view'
 import {
@@ -23,8 +24,6 @@ import {
   type OverviewView
 } from './overview-view'
 
-/** Archon's free text is cut here. */
-const TEXT_CAP = 500
 /** The most breakdown entries a count card declares in Archon's schema. */
 const BREAKDOWN_CAP = 4
 
@@ -42,24 +41,10 @@ type DeclaredPack = { key: string; name: string; cards: Declared[] }
 /** The card declarations as the worker reads them, and how many cards of an unknown shape they hold. */
 export type CardDeclarations = { packs: DeclaredPack[]; unknownShapes: number }
 
-/** Thrown inside a parse: the whole answer could not be read. */
-class Unreadable extends Error {}
-function need(ok: boolean): asserts ok {
-  if (!ok) throw new Unreadable()
-}
-function readable<T>(parse: () => T): T | null {
-  try {
-    return parse()
-  } catch (error) {
-    if (error instanceof Unreadable) return null
-    throw error
-  }
-}
-
 const text = (record: Record<string, unknown>, key: string): string => {
   const value = own(record, key)
   need(isText(value))
-  return cutAt(value, TEXT_CAP)
+  return cutAt(value, METRICS_TEXT_CAP)
 }
 const metricName = (record: Record<string, unknown>, key: string): string => {
   const value = own(record, key)
@@ -120,65 +105,20 @@ export function parseCardDeclarations(value: unknown): CardDeclarations | null {
   })
 }
 
-/** One judge version of a count, with what a card reads of it. */
-type Instrument = { instrument: string | null; measuredBy: string[]; value: number; usd: number | null; runs: number; runsWithoutCost: number }
 type Count = { headline: Instrument; instruments: Instrument[] }
 
 /** The counts of a report by name, and how many metrics of a kind the plugin does not know it holds. */
 export type CardReport = { counts: Map<string, Count>; unknownKinds: number }
 
-const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
-const isCount = (value: unknown): value is number => isFiniteNumber(value) && Number.isInteger(value) && value >= 0
-const isNullableText = (value: unknown): value is string | null => value === null || typeof value === 'string'
-const isTextList = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
-
-const sameIdentity = (a: Pick<Instrument, 'instrument' | 'measuredBy'>, b: Pick<Instrument, 'instrument' | 'measuredBy'>): boolean =>
-  a.instrument === b.instrument && a.measuredBy.length === b.measuredBy.length && a.measuredBy.every((model, i) => model === b.measuredBy[i])
-
-function parseInstrument(value: unknown): Instrument {
-  need(isRecord(value))
-  const instrument = own(value, 'instrument')
-  const measuredBy = own(value, 'measured_by')
-  const figure = own(value, 'value')
-  const cost = own(value, 'cost')
-  need(isNullableText(instrument) && isTextList(measuredBy) && isFiniteNumber(figure) && isRecord(cost))
-  const usd = own(cost, 'usd')
-  const runs = own(cost, 'runs')
-  const runsWithoutCost = own(cost, 'runs_without_cost')
-  need((usd === null || isFiniteNumber(usd)) && isCount(runs) && isCount(runsWithoutCost))
-  return { instrument, measuredBy, value: figure, usd, runs, runsWithoutCost }
-}
-
-/** The report's counts, or null when any part the cards read fails. Scores and unknown kinds count nothing. */
-export function parseCardReport(value: unknown): CardReport | null {
-  return readable(() => {
-    need(isRecord(value))
-    const metrics = own(value, 'metrics')
-    need(Array.isArray(metrics))
-    const counts = new Map<string, Count>()
-    let unknownKinds = 0
-    for (const metric of metrics as unknown[]) {
-      need(isRecord(metric))
-      const name = own(metric, 'name')
-      const kind = own(metric, 'kind')
-      need(isMetricName(name) && isText(kind))
-      if (kind === 'score') continue
-      if (kind !== 'count') {
-        unknownKinds += 1
-        continue
-      }
-      const headlineInstrument = own(metric, 'headline_instrument')
-      const headlineMeasuredBy = own(metric, 'headline_measured_by')
-      const instruments = own(metric, 'instruments')
-      need(isNullableText(headlineInstrument) && isTextList(headlineMeasuredBy) && Array.isArray(instruments))
-      const parsed = (instruments as unknown[]).map(parseInstrument)
-      // Archon always reports the headline judge version among the metric's instruments.
-      const headline = parsed.find((each) => sameIdentity(each, { instrument: headlineInstrument, measuredBy: headlineMeasuredBy }))
-      need(headline !== undefined)
-      if (!counts.has(name)) counts.set(name, { headline, instruments: parsed })
-    }
-    return { counts, unknownKinds }
-  })
+/** What the cards read of the window's report: its counts, the first of a name winning. Scores count nothing. */
+export function cardReportOf(report: Report): CardReport {
+  const counts = new Map<string, Count>()
+  let unknownKinds = 0
+  for (const metric of report.metrics) {
+    if (metric.kind === 'unknown') unknownKinds += 1
+    else if (metric.kind === 'count' && !counts.has(metric.name)) counts.set(metric.name, { headline: metric.headline, instruments: metric.instruments })
+  }
+  return { counts, unknownKinds }
 }
 
 /** A count's figures at the judge version of a card's main figure, as the console's `instrumentAt`. */

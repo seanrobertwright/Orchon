@@ -260,6 +260,8 @@ describe("the report's validator", () => {
     ['a name longer than 128', (body) => (weekMetrics(body)[0]!.name = `a${'.b'.repeat(64)}`)],
     ['a value that is not a number', (body) => (firstInstrument(body, 0).value = '1')],
     ['a record count that is not a whole number', (body) => (firstInstrument(body, 0).n = 1.5)],
+    ["a count's cost without its run count", (body) => delete (firstInstrument(body, 0).cost as Body).runs],
+    ["a score's cost with a run count that is not a whole number", (body) => ((firstInstrument(body, 3).cost as Body).runs_without_cost = 0.5)],
     ['a window that is not a time', (body) => ((body.window as Body).since = 'last week')],
     ['a known kind without its unit', (body) => delete weekMetrics(body)[0]!.unit],
     ['no headline among the instruments', (body) => (weekMetrics(body)[0]!.headline_instrument = 'judge-v2')],
