@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { assertOwnHome, type ThrowawayHome } from './home.ts'
 import { runToEnd } from './process.ts'
-import { agentStepFile, RECORDER_WORKFLOWS, syntheticPackFiles, workflowFile } from './workflows.ts'
+import { RECORDER_WORKFLOWS, workflowFile } from './workflows.ts'
 
 /** The remote's owner and name. Neither is an account of the developer's. */
 export const PROJECT_REMOTE = 'https://github.com/orchon-recorder/throwaway-project.git'
@@ -14,13 +14,13 @@ const AUTHOR = ['-c', 'user.name=Orchon Recorder', '-c', 'user.email=recorder@ex
 
 /**
  * Makes the project and answers its folder. `signal` stops a `git` command when the recording is
- * interrupted. `agentStep` adds the one workflow with an agent step, for spend mode's agent-step
- * scenario alone. `syntheticMetrics` adds the synthetic metrics pack, for its metrics scenario alone.
+ * interrupted. `files` are added to its `.archon/workflows` folder, by path inside it: what a
+ * spend scenario needs besides the recorder's own workflows (see `scenarioFiles`).
  */
 export async function createThrowawayProject(
   home: ThrowawayHome,
   signal?: AbortSignal,
-  options: { agentStep?: boolean; syntheticMetrics?: boolean } = {}
+  options: { files?: readonly { path: string; text: string }[] } = {}
 ): Promise<string> {
   assertOwnHome(home)
   const folder = home.projectFolder
@@ -31,16 +31,10 @@ export async function createThrowawayProject(
     const file = workflowFile(workflow)
     writeFileSync(join(workflows, file.name), file.text)
   }
-  if (options.agentStep === true) {
-    const file = agentStepFile()
-    writeFileSync(join(workflows, file.name), file.text)
-  }
-  if (options.syntheticMetrics === true) {
-    for (const file of syntheticPackFiles()) {
-      const target = join(workflows, ...file.path.split('/'))
-      mkdirSync(dirname(target), { recursive: true })
-      writeFileSync(target, file.text)
-    }
+  for (const file of options.files ?? []) {
+    const target = join(workflows, ...file.path.split('/'))
+    mkdirSync(dirname(target), { recursive: true })
+    writeFileSync(target, file.text)
   }
   const git = async (...args: string[]): Promise<void> => {
     const done = await runToEnd(home, 'git', args, { cwd: folder, ...(signal === undefined ? {} : { signal }) })

@@ -34,6 +34,7 @@ import { createSession, scrubFiles } from './recorder/session.ts'
 import { SPEND_SCENARIOS, spendsTokens } from './recorder/spend.ts'
 import { recordSpendScenario, StopTheRelease } from './recorder/spend-scenarios.ts'
 import { sleep } from './recorder/wait.ts'
+import { scenarioFiles } from './recorder/workflows.ts'
 import { repoRoot } from './repo-files.ts'
 import { field, isRefusal, text } from './shape.ts'
 
@@ -142,10 +143,7 @@ async function record(signal: AbortSignal): Promise<number> {
     else session.missing(`the ${PROVIDER} provider`, `\`provider add ${PROVIDER}\` failed: ${(provider.stderr || provider.stdout).trim()}`)
     // The throwaway home's own config pins the small tier and the chat to Haiku. The developer's is never read.
     if (passLogin) writeSpendConfig(home)
-    const projectFolder = await createThrowawayProject(home, signal, {
-      agentStep: scenario?.name === 'agent-step',
-      syntheticMetrics: scenario?.name === 'metrics'
-    })
+    const projectFolder = await createThrowawayProject(home, signal, { files: scenarioFiles(scenario?.name) })
     signal.throwIfAborted()
     release = startRelease(home, binary, args.port, { login })
     console.log(`Started the release on port ${args.port}. Waiting for it to answer.`)

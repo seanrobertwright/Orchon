@@ -8,6 +8,7 @@ import {
   FORBIDDEN_WORKFLOWS,
   LaunchRefused,
   RECORDER_WORKFLOWS,
+  scenarioFiles,
   SYNTHETIC_METRIC_RECORDS,
   SYNTHETIC_METRICS,
   syntheticPackFiles,
@@ -199,5 +200,17 @@ describe("the recorder's synthetic metrics pack", () => {
     assert.deepEqual(JSON.parse(files[0]?.text ?? ''), SYNTHETIC_METRICS)
     // Archon 0.14.0 requires one to six cards, so a declaration with none is listed under `errors`.
     assert.deepEqual(JSON.parse(files[2]?.text ?? ''), { cards: [] })
+  })
+
+  test('is written into the throwaway project for the metrics scenario alone', () => {
+    const paths = (scenario: Parameters<typeof scenarioFiles>[0]): string[] => scenarioFiles(scenario).map((file) => file.path)
+    assert.deepEqual(paths('metrics'), [
+      'orchon-recorder-synthetic-metrics.yaml',
+      'orchon-synthetic/.shared/metric-views.json',
+      'orchon-synthetic-unreadable/.shared/metric-views.json'
+    ])
+    assert.deepEqual(paths('agent-step'), ['orchon-recorder-agent-step.yaml'])
+    assert.deepEqual(paths('chat-turn'), [])
+    assert.deepEqual(paths(undefined), [])
   })
 })

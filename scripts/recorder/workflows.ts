@@ -4,6 +4,8 @@
 // bundled workflow is ever launched, so the recording that spends nothing spends no workflow
 // tokens and `archon-worktree-cleanup` cannot be reached.
 
+import type { SpendScenarioName } from './spend.ts'
+
 /** Workflows the recorder must never launch, whatever else changes. */
 export const FORBIDDEN_WORKFLOWS: readonly string[] = ['archon-worktree-cleanup']
 
@@ -329,6 +331,19 @@ export function syntheticPackFiles(): { path: string; text: string }[] {
     { path: `${SYNTHETIC_PACK}/.shared/metric-views.json`, text: `${JSON.stringify(SYNTHETIC_VIEWS, null, 2)}\n` },
     { path: `${SYNTHETIC_UNREADABLE_PACK}/.shared/metric-views.json`, text: `${JSON.stringify({ cards: [] }, null, 2)}\n` }
   ]
+}
+
+/**
+ * The files a spend scenario adds to the throwaway project, by path inside its
+ * `.archon/workflows` folder: the agent step for `agent-step`, the synthetic pack for `metrics`,
+ * and none for any other scenario or for the recording that spends nothing.
+ */
+export function scenarioFiles(scenario: SpendScenarioName | undefined): { path: string; text: string }[] {
+  if (scenario === 'agent-step') {
+    const file = agentStepFile()
+    return [{ path: file.name, text: file.text }]
+  }
+  return scenario === 'metrics' ? syntheticPackFiles() : []
 }
 
 /** Shows a name in a sentence: as it is, or in code quotes for Markdown. */
