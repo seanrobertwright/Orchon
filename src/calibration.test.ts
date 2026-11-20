@@ -337,3 +337,38 @@ describe("a metric's view lists its calibrations", () => {
     await mounted.worker.deactivate()
   })
 })
+
+describe('the Details rows', () => {
+  test('a calibration whose metric has records in the window is not listed under the table', async () => {
+    const mounted = await projectScene().mount({ storage: {} })
+    const view = ready((await read(mounted)).metrics)
+    assert.deepEqual([view.unmatchedCalibrations, view.unmatchedMore], [[], 0])
+    await mounted.worker.deactivate()
+  })
+
+  test("calibrations whose metric has no records in the window are listed under the table, at most 5, with how many more", async () => {
+    const body = yearBody()
+    body.metrics = (body.metrics as Body[]).filter((metric) => metric.name !== 'orchon_synthetic.tests_useless')
+    const stage = projectScene()
+    stage.archon.answer(WEEK, { kind: 'json', value: body })
+    const mounted = await stage.mount({ storage: {} })
+    const view = ready((await read(mounted)).metrics)
+    assert.deepEqual(view.unmatchedCalibrations, [
+      'orchon_synthetic.useless_tests_caught calibrates orchon_synthetic.tests_useless, which has no records in this window: 75% from 4 records.'
+    ])
+    await mounted.worker.deactivate()
+
+    const calibrator = metricOf(body, 'useless_tests_caught')
+    for (const index of [1, 2, 3, 4, 5, 6]) {
+      ;(body.metrics as Body[]).push({ ...structuredClone(calibrator), name: `orchon_synthetic.catch_${String(index)}` })
+    }
+    const many = projectScene()
+    many.archon.answer(WEEK, { kind: 'json', value: body })
+    const again = await many.mount({ storage: {} })
+    const capped = ready((await read(again)).metrics)
+    assert.equal(capped.unmatchedCalibrations.length, 5)
+    assert.equal(capped.unmatchedMore, 2)
+    assert.ok(capped.unmatchedCalibrations[4]?.startsWith('orchon_synthetic.catch_4 calibrates'))
+    await again.worker.deactivate()
+  })
+})

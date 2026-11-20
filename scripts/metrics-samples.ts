@@ -56,7 +56,7 @@ export const SAMPLE_OVERVIEW: OverviewView = {
 export function sampleReport(
   window: MetricsWindow = '7d',
   rows: MetricRow[] = SAMPLE_ROWS,
-  options: { more?: number; ageMs?: number; codebaseId?: string; overview?: OverviewView } = {}
+  options: { more?: number; ageMs?: number; codebaseId?: string; overview?: OverviewView; unmatchedCalibrations?: string[]; unmatchedMore?: number } = {}
 ): Extract<MetricsView, { kind: 'ready' }> {
   const view: Extract<MetricsView, { kind: 'ready' }> = {
     kind: 'ready',
@@ -68,7 +68,9 @@ export function sampleReport(
     more: options.more ?? 0,
     refused: [],
     refusedTotal: 0,
-    overview: options.overview ?? SAMPLE_OVERVIEW
+    overview: options.overview ?? SAMPLE_OVERVIEW,
+    unmatchedCalibrations: options.unmatchedCalibrations ?? [],
+    unmatchedMore: options.unmatchedMore ?? 0
   }
   if (options.codebaseId !== undefined) view.codebaseId = options.codebaseId
   return view

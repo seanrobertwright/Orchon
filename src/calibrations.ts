@@ -172,7 +172,7 @@ export function metricCalibrations(
  * The calibrations in the window's report whose metric has no records in it, for the lines under
  * the Details table, at most `CALIBRATION_LINES_CAP`, as the console's `UnmatchedCalibrations`.
  */
-export function uncalibratedLines(report: Report): { lines: string[]; more: number } {
+export function unmatchedCalibrations(report: Report): { unmatchedCalibrations: string[]; unmatchedMore: number } {
   const recorded = new Set(report.metrics.map((metric) => metric.name))
   const lines = report.metrics.flatMap((metric) => {
     if (metric.calibrates === null || recorded.has(metric.calibrates)) return []
@@ -180,7 +180,7 @@ export function uncalibratedLines(report: Report): { lines: string[]; more: numb
       metric.kind === 'unknown' ? '.' : `: ${formatFigure(metric.figures.headline.value, metric.unit)} from ${String(metric.figures.headline.n)} records.`
     return [`${metric.name} calibrates ${metric.calibrates}, which has no records in this window${figure}`]
   })
-  return { lines: lines.slice(0, CALIBRATION_LINES_CAP), more: Math.max(0, lines.length - CALIBRATION_LINES_CAP) }
+  return { unmatchedCalibrations: lines.slice(0, CALIBRATION_LINES_CAP), unmatchedMore: Math.max(0, lines.length - CALIBRATION_LINES_CAP) }
 }
 
 /** The post that carries a read's cards again with their calibration markers, for the report it follows. */

@@ -11,7 +11,7 @@
 // read from `metricViewsListingSchema` beside it. The figures are written as Archon's console
 // writes them (`formatValue`, `formatFigure` and `formatUsd` in the console's metrics `model.ts`).
 import type { Disposable, OrcaWorkerApi } from 'orca/worker'
-import { CALIBRATIONS_LOADING, calibrationsPost, readCalibrations, type Calibrations } from './calibrations'
+import { CALIBRATIONS_LOADING, calibrationsPost, readCalibrations, unmatchedCalibrations, type Calibrations } from './calibrations'
 import type { Client, ClientFailure, Timers } from './client'
 import type { Connected, ConnectionView } from './connection-view'
 import { metricsMissing } from './connection-words'
@@ -327,7 +327,8 @@ export function startMetrics(orca: OrcaWorkerApi, ports: MetricsPorts): Metrics 
       more,
       refused: report.refused,
       refusedTotal: report.refusedTotal,
-      overview: overviewOf(cards, cardReport, names, CALIBRATIONS_LOADING)
+      overview: overviewOf(cards, cardReport, names, CALIBRATIONS_LOADING),
+      ...unmatchedCalibrations(report)
     }
     if (request.codebaseId !== undefined) view.codebaseId = request.codebaseId
     const mine: Held = { key, view, report, cards, names, calibrations: CALIBRATIONS_LOADING }
