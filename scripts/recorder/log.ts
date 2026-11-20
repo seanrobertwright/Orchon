@@ -3,13 +3,14 @@
 import type { Crossing } from './ceiling.ts'
 import type { LoginMode } from './environment.ts'
 import { PLACEHOLDERS } from './scrub.ts'
-import { SYNTHETIC_METRIC_PREFIX, SYNTHETIC_METRICS, SYNTHETIC_PACK } from './workflows.ts'
+import { emptyStoreDescription, possiblySyntheticDescription, syntheticDescription } from './workflows.ts'
 
 /**
- * Whether the metrics scenario ran the recorder's synthetic metrics pack before it read the
- * reports, or why it did not, in which case they were read over an empty store.
+ * What the metrics scenario's reports hold: the synthetic pack's records, once Archon reported
+ * them; possibly those records, when the pack was launched but they were not confirmed; or none,
+ * when the pack was never launched and the reports were read over an empty store.
  */
-export type SyntheticLog = { ran: true } | { ran: false; why: string }
+export type SyntheticLog = { records: 'synthetic' } | { records: 'possibly-synthetic'; why: string } | { records: 'none'; why: string }
 
 /** What a spend-mode recording adds to its log. */
 export interface SpendLog {
@@ -66,13 +67,12 @@ function spendLines(spend: SpendLog): string[] {
 
 /** Whether the metrics scenario's records are made up, and when they are not, why. */
 function syntheticLine(synthetic: SyntheticLog): string {
-  if (!synthetic.ran) {
-    return `- Synthetic data: none. The recorder's synthetic pack did not run (${cell(synthetic.why)}), so the reports were read over an empty store.`
-  }
-  return `- Synthetic data: every metric record here, and the overview cards of ${code(SYNTHETIC_PACK)}, were made up by the recorder's own pack (workflow ${code(
-    SYNTHETIC_METRICS.name
-  )}, one shell step, fixed numbers, names starting ${code(SYNTHETIC_METRIC_PREFIX)}). They measure nothing.`
+  if (synthetic.records === 'synthetic') return `- Synthetic data: ${syntheticDescription(code)}.`
+  if (synthetic.records === 'possibly-synthetic') return `- Synthetic data: possibly. ${capital(possiblySyntheticDescription(cell(synthetic.why), code))}.`
+  return `- Synthetic data: no metric records. ${capital(emptyStoreDescription(cell(synthetic.why), code))}.`
 }
+
+const capital = (text: string): string => `${text.charAt(0).toUpperCase()}${text.slice(1)}`
 
 /** One table cell: a single line with nothing that would end the cell. */
 const cell = (text: string): string => text.replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim()

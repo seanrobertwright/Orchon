@@ -16,11 +16,12 @@ import {
   CHAT_TURN_MESSAGE,
   LaunchRefused,
   RECORDER_WORKFLOWS,
+  emptyStoreDescription,
+  possiblySyntheticDescription,
   SMALL_TIER,
-  SYNTHETIC_METRIC_PREFIX,
-  SYNTHETIC_METRIC_RECORDS,
+  SYNTHETIC_METRIC_NAMES,
   SYNTHETIC_METRICS,
-  SYNTHETIC_PACK,
+  syntheticDescription,
   TERMINAL
 } from './workflows.ts'
 
@@ -288,11 +289,8 @@ export const METRICS_PACK_GAP =
 /** How long the synthetic pack has, from its launch, to run and have its records reported. */
 export const SYNTHETIC_WAIT_MS = 60_000
 
-/** The names the synthetic pack's records carry, once each. */
-const SYNTHETIC_NAMES = [...new Set(SYNTHETIC_METRIC_RECORDS.map((record) => String(record.name)))]
-
 /** What the fixture says it is when the synthetic pack ran before the reports were read. */
-export const SYNTHETIC_LABEL = `SYNTHETIC: every metric record in it, and the overview cards of ${SYNTHETIC_PACK}, were made up by the recorder's own pack (workflow ${SYNTHETIC_METRICS.name}, one shell step, fixed numbers, names starting ${SYNTHETIC_METRIC_PREFIX}). They measure nothing`
+export const SYNTHETIC_LABEL = `SYNTHETIC: ${syntheticDescription()}`
 
 /** Calls `probe` every poll until it answers something, or `until` passes on the clock. */
 async function pollFor<T>(clock: Clock, until: number, probe: () => Promise<T | undefined>): Promise<T | undefined> {
@@ -306,17 +304,18 @@ async function pollFor<T>(clock: Clock, until: number, probe: () => Promise<T | 
 
 /**
  * Runs the synthetic pack the throwaway project holds and waits until Archon reports its records.
- * It is launched only when Archon reads it from the project as steps with no agent. Answers why
- * it did not run, if it did not: the scenario then reads the reports over an empty store.
+ * It is launched only when Archon reads it from the project as steps with no agent. When it was
+ * never launched the reports are read over an empty store. Once Archon has accepted the launch,
+ * the run may have printed its records, so a failure after that answers `possibly-synthetic`.
  */
 async function runSyntheticPack(tape: Tape, project: Project, guard: CeilingGuard, clock: Clock): Promise<SyntheticLog> {
   const name = SYNTHETIC_METRICS.name
   const loaded = await tape.call('GET', `/api/workflows/${segment(name)}?cwd=${encodeURIComponent(project.cwd)}`)
-  if (field(loaded.body, 'source') !== 'project') return { ran: false, why: `Archon does not read ${name} from the throwaway project: it answered ${loaded.status}` }
+  if (field(loaded.body, 'source') !== 'project') return { records: 'none', why: `Archon does not read ${name} from the throwaway project: it answered ${loaded.status}` }
   try {
     assertReadWithoutAgent(field(loaded.body, 'workflow'))
   } catch (error) {
-    if (error instanceof LaunchRefused) return { ran: false, why: error.message }
+    if (error instanceof LaunchRefused) return { records: 'none', why: error.message }
     throw error
   }
   const conversation = await createConversation(tape, project)
@@ -327,9 +326,9 @@ async function runSyntheticPack(tape: Tape, project: Project, guard: CeilingGuar
     conversationId: conversation.conversationId,
     message: 'Recording synthetic metrics for Orchon: one shell step, made-up numbers.'
   })
-  if (launched.status < 200 || launched.status >= 300) return { ran: false, why: `the launch of ${name} answered ${launched.status}` }
+  if (launched.status < 200 || launched.status >= 300) return { records: 'none', why: `the launch of ${name} answered ${launched.status}` }
   const runId = await pollFor(clock, until, async () => text(field((await runsOf(tape, project, conversation))[0], 'id')))
-  if (runId === undefined) return { ran: false, why: `no run of ${name} appeared within ${seconds} seconds` }
+  if (runId === undefined) return { records: 'possibly-synthetic', why: `no run of ${name} appeared within ${seconds} seconds` }
   tape.note('run-found', { runId })
   const run = `/api/workflows/runs/${segment(runId)}`
   const status = await pollFor(clock, until, async () => {
@@ -340,18 +339,18 @@ async function runSyntheticPack(tape: Tape, project: Project, guard: CeilingGuar
   })
   if (status === undefined) {
     await tape.call('POST', `${run}/cancel`)
-    return { ran: false, why: `the run of ${name} had not ended within ${seconds} seconds of its launch, so it was cancelled` }
+    return { records: 'possibly-synthetic', why: `the run of ${name} had not ended within ${seconds} seconds of its launch, so it was cancelled` }
   }
   await tape.call('GET', run)
-  if (status !== 'completed') return { ran: false, why: `the run of ${name} ended ${status}` }
+  if (status !== 'completed') return { records: 'possibly-synthetic', why: `the run of ${name} ended ${status}` }
   const found = await pollFor(clock, until, async () => {
     const answer = await tape.peek('GET', `/api/metrics?since=365d&codebaseId=${segment(project.id)}`)
     const names = list(field(answer.body, 'metrics')).map((entry) => text(field(entry, 'name')))
-    return SYNTHETIC_NAMES.every((wanted) => names.includes(wanted)) ? true : undefined
+    return SYNTHETIC_METRIC_NAMES.every((wanted) => names.includes(wanted)) ? true : undefined
   })
-  if (found === undefined) return { ran: false, why: `Archon did not report the records of ${name} within ${seconds} seconds of its launch` }
-  tape.note('records-found', { names: SYNTHETIC_NAMES })
-  return { ran: true }
+  if (found === undefined) return { records: 'possibly-synthetic', why: `Archon did not report the records of ${name} for the project within ${seconds} seconds of its launch` }
+  tape.note('records-found', { names: SYNTHETIC_METRIC_NAMES })
+  return { records: 'synthetic' }
 }
 
 async function recordMetrics(session: Session, context: SpendContext, clock: Clock): Promise<SpendOutcome> {
@@ -360,15 +359,14 @@ async function recordMetrics(session: Session, context: SpendContext, clock: Clo
   const guard = createCeilingGuard({ tokenCeiling: 0, wallClockMs: SPEND_SCENARIOS.metrics.wallClockMs, now: clock.now })
   const project = await registerProject(tape, context.projectFolder)
   const synthetic = await runSyntheticPack(tape, project, guard, clock)
-  tape.note('synthetic-data', synthetic.ran ? { synthetic: true, label: SYNTHETIC_LABEL } : { synthetic: false, why: synthetic.why })
+  tape.note('synthetic-data', synthetic.records === 'synthetic' ? { records: synthetic.records, label: SYNTHETIC_LABEL } : { records: synthetic.records, why: synthetic.why })
   const paths = [
     '/api/metric-views',
     `/api/metric-views?codebaseId=${segment(project.id)}`,
     '/api/metrics',
     '/api/metrics?since=7d',
     '/api/metrics?since=365d',
-    `/api/metrics?since=365d&codebaseId=${segment(project.id)}`,
-    `/api/metrics?since=365d&name=${encodeURIComponent(`${SYNTHETIC_METRIC_PREFIX}items_opened`)}`
+    `/api/metrics?since=365d&codebaseId=${segment(project.id)}`
   ]
   for (const path of paths) {
     const started = tape.at()
@@ -382,16 +380,18 @@ async function recordMetrics(session: Session, context: SpendContext, clock: Clo
       throw new StopTheRelease(`The metrics scenario crossed its ${crossed.by} ceiling.`, { tokensSeen: guard.tokens(), crossed, synthetic })
     }
   }
-  const read = 'GET /api/metric-views and /api/metrics over the default window, 7 days and 365 days, for the project and for one name, with the time each query took'
-  if (synthetic.ran) {
+  const read = 'GET /api/metric-views and /api/metrics over the default window, 7 days and 365 days, and for the project, with the time each query took'
+  if (synthetic.records === 'synthetic') {
     session.missing('a metrics report after a real pack that emits metrics has run', `${METRICS_PACK_GAP}, so the records come from the recorder's synthetic pack instead`)
     session.save('metrics', `${SYNTHETIC_LABEL}. ${read}, after the synthetic pack ran`, tape)
+  } else if (synthetic.records === 'possibly-synthetic') {
+    const possibly = possiblySyntheticDescription(synthetic.why)
+    session.missing('a metrics report after a pack that emits metrics has run', `${METRICS_PACK_GAP}, and ${possibly}: the reports may hold them`)
+    session.save('metrics', `POSSIBLY SYNTHETIC: ${possibly}. ${read}, after the synthetic pack was launched`, tape)
   } else {
-    session.missing(
-      'a metrics report after a pack that emits metrics has run',
-      `${METRICS_PACK_GAP}, and the recorder's synthetic pack did not run: ${synthetic.why}. The reports were recorded over an empty store`
-    )
-    session.save('metrics', `${read}, over an empty store: the synthetic pack did not run`, tape)
+    const empty = emptyStoreDescription(synthetic.why)
+    session.missing('a metrics report after a pack that emits metrics has run', `${METRICS_PACK_GAP}, and ${empty}`)
+    session.save('metrics', `${read}: ${empty}`, tape)
   }
   return { tokensSeen: 0, crossed: null, synthetic }
 }

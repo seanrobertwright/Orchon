@@ -73,13 +73,21 @@ describe('the recording log', () => {
 
   test('a metrics recording says whether its records are synthetic, and why not when they are not', () => {
     const spend = { scenario: 'metrics', tokenCeiling: 0, wallClockMs: 120_000, tokensSeen: 0, crossed: null, login: 'hidden' } as const
-    const ran = recordedLog({ ...log, spend: { ...spend, synthetic: { ran: true } } })
+    const ran = recordedLog({ ...log, spend: { ...spend, synthetic: { records: 'synthetic' } } })
     assert.match(
       ran,
       /^- Synthetic data: every metric record here, and the overview cards of `orchon-synthetic`, were made up by the recorder's own pack \(workflow `orchon-recorder-synthetic-metrics`, one shell step, fixed numbers, names starting `orchon_synthetic\.`\)\. They measure nothing\.$/m
     )
-    const fellBack = recordedLog({ ...log, spend: { ...spend, synthetic: { ran: false, why: 'the run ended\nfailed' } } })
-    assert.match(fellBack, /^- Synthetic data: none\. The recorder's synthetic pack did not run \(the run ended failed\), so the reports were read over an empty store\.$/m)
+    const fellBack = recordedLog({ ...log, spend: { ...spend, synthetic: { records: 'none', why: 'Archon answered\n404' } } })
+    assert.match(
+      fellBack,
+      /^- Synthetic data: no metric records\. The recorder's synthetic pack was never launched \(Archon answered 404\), so the reports were read over an empty store\. Any overview cards of `orchon-synthetic` are still made up\.$/m
+    )
+    const launched = recordedLog({ ...log, spend: { ...spend, synthetic: { records: 'possibly-synthetic', why: 'the run ended\nfailed' } } })
+    assert.match(
+      launched,
+      /^- Synthetic data: possibly\. The recorder's synthetic pack was launched but its records were not confirmed \(the run ended failed\), so any metric record here named `orchon_synthetic\.\*`, and the overview cards of `orchon-synthetic`, were made up by it\. They measure nothing\.$/m
+    )
     assert.ok(!/Synthetic data/.test(recordedLog({ ...log, spend })))
   })
 

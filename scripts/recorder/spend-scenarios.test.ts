@@ -6,7 +6,7 @@ import type { Answer, LoopbackClient } from './http.ts'
 import { createSession, type Session } from './session.ts'
 import { recordSpendScenario, type SpendOutcome } from './spend-scenarios.ts'
 import type { SpendScenarioName } from './spend.ts'
-import { AGENT_STEP_PROMPT, CHAT_TURN_MESSAGE, SYNTHETIC_METRIC_RECORDS } from './workflows.ts'
+import { AGENT_STEP_PROMPT, CHAT_TURN_MESSAGE, SYNTHETIC_METRIC_NAMES } from './workflows.ts'
 
 const json = (body: unknown, status = 200): Answer => ({ status, contentType: 'application/json', body })
 
@@ -23,10 +23,9 @@ interface StandIn {
   syntheticSource?: 'project' | 'bundled' | 'none'
   /** How the synthetic run ends once it has ended. Completed when left out. */
   syntheticEnds?: 'completed' | 'failed'
+  /** Whether the project-filtered report holds the synthetic records too. Yes when left out. */
+  syntheticFiltered?: boolean
 }
-
-/** The names the synthetic pack's records carry, once each. */
-const SYNTHETIC_NAMES = [...new Set(SYNTHETIC_METRIC_RECORDS.map((record) => String(record.name)))]
 
 /** Archon's own reading of the synthetic pack: one shell step. */
 const SYNTHETIC_AS_READ = { nodes: [{ id: 'emit', kind: 'exec', runtime: 'sh', script: 'echo' }] }
@@ -98,8 +97,9 @@ function standInRelease(options: StandIn): { client: LoopbackClient; sent: strin
       if (route === 'GET /api/metric-views') return json({ packs: [], errors: [] })
       if (route === 'GET /api/metrics') {
         // The records are there once the synthetic run has completed.
-        const recorded = workflow === 'orchon-recorder-synthetic-metrics' && status() === 'completed' && options.syntheticEnds !== 'failed'
-        return json({ window: {}, metrics: recorded ? SYNTHETIC_NAMES.map((name) => ({ name, instruments: [] })) : [], refused: [] })
+        const filtered = path.includes('codebaseId=') && options.syntheticFiltered === false
+        const recorded = workflow === 'orchon-recorder-synthetic-metrics' && status() === 'completed' && options.syntheticEnds !== 'failed' && !filtered
+        return json({ window: {}, metrics: recorded ? SYNTHETIC_METRIC_NAMES.map((name) => ({ name, instruments: [] })) : [], refused: [] })
       }
       return json({ error: 'Not found' }, 404)
     },
@@ -211,7 +211,7 @@ describe('the metrics scenario', () => {
     assert.ok(order.slice(launched + 1, views).every((step) => step.startsWith('GET /api/metrics?since=365d&codebaseId=')), order.join('\n'))
     assert.ok(sent.some((request) => request.startsWith('GET /api/workflows/runs/run-1')))
     for (const path of ['GET /api/metric-views', 'GET /api/metrics', 'GET /api/metrics?since=7d', 'GET /api/metrics?since=365d']) assert.ok(order.slice(views).includes(path), path)
-    assert.deepEqual(outcome, { tokensSeen: 0, crossed: null, synthetic: { ran: true } })
+    assert.deepEqual(outcome, { tokensSeen: 0, crossed: null, synthetic: { records: 'synthetic' } })
     const [file] = session.files
     assert.equal(file?.path, 'metrics.json')
     assert.ok(file.text.includes('query-took'))
@@ -222,8 +222,8 @@ describe('the metrics scenario', () => {
     const [file] = session.files
     assert.match(file?.holds ?? '', /^SYNTHETIC: /)
     assert.match(file?.holds ?? '', /orchon-synthetic/)
-    const log = (JSON.parse(file?.text ?? '{}') as { log: { kind: string; synthetic?: unknown }[] }).log
-    assert.deepEqual(log.filter((entry) => entry.kind === 'synthetic-data').map((entry) => entry.synthetic), [true])
+    const log = (JSON.parse(file?.text ?? '{}') as { log: { kind: string; records?: unknown }[] }).log
+    assert.deepEqual(log.filter((entry) => entry.kind === 'synthetic-data').map((entry) => entry.records), ['synthetic'])
     // The note comes before the first report is read.
     const noted = log.findIndex((entry) => entry.kind === 'synthetic-data')
     const firstRead = log.findIndex((entry) => entry.kind === 'query-took')
@@ -233,22 +233,43 @@ describe('the metrics scenario', () => {
 
   for (const [why, options, reason] of [
     ['the release does not have the pack', { syntheticSource: 'none' }, /does not read orchon-recorder-synthetic-metrics from the throwaway project: it answered 404/],
-    ['the release reads it from elsewhere', { syntheticSource: 'bundled' }, /does not read orchon-recorder-synthetic-metrics from the throwaway project/],
-    ['its run fails', { pollsToEnd: 1, syntheticEnds: 'failed' }, /ended failed/],
-    ['its run never ends', {}, /had not ended within 60 seconds of its launch, so it was cancelled/]
+    ['the release reads it from elsewhere', { syntheticSource: 'bundled' }, /does not read orchon-recorder-synthetic-metrics from the throwaway project/]
   ] as const) {
     test(`falls back to the empty-store reports, saying why, when ${why}`, async () => {
       const { sent, session, outcome } = await run('metrics', options, 0)
-      assert.equal(outcome.synthetic?.ran, false)
-      assert.match(outcome.synthetic?.ran === false ? outcome.synthetic.why : '', reason)
+      assert.deepEqual(launches(sent), [])
+      assert.equal(outcome.synthetic?.records, 'none')
+      assert.match(outcome.synthetic?.records === 'none' ? outcome.synthetic.why : '', reason)
       for (const path of ['GET /api/metric-views', 'GET /api/metrics', 'GET /api/metrics?since=7d', 'GET /api/metrics?since=365d']) assert.ok(sent.includes(path), path)
       const [file] = session.files
       assert.equal(file?.path, 'metrics.json')
       assert.ok(!/SYNTHETIC/.test(file.holds))
-      assert.match(file.holds, /over an empty store: the synthetic pack did not run/)
-      assert.ok(session.gaps.some((gap) => /synthetic pack did not run/.test(gap.why) && reason.test(gap.why) && /empty store/.test(gap.why)))
-      const log = (JSON.parse(file.text) as { log: { kind: string; synthetic?: unknown }[] }).log
-      assert.deepEqual(log.filter((entry) => entry.kind === 'synthetic-data').map((entry) => entry.synthetic), [false])
+      assert.match(file.holds, /synthetic pack was never launched .*, so the reports were read over an empty store/)
+      assert.ok(session.gaps.some((gap) => /synthetic pack was never launched/.test(gap.why) && reason.test(gap.why) && /empty store/.test(gap.why)))
+      const log = (JSON.parse(file.text) as { log: { kind: string; records?: unknown }[] }).log
+      assert.deepEqual(log.filter((entry) => entry.kind === 'synthetic-data').map((entry) => entry.records), ['none'])
+    })
+  }
+
+  // Once the pack is launched it may have printed its records, so the reports are never called empty.
+  for (const [why, options, reason] of [
+    ['its run fails', { pollsToEnd: 1, syntheticEnds: 'failed' }, /ended failed/],
+    ['its run never ends', {}, /had not ended within 60 seconds of its launch, so it was cancelled/],
+    ['the project report misses its records', { pollsToEnd: 1, syntheticFiltered: false }, /did not report the records of orchon-recorder-synthetic-metrics for the project/]
+  ] as const) {
+    test(`labels the reports possibly synthetic, saying why, when ${why} after its launch`, async () => {
+      const { sent, session, outcome } = await run('metrics', options, 0)
+      assert.equal(sent.filter((request) => request.startsWith('POST /api/workflows/orchon-recorder-synthetic-metrics/run')).length, 1)
+      assert.equal(outcome.synthetic?.records, 'possibly-synthetic')
+      assert.match(outcome.synthetic?.records === 'possibly-synthetic' ? outcome.synthetic.why : '', reason)
+      for (const path of ['GET /api/metric-views', 'GET /api/metrics', 'GET /api/metrics?since=7d', 'GET /api/metrics?since=365d']) assert.ok(sent.includes(path), path)
+      const [file] = session.files
+      assert.match(file?.holds ?? '', /^POSSIBLY SYNTHETIC: /)
+      assert.match(file?.holds ?? '', /orchon_synthetic\./)
+      assert.ok(!/empty store/.test(file?.holds ?? ''))
+      assert.ok(session.gaps.some((gap) => reason.test(gap.why) && /may hold/.test(gap.why) && !/empty store/.test(gap.why)))
+      const log = (JSON.parse(file?.text ?? '{}') as { log: { kind: string; records?: unknown }[] }).log
+      assert.deepEqual(log.filter((entry) => entry.kind === 'synthetic-data').map((entry) => entry.records), ['possibly-synthetic'])
     })
   }
 
@@ -265,7 +286,7 @@ describe('the metrics scenario', () => {
     const session = createSession('0.14.0', agentReading, () => time)
     const outcome = await recordSpendScenario(session, 'metrics', { projectFolder: '/tmp/p', tokenCeiling: 0, now: () => time, sleep: async (ms) => void (time += ms) })
     assert.deepEqual(launches(sent), [])
-    assert.equal(outcome.synthetic?.ran, false)
+    assert.equal(outcome.synthetic?.records, 'none')
   })
 
   test('stops when its queries outlive its wall-clock ceiling', async () => {

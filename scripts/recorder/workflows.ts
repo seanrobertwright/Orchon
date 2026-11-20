@@ -238,8 +238,10 @@ export const SYNTHETIC_UNREADABLE_PACK = 'orchon-synthetic-unreadable'
 
 type SyntheticRecord = Readonly<Record<string, string | number | null>>
 
-const synthetic = (name: string, kind: 'count' | 'score', unit: string, subject: string, value: number, more: Record<string, string> = {}): SyntheticRecord => ({
-  name: `${SYNTHETIC_METRIC_PREFIX}${name}`,
+const metric = (name: string): string => `${SYNTHETIC_METRIC_PREFIX}${name}`
+
+const syntheticRecord = (name: string, kind: 'count' | 'score', unit: string, subject: string, value: number, more: Record<string, string> = {}): SyntheticRecord => ({
+  name: metric(name),
   kind,
   unit,
   subject: `synthetic-${subject}`,
@@ -247,7 +249,7 @@ const synthetic = (name: string, kind: 'count' | 'score', unit: string, subject:
   ...more
 })
 
-const CALIBRATES = { calibrates: `${SYNTHETIC_METRIC_PREFIX}tests_useless` }
+const CALIBRATES = { calibrates: metric('tests_useless') }
 
 /**
  * The records the pack prints, every number made up and fixed. Every record has a subject, so a
@@ -256,17 +258,20 @@ const CALIBRATES = { calibrates: `${SYNTHETIC_METRIC_PREFIX}tests_useless` }
  * it. The last one gives `items_opened` a second definition, which Archon refuses and reports.
  */
 export const SYNTHETIC_METRIC_RECORDS: readonly SyntheticRecord[] = [
-  ...[1, 2, 3, 4].map((item) => synthetic('items_opened', 'count', 'items', `item-${item}`, 1)),
-  ...[1, 2].map((item) => synthetic('items_merged', 'count', 'items', `item-${item}`, 1)),
-  synthetic('items_abandoned', 'count', 'items', 'item-4', 1),
-  synthetic('tests_added', 'count', 'tests', 'item-1', 5),
-  synthetic('tests_added', 'count', 'tests', 'item-2', 3),
-  synthetic('tests_useless', 'count', 'tests', 'item-1', 1),
-  synthetic('tests_useless', 'count', 'tests', 'item-2', 1),
-  ...[1, 1, 0, 1].map((value, index) => synthetic('useless_tests_caught', 'score', 'ratio', `case-${index + 1}`, value, CALIBRATES)),
-  ...[0.5, 0.7, 0.9].map((value, index) => synthetic('review_score', 'score', 'ratio', `item-${index + 1}`, value)),
-  synthetic('items_opened', 'score', 'ratio', 'item-5', 0.5)
+  ...[1, 2, 3, 4].map((item) => syntheticRecord('items_opened', 'count', 'items', `item-${item}`, 1)),
+  ...[1, 2].map((item) => syntheticRecord('items_merged', 'count', 'items', `item-${item}`, 1)),
+  syntheticRecord('items_abandoned', 'count', 'items', 'item-4', 1),
+  syntheticRecord('tests_added', 'count', 'tests', 'item-1', 5),
+  syntheticRecord('tests_added', 'count', 'tests', 'item-2', 3),
+  syntheticRecord('tests_useless', 'count', 'tests', 'item-1', 1),
+  syntheticRecord('tests_useless', 'count', 'tests', 'item-2', 1),
+  ...[1, 1, 0, 1].map((value, index) => syntheticRecord('useless_tests_caught', 'score', 'ratio', `case-${index + 1}`, value, CALIBRATES)),
+  ...[0.5, 0.7, 0.9].map((value, index) => syntheticRecord('review_score', 'score', 'ratio', `item-${index + 1}`, value)),
+  syntheticRecord('items_opened', 'score', 'ratio', 'item-5', 0.5)
 ]
+
+/** The names the synthetic records carry, once each. */
+export const SYNTHETIC_METRIC_NAMES: readonly string[] = [...new Set(SYNTHETIC_METRIC_RECORDS.map((record) => String(record.name)))]
 
 /** The one shell step: it prints the records and nothing else. */
 export const SYNTHETIC_METRICS: WorkflowDefinition = {
@@ -279,8 +284,6 @@ export const SYNTHETIC_METRICS: WorkflowDefinition = {
     }
   ]
 }
-
-const metric = (name: string): string => `${SYNTHETIC_METRIC_PREFIX}${name}`
 
 /** The overview cards, one of each shape Archon 0.14.0 knows. */
 const SYNTHETIC_VIEWS = {
@@ -326,6 +329,28 @@ export function syntheticPackFiles(): { path: string; text: string }[] {
     { path: `${SYNTHETIC_PACK}/.shared/metric-views.json`, text: `${JSON.stringify(SYNTHETIC_VIEWS, null, 2)}\n` },
     { path: `${SYNTHETIC_UNREADABLE_PACK}/.shared/metric-views.json`, text: `${JSON.stringify({ cards: [] }, null, 2)}\n` }
   ]
+}
+
+/** Shows a name in a sentence: as it is, or in code quotes for Markdown. */
+type Quote = (name: string) => string
+
+/** What a recording says when the synthetic pack ran and Archon reported its records. */
+export function syntheticDescription(quote: Quote = (name) => name): string {
+  return `every metric record here, and the overview cards of ${quote(SYNTHETIC_PACK)}, were made up by the recorder's own pack (workflow ${quote(
+    SYNTHETIC_METRICS.name
+  )}, one shell step, fixed numbers, names starting ${quote(SYNTHETIC_METRIC_PREFIX)}). They measure nothing`
+}
+
+/** What a recording says when the synthetic pack was launched but its records were not confirmed. */
+export function possiblySyntheticDescription(why: string, quote: Quote = (name) => name): string {
+  return `the recorder's synthetic pack was launched but its records were not confirmed (${why}), so any metric record here named ${quote(
+    `${SYNTHETIC_METRIC_PREFIX}*`
+  )}, and the overview cards of ${quote(SYNTHETIC_PACK)}, were made up by it. They measure nothing`
+}
+
+/** What a recording says when the synthetic pack was never launched. */
+export function emptyStoreDescription(why: string, quote: Quote = (name) => name): string {
+  return `the recorder's synthetic pack was never launched (${why}), so the reports were read over an empty store. Any overview cards of ${quote(SYNTHETIC_PACK)} are still made up`
 }
 
 /** Fails unless `name` is one of the recorder's own workflows. Called before every launch. */
