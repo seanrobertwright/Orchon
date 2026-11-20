@@ -393,8 +393,8 @@ function stepsBody(detail: RunDetail): OrcaNode {
           onToggle={({ key, expanded }) => toggle(tree, key, expanded)}
           onSelect={({ key }) => set(selectedStep, tree.byKey.has(key) ? key : null)}
           onAction={({ key }) => {
-            const chosen = tree.byKey.get(key)
-            if (chosen !== undefined) openStepView(chosen.id)
+            const acted = tree.byKey.get(key)
+            if (acted !== undefined) openStepView(acted.id)
           }}
         />
       )}
