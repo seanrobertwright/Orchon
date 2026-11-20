@@ -217,6 +217,57 @@ describe('the metrics scenario', () => {
     assert.ok(file.text.includes('query-took'))
   })
 
+  test('labels what it recorded synthetic, in the fixture, its log entry and its gap', async () => {
+    const { session } = await run('metrics', { pollsToEnd: 1 }, 0)
+    const [file] = session.files
+    assert.match(file?.holds ?? '', /^SYNTHETIC: /)
+    assert.match(file?.holds ?? '', /orchon-synthetic/)
+    const log = (JSON.parse(file?.text ?? '{}') as { log: { kind: string; synthetic?: unknown }[] }).log
+    assert.deepEqual(log.filter((entry) => entry.kind === 'synthetic-data').map((entry) => entry.synthetic), [true])
+    // The note comes before the first report is read.
+    const noted = log.findIndex((entry) => entry.kind === 'synthetic-data')
+    const firstRead = log.findIndex((entry) => entry.kind === 'query-took')
+    assert.ok(noted >= 0 && noted < firstRead)
+    assert.ok(session.gaps.some((gap) => /archon-metrics-prs/.test(gap.why) && /GitHub/.test(gap.why) && /synthetic pack instead/.test(gap.why)))
+  })
+
+  for (const [why, options, reason] of [
+    ['the release does not have the pack', { syntheticSource: 'none' }, /does not read orchon-recorder-synthetic-metrics from the throwaway project: it answered 404/],
+    ['the release reads it from elsewhere', { syntheticSource: 'bundled' }, /does not read orchon-recorder-synthetic-metrics from the throwaway project/],
+    ['its run fails', { pollsToEnd: 1, syntheticEnds: 'failed' }, /ended failed/],
+    ['its run never ends', {}, /had not ended within 60 seconds of its launch, so it was cancelled/]
+  ] as const) {
+    test(`falls back to the empty-store reports, saying why, when ${why}`, async () => {
+      const { sent, session, outcome } = await run('metrics', options, 0)
+      assert.equal(outcome.synthetic?.ran, false)
+      assert.match(outcome.synthetic?.ran === false ? outcome.synthetic.why : '', reason)
+      for (const path of ['GET /api/metric-views', 'GET /api/metrics', 'GET /api/metrics?since=7d', 'GET /api/metrics?since=365d']) assert.ok(sent.includes(path), path)
+      const [file] = session.files
+      assert.equal(file?.path, 'metrics.json')
+      assert.ok(!/SYNTHETIC/.test(file.holds))
+      assert.match(file.holds, /over an empty store: the synthetic pack did not run/)
+      assert.ok(session.gaps.some((gap) => /synthetic pack did not run/.test(gap.why) && reason.test(gap.why) && /empty store/.test(gap.why)))
+      const log = (JSON.parse(file.text) as { log: { kind: string; synthetic?: unknown }[] }).log
+      assert.deepEqual(log.filter((entry) => entry.kind === 'synthetic-data').map((entry) => entry.synthetic), [false])
+    })
+  }
+
+  test('never launches the pack when the release reads it with an agent step', async () => {
+    const { client, sent } = standInRelease({})
+    const agentReading: LoopbackClient = {
+      ...client,
+      request: async (method, path, body) =>
+        path.startsWith('/api/workflows/orchon-recorder-synthetic-metrics?')
+          ? json({ source: 'project', workflow: { nodes: [{ id: 'emit', kind: 'agent', prompt: 'Make up numbers.' }] } })
+          : client.request(method, path, body)
+    }
+    let time = 0
+    const session = createSession('0.14.0', agentReading, () => time)
+    const outcome = await recordSpendScenario(session, 'metrics', { projectFolder: '/tmp/p', tokenCeiling: 0, now: () => time, sleep: async (ms) => void (time += ms) })
+    assert.deepEqual(launches(sent), [])
+    assert.equal(outcome.synthetic?.ran, false)
+  })
+
   test('stops when its queries outlive its wall-clock ceiling', async () => {
     const { client, sent } = standInRelease({})
     // Every reading of the clock is a minute later: each query takes a minute.
