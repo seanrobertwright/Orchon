@@ -14,6 +14,18 @@ function field(value: unknown, key: string): unknown {
 
 const contributes = field(manifest, 'contributes')
 
+const KB = 1024
+
+/** A PNG of the repository read for its size, after checking it is a PNG no larger than `maxBytes`. */
+function png(path: string, maxBytes: number): { bytes: number; width: number; height: number } {
+  const bytes = readFileSync(join(repoRoot, ...path.split('/')))
+  assert.ok(bytes.length <= maxBytes, `${path} is ${String(bytes.length)} bytes, over ${String(maxBytes / KB)} KB`)
+  // A PNG starts with its signature, then the IHDR chunk, whose first fields are width and height.
+  assert.deepEqual([...bytes.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], `${path} is not a PNG`)
+  assert.equal(bytes.subarray(12, 16).toString('latin1'), 'IHDR', `${path} has no IHDR chunk first`)
+  return { bytes: bytes.length, width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+}
+
 describe('the manifest', () => {
   test('carries the identity, licence and Orca floor', () => {
     assert.equal(field(manifest, 'manifestVersion'), 2)
@@ -32,15 +44,40 @@ describe('the manifest', () => {
 
   test("names a plugin icon within Orca's rules: a square PNG of at least 128 by 128 and at most 256 KB", () => {
     assert.equal(field(manifest, 'icon'), 'assets/icon.png')
-    const bytes = readFileSync(join(repoRoot, 'assets', 'icon.png'))
-    assert.ok(bytes.length <= 256 * 1024, `the icon is ${String(bytes.length)} bytes, over 256 KB`)
-    // A PNG starts with its signature, then the IHDR chunk, whose first fields are width and height.
-    assert.deepEqual([...bytes.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'the icon is not a PNG')
-    assert.equal(bytes.subarray(12, 16).toString('latin1'), 'IHDR')
-    const width = bytes.readUInt32BE(16)
-    const height = bytes.readUInt32BE(20)
-    assert.equal(width, height, `the icon is ${String(width)} by ${String(height)}, not square`)
-    assert.ok(width >= 128, `the icon is ${String(width)} pixels wide, under 128`)
+    const icon = png('assets/icon.png', 256 * KB)
+    assert.equal(icon.width, icon.height, `the icon is ${String(icon.width)} by ${String(icon.height)}, not square`)
+    assert.ok(icon.width >= 128, `the icon is ${String(icon.width)} pixels wide, under 128`)
+  })
+
+  test("names a cover within Orca's rules: a PNG of at least 800 by 500, at most 1024 KB, with alt text", () => {
+    const cover = field(manifest, 'cover')
+    assert.equal(field(cover, 'path'), 'assets/cover.png')
+    const alt = field(cover, 'alt')
+    assert.ok(typeof alt === 'string' && alt.trim() !== '', 'the cover has no alt text')
+    assert.ok(alt.length <= 160, `the cover's alt text is ${String(alt.length)} characters, over 160`)
+    const image = png('assets/cover.png', 1024 * KB)
+    assert.ok(image.width >= 800 && image.height >= 500, `the cover is ${String(image.width)} by ${String(image.height)}, under 800 by 500`)
+  })
+
+  test("names at most 6 screenshots within Orca's rules: PNGs of at least 1280 by 800 with alt text and a caption, each at most 1536 KB, 8 MB together", () => {
+    const screenshots = field(manifest, 'screenshots')
+    assert.ok(Array.isArray(screenshots), 'screenshots is not a list')
+    assert.ok(screenshots.length >= 1 && screenshots.length <= 6, `${String(screenshots.length)} screenshots`)
+    let total = png('assets/icon.png', 256 * KB).bytes + png('assets/cover.png', 1024 * KB).bytes
+    for (const screenshot of screenshots) {
+      const path = field(screenshot, 'path')
+      assert.ok(typeof path === 'string', 'a screenshot has no path')
+      for (const key of ['alt', 'caption']) {
+        const text = field(screenshot, key)
+        assert.ok(typeof text === 'string' && text.trim() !== '', `${path} has no ${key}`)
+        // Orca's validator refuses alt text past 160 characters.
+        if (key === 'alt') assert.ok(text.length <= 160, `${path}'s alt text is ${String(text.length)} characters, over 160`)
+      }
+      const image = png(path, 1536 * KB)
+      assert.ok(image.width >= 1280 && image.height >= 800, `${path} is ${String(image.width)} by ${String(image.height)}, under 1280 by 800`)
+      total += image.bytes
+    }
+    assert.ok(total <= 8 * 1024 * KB, `the images are ${String(total)} bytes together, over 8 MB`)
   })
 
   test('needs Orca 1.4.248 or newer', () => {
