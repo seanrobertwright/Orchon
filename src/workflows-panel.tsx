@@ -3,7 +3,7 @@
 // inline confirmation, New workflow, and the builder drafts: a mark on each workflow that has one
 // and the new workflows never saved, each with Open and Discard.
 // It draws only the worker's view model and reads it under the shared per-view fetch rules.
-import { atom, Button, Callout, IconButton, Input, Link, plugin, RadioGroup, read, Row, Select, set, shell, Spinner, Stack, Text, type OrcaNode, type PanelContext } from 'orca'
+import { atom, Button, Callout, IconButton, Input, Link, plugin, RadioGroup, read, Row, Select, set, shell, Spinner, Stack, Text, Toolbar, type OrcaNode, type PanelContext } from 'orca'
 import { identityOf, sameIdentity, WORKFLOW_NAME_CAP, type NewWorkflowPlace } from '../editors/builder/builder-view'
 import type { Connected, ConnectionView } from './connection-view'
 import { now } from './dates'
@@ -235,18 +235,21 @@ function confirmation(view: Ready, row: SectionWorkflow, writable: boolean): Orc
     <Callout tone="danger" title={`Delete ${row.name}?`}>
       <Stack gap="xs">
         <Text>{`${removedOf(view, row)}. There is no undo.`}</Text>
-        <Row gap="sm" wrap>
+        <Toolbar label={`Delete ${row.name}?`} gap="sm">
           <Button size="sm" tone="danger" disabled={!writable || read(deleting)} onPress={() => remove(view, row)}>
-            {`Delete ${row.name}`}
+            Delete
           </Button>
           <Button size="sm" variant="outline" onPress={() => set(confirming, null)}>
             Cancel
           </Button>
-        </Row>
+        </Toolbar>
       </Stack>
     </Callout>
   )
 }
+
+/** The accessible name of a workflow's buttons, which carry short words of their own. */
+export const actionsLabel = (name: string): string => `Actions for ${name}`
 
 function workflowRow(view: Ready, row: SectionWorkflow, writable: boolean): OrcaNode {
   const held = read(confirming)
@@ -259,15 +262,19 @@ function workflowRow(view: Ready, row: SectionWorkflow, writable: boolean): Orca
         <Text weight="semibold">{row.name}</Text>
         <Text muted size="sm">{`Source: ${row.source}`}</Text>
         {row.draft === true ? <Text size="sm">{DRAFT_MARK}</Text> : null}
+      </Row>
+      {/* The workflow's name is in the toolbar's label, not in each button, so a long name never
+          pushes a button past a narrow panel and a screen reader still says which workflow. */}
+      <Toolbar label={actionsLabel(row.name)} gap="sm">
         <Button size="sm" variant="outline" disabled={openOff !== undefined} tooltip={openOff} onPress={() => openInBuilder(view, row)}>
-          {`Open ${row.name} in builder`}
+          Open in builder
         </Button>
         {row.deletable && !asking ? (
           <Button size="sm" variant="outline" disabled={!writable} tooltip={writable ? undefined : NOT_CONNECTED_TEXT} onPress={() => set(confirming, { name: row.name, source: row.source })}>
-            {`Delete ${row.name}`}
+            Delete
           </Button>
         ) : null}
-      </Row>
+      </Toolbar>
       {row.description === '' ? null : (
         <Text muted size="sm">
           {row.description}
@@ -416,27 +423,29 @@ function draftsPart(view: Ready, drafts: SectionDrafts | undefined): OrcaNode {
               <Text muted size="sm">
                 {row.scope === 'global' ? 'Global' : 'This project'}
               </Text>
+            </Row>
+            <Toolbar label={actionsLabel(row.name)} gap="sm">
               <Button size="sm" variant="outline" disabled={view.builderOff !== undefined} tooltip={view.builderOff} onPress={open}>
-                {`Open ${row.name} in builder`}
+                Open in builder
               </Button>
               {confirming ? null : (
                 <Button size="sm" variant="outline" onPress={() => set(discarding, row)}>
-                  {`Discard ${row.name}`}
+                  Discard
                 </Button>
               )}
-            </Row>
+            </Toolbar>
             {confirming ? (
               <Callout tone="danger" title={`Discard ${row.name}?`}>
                 <Stack gap="xs">
                   <Text>Its draft is deleted, and Archon holds nothing of it, so nothing of it is left. There is no undo.</Text>
-                  <Row gap="sm" wrap>
+                  <Toolbar label={`Discard ${row.name}?`} gap="sm">
                     <Button size="sm" tone="danger" onPress={() => discardNew(row)}>
-                      {`Discard ${row.name} for good`}
+                      Discard for good
                     </Button>
                     <Button size="sm" variant="outline" onPress={() => set(discarding, null)}>
                       Cancel
                     </Button>
-                  </Row>
+                  </Toolbar>
                 </Stack>
               </Callout>
             ) : null}

@@ -1,13 +1,13 @@
 // The frame seam for the Workflows section: src/panel.tsx mounted on a scripted worker that answers
 // the Workflows requests, the scope and the runs table. These tests cover what the section draws
 // and which requests it sends.
-import { afterEach, assert, describe, mockHost, mount, test, type MountOptions, type TestPanel } from 'orca/testing'
+import { afterEach, assert, describe, mockHost, mount, test, type MountOptions, type TestElement, type TestPanel } from 'orca/testing'
 import { connected, notRunning, searching } from '../scripts/connection-samples.ts'
 import { unmatchedGit } from '../scripts/scope-samples.ts'
 import { answeringWorkflows, draftedWorkflows, manyWorkflows, unscopedWorkflows, webWorkflows, type WorkflowsScript } from '../scripts/workflows-samples.ts'
 import type { WorkflowsRequest } from './workflows-section-view'
 import * as panelModule from './panel'
-import { NO_PROJECT, SEARCH_PAUSE_MS } from './workflows-panel'
+import { actionsLabel, NO_PROJECT, SEARCH_PAUSE_MS } from './workflows-panel'
 
 let panel: TestPanel | undefined
 afterEach(async () => {
@@ -83,29 +83,44 @@ describe('the workflows list', () => {
   })
 })
 
-const deleteButton = (name: string): { type: string; text: string } => ({ type: 'Button', text: `Delete ${name}` })
+/** A button by its words inside the toolbar of that label, or null when either is not drawn. */
+function inToolbar(view: TestPanel, toolbar: string, words: string): TestElement | null {
+  const bar = view.find({ type: 'Toolbar', label: toolbar })
+  if (bar === null) return null
+  return view.findAll({ type: 'Button', text: words }).find((button) => button.path.startsWith(`${bar.path}/`)) ?? null
+}
+
+/** The same, failing when it is not drawn, for a press. */
+function mustIn(view: TestPanel, toolbar: string, words: string): TestElement {
+  const found = inToolbar(view, toolbar, words)
+  assert.ok(found, `no "${words}" in the toolbar "${toolbar}"`)
+  return found
+}
+
+/** A workflow's Delete, in the toolbar named for that workflow. */
+const deleteButton = (view: TestPanel, name: string): TestElement | null => inToolbar(view, actionsLabel(name), 'Delete')
 
 describe('Delete', () => {
   test('is offered for project and global workflows only', async () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
-    assert.ok(view.find(deleteButton('ship-it')))
-    assert.ok(view.find(deleteButton('tidy')))
-    assert.equal(view.find(deleteButton('deliver')), null)
-    assert.equal(view.find(deleteButton('acme/pack:review')), null)
+    assert.ok(deleteButton(view, 'ship-it'))
+    assert.ok(deleteButton(view, 'tidy'))
+    assert.equal(deleteButton(view, 'deliver'), null)
+    assert.equal(deleteButton(view, 'acme/pack:review'), null)
     clean(view)
   })
 
   test('asks inline, naming the files and saying there is no undo, and sends the project once on confirmation', async () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
-    await view.press(deleteButton('ship-it'))
+    await view.press(mustIn(view, actionsLabel('ship-it'), 'Delete'))
     assert.deepEqual(sent(view, 'workflows.delete'), [])
     const ask = view.find({ type: 'Callout', text: /^Delete ship-it\?/ })
     assert.equal(ask?.text.includes('In C:/Projects/web/.archon/workflows this deletes the folder ship-it and everything in it, or, when there is no such folder, the files ship-it.yaml and ship-it.yml. There is no undo.'), true)
     await view.press({ type: 'Button', text: 'Cancel' })
     assert.equal(view.find({ type: 'Callout', text: /^Delete ship-it\?/ }), null)
-    await view.press(deleteButton('ship-it'))
+    await view.press(mustIn(view, actionsLabel('ship-it'), 'Delete'))
     // The confirmation's own Delete, which replaced the row's.
-    await view.press(deleteButton('ship-it'))
+    await view.press(mustIn(view, 'Delete ship-it?', 'Delete'))
     assert.deepEqual(sent(view, 'workflows.delete'), [{ name: 'ship-it', codebaseId: 'cb-web' }])
     assert.ok(view.find(text('Deleted ship-it.')))
     clean(view)
@@ -116,10 +131,10 @@ describe('Delete', () => {
       workflows: () => webWorkflows,
       remove: (input) => ({ kind: 'failed', name: input.name, message: 'Workflow not found: tidy' })
     })
-    await view.press(deleteButton('tidy'))
+    await view.press(mustIn(view, actionsLabel('tidy'), 'Delete'))
     const ask = view.find({ type: 'Callout', text: /^Delete tidy\?/ })
     assert.equal(ask?.text.includes("In the workflows folder of Archon's home folder this deletes the folder tidy and everything in it, or, when there is no such folder, the files tidy.yaml and tidy.yml. There is no undo."), true)
-    await view.press(deleteButton('tidy'))
+    await view.press(mustIn(view, 'Delete tidy?', 'Delete'))
     assert.ok(view.find({ type: 'Callout', text: /^tidy was not deleted/ }))
     assert.ok(view.find(text('Workflow not found: tidy')))
     clean(view)
@@ -127,12 +142,12 @@ describe('Delete', () => {
 
   test('in Searching the list stays under the banner with every Delete disabled', async () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
-    await view.press(deleteButton('ship-it'))
+    await view.press(mustIn(view, actionsLabel('ship-it'), 'Delete'))
     await view.post('connection.changed', { ...searching, since: connected.since + 1 })
     assert.match(view.findAll({ type: 'Callout' }).find((found) => found.props.tone === 'warning')?.text ?? '', /Reconnecting/)
     assert.ok(view.find(text('ship-it')))
-    for (const button of view.findAll({ type: 'Button' }).filter((found) => found.text.startsWith('Delete '))) assert.equal(button.disabled, true)
-    assert.ok(view.findAll({ type: 'Button' }).some((found) => found.text === 'Delete tidy'))
+    for (const button of view.findAll({ type: 'Button' }).filter((found) => found.text === 'Delete')) assert.equal(button.disabled, true)
+    assert.ok(deleteButton(view, 'tidy'))
   })
 })
 
@@ -160,27 +175,28 @@ describe('the section around the list', () => {
   })
 })
 
-const openButton = (name: string): { type: string; text: string } => ({ type: 'Button', text: `Open ${name} in builder` })
+/** A workflow's Open in builder, in the toolbar named for that workflow. */
+const openButton = (view: TestPanel, name: string): TestElement | null => inToolbar(view, actionsLabel(name), 'Open in builder')
 const NO_WORKSPACE = 'No workspace is focused in Orca. Wide tabs open in a workspace on this computer.'
 
 describe('Open in builder', () => {
   test('is offered for every workflow, and opens it with the chosen project', async () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
-    for (const name of ['ship-it', 'tidy', 'deliver', 'acme/pack:review']) assert.equal(view.find(openButton(name))?.disabled, false, name)
-    await view.press(openButton('deliver'))
+    for (const name of ['ship-it', 'tidy', 'deliver', 'acme/pack:review']) assert.equal(openButton(view, name)?.disabled, false, name)
+    await view.press(mustIn(view, actionsLabel('deliver'), 'Open in builder'))
     assert.deepEqual(sent(view, 'builder.open'), [{ name: 'deliver', codebaseId: 'cb-web', source: 'bundled' }])
     clean(view)
   })
 
   test('with no project, opens it with none', async () => {
     const view = await mountWorkflows({ workflows: () => unscopedWorkflows, scope: () => unmatchedGit })
-    await view.press(openButton('tidy'))
+    await view.press(mustIn(view, actionsLabel('tidy'), 'Open in builder'))
     assert.deepEqual(sent(view, 'builder.open'), [{ name: 'tidy', codebaseId: null, source: 'global' }])
   })
 
   test('is disabled, with the reason the worker gives, when no local workspace is focused', async () => {
     const view = await mountWorkflows({ workflows: () => ({ ...webWorkflows, builderOff: NO_WORKSPACE }) })
-    assert.equal(view.find(openButton('ship-it'))?.disabled, true)
+    assert.equal(openButton(view, 'ship-it')?.disabled, true)
     assert.ok(view.find(text(NO_WORKSPACE)))
     assert.equal(view.findAll(text(NO_WORKSPACE)).length, 1)
   })
@@ -188,23 +204,23 @@ describe('Open in builder', () => {
   test('says why when the worker could not open the tab', async () => {
     const reason = 'Archon has no workflow named deliver here.'
     const view = await mountWorkflows({ workflows: () => webWorkflows, open: () => ({ opened: false, reason }) })
-    await view.press(openButton('deliver'))
+    await view.press(mustIn(view, actionsLabel('deliver'), 'Open in builder'))
     assert.ok(view.find(text(reason)))
   })
 
   test('is disabled under the Searching banner', async () => {
     const view = await mountWorkflows({ workflows: () => webWorkflows })
     await view.post('connection.changed', { ...searching, since: connected.since + 1 })
-    assert.equal(view.find(openButton('ship-it'))?.disabled, true)
+    assert.equal(openButton(view, 'ship-it')?.disabled, true)
   })
 
   test('under the Searching banner works only for a workflow that has a draft', async () => {
     const view = await mountWorkflows({ workflows: () => draftedWorkflows })
     await view.post('connection.changed', { ...searching, since: connected.since + 1 })
-    assert.equal(view.find(openButton('ship-it'))?.disabled, false)
-    assert.equal(view.find(openButton('my-flow'))?.disabled, false)
-    assert.equal(view.find(openButton('tidy'))?.disabled, true)
-    await view.press(openButton('ship-it'))
+    assert.equal(openButton(view, 'ship-it')?.disabled, false)
+    assert.equal(openButton(view, 'my-flow')?.disabled, false)
+    assert.equal(openButton(view, 'tidy')?.disabled, true)
+    await view.press(mustIn(view, actionsLabel('ship-it'), 'Open in builder'))
     assert.deepEqual(sent(view, 'builder.open'), [{ name: 'ship-it', codebaseId: 'cb-web', source: 'project' }])
   })
 })
@@ -258,7 +274,7 @@ describe('New workflow', () => {
   test('is disabled with the reason in a remote workspace, as Open in builder is', async () => {
     const view = await mountWorkflows({ workflows: () => ({ ...webWorkflows, builderOff: REMOTE }) })
     assert.equal(view.find(NEW_WORKFLOW)?.disabled, true)
-    assert.equal(view.find(openButton('ship-it'))?.disabled, true)
+    assert.equal(openButton(view, 'ship-it')?.disabled, true)
     assert.equal(view.findAll(text(REMOTE)).length, 1)
   })
 })
@@ -274,8 +290,8 @@ describe('the builder drafts in the section', () => {
     ] as const) {
       assert.ok(view.find(text(name)), name)
       assert.ok(view.find(text(place)), place)
-      assert.equal(view.find(openButton(name))?.disabled, false, name)
-      assert.ok(view.find({ type: 'Button', text: `Discard ${name}` }), name)
+      assert.equal(openButton(view, name)?.disabled, false, name)
+      assert.ok(inToolbar(view, actionsLabel(name), 'Discard'), name)
     }
     assert.ok(view.find(text('1 new workflow of another project is not shown.')))
     assert.ok(view.find(text('1 builder draft could not be read, so Orchon deleted it.')))
@@ -284,16 +300,16 @@ describe('the builder drafts in the section', () => {
 
   test('Open on a new workflow opens its tab from its draft', async () => {
     const view = await mountWorkflows({ workflows: () => draftedWorkflows })
-    await view.press(openButton('wide'))
+    await view.press(mustIn(view, actionsLabel('wide'), 'Open in builder'))
     assert.deepEqual(sent(view, 'builder.open'), [{ name: 'wide', codebaseId: null, source: 'global' }])
   })
 
   test('Discard asks first, and only then deletes the draft', async () => {
     const view = await mountWorkflows({ workflows: () => draftedWorkflows })
-    await view.press({ type: 'Button', text: 'Discard my-flow' })
+    await view.press(mustIn(view, actionsLabel('my-flow'), 'Discard'))
     assert.deepEqual(sent(view, 'builder.draft.discard'), [])
     assert.ok(view.find(text('Its draft is deleted, and Archon holds nothing of it, so nothing of it is left. There is no undo.')))
-    await view.press({ type: 'Button', text: 'Discard my-flow for good' })
+    await view.press(mustIn(view, 'Discard my-flow?', 'Discard for good'))
     assert.deepEqual(sent(view, 'builder.draft.discard'), [{ name: 'my-flow', codebaseId: 'cb-web', scope: 'project', storeId: 'store-a' }])
   })
 })

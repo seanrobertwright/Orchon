@@ -92,6 +92,20 @@ describe('the Runs section', () => {
     assert.equal(view.valueOf(FILTER), 'all')
   })
 
+  test('the filter row wraps and the status select keeps a floor, so a narrow panel never squeezes its value', async () => {
+    const view = await mountWith(busy)
+    const nodes = (node: TreeSnapshot | string | null): TreeSnapshot[] =>
+      node === null || typeof node === 'string' ? [] : [node, ...(node.children ?? []).flatMap(nodes)]
+    const holds = (node: TreeSnapshot, type: string): boolean => nodes(node).some((inner) => inner !== node && inner.type === type)
+    const drawn = nodes(view.tree())
+    const row = drawn.find((node) => node.type === 'Row' && holds(node, 'Select'))
+    assert.ok(row, 'no filter row')
+    assert.equal(row.props?.wrap, true)
+    const box = drawn.find((node) => node.type === 'Box' && holds(node, 'Select'))
+    assert.equal(typeof box?.props?.minWidth, 'number')
+    clean(view)
+  })
+
   test('choosing a status asks for that status from the first row again', async () => {
     const view = await mountWith(busy)
     await view.loadMore(TABLE)
