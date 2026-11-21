@@ -70,7 +70,7 @@ describe('the manifest', () => {
 
   test('contributes the panel, both editors, the status bar item, the command and the event', () => {
     assert.deepEqual(field(contributes, 'panels'), [
-      { id: 'console', title: 'Orchon', icon: 'activity', entry: 'src/panel.tsx', ui: 'components' }
+      { id: 'console', title: 'Orchon', icon: 'layers', entry: 'src/panel.tsx', ui: 'components' }
     ])
     assert.deepEqual(field(contributes, 'customEditors'), [
       {

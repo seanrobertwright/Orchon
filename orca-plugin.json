@@ -27,7 +27,7 @@
       {
         "id": "console",
         "title": "Orchon",
-        "icon": "activity",
+        "icon": "layers",
         "entry": "src/panel.tsx",
         "ui": "components"
       }
