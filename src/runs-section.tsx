@@ -7,6 +7,7 @@
 import {
   atom,
   Badge,
+  Box,
   Button,
   Callout,
   Card,
@@ -55,6 +56,9 @@ import { problemLine, type ReadProblem } from './view-notices'
 import { offersTryAgain, troubleText } from './worker-words'
 
 type Ready = Extract<RunsView, { kind: 'ready' }>
+
+/** The status filter's least width in pixels: room for its longest choice, "Needs you" with a count. */
+const FILTER_MIN_WIDTH = 140
 
 const filter = atom<TableFilter>('all')
 /** How many rows the table asks for: rows 0 to N. */
@@ -384,8 +388,12 @@ export function runsSection(state: Connected, writable: boolean): OrcaNode {
     <Stack gap="sm">
       {scopeSwitch()}
       {scopeNotice(writable)}
-      <Row gap="sm" align="center">
-        <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
+      {/* The row wraps and the filter keeps a floor, so a narrow panel moves New run down a line
+          rather than squeezing the filter until its value cannot be read. */}
+      <Row gap="sm" align="center" wrap>
+        <Box minWidth={FILTER_MIN_WIDTH}>
+          <Select label="Status" labelHidden value={status} options={options} onChange={chooseFilter} />
+        </Box>
         <IconButton icon="refresh" label="Refresh runs" onPress={() => restartRuns()} />
         {newRun === undefined ? null : (
           <Button size="sm" variant="outline" onPress={newRun}>
