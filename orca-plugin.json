@@ -9,6 +9,27 @@
   },
   "license": "MIT",
   "icon": "assets/icon.png",
+  "cover": {
+    "path": "assets/cover.png",
+    "alt": "The word Orchon beside an abstract run graph: steps done, running and waiting on a person, joined by curves, above a card with two buttons."
+  },
+  "screenshots": [
+    {
+      "path": "assets/screenshot-1-runs.png",
+      "alt": "Three Orchon panels: the runs list with 13 runs that need you, a paused run's steps, and the launcher with its project, workflow and message.",
+      "caption": "Runs: what needs you, the runs table, a run's steps and the launcher."
+    },
+    {
+      "path": "assets/screenshot-2-workflows.png",
+      "alt": "Three Orchon panels: workflows with Open in builder and Delete buttons, a chat thread with a workflow result, and three metrics cards.",
+      "caption": "Workflows, a chat with Archon, and the metrics your workflow packs declare."
+    },
+    {
+      "path": "assets/screenshot-3-settings.png",
+      "alt": "Three Orchon panels: Settings with its Connection and System lists, a table of every metric, and the screen saying Archon is not running.",
+      "caption": "Archon's settings and status, every metric in a table, and the screen when Archon is not running."
+    }
+  ],
   "engines": {
     "orca": ">=1.4.248"
   },
