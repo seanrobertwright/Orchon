@@ -3,9 +3,10 @@
 // send shows a dash. Updates is the last row; a release link the worker kept sits on its own line
 // under the list, because a row's value is text only. Its controls are Refresh, which reads both again, and "Try again" beside a
 // failed read, which does the same.
-import { Button, Callout, Collapsible, env, KeyValue, Link, Skeleton, Stack, Text, type KeyValueItem, type OrcaNode } from 'orca'
+import { Button, Callout, Collapsible, env, Link, Skeleton, Stack, Text, type OrcaNode } from 'orca'
 import { TESTED_RANGE } from './connection-words'
 import { formatClock } from './dates'
+import { factList, type FactItem } from './fact-list'
 import type { HealthFacts, Platforms, SystemView, Updates } from './system-view'
 
 /** What a row shows for a value the server did not send. */
@@ -20,7 +21,7 @@ function platformsText(platforms: Platforms | null): string {
   return platforms.more === 0 ? named : `${named} and ${platforms.more} more`
 }
 
-function rows(health: HealthFacts, updates: Updates): KeyValueItem[] {
+function rows(health: HealthFacts, updates: Updates): FactItem[] {
   const { concurrency } = health
   return [
     { label: 'Status', value: orDash(health.status) },
@@ -85,7 +86,7 @@ function content(system: SystemView | null, refresh: () => void): OrcaNode {
   return (
     <>
       {failure === null ? null : failureCallout(at === '' ? failure : `${failure} These values are from ${at}.`, refresh)}
-      <KeyValue label="System" items={rows(health, updates)} />
+      {factList('System', rows(health, updates))}
       {releaseLine(updates)}
     </>
   )

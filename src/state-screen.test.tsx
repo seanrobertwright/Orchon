@@ -19,6 +19,7 @@ import {
   unsupported,
   unsupportedAtSetting
 } from '../scripts/connection-samples.ts'
+import { factLines, readFacts } from '../scripts/fact-rows.ts'
 import type { ConnectionView } from './connection-view'
 import * as panelModule from './panel'
 
@@ -352,9 +353,7 @@ describe('the state screens', () => {
 describe('the Connection group of the Settings section', () => {
   /** The group's rows, as "label: value". */
   function rows(view: TestPanel): string[] {
-    const list = view.find({ type: 'KeyValue', label: 'Connection' })
-    assert.ok(list, 'no Connection list')
-    return (list.props.items as { label: string; value: string }[]).map((item) => `${item.label}: ${item.value}`)
+    return factLines(view, 'Connection')
   }
   const groupText = (view: TestPanel): string =>
     prose(view.find({ type: 'Collapsible', label: 'Connection' })?.text ?? '')
@@ -436,6 +435,14 @@ describe('the Connection group of the Settings section', () => {
     assert.deepEqual(rows(one).slice(2), ['Base URL: https://archon.example.com:3090', 'Archon home folder: ~/.archon'])
     assert.ok(groupText(one).includes('Base URL: The address must start with http://.'))
     assert.ok(!groupText(one).includes('Archon home folder: The folder'))
+    // The refused value is drawn in the danger tone; the reason above says why in words.
+    assert.deepEqual(
+      (readFacts(one, 'Connection') ?? []).slice(2).map((fact) => [fact.label, fact.tone ?? null]),
+      [
+        ['Base URL', 'danger'],
+        ['Archon home folder', null]
+      ]
+    )
     await one.unmount()
 
     const two = await mountIn(twoBadSettings, 'settings')
@@ -450,8 +457,7 @@ describe('the Connection group of the Settings section', () => {
       host: mockHost(noAnswer),
       persisted: { workspace: { section: 'settings' } }
     })
-    const list = panel.find({ type: 'KeyValue', label: 'Connection' })
-    assert.deepEqual(list?.props.items, [{ label: 'State', value: 'Looking for Archon…' }])
+    assert.deepEqual(readFacts(panel, 'Connection'), [{ label: 'State', value: 'Looking for Archon…' }])
     assert.ok(panel.find({ type: 'Collapsible', label: 'Connection' })?.text.includes(WHERE))
   })
 })

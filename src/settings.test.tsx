@@ -2,7 +2,7 @@
 // the Settings section: its groups, the System group and the Access group.
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterEach, assert, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
+import { afterEach, assert, describe, mockHost, mount, test, type TestPanel, type TreeSnapshot } from 'orca/testing'
 import {
   answering,
   connected,
@@ -13,6 +13,7 @@ import {
   systemUnread,
   unsupported
 } from '../scripts/connection-samples.ts'
+import { factLines } from '../scripts/fact-rows.ts'
 import { repoRoot } from '../scripts/repo-files.ts'
 import type { ConnectionView } from './connection-view'
 import * as panelModule from './panel'
@@ -54,9 +55,7 @@ function inside(view: TestPanel, title: string, type: string): ReturnType<TestPa
 
 /** The System list's rows, as "label: value". */
 function systemRows(view: TestPanel): string[] {
-  const list = view.find({ type: 'KeyValue', label: 'System' })
-  assert.ok(list, 'no System list')
-  return (list.props.items as { label: string; value: string }[]).map((item) => `${item.label}: ${item.value}`)
+  return factLines(view, 'System')
 }
 
 /** The Updates row of the System list, as "label: value". */
@@ -97,6 +96,34 @@ describe('the Settings section', () => {
       ['Notifications', false],
       ['Access', true]
     ])
+    clean(view)
+  })
+
+  test('draws Connection and System as wrapping rows, so a narrow panel puts each value under its label', async () => {
+    const view = await mountOn(connected, systemRead)
+    // Layout boxes are not findable elements, so the drawn tree is read as data.
+    const nodes = (node: TreeSnapshot | string | null): TreeSnapshot[] =>
+      node === null || typeof node === 'string' ? [] : [node, ...(node.children ?? []).flatMap(nodes)]
+    const childNodes = (node: TreeSnapshot): TreeSnapshot[] => (node.children ?? []).filter((child): child is TreeSnapshot => typeof child !== 'string')
+    const drawn = nodes(view.tree())
+    for (const label of ['Connection', 'System']) {
+      const list = drawn.find((node) => node.type === 'List' && node.props?.label === label)
+      assert.ok(list, `no ${label} list`)
+      const items = childNodes(list).filter((node) => node.type === 'ListItem')
+      assert.ok(items.length > 0, `the ${label} list has no rows`)
+      for (const item of items) {
+        const [row] = childNodes(item)
+        assert.equal(row?.type, 'Box', label)
+        assert.equal(row?.props?.direction, 'row', label)
+        assert.equal(row?.props?.wrap, true, label)
+        // A label that keeps its width and a value with a floor: when both do not fit, the value wraps under.
+        const [name, value] = row === undefined ? [] : childNodes(row)
+        assert.equal(name?.props?.shrink, false, label)
+        assert.equal(typeof name?.props?.width, 'number', label)
+        assert.equal(value?.props?.grow, true, label)
+        assert.equal(typeof value?.props?.minWidth, 'number', label)
+      }
+    }
     clean(view)
   })
 
@@ -244,7 +271,7 @@ describe('the System group', () => {
 
   test('before health has answered, a loading placeholder stands in for the list', async () => {
     const view = await mountOn(connected, systemUnread)
-    assert.equal(view.find({ type: 'KeyValue', label: 'System' }), null)
+    assert.equal(view.find({ type: 'List', label: 'System' }), null)
     assert.ok(view.find({ type: 'Skeleton' }))
     clean(view)
   })
@@ -262,7 +289,7 @@ describe('the System group', () => {
 
   test('a failed read with nothing loaded shows the error in place of the list', async () => {
     const view = await mountOn(connected, { ...systemUnread, failure: "Orchon could not read Archon's answer." })
-    assert.equal(view.find({ type: 'KeyValue', label: 'System' }), null)
+    assert.equal(view.find({ type: 'List', label: 'System' }), null)
     assert.equal(folded(view.find({ type: 'Callout' })?.text ?? ''), "Orchon could not read Archon's answer. Try again")
     clean(view)
   })

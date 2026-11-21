@@ -10,7 +10,6 @@ import {
   Callout,
   Collapsible,
   env,
-  KeyValue,
   List,
   ListItem,
   plugin,
@@ -23,7 +22,6 @@ import {
   Stack,
   Text,
   Tree,
-  type KeyValueItem,
   type OrcaNode,
   type PanelContext
 } from 'orca'
@@ -32,6 +30,7 @@ import { artifactsBody, openArtifacts, resetArtifacts, startArtifactsView } from
 import type { ConnectionView } from './connection-view'
 import { cutAt } from './cutter'
 import { formatDateTime, formatDuration, now } from './dates'
+import { factList, type FactItem } from './fact-list'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
 import { actionRow, outcomeCallout, rerunLine, resetRunActions, runActionsRead, type RunActionHooks } from './run-actions'
@@ -265,7 +264,7 @@ function factsFold(detail: RunDetail): OrcaNode {
   const duration = ranFor(detail)
   const project = detail.project ?? 'No project'
   const summary = [duration, costText(detail.costUsd), project].filter((part) => part !== null).join(' · ')
-  const facts: KeyValueItem[] = [
+  const facts: FactItem[] = [
     { label: 'Workflow', value: detail.workflow },
     { label: 'State', value: statusText(detail.status) }
   ]
@@ -282,7 +281,7 @@ function factsFold(detail: RunDetail): OrcaNode {
             Started <RelativeTime at={detail.startedAt} />
           </Text>
         ) : null}
-        <KeyValue label="Run facts" items={facts} />
+        {factList('Run facts', facts)}
         {worktreeLine(detail)}
       </Stack>
     </Collapsible>

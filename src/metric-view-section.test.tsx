@@ -4,6 +4,7 @@
 // metric's view, and the console link from it.
 import { mock } from 'node:test'
 import { afterEach, assert, beforeEach, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
+import { readFacts } from '../scripts/fact-rows.ts'
 import { answeringMetric, sampleMetric } from '../scripts/metric-samples.ts'
 import { REPORT_END, sampleReport } from '../scripts/metrics-samples.ts'
 import { formatDateTime } from './dates'
@@ -50,9 +51,8 @@ function clean(view: TestPanel): void {
 
 const TABLE = { type: 'Table', label: 'Metrics' }
 const BACK = { type: 'Button', text: 'Details' }
-const FIGURES = { type: 'KeyValue', label: 'Review score' }
-const items = (view: TestPanel): [string, unknown][] =>
-  ((view.find(FIGURES)?.props.items ?? []) as { label: string; value: unknown }[]).map((item) => [item.label, item.value])
+const FIGURES = { type: 'List', label: 'Review score' }
+const items = (view: TestPanel): [string, string][] => (readFacts(view, FIGURES.label) ?? []).map((item) => [item.label, item.value])
 
 describe('selecting a row of the Details table', () => {
   test("replaces the table with the metric's view and a back control, and asks the worker for that metric of the report on screen", async () => {
@@ -94,13 +94,13 @@ describe("the metric's view", () => {
       ['Judge version', 'judge-v2 on claude-opus'],
       ['Value', '70%'],
       ['95% interval', '20% – 100%'],
-      ['Records', 3],
+      ['Records', '3'],
       ['Known cost', '≥ $1.42'],
-      ['Runs', 4],
-      ['Runs without cost', 1],
-      ['Runs without tokens', 2],
-      ['Runs with partial cost', 0],
-      ['Runs missing', 1],
+      ['Runs', '4'],
+      ['Runs without cost', '1'],
+      ['Runs without tokens', '2'],
+      ['Runs with partial cost', '0'],
+      ['Runs missing', '1'],
       ['Tokens', '12,000 in / 3,400 out tokens'],
       ['Latest', '90%'],
       ['Latest recorded', formatDateTime(Date.UTC(2026, 10, 17, 14, 32, 0), 'en-US')],

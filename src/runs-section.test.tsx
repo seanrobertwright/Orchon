@@ -2,6 +2,7 @@
 // answers the runs table. These tests cover what the Runs section draws and which requests it sends.
 import { afterEach, assert, describe, hostError, mockHost, mount, test, type TestPanel, type TreeSnapshot } from 'orca/testing'
 import { connected, notRunning } from '../scripts/connection-samples.ts'
+import { readFacts } from '../scripts/fact-rows.ts'
 import { answeringRuns, busyRuns, noRuns, sampleRun } from '../scripts/runs-samples.ts'
 import * as panelModule from './panel'
 import type { RunsRequest, RunsView } from './runs-view'
@@ -152,7 +153,7 @@ describe('the Runs section', () => {
     assert.equal(preview?.props.title, 'workflow-3')
     assert.match(preview?.text ?? '', /Launch message of run 3\./)
     assert.equal(view.find({ type: 'Badge' })?.text, 'Failed')
-    const facts = view.find({ type: 'KeyValue' })?.props.items as { label: string; value: unknown }[]
+    const facts = readFacts(view, 'Run facts') ?? []
     assert.deepEqual(
       facts.map((item) => [item.label, item.value]),
       [

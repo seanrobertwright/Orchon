@@ -8,7 +8,6 @@ import {
   CodeView,
   env,
   Input,
-  KeyValue,
   Markdown,
   plugin,
   read,
@@ -17,7 +16,6 @@ import {
   Stack,
   Text,
   Tree,
-  type KeyValueItem,
   type OrcaNode,
   type PanelContext,
   type TreeItem
@@ -33,6 +31,7 @@ import {
   type ArtifactView
 } from './artifacts-view'
 import { formatDateTime } from './dates'
+import { factList, type FactItem } from './fact-list'
 import { frameTimers } from './frame-timers'
 import { rejectionOf } from './view-fetch'
 import { warningLine } from './view-notices'
@@ -339,7 +338,7 @@ function treeBody(runId: string): OrcaNode {
 
 /** The facts of a file: its path and size, and its modified time when its contents are shown. */
 function factsOf(file: ArtifactFile, withTime: boolean): OrcaNode {
-  const items: KeyValueItem[] = [
+  const items: FactItem[] = [
     { label: 'Path', value: file.path, code: true },
     { label: 'Size', value: sizeText(file.size) }
   ]
@@ -347,7 +346,7 @@ function factsOf(file: ArtifactFile, withTime: boolean): OrcaNode {
     const at = file.modifiedAt === null ? '' : formatDateTime(file.modifiedAt, env.locale)
     items.push({ label: 'Modified', value: at === '' ? 'Not known' : at })
   }
-  return <KeyValue label="Artifact facts" items={items} />
+  return factList('Artifact facts', items)
 }
 
 /** The blocks of a file's contents, each keyed by where it starts in the file. */

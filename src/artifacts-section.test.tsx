@@ -4,6 +4,7 @@
 import { mock } from 'node:test'
 import { afterEach, assert, describe, mockHost, mount, test, type TestPanel } from 'orca/testing'
 import { connected } from '../scripts/connection-samples.ts'
+import { readFacts } from '../scripts/fact-rows.ts'
 import { answeringRun, busyRuns, sampleDetail } from '../scripts/runs-samples.ts'
 import type { ArtifactFile, ArtifactRequest, ArtifactsRequest, ArtifactsView, ArtifactView } from './artifacts-view'
 import * as panelModule from './panel'
@@ -205,7 +206,7 @@ describe('a file', () => {
     await view.select(SHOW, 'artifacts')
     await view.selectItem(TREE, 'file:plan.md')
     assert.deepEqual(requests(view, 'artifact.read'), [{ runId: 'run-1', path: 'plan.md' }])
-    const facts = view.find({ type: 'KeyValue', label: 'Artifact facts' })?.props.items as { label: string; value: unknown }[]
+    const facts = readFacts(view, 'Artifact facts') ?? []
     assert.deepEqual(
       facts.map((item) => item.label),
       ['Path', 'Size', 'Modified']
@@ -241,7 +242,7 @@ describe('a file', () => {
       const view = await openRun({ read: (request) => ({ kind: 'ready', file: file(request.path, 300_000), content: { kind } }) })
       await view.select(SHOW, 'artifacts')
       await view.selectItem(TREE, 'file:summary.txt')
-      const facts = view.find({ type: 'KeyValue', label: 'Artifact facts' })?.props.items as { label: string; value: unknown }[]
+      const facts = readFacts(view, 'Artifact facts') ?? []
       assert.deepEqual(
         facts.map((item) => `${item.label}: ${String(item.value)}`),
         ['Path: summary.txt', 'Size: 293 KiB']
