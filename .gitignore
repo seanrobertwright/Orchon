@@ -7,3 +7,4 @@ node_modules/
 
 # Orca's generated types and screenshots. Recreate the types with `orca plugin types .`.
 .orca/
+.claude/
