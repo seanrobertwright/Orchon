@@ -1,7 +1,9 @@
 // The approval surface the manifest declares: capabilities, contributions and the three settings.
 // The setting texts are frozen between releases that ask the user to approve again.
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { assert, describe, test } from 'orca/testing'
-import { readRepoText } from '../scripts/repo-files.ts'
+import { readRepoText, repoRoot } from '../scripts/repo-files.ts'
 
 const manifest: unknown = JSON.parse(readRepoText('orca-plugin.json'))
 
@@ -26,6 +28,19 @@ describe('the manifest', () => {
     assert.equal(field(manifest, 'publisher'), undefined)
     assert.equal(field(manifest, 'execution'), 'trusted-worker')
     assert.equal(field(manifest, 'main'), 'src/worker.ts')
+  })
+
+  test("names a plugin icon within Orca's rules: a square PNG of at least 128 by 128 and at most 256 KB", () => {
+    assert.equal(field(manifest, 'icon'), 'assets/icon.png')
+    const bytes = readFileSync(join(repoRoot, 'assets', 'icon.png'))
+    assert.ok(bytes.length <= 256 * 1024, `the icon is ${String(bytes.length)} bytes, over 256 KB`)
+    // A PNG starts with its signature, then the IHDR chunk, whose first fields are width and height.
+    assert.deepEqual([...bytes.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'the icon is not a PNG')
+    assert.equal(bytes.subarray(12, 16).toString('latin1'), 'IHDR')
+    const width = bytes.readUInt32BE(16)
+    const height = bytes.readUInt32BE(20)
+    assert.equal(width, height, `the icon is ${String(width)} by ${String(height)}, not square`)
+    assert.ok(width >= 128, `the icon is ${String(width)} pixels wide, under 128`)
   })
 
   test('needs Orca 1.4.248 or newer', () => {
