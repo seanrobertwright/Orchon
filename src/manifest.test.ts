@@ -31,7 +31,7 @@ describe('the manifest', () => {
     assert.equal(field(manifest, 'manifestVersion'), 2)
     assert.equal(field(manifest, 'id'), 'orchon')
     assert.equal(field(manifest, 'name'), 'Orchon')
-    assert.equal(field(manifest, 'version'), '0.1.0')
+    assert.equal(field(manifest, 'version'), '0.1.1')
     assert.equal(field(manifest, 'license'), 'MIT')
     assert.equal(
       field(manifest, 'description'),
