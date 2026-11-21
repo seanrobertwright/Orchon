@@ -12,7 +12,6 @@ import {
   Card,
   EmptyState,
   IconButton,
-  KeyValue,
   Link,
   plugin,
   read,
@@ -25,7 +24,6 @@ import {
   Stack,
   Table,
   Text,
-  type KeyValueItem,
   type OrcaNode,
   type PanelContext,
   type TableCell,
@@ -34,6 +32,7 @@ import {
 } from 'orca'
 import type { Connected, ConnectionView } from './connection-view'
 import { formatDuration, now } from './dates'
+import { factList, type FactItem } from './fact-list'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
 import { clearRunDetail, openRunDetail, openRunId, restartRunDetail, runDetailHasData, runDetailSection } from './run-detail-section'
@@ -248,7 +247,7 @@ function unreadableLine(count: number): string {
 }
 
 function preview(run: RunRow): OrcaNode {
-  const facts: KeyValueItem[] = [{ label: 'Project', value: run.project ?? 'No project' }]
+  const facts: FactItem[] = [{ label: 'Project', value: run.project ?? 'No project' }]
   if (run.workingPath !== null) facts.push({ label: 'Worktree', value: run.workingPath, code: true })
   return (
     <Card title={run.workflow}>
@@ -263,7 +262,7 @@ function preview(run: RunRow): OrcaNode {
         </Row>
         {run.waiting === undefined ? null : <Text>{waitingText(run.waiting)}</Text>}
         {run.message === '' ? null : <Text>{run.message}</Text>}
-        <KeyValue label="Run facts" items={facts} />
+        {factList('Run facts', facts)}
         {worktreeLine(run)}
         <Row>
           <Button size="sm" onPress={() => openRunDetail(run.id)}>

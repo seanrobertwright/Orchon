@@ -11,7 +11,6 @@ import {
   Callout,
   Collapsible,
   env,
-  KeyValue,
   plugin,
   read,
   Row,
@@ -20,7 +19,6 @@ import {
   Stack,
   Table,
   Text,
-  type KeyValueItem,
   type OrcaNode,
   type PanelContext,
   type TableColumn,
@@ -30,6 +28,7 @@ import { calibrationsBlock, sameRead } from './calibration-section'
 import type { MetricsCalibrationsPost, ReadIdentity } from './calibration-view'
 import type { ConnectionView } from './connection-view'
 import { formatDateTime } from './dates'
+import { factList, type FactItem } from './fact-list'
 import type { MetricDetail, MetricRequest, MetricView } from './metric-view'
 import { METRICS_REQUEST_TIMEOUT_MS, WINDOW_DAYS, type MetricsView, type MetricsWindow } from './metrics-view'
 import { moreLine } from './overview-section'
@@ -155,13 +154,13 @@ const BY_DAY_COLUMNS: readonly TableColumn[] = [
 ]
 
 /** The figures and the "By day" rows, built once per answer rather than on every render. */
-const built = new WeakMap<MetricDetail, { items: KeyValueItem[]; days: TableRow[] }>()
-function buildOf(metric: MetricDetail): { items: KeyValueItem[]; days: TableRow[] } {
+const built = new WeakMap<MetricDetail, { items: FactItem[]; days: TableRow[] }>()
+function buildOf(metric: MetricDetail): { items: FactItem[]; days: TableRow[] } {
   let found = built.get(metric)
   if (found === undefined) {
     const { gaps, latest: last } = metric
     const recorded = last.at === null ? '' : formatDateTime(last.at, env.locale)
-    const items: KeyValueItem[] = [
+    const items: FactItem[] = [
       { label: 'Name', value: metric.name, code: true },
       ...(metric.judgeVersion === null ? [] : [{ label: 'Judge version', value: metric.judgeVersion }]),
       { label: 'Value', value: metric.value },
@@ -194,7 +193,7 @@ function figures(label: string, metric: MetricDetail): OrcaNode {
   const { items, days } = buildOf(metric)
   return (
     <Stack gap="sm">
-      <KeyValue label={label} items={items} />
+      {factList(label, items)}
       {metric.olderVersions.length === 0 ? null : (
         <Stack gap="xs">
           <Text size="sm">Hidden older judge versions</Text>

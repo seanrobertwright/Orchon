@@ -11,7 +11,6 @@ import {
   Callout,
   Collapsible,
   env,
-  KeyValue,
   plugin,
   read,
   Row,
@@ -20,7 +19,6 @@ import {
   Stack,
   Text,
   Tree,
-  type KeyValueItem,
   type OrcaNode,
   type PanelContext,
   type TreeItem
@@ -29,6 +27,7 @@ import { sizeText } from './artifacts-section'
 import type { ConnectionView } from './connection-view'
 import { BLOCK_LIMIT } from './cutter'
 import { formatClock, formatDateTime, formatDuration, now } from './dates'
+import { factList, type FactItem } from './fact-list'
 import { frameTimers } from './frame-timers'
 import type { RunsHint } from './hint-view'
 import { stepWords, ranTimes } from './step-tree'
@@ -278,7 +277,7 @@ function costText(cost: number | null): string | null {
 
 /** The Facts fold, shut. */
 function factsFold(facts: StepFacts): OrcaNode {
-  const items: KeyValueItem[] = [{ label: 'Kind', value: facts.kind ?? 'Not known' }]
+  const items: FactItem[] = [{ label: 'Kind', value: facts.kind ?? 'Not known' }]
   const add = (label: string, value: string | null): void => {
     if (value !== null && value !== '') items.push({ label, value })
   }
@@ -294,7 +293,7 @@ function factsFold(facts: StepFacts): OrcaNode {
   const summary = [facts.durationMs === null ? null : formatDuration(facts.durationMs), costText(facts.costUsd)].filter((part) => part !== null && part !== '').join(' · ')
   return (
     <Collapsible title="Facts" {...(summary === '' ? {} : { description: summary })} open={read(factsOpen)} onChange={(open) => set(factsOpen, open)}>
-      <KeyValue label="Step facts" items={items} />
+      {factList('Step facts', items)}
     </Collapsible>
   )
 }
