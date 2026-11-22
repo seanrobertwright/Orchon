@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "orchon",
   "name": "Orchon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Archon's runs, workflows and chat inside Orca. Unofficial; not made or endorsed by the Archon or Orca projects.",
   "author": {
     "name": "LRIL"

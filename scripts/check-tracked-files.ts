@@ -1,5 +1,6 @@
 // The pre-commit check. It fails when a tracked file holds U+FFFD or text that is not valid
-// UTF-8, or the owner's personal handle, home path or email address.
+// UTF-8, or the owner's personal handle, home path or email address. The repository's own public
+// path is the one place the handle may appear.
 //
 //   git ls-files -z | node scripts/check-tracked-files.ts [--root <folder>]
 //
@@ -25,6 +26,11 @@ const HANDLE = ['sea', 'nr'].join('')
 const handlePattern = new RegExp(HANDLE, 'i')
 const homePathPattern = new RegExp(`(?:users|home)[\\\\/]+${HANDLE}`, 'i')
 const emailPattern = new RegExp(`${HANDLE}[\\w.+-]*@`, 'i')
+// The repository's public path names the owner's account, and the README's install steps need it
+// (`orca plugin install <owner>/Orchon`, the GitHub and orca.dev pages). Only that exact path is let
+// through, alone or inside a URL; the handle anywhere else, a home path and an email address are
+// still found.
+const repoPathPattern = new RegExp(`${HANDLE}obertwright/orchon(?![\\w-])`, 'gi')
 
 const REPLACEMENT = String.fromCharCode(0xfffd)
 
@@ -66,10 +72,11 @@ function personalFindings(path: string, bytes: Uint8Array): Finding[] {
     .decode(bytes)
     .split('\n')
     .forEach((line, index) => {
-      if (!handlePattern.test(line)) return
-      const rule = homePathPattern.test(line)
+      const rest = line.replace(repoPathPattern, '')
+      if (!handlePattern.test(rest)) return
+      const rule = homePathPattern.test(rest)
         ? 'home path'
-        : emailPattern.test(line)
+        : emailPattern.test(rest)
           ? 'email address'
           : 'personal handle'
       findings.push({ path, line: index + 1, rule })

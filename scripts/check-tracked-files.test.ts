@@ -51,6 +51,17 @@ describe('the tracked-files check', () => {
     assert.deepEqual(rules(`mail ${handle}example@example.com now`), ['email address'])
   })
 
+  test("lets the repository's public path through, and nothing else of the handle", () => {
+    const repo = `${handle}obertwright/Orchon`
+    assert.deepEqual(rules(`orca plugin install ${repo}\n`), [])
+    assert.deepEqual(rules(`see https://github.com/${repo}/issues and https://orca.dev/plugins/${repo.toLowerCase()}\n`), [])
+    assert.deepEqual(rules(`by ${handle}obertwright\n`), ['personal handle'])
+    assert.deepEqual(rules(`${repo}x\n`), ['personal handle'])
+    assert.deepEqual(rules(`${repo} by ${handle}\n`), ['personal handle'])
+    assert.deepEqual(rules(`mail ${handle}obertwright@example.com\n`), ['email address'])
+    assert.deepEqual(rules(`/home/${handle}/${repo}\n`), ['home path'])
+  })
+
   test('reports each line once, with its number', () => {
     const text = `clean\n${handle} and ${handle}\nclean\n/c/Users/${handle}\n`
     assert.deepEqual(findBannedText('a.md', bytes(text)), [
