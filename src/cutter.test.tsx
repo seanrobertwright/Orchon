@@ -652,7 +652,7 @@ test('the long Markdown file of the run detail prototype is cut at blank lines w
   // fixtures/markdown/prototype-plan.md.txt is what `planMarkdown()` returns in
   // prototypes/run-detail/plugin/src/fixtures.ts on the prototype/run-detail branch, byte for
   // byte. It has a fence, a table and a nested list, each lying across a multiple of 16 KiB.
-  // README.md says why its name ends in .txt.
+  // docs/development.md says why its name ends in .txt.
   const input = readRepoText('fixtures/markdown/prototype-plan.md.txt')
   assert.ok(input.length > 4 * BLOCK_LIMIT)
   for (const multiple of [1, 2, 3]) {

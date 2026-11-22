@@ -2,7 +2,7 @@
 //
 // It is not `src/dates.ts`. That helper serves the shipped plugin: it reads the clock and parses
 // and formats instants for what Orca shows, and has no UTC stamp. Adding one there would put code
-// in the shipped plugin that only this script calls. The README's date ban names the scripts as
+// in the shipped plugin that only this script calls. The date ban in docs/development.md names the scripts as
 // its exception, and inside the recorder this file is the one clock.
 
 /** Now, as an ISO 8601 time in UTC to the second. */
